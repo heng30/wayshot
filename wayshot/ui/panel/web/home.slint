@@ -1,0 +1,33 @@
+import { Theme, Icons, Logic, Util } from "../def.slint";
+import { CircleProgress, ConfirmBtn } from "../../base/widgets.slint";
+
+component Body inherits Rectangle {
+    VerticalLayout {
+        alignment: center;
+        spacing: Theme.spacing * 4;
+
+        HorizontalLayout {
+            alignment: LayoutAlignment.center;
+            CircleProgress {
+                progress: Util.progress-value(5s);
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            ConfirmBtn {
+                use-auto-size: true;
+                text: "Click Me";
+
+                clicked => {
+                    debug("debug from Slint");
+                    Logic.web-debug("debug from Rust");
+                }
+            }
+        }
+    }
+}
+
+export component Home inherits Rectangle {
+    Body { }
+}

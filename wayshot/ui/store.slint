@@ -1,0 +1,214 @@
+export enum DeviceType {
+    Desktop,
+    Mobile,
+    Web,
+}
+
+export enum TabIndex {
+    Home,
+}
+
+export enum PopupIndex {
+    None,
+    Help,
+    About,
+    Donate,
+    Backup,
+    Recover,
+    Setting,
+
+    Source,
+}
+
+export enum SettingDetailIndex {
+    Recorder ,
+    Preference,
+}
+
+export enum MobileTabIndex {
+    Home,
+    Setting,
+}
+
+export enum MobileSettingDetailIndex {
+    Home,
+    Preference,
+    Proxy,
+    Donate,
+    About,
+    Help,
+}
+
+export struct SettingPreference {
+    win-width: string,
+    win-height: string,
+    font-size: string,
+    font-family: string,
+    language: string,
+    always-on-top: bool,
+    no-frame: bool,
+    is-dark: bool,
+}
+
+export struct SettingBackup {
+   configuration: bool,
+   data: bool,
+   cache: bool,
+}
+
+//////////////////////////////// Logic Struct Start ////////////////////////////////
+
+export enum Fps {
+    Fps24,
+    Fps25,
+    Fps30,
+    Fps60,
+}
+
+export enum Resolution {
+    Original,
+    P720,
+    P1080,
+    P2K,
+    P4K,
+}
+
+export struct SettingRecorder {
+    remove-temporary-files: bool,
+    save-dir: string,
+    include-cursor: bool,
+    enable-preview: bool,
+    enable-denoise: bool,
+    convert-input-wav-to-mono: bool,
+    fps: Fps,
+    resolution: Resolution,
+}
+
+export struct SettingControl {
+    screen: string,
+
+    input-audio: string,
+    input-audio-gain: float,
+    enable-input-audio: bool,
+
+    desktop-speaker-gain: float,
+    enable-desktop-speaker: bool,
+ }
+
+export struct StatsInfo {
+    fps: float,
+    loss: float,
+    total: int,
+}
+
+export enum RecordStatus{
+    Stopped,
+    Recording,
+    Denoising,
+    Mergeing,
+}
+
+export enum SourceType {
+    Audio,
+    Video,
+}
+
+export struct Source{
+    ty: SourceType,
+    name: string,
+}
+
+export enum MergeTrackStatus {
+    None,
+    Finished,
+    Failed,
+    Cancelled,
+}
+
+export enum DenoiseStatus {
+    None,
+    Finished,
+    Failed,
+    Cancelled,
+}
+
+//////////////////////////////// Logic Struct End  ////////////////////////////////
+
+export global Store {
+    in-out property <DeviceType> device-type: DeviceType.Desktop;
+    in-out property <bool> is-first-run;
+    in-out property <bool> is-show-landing-page;
+    in-out property <bool> is-show-help-btn;
+    in-out property <bool> is-show-remove-caches-btn;
+
+    // desktop
+    in-out property <TabIndex> previous-tab-index: TabIndex.Home;
+    in-out property <TabIndex> current-tab-index: TabIndex.Home;
+    in-out property <PopupIndex> current-popup-index: PopupIndex.None;
+    in-out property <SettingDetailIndex> current-setting-detail-index: SettingDetailIndex.Preference;
+
+    // android
+    in-out property <MobileTabIndex> previous-mobile-tab-index: MobileTabIndex.Home;
+    in-out property <MobileTabIndex> current-mobile-tab-index: MobileTabIndex.Home;
+    in-out property <MobileSettingDetailIndex> current-mobile-setting-detail-index: MobileSettingDetailIndex.Preference;
+
+    in-out property <SettingPreference> setting-preference: {
+        win-width: 800,
+        win-height: 640,
+        font-size: "16",
+        font-family: "Source Han Sans CN",
+        language: "en",
+        always-on-top: false,
+        no-frame: true,
+        is-dark: false,
+    };
+
+    //////////////////////////////// Logic Start ////////////////////////////////
+    in-out property <bool> is-cn: setting-preference.language == "cn";
+    in-out property <RecordStatus> record-status: RecordStatus.Stopped;
+    in-out property <string> save-dir;
+    in-out property <bool> ffmpeg-is-installed;
+
+    in-out property <float> denoise-progress;
+    in-out property <DenoiseStatus> denoise-status: DenoiseStatus.None;
+
+    in-out property <float> merge-tracks-progress;
+    in-out property <MergeTrackStatus> merge-tracks-status: MergeTrackStatus.None;
+
+    in-out property <string> final-video-path;
+    in-out property <image> preview-image: @image-url("./images/png/wechat-pay.png");
+    in-out property <int> input-audio-db: -60;
+    in-out property <int> speaker-audio-db: -60;
+
+    in-out property <[string]> audio-sources: [
+        "sound-card-1",
+        "sound-card-2",
+    ];
+
+    in-out property <[string]> video-sources: [
+        "eDP-1",
+        "eDP-2",
+    ];
+
+    in-out property <[Source]> sources: [
+        { ty: SourceType.Audio, name: "sound-card-2" },
+        { ty: SourceType.Video, name: "eDP-1" },
+    ];
+
+    in-out property <StatsInfo> stats-info: {
+        fps: 0.0,
+        loss: 0.0,
+        total: 0,
+    };
+
+    in-out property <SettingControl> setting-control:  {
+        screen: sources[1].name,
+        input-audio: sources[0].name,
+        input-audio-gain: -2,
+        enable-input-audio: true,
+        desktop-speaker-gain: 2,
+        enable-desktop-speaker: true,
+    };
+
+    //////////////////////////////// Logic End  ////////////////////////////////
+}

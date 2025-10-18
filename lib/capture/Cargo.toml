@@ -1,0 +1,29 @@
+[package]
+name = "capture"
+license.workspace = true
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[dependencies]
+log.workspace = true
+serde.workspace = true
+which.workspace = true
+image.workspace = true
+memmap2.workspace = true
+thiserror.workspace = true
+serde_json.workspace = true
+spin_sleep.workspace = true
+wayland-client.workspace = true
+nix = { workspace = true, features = ["fs"] }
+wayland-protocols-wlr = { workspace = true, features = ["client"] }
+wayland-protocols = { workspace = true, features = ["client", "unstable"] }
+
+[dev-dependencies]
+ctrlc.workspace = true
+env_logger.workspace = true

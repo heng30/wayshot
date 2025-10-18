@@ -1,0 +1,155 @@
+import { ListView } from "std-widgets.slint";
+import { Theme, Store, Logic, Util, Icons, PopupIndex } from "../def.slint";
+import { Dialog, NoDataImg, Label, SettingDetailLabel, IconBtn, RadioBtn, CenterLayout } from "../../base/widgets.slint";
+
+export component SourcesDialog inherits Dialog {
+    title: Logic.tr("Select Sources");
+    is-prevent-event-forward: true;
+
+    private property <string> selected-screen: Store.setting-control.screen;
+    private property <string> selected-microphone: Store.setting-control.input-audio;
+
+    init => {
+        Logic.init-sources-dialog();
+    }
+
+    VerticalLayout {
+        spacing: Theme.spacing * 4;
+        height: Theme.default-height * 0.5;
+
+        if Store.audio-sources.length == 0 && Store.video-sources.length == 0: CenterLayout {
+            NoDataImg {
+                width: Theme.default-width * 0.5;
+                text: Logic.tr("No Found Sources");
+            }
+        }
+
+        if Store.audio-sources.length != 0: VerticalLayout {
+            Rectangle {
+                background: Theme.thirdly-background;
+
+                HorizontalLayout {
+                    padding: Theme.padding * 2;
+                    spacing: Theme.spacing * 2;
+                    alignment: start;
+
+                    IconBtn {
+                        enabled-toucharea: false;
+                        icon: Icons.audio-fill;
+                        show-icon-hover-background: false;
+                    }
+
+                    SettingDetailLabel {
+                        text: Logic.tr("Microphone");
+                    }
+                }
+            }
+
+            ListView {
+                for item[index] in Store.audio-sources: Rectangle {
+                    background: ta1.has-hover ? Theme.checked-background : (Math.mod(index, 2) == 0 ? Theme.table-item-first : Theme.table-item-second);
+
+                    ta1 := TouchArea {
+                        clicked => {
+                            root.selected-microphone = item;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding: Theme.padding * 2;
+                        spacing: Theme.spacing * 2;
+                        alignment: start;
+
+                        RadioBtn {
+                            checked: root.selected-microphone == item;
+                            check => {
+                                root.selected-microphone = item;
+                            }
+                        }
+
+                        Label {
+                            text: item;
+                            overflow: elide;
+                        }
+                    }
+                }
+            }
+        }
+
+        if Store.video-sources.length != 0: VerticalLayout {
+            Rectangle {
+                background: Theme.thirdly-background;
+
+                HorizontalLayout {
+                    padding: Theme.padding * 2;
+                    spacing: Theme.spacing * 2;
+                    alignment: start;
+
+                    IconBtn {
+                        enabled-toucharea: false;
+                        icon: Icons.screen-fill;
+                        show-icon-hover-background: false;
+                    }
+
+                    SettingDetailLabel {
+                        text: Logic.tr("Screen");
+                    }
+                }
+            }
+
+            ListView {
+                for item[index] in Store.video-sources: Rectangle {
+                    background: ta.has-hover ? Theme.checked-background : (Math.mod(index, 2) == 0 ? Theme.table-item-first : Theme.table-item-second);
+
+                    ta := TouchArea {
+                        clicked => {
+                            root.selected-screen = item;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding: Theme.padding * 2;
+                        spacing: Theme.spacing * 2;
+                        alignment: start;
+
+                        RadioBtn {
+                            checked: root.selected-screen == item;
+                            check => {
+                                root.selected-screen = item;
+                            }
+                        }
+
+                        Label {
+                            text: item;
+                            overflow: elide;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    canceled => {
+        Logic.switch-popup(PopupIndex.None);
+    }
+
+    confirmed => {
+        let is-screen-changed = root.selected-screen != Store.setting-control.screen;
+        let is-micrphone-changed = root.selected-microphone != Store.setting-control.input-audio;
+
+        if (is-micrphone-changed) {
+            Store.setting-control.input-audio = root.selected-microphone;
+        }
+        if (is-screen-changed) {
+            Store.setting-control.screen = root.selected-screen;
+        }
+        if (is-micrphone-changed || is-screen-changed) {
+            Logic.set-setting-control(Store.setting-control);
+            Logic.update-sources(Store.setting-control);
+        }
+        if (is-micrphone-changed) {
+            Logic.input-audio-changed(Store.setting-control.input-audio, true);
+        }
+        Logic.switch-popup(PopupIndex.None);
+    }
+}

@@ -1,0 +1,36 @@
+[package]
+name = "recorder"
+readme.workspace = true
+license.workspace = true
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[dependencies]
+log.workspace = true
+x264.workspace = true
+cpal.workspace = true
+hound.workspace = true
+image.workspace = true
+chrono.workspace = true
+capture.workspace = true
+pipewire.workspace = true
+crossbeam.workspace = true
+once_cell.workspace = true
+thiserror.workspace = true
+spin_sleep.workspace = true
+nnnoiseless.workspace = true
+derive_setters.workspace = true
+fast_image_resize.workspace = true
+ffmpeg-sidecar.workspace = true
+
+[dev-dependencies]
+ctrlc.workspace = true
+env_logger.workspace = true
+
+[features]
+default = []

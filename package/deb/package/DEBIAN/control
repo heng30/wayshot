@@ -1,0 +1,9 @@
+Package: wayshot
+Version: 0.1.0
+Architecture: amd64
+Maintainer: heng30
+Depends:
+Section: utils
+Priority: optional
+Homepage: https://github.com/heng30/wayshot
+Description: 这是一个针对`Linux` `wayland`的录屏工具，使用`wlroots`扩展协议获取屏幕截图。(This is a screen recording tool for `Linux` `Wayland`, which uses the `wlroots` extension protocol to capture screenshots.)
