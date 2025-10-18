@@ -137,7 +137,9 @@ fn inner_capture_output(
     state
         .wlr_screencopy_manager
         .as_ref()
-        .unwrap()
+        .ok_or(crate::Error::Unimplemented(
+            "Unsupported Window Manager which doesn't implement `wlroots` protocol.".to_string(),
+        ))?
         .capture_output(
             include_cursor as i32,
             &state.output_infos[0].wl_output,
