@@ -155,8 +155,6 @@ pub fn merge_tracks(
         }
     } else if config.speaker_wav_path.is_some() {
         cmd.args(&["-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "128k"]);
-    } else {
-        unimplemented!();
     }
 
     let mut child_process = cmd

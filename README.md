@@ -1,5 +1,5 @@
 <div style="display: flex">
-    <img src="./screenshot/1-en.png" width="100"/>
+    <img src="./screenshot/1-en.png" width="400"/>
 </div>
 
 [中文文档](./README.zh-CN.md)

@@ -20,13 +20,13 @@ chrono.workspace = true
 capture.workspace = true
 pipewire.workspace = true
 crossbeam.workspace = true
-once_cell.workspace = true
 thiserror.workspace = true
+once_cell.workspace = true
 spin_sleep.workspace = true
 nnnoiseless.workspace = true
 derive_setters.workspace = true
-fast_image_resize.workspace = true
 ffmpeg-sidecar.workspace = true
+fast_image_resize = { workspace = true, features = ["rayon"] }
 
 [dev-dependencies]
 ctrlc.workspace = true

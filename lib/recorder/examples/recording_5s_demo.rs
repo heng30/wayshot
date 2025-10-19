@@ -32,17 +32,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         RecorderConfig::make_filename("target"),
     )
     .with_enable_frame_channel_user(true)
-    .with_enable_audio_channel_user(true)
-    .with_enable_speaker_channel_user(true)
+    // .with_enable_audio_channel_user(true)
+    // .with_enable_speaker_channel_user(true)
     // .with_enable_denoise(true)
     // .with_disable_save_file(true)
-    .with_audio_device_name(Some(default_input.name))
-    .with_enable_recording_speaker(true)
+    // .with_audio_device_name(Some(default_input.name))
+    // .with_enable_recording_speaker(true)
     // .with_convert_input_wav_to_mono(true)
-    .with_resolution(recorder::Resolution::Original((
-        screen_infos[0].logical_size.width as u32,
-        screen_infos[0].logical_size.height as u32,
-    )))
+    // .with_resolution(recorder::Resolution::Original((
+    //     screen_infos[0].logical_size.width as u32,
+    //     screen_infos[0].logical_size.height as u32,
+    // )))
     .with_fps(FPS::Fps30);
 
     log::debug!("Recording configuration: {:#?}", config);
