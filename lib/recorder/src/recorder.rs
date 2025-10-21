@@ -838,10 +838,9 @@ impl RecordingSession {
                 let denoiser = Denoise::new(input_file, output_file)
                     .map_err(|e| RecorderError::DenoiseError(e.to_string()))?;
 
-                // todo
                 if ProgressState::Stopped
                     == denoiser
-                        .run(self.stop_sig_denoise.clone(), denoise_progress_cb)
+                        .process(self.stop_sig_denoise.clone(), denoise_progress_cb)
                         .map_err(|e| RecorderError::DenoiseError(e.to_string()))?
                 {
                     return Ok(());

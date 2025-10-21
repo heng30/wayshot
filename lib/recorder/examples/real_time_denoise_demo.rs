@@ -1,5 +1,5 @@
 use hound::WavReader;
-use recorder::{DenoiseError, RealTimeDenoise};
+use recorder::{DenoiseError, RealTimeDenoise, denoise_model};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("  Sample format: {:?}", spec.sample_format);
 
     // Create real-time denoiser
-    let model = RealTimeDenoise::model();
+    let model = denoise_model();
     let mut denoiser = RealTimeDenoise::new(&model, spec)?;
 
     log::info!("Real-time denoiser created successfully");
@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         total_processed += chunk.len();
 
         // Process the chunk
-        if let Some(denoised) = denoiser.process_frame(chunk)? {
+        if let Some(denoised) = denoiser.process(chunk)? {
             total_output += denoised.len();
             processed_samples.extend(denoised);
 

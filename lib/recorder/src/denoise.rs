@@ -4,6 +4,7 @@ use nnnoiseless::{DenoiseState, RnnModel};
 use std::{
     fs::File,
     io::{BufReader, BufWriter},
+    marker::PhantomData,
     path::Path,
     sync::{
         Arc,
@@ -12,10 +13,52 @@ use std::{
 };
 use thiserror::Error;
 
+const I24_MAX: f32 = 8_388_607.0; // 24-bit audio maximum value (2^23 - 1)
+const I24_MIN: f32 = -8_388_608.0;
 const FRAME_SIZE: usize = DenoiseState::FRAME_SIZE;
 
-// 24-bit audio maximum value (2^23 - 1)
-const I24_MAX: f32 = 8_388_607.0;
+/// Trait for sample types that can be converted to and from f32
+pub trait SampleType: Copy {
+    fn to_f32(self) -> f32;
+    fn from_f32(value: f32) -> Self;
+}
+
+// Implement SampleType for common audio sample types
+impl SampleType for f32 {
+    #[inline]
+    fn to_f32(self) -> f32 {
+        self
+    }
+
+    #[inline]
+    fn from_f32(value: f32) -> Self {
+        value
+    }
+}
+
+impl SampleType for i16 {
+    #[inline]
+    fn to_f32(self) -> f32 {
+        self as f32
+    }
+
+    #[inline]
+    fn from_f32(value: f32) -> Self {
+        value as i16
+    }
+}
+
+impl SampleType for i32 {
+    #[inline]
+    fn to_f32(self) -> f32 {
+        self as f32
+    }
+
+    #[inline]
+    fn from_f32(value: f32) -> Self {
+        value as i32
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum DenoiseError {
@@ -39,6 +82,7 @@ pub enum DenoiseError {
 pub struct Denoise {
     reader: WavReader<BufReader<File>>,
     writer: WavWriter<BufWriter<File>>,
+    model: RnnModel,
 }
 
 impl Denoise {
@@ -59,25 +103,33 @@ impl Denoise {
                 output_file.as_ref().display()
             ))
         })?;
-        Ok(Self { reader, writer })
+        Ok(Self {
+            reader,
+            writer,
+            model: RnnModel::default(),
+        })
+    }
+
+    pub fn with_model(mut self, model: RnnModel) -> Self {
+        self.model = model;
+        self
     }
 
     /// Note:
     ///     meybe need to resample to 48kHz. However, 44100Hz without resampling has a good denoising result
     ///
     /// Process audio in streaming mode directly from WAV reader
-    pub fn run(
+    pub fn process(
         mut self,
         stop_sig: Arc<AtomicBool>,
         mut progress_cb: Option<impl FnMut(f32)>,
     ) -> Result<ProgressState, DenoiseError> {
         let channels = self.reader.spec().channels as usize;
-        let model = RnnModel::default();
         let format = &self.reader.spec();
 
         // Create denoise state for each channel
         let mut states: Vec<_> = (0..channels)
-            .map(|_| DenoiseState::with_model(&model))
+            .map(|_| DenoiseState::with_model(&self.model))
             .collect();
 
         // Input and output buffers
@@ -169,8 +221,9 @@ impl Denoise {
                             hound::SampleFormat::Int => {
                                 match format.bits_per_sample {
                                     16 => sample, // Already in 16-bit PCM range
-                                    24 => (sample * I24_MAX / i16::MAX as f32)
-                                        .clamp(-I24_MAX - 1.0, I24_MAX),
+                                    24 => {
+                                        (sample * I24_MAX / i16::MAX as f32).clamp(I24_MIN, I24_MAX)
+                                    }
                                     32 => (sample * i32::MAX as f32 / i16::MAX as f32)
                                         .clamp(i32::MIN as f32, i32::MAX as f32),
                                     _ => sample, // Should not happen due to validation
@@ -203,14 +256,15 @@ impl Denoise {
 }
 
 /// RealTimeDenoise struct for real-time audio denoising operations
-pub struct RealTimeDenoise<'a> {
+pub struct RealTimeDenoise<'a, T: SampleType = f32> {
     spec: WavSpec,
     buffer: Vec<Vec<f32>>,
     states: Vec<Box<DenoiseState<'a>>>,
     states_output_frames: Vec<Vec<f32>>,
+    _marker: PhantomData<T>,
 }
 
-impl<'a> RealTimeDenoise<'a> {
+impl<'a, T: SampleType> RealTimeDenoise<'a, T> {
     /// Create a new RealTimeDenoise instance
     pub fn new(model: &'a RnnModel, spec: WavSpec) -> Result<Self, DenoiseError> {
         // Validate audio format
@@ -240,16 +294,13 @@ impl<'a> RealTimeDenoise<'a> {
             buffer,
             states,
             states_output_frames,
+            _marker: PhantomData,
         })
-    }
-
-    pub fn model() -> RnnModel {
-        RnnModel::default()
     }
 
     /// Process audio data in real-time
     /// Returns Some(denoised_data) when at least one full frame is processed, None otherwise
-    pub fn process_frame(&mut self, samples: &[f32]) -> Result<Option<Vec<f32>>, DenoiseError> {
+    pub fn process(&mut self, samples: &[T]) -> Result<Option<Vec<T>>, DenoiseError> {
         let channels = self.spec.channels as usize;
 
         // Validate input samples count
@@ -263,7 +314,7 @@ impl<'a> RealTimeDenoise<'a> {
         let mut sample_iter = samples.chunks_exact(channels);
         for chunk in &mut sample_iter {
             for (channel, &sample) in chunk.iter().enumerate() {
-                let converted_sample = self.convert_to_pcm_range(sample);
+                let converted_sample = self.convert_to_pcm_range(sample.to_f32());
                 self.buffer[channel].push(converted_sample);
             }
         }
@@ -296,7 +347,7 @@ impl<'a> RealTimeDenoise<'a> {
                         let sample = self.states_output_frames[channel][sample_idx];
                         // Convert back to original format range
                         let converted_sample = self.convert_from_pcm_range(sample);
-                        output.push(converted_sample);
+                        output.push(T::from_f32(converted_sample));
                     }
                 }
             }
@@ -326,7 +377,7 @@ impl<'a> RealTimeDenoise<'a> {
 
     /// Flush remaining buffered samples (less than FRAME_SIZE)
     /// Returns the remaining samples converted to original format and interleaved
-    pub fn flush(&mut self) -> Option<Vec<f32>> {
+    pub fn flush(&mut self) -> Option<Vec<T>> {
         let channels = self.spec.channels as usize;
         let remaining_samples = self.buffer[0].len();
 
@@ -343,7 +394,7 @@ impl<'a> RealTimeDenoise<'a> {
                 let sample = self.buffer[channel][sample_idx];
                 // Convert back to original format range
                 let converted_sample = self.convert_from_pcm_range(sample);
-                output.push(converted_sample);
+                output.push(T::from_f32(converted_sample));
             }
         }
 
@@ -376,11 +427,15 @@ impl<'a> RealTimeDenoise<'a> {
             hound::SampleFormat::Float => sample / i16::MAX as f32, // Convert to [-1.0, 1.0]
             hound::SampleFormat::Int => match self.spec.bits_per_sample {
                 16 => sample, // Already in 16-bit PCM range
-                24 => (sample * I24_MAX / i16::MAX as f32).clamp(-I24_MAX - 1.0, I24_MAX),
+                24 => (sample * I24_MAX / i16::MAX as f32).clamp(I24_MIN, I24_MAX),
                 32 => (sample * i32::MAX as f32 / i16::MAX as f32)
                     .clamp(i32::MIN as f32, i32::MAX as f32),
                 _ => sample, // Should not happen due to validation
             },
         }
     }
+}
+
+pub fn denoise_model() -> RnnModel {
+    RnnModel::default()
 }
