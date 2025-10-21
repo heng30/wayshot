@@ -135,6 +135,8 @@ pub struct RecorderConfig {
 
     pub enable_denoise: bool,
 
+    pub real_time_denoise: bool,
+
     pub disable_save_file: bool,
 
     #[setters(strip_option)]
@@ -197,6 +199,7 @@ impl RecorderConfig {
             enable_speaker_channel_user: false,
             enable_preview_mode: false,
             enable_denoise: false,
+            real_time_denoise: true,
             disable_save_file: false,
             audio_amplification: None,
             speaker_amplification: None,

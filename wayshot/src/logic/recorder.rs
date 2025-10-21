@@ -578,6 +578,7 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
     .with_enable_frame_channel_user(true)
     .with_enable_preview_mode(all_config.recorder.enable_preview)
     .with_enable_denoise(all_config.recorder.enable_denoise)
+    .with_real_time_denoise(all_config.recorder.real_time_denoise)
     .with_convert_input_wav_to_mono(all_config.recorder.convert_input_wav_to_mono)
     .with_enable_recording_speaker(all_config.control.enable_desktop_speaker)
     .with_include_cursor(all_config.recorder.include_cursor)
@@ -675,8 +676,10 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
 
     _ = ui_weak.upgrade_in_event_loop(move |ui| {
         global_store!(ui).set_record_status(UIRecordStatus::Stopped);
+        let all_config = config::all();
 
-        if config::all().recorder.enable_denoise
+        if all_config.recorder.enable_denoise
+            && !all_config.recorder.real_time_denoise
             && global_store!(ui).get_denoise_status() != UIDenoiseStatus::Cancelled
         {
             global_store!(ui).set_denoise_status(UIDenoiseStatus::Finished);
@@ -703,7 +706,8 @@ fn stop_recording(ui: &AppWindow) {
         log::warn!("recorder_stop_sig is None");
     }
 
-    if config::all().recorder.enable_denoise {
+    let all_config = config::all();
+    if all_config.recorder.enable_denoise && !all_config.recorder.real_time_denoise {
         global_store!(ui).set_record_status(UIRecordStatus::Denoising);
     } else {
         global_store!(ui).set_record_status(UIRecordStatus::Mergeing);

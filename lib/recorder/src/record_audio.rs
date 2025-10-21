@@ -1,10 +1,12 @@
-use crate::{apply_gain, calc_rms_level};
+use crate::{RealTimeDenoise, apply_gain, calc_rms_level, denoise_model};
 use cpal::{
     Device, Host, InputCallbackInfo, SampleFormat, Stream, StreamConfig,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use crossbeam::channel::{Receiver, Sender, bounded};
 use hound::{WavSpec, WavWriter};
+use nnnoiseless::RnnModel;
+use once_cell::sync::Lazy;
 use std::{
     fs::File,
     io::BufWriter,
@@ -15,6 +17,8 @@ use std::{
     },
 };
 use thiserror::Error;
+
+static DENOISE_MODEL: Lazy<RnnModel> = Lazy::new(|| denoise_model());
 
 /// Audio recording error types.
 ///
@@ -54,6 +58,9 @@ pub enum AudioError {
     /// Audio sample encoding or format conversion failed
     #[error("Audio encoding error: {0}")]
     EncodingError(String),
+    /// Audio sample denoise failed
+    #[error("Audio denoise error: {0}")]
+    DenoiseError(String),
 }
 
 /// Information about an audio device for recording.
@@ -135,6 +142,8 @@ pub struct AudioRecorder {
 
     // [0, infinity]
     amplification: Option<Arc<AtomicI32>>,
+
+    real_time_denoise: bool,
 }
 
 impl AudioRecorder {
@@ -176,11 +185,17 @@ impl AudioRecorder {
             audio_level_sender,
             audio_level_receiver,
             amplification: None,
+            real_time_denoise: false,
         })
     }
 
     pub fn with_amplification(mut self, v: Arc<AtomicI32>) -> Self {
         self.amplification = Some(v);
+        self
+    }
+
+    pub fn with_real_time_denoise(mut self, v: bool) -> Self {
+        self.real_time_denoise = v;
         self
     }
 
@@ -407,12 +422,48 @@ impl StreamingAudioRecorder {
             )?)))
         };
 
+        // Note:
+        //  Without calling `denoise.flush` is not a problem.
+        //  Just losing the last frame of real-time samples.
+        let mut denoiser = if recorder.real_time_denoise && !disable_save_file {
+            let spec = WavSpec {
+                channels: stream_config.channels,
+                sample_rate: stream_config.sample_rate.0,
+                bits_per_sample: 32,
+                sample_format: hound::SampleFormat::Float,
+            };
+
+            Some(
+                RealTimeDenoise::new(&DENOISE_MODEL, spec)
+                    .map_err(|e| AudioError::DenoiseError(e.to_string()))?,
+            )
+        } else {
+            None
+        };
+
         let file_writer_clone = file_writer.clone();
         let audio_level_sender = recorder.audio_level_sender.clone();
         let amplification = recorder.amplification.clone();
+
         let recording_session = recorder.start_input_recording(
             device_name,
             move |f32_samples: &[f32], _info: &_| {
+                let mut denoise_samples = None;
+                let f32_samples = if let Some(ref mut denoiser) = denoiser {
+                    match denoiser.process(f32_samples) {
+                        Ok(v) => denoise_samples = v,
+                        Err(e) => log::warn!("denoise audio samples failed: {e}"),
+                    };
+
+                    if denoise_samples.is_some() {
+                        &denoise_samples.unwrap()
+                    } else {
+                        f32_samples
+                    }
+                } else {
+                    f32_samples
+                };
+
                 let mut f32_sample_amplification = Vec::with_capacity(f32_samples.len());
                 let data = if let Some(ref amplification) = amplification {
                     f32_sample_amplification.extend_from_slice(f32_samples);

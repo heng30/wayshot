@@ -130,6 +130,9 @@ pub struct Recorder {
 
     pub enable_denoise: bool,
 
+    #[derivative(Default(value = "true"))]
+    pub real_time_denoise: bool,
+
     pub convert_input_wav_to_mono: bool,
 
     #[derivative(Default(value = "fps_default()"))]

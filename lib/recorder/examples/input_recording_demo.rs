@@ -5,7 +5,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Input Audio Recording Demo");
     println!("==========================");
 
-    let recorder = AudioRecorder::new(None)?;
+    let recorder = AudioRecorder::new(None)?.with_real_time_denoise(true);
 
     println!("\nAvailable Input Devices:");
     println!("------------------------");

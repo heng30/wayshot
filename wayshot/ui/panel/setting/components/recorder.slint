@@ -1,6 +1,6 @@
 import { Store, Logic, Theme, DeviceType, Icons, SettingRecorder } from "../../def.slint";
 import { Fps, Resolution } from "../../../store.slint";
-import { SettingDetail, SettingDetailInner, SettingDetailInnerVbox, SettingDetailLabel, LineInput, ConfirmBtn, Label, SettingDetailSwitch, Select } from "../../../base/widgets.slint";
+import { SettingDetail, SettingDetailInner, RadioBtn, SettingDetailInnerVbox, SettingDetailLabel, LineInput, ConfirmBtn, Label, SettingDetailSwitch, Select } from "../../../base/widgets.slint";
 
 export component Recorder inherits SettingDetail {
     callback confirmed();
@@ -10,6 +10,7 @@ export component Recorder inherits SettingDetail {
     private property <bool> include-cursor;
     private property <bool> enable-preview;
     private property <bool> enable-denoise;
+    private property <bool> real-time-denoise;
     private property <bool> convert-input-wav-to-mono;
     private property <Fps> fps;
     private property <Resolution> resolution;
@@ -25,6 +26,7 @@ export component Recorder inherits SettingDetail {
             include-cursor: root.include-cursor,
             enable-preview: root.enable-preview,
             enable-denoise: root.enable-denoise,
+            real-time-denoise: root.real-time-denoise,
             convert-input-wav-to-mono: root.convert-input-wav-to-mono,
             fps: root.fps,
             resolution: root.resolution,
@@ -37,6 +39,7 @@ export component Recorder inherits SettingDetail {
         root.include-cursor = setting.include-cursor;
         root.enable-preview = setting.enable-preview;
         root.enable-denoise = setting.enable-denoise;
+        root.real-time-denoise = setting.real-time-denoise;
         root.convert-input-wav-to-mono = setting.convert-input-wav-to-mono;
         root.fps = setting.fps;
         root.resolution = setting.resolution;
@@ -103,19 +106,6 @@ export component Recorder inherits SettingDetail {
         }
 
         SettingDetailInnerVbox {
-            SettingDetailSwitch {
-                icon: Icons.denoise-light;
-                text: self.checked ? Logic.tr("Enabled microphone denoise") : Logic.tr("Disabled microphone denoise");
-                checked: root.enable-denoise;
-
-                toggled => {
-                    root.enable-denoise = self.checked;
-                    Logic.set-setting-recorder(root.get());
-                }
-            }
-        }
-
-        SettingDetailInnerVbox {
             include-cursor-swicth := SettingDetailSwitch {
                 icon: Icons.cursor-light;
                 icon-size: Theme.icon-size * 0.8;
@@ -151,6 +141,45 @@ export component Recorder inherits SettingDetail {
                 toggled => {
                     root.remove-temporary-files = self.checked;
                     Logic.set-setting-recorder(root.get());
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            spacing: Theme.spacing * 2;
+
+            SettingDetailSwitch {
+                icon: Icons.denoise-light;
+                text: self.checked ? Logic.tr("Enabled microphone noise reduction") : Logic.tr("Disabled microphone noise reduction");
+                checked: root.enable-denoise;
+
+                toggled => {
+                    root.enable-denoise = self.checked;
+                    Logic.set-setting-recorder(root.get());
+                }
+            }
+
+            if root.enable-denoise: HorizontalLayout {
+                HorizontalLayout {
+                    width: 50%;
+
+                    RadioBtn {
+                        text: Logic.tr("Real-time noise reduction");
+                        checked: root.real-time-denoise;
+                        check => {
+                            root.real-time-denoise = true;
+                            Logic.set-setting-recorder(root.get());
+                        }
+                    }
+                }
+
+                RadioBtn {
+                    text: Logic.tr("Post-processing noise reduction");
+                    checked: !root.real-time-denoise;
+                    check => {
+                        root.real-time-denoise = false;
+                        Logic.set-setting-recorder(root.get());
+                    }
                 }
             }
         }

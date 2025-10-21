@@ -428,7 +428,9 @@ impl RecordingSession {
         .map_err(|e: AudioError| RecorderError::AudioError(e.to_string()))?;
 
         let audio_recorder = if self.config.audio_amplification.is_some() {
-            audio_recorder.with_amplification(self.config.audio_amplification.clone().unwrap())
+            audio_recorder
+                .with_amplification(self.config.audio_amplification.clone().unwrap())
+                .with_real_time_denoise(self.config.enable_denoise && self.config.real_time_denoise)
         } else {
             audio_recorder
         };
@@ -825,7 +827,10 @@ impl RecordingSession {
         }
 
         if !self.config.disable_save_file {
-            if self.config.enable_denoise && self.config.audio_device_name.is_some() {
+            if self.config.enable_denoise
+                && !self.config.real_time_denoise
+                && self.config.audio_device_name.is_some()
+            {
                 let input_file = self
                     .config
                     .output_path
@@ -855,15 +860,17 @@ impl RecordingSession {
             let combine_config = MergeTracksConfig {
                 h264_path: self.config.output_path.with_extension(RAW_VIDEO_EXTENSION),
                 input_wav_path: if self.config.audio_device_name.is_some() {
-                    Some(if self.config.enable_denoise {
-                        self.config
-                            .output_path
-                            .with_extension(INPUT_AUDIO_DENOISE_EXTENSION)
-                    } else {
-                        self.config
-                            .output_path
-                            .with_extension(INPUT_AUDIO_EXTENSION)
-                    })
+                    Some(
+                        if self.config.enable_denoise && !self.config.real_time_denoise {
+                            self.config
+                                .output_path
+                                .with_extension(INPUT_AUDIO_DENOISE_EXTENSION)
+                        } else {
+                            self.config
+                                .output_path
+                                .with_extension(INPUT_AUDIO_EXTENSION)
+                        },
+                    )
                 } else {
                     None
                 },
@@ -918,7 +925,7 @@ impl RecordingSession {
                             .with_extension(INPUT_AUDIO_EXTENSION),
                     );
 
-                    if self.config.enable_denoise {
+                    if self.config.enable_denoise && !self.config.real_time_denoise {
                         _ = fs::remove_file(
                             self.config
                                 .output_path
