@@ -168,6 +168,7 @@ export global Store {
     in-out property <RecordStatus> record-status: RecordStatus.Stopped;
     in-out property <string> save-dir;
     in-out property <bool> ffmpeg-is-installed;
+    in-out property <bool> never-recording-once: true;
 
     in-out property <float> denoise-progress;
     in-out property <DenoiseStatus> denoise-status: DenoiseStatus.None;
@@ -176,7 +177,7 @@ export global Store {
     in-out property <MergeTrackStatus> merge-tracks-status: MergeTrackStatus.None;
 
     in-out property <string> final-video-path;
-    in-out property <image> preview-image: @image-url("./images/png/wechat-pay.png");
+    in-out property <image> preview-image; //@image-url("./images/png/wechat-pay.png");
     in-out property <int> input-audio-db: -60;
     in-out property <int> speaker-audio-db: -60;
 

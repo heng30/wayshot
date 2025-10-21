@@ -69,7 +69,7 @@
 //! - [`mp4_ffmpeg`]: FFmpeg-based MP4 track combining (requires `mp4-ffmpeg` feature)
 
 mod audio_level;
-mod deniose;
+mod denoise;
 mod h264_writer;
 mod mp4_ffmpeg;
 mod record_audio;
@@ -82,7 +82,7 @@ mod video_encoder;
 
 pub use audio_level::*;
 pub use crossbeam::channel::{Receiver, Sender, bounded};
-pub use deniose::*;
+pub use denoise::*;
 pub use h264_writer::H264Writer;
 pub use mp4_ffmpeg::{is_ffmpeg_installed, merge_tracks};
 pub use record_audio::{

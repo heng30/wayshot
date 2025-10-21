@@ -1,7 +1,7 @@
 import { ListView } from "std-widgets.slint";
 import { Theme, Icons, Util, Logic, Store, PopupIndex } from "../def.slint";
 import { RecordStatus, SourceType, MergeTrackStatus } from "../../store.slint";
-import { Link, Slider, SettingDetailInnerVbox, Select, IconBtn, ElevatedBtn, ProgressBar, Label, Banner, RecordIndicator, AudioLevel, ComponentPosition } from "../../base/widgets.slint";
+import { Link, Slider, SettingDetailInnerVbox, Select, IconBtn, ElevatedBtn, ProgressBar, Label, BlankWelcome, Banner, RecordIndicator, AudioLevel, ComponentPosition } from "../../base/widgets.slint";
 import { LogIn } from "../../base/log-in.slint";
 
 component PreviewPanel inherits Rectangle {
@@ -36,7 +36,16 @@ component PreviewPanel inherits Rectangle {
         }
     }
 
-    Rectangle {
+    if Store.never-recording-once: BlankWelcome {
+        width: Theme.default-width * 0.8;
+        height: root.height * 0.8;
+        title: Logic.tr("Welcome to use wayshot");
+        sub-title: Logic.tr("screen recording tool for wayland");
+        text-color: Theme.light-text-color;
+        opacity: Theme.golden-ratio;
+    }
+
+    if !Store.never-recording-once: Rectangle {
         x: Theme.padding;
         y: Theme.padding;
         width: stats-vbox.preferred-width;
@@ -365,6 +374,7 @@ component ControlPanel inherits HorizontalLayout {
                     colorize: Theme.light-text-color;
 
                     clicked => {
+                        Store.never-recording-once = false;
                         Logic.start-recording();
                     }
                 }
