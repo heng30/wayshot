@@ -218,14 +218,32 @@ pub fn capture_output_iter(
     let interval_ms = config.fps.map(|v| 1000.0 / v);
     let sleeper = SpinSleeper::default();
     let start_time = std::time::Instant::now();
+    let mut last_cleanup = std::time::Instant::now();
+    const CLEANUP_INTERVAL: Duration = Duration::from_secs(5); // Clean every 5 seconds
 
     // Main capture loop
     loop {
         // Check for cancellation signal
         if config.cancel_sig.load(Ordering::Relaxed) {
-            log::info!("Exit capture_iter process after Stopped");
+            log::info!("Exit capture iter process after Stopped");
+
+            let attempts = dispatch_pending(&mut state, &mut event_queue);
+            if attempts > 0 {
+                log::info!("Exit capture iter process, pending envent counts: {attempts}");
+            }
+
             drop(state);
             return Ok(CaptureIterStatus::Stopped);
+        }
+
+        // Periodically clean up event queue
+        if last_cleanup.elapsed() > CLEANUP_INTERVAL {
+            let attempts = dispatch_pending(&mut state, &mut event_queue);
+            if attempts > 0 {
+                log::info!("After 5 seconds, pending envent counts: {attempts}");
+            }
+
+            last_cleanup = std::time::Instant::now();
         }
 
         // Perform the actual capture
@@ -254,6 +272,29 @@ pub fn capture_output_iter(
 
         index += 1;
     }
+}
+
+fn dispatch_pending(state: &mut State, event_queue: &mut wayland_client::EventQueue<State>) -> u32 {
+    let mut attempts = 0;
+    let cleanup_start = std::time::Instant::now();
+
+    // Send buffered requests to Wayland server
+    _ = event_queue.flush();
+
+    // Thoroughly clean up event queue before exit
+    while attempts < 10 && cleanup_start.elapsed() < Duration::from_millis(100) {
+        match event_queue.dispatch_pending(state) {
+            Ok(0) => break, // Queue is empty
+            Ok(_) => {}     // Processed events, continue
+            Err(e) => {
+                log::warn!("Error dispatching pending events during cleanup: {}", e);
+                break;
+            }
+        }
+        attempts += 1;
+    }
+
+    attempts
 }
 
 /// Captures a specific region of an output.
@@ -324,8 +365,8 @@ pub fn capture_region(
         }
     });
 
-    // Capture each intersecting output
-    for (i, output_info) in state.output_infos.iter_mut().enumerate() {
+    // Capture the first intersecting output
+    if let Some((i, output_info)) = state.output_infos.iter_mut().enumerate().next() {
         state
             .wlr_screencopy_manager
             .as_ref()
@@ -340,8 +381,6 @@ pub fn capture_region(
                 &event_queue.handle(),
                 i,
             );
-
-        break;
     }
 
     // Wait for all captures to complete
@@ -431,11 +470,7 @@ pub fn capture_mean_time(screen_name: &str, counts: u32) -> Result<Duration, Err
         ));
     }
 
-    if screen_infos
-        .iter()
-        .find(|item| item.name == screen_name)
-        .is_none()
-    {
+    if !screen_infos.iter().any(|item| item.name == screen_name) {
         return Err(crate::Error::NoOutput(format!(
             "{screen_name} is not in available screen list"
         )));

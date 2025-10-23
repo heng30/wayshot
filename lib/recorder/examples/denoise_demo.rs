@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let denoiser = Denoise::new("target/input.wav", "target/output.wav")?;
 
     let now = std::time::Instant::now();
-    denoiser.run(
+    denoiser.process(
         stop_sig,
         Some(|progress: f32| {
             log::debug!("Processing progress: {:.0}%", progress * 100.0);
