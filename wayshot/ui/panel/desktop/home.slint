@@ -532,6 +532,7 @@ component Banners inherits VerticalLayout {
             IconBtn {
                 icon: Icons.copy-light;
                 colorize: Theme.light-text-color;
+                show-icon-hover-background: false;
 
                 clicked => {
                     Logic.copy-to-clipboard(Store.final-video-path);

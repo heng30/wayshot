@@ -50,6 +50,9 @@ pub(crate) struct OutputInfo {
     pub image_pixel_format: Option<wl_shm::Format>,
     /// Whether the image capture is complete
     pub image_ready: bool,
+
+    pub wlsh_pool: Option<wl_shm_pool::WlShmPool>,
+    pub wl_buffer: Option<wl_buffer::WlBuffer>,
 }
 
 impl Drop for OutputInfo {
@@ -183,6 +186,8 @@ impl Dispatch<wl_registry::WlRegistry, ()> for State {
                         image_logical_size: None,
                         image_pixel_format: None,
                         image_ready: false,
+                        wlsh_pool: None,
+                        wl_buffer: None,
                     });
                 }
                 _ => {}
@@ -316,7 +321,7 @@ impl Dispatch<zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1, usize> for State 
                 } else {
                     // Allocate new memory file descriptor for pixel data
                     let memfd = memfd::memfd_create(
-                        c"gato",
+                        c"wayshot",
                         memfd::MFdFlags::MFD_CLOEXEC | memfd::MFdFlags::MFD_ALLOW_SEALING,
                     )
                     .unwrap();
@@ -337,30 +342,42 @@ impl Dispatch<zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1, usize> for State 
 
                 state.output_infos[*index].image_memfd = Some(memfd);
 
-                // Create shared memory pool from the memory file descriptor
-                let wl_shm_pool = state.wl_shm.as_ref().unwrap().create_pool(
-                    state.output_infos[*index]
-                        .image_memfd
-                        .as_ref()
-                        .unwrap()
-                        .as_fd(),
-                    (width * height * 4) as i32,
-                    queue_handle,
-                    (),
-                );
+                if state.output_infos[*index].wlsh_pool.is_none() {
+                    // Create shared memory pool from the memory file descriptor
+                    let wl_shm_pool = state.wl_shm.as_ref().unwrap().create_pool(
+                        state.output_infos[*index]
+                            .image_memfd
+                            .as_ref()
+                            .unwrap()
+                            .as_fd(),
+                        (width * height * 4) as i32,
+                        queue_handle,
+                        (),
+                    );
+
+                    state.output_infos[*index].wlsh_pool = Some(wl_shm_pool);
+                }
 
                 // Create Wayland buffer from the shared memory pool
-                let wl_buffer = wl_shm_pool.create_buffer(
-                    0,
-                    width as i32,
-                    height as i32,
-                    stride as i32,
-                    format,
-                    queue_handle,
-                    (),
-                );
+                if state.output_infos[*index].wl_buffer.is_none() {
+                    let wl_buffer = state.output_infos[*index]
+                        .wlsh_pool
+                        .as_ref()
+                        .unwrap()
+                        .create_buffer(
+                            0,
+                            width as i32,
+                            height as i32,
+                            stride as i32,
+                            format,
+                            queue_handle,
+                            (),
+                        );
+                    state.output_infos[*index].wl_buffer = Some(wl_buffer);
+                }
 
                 // Request the compositor to copy screen data into our buffer
+                let wl_buffer = state.output_infos[*index].wl_buffer.as_ref().unwrap();
                 wlr_screencopy_frame.copy(&wl_buffer);
             }
             // Buffer has been filled with screen data
