@@ -891,50 +891,52 @@ impl RecordingSession {
 
             let combine_tracks_state = merge_tracks(combine_config, combine_progress_cb)?;
 
-            if tmp_output_file.exists() {
-                _ = fs::rename(&tmp_output_file, &self.config.output_path);
-            }
+            if combine_tracks_state == ProgressState::Finished {
+                if tmp_output_file.exists() {
+                    _ = fs::rename(&tmp_output_file, &self.config.output_path);
+                }
 
-            if self.config.output_path.exists() {
-                log::info!(
-                    "Successfully save recorded file: {} ",
-                    self.config.output_path.display(),
-                );
-            } else {
-                if combine_tracks_state == ProgressState::Finished {
+                if self.config.output_path.exists() {
+                    log::info!(
+                        "Successfully save recorded file: {} ",
+                        self.config.output_path.display(),
+                    );
+                } else {
                     return Err(RecorderError::Ffmpeg(format!(
                         "Save recorded file: {} failed. Something wrong with ffmpeg operation",
                         self.config.output_path.display()
                     )));
                 }
-            }
 
-            if self.config.remove_cache_files && self.config.output_path.exists() {
-                if self.config.enable_recording_speaker {
-                    _ = fs::remove_file(
-                        self.config
-                            .output_path
-                            .with_extension(SPEAKER_AUDIO_EXTENSION),
-                    );
-                }
-
-                if self.config.audio_device_name.is_some() {
-                    _ = fs::remove_file(
-                        self.config
-                            .output_path
-                            .with_extension(INPUT_AUDIO_EXTENSION),
-                    );
-
-                    if self.config.enable_denoise && !self.config.real_time_denoise {
+                if self.config.remove_cache_files && self.config.output_path.exists() {
+                    if self.config.enable_recording_speaker {
                         _ = fs::remove_file(
                             self.config
                                 .output_path
-                                .with_extension(INPUT_AUDIO_DENOISE_EXTENSION),
+                                .with_extension(SPEAKER_AUDIO_EXTENSION),
                         );
                     }
-                }
 
-                _ = fs::remove_file(self.config.output_path.with_extension(RAW_VIDEO_EXTENSION));
+                    if self.config.audio_device_name.is_some() {
+                        _ = fs::remove_file(
+                            self.config
+                                .output_path
+                                .with_extension(INPUT_AUDIO_EXTENSION),
+                        );
+
+                        if self.config.enable_denoise && !self.config.real_time_denoise {
+                            _ = fs::remove_file(
+                                self.config
+                                    .output_path
+                                    .with_extension(INPUT_AUDIO_DENOISE_EXTENSION),
+                            );
+                        }
+                    }
+
+                    _ = fs::remove_file(
+                        self.config.output_path.with_extension(RAW_VIDEO_EXTENSION),
+                    );
+                }
             }
         }
 
