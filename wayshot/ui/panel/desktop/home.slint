@@ -521,10 +521,21 @@ component Banners inherits VerticalLayout {
         background: Store.merge-tracks-status == MergeTrackStatus.Finished ? Theme.success-color : Theme.warning-color;
 
         HorizontalLayout {
+            spacing: Theme.spacing;
+
             Label {
                 color: Theme.light-text-color;
                 text: Store.merge-tracks-status == MergeTrackStatus.Finished ? (Logic.tr("Merging tracks successfully") + "! " + Logic.tr("Output file") + ": " + Store.final-video-path) : Logic.tr("Merging tracks failed");
                 font-weight: Theme.bold-font-weight;
+            }
+
+            IconBtn {
+                icon: Icons.copy-light;
+                colorize: Theme.light-text-color;
+
+                clicked => {
+                    Logic.copy-to-clipboard(Store.final-video-path);
+                }
             }
         }
 
