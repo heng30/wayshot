@@ -1,7 +1,21 @@
 import { ListView } from "std-widgets.slint";
 import { Theme, Icons, Util, Logic, Store, PopupIndex } from "../def.slint";
 import { RecordStatus, SourceType, MergeTrackStatus } from "../../store.slint";
-import { Link, Slider, SettingDetailInnerVbox, Select, IconBtn, ElevatedBtn, ProgressBar, Label, BlankWelcome, Banner, RecordIndicator, AudioLevel, ComponentPosition } from "../../base/widgets.slint";
+import {
+    Link,
+    Slider,
+    SettingDetailInnerVbox,
+    Select,
+    IconBtn,
+    ElevatedBtn,
+    ProgressBar,
+    Label,
+    BlankWelcome,
+    Banner,
+    RecordIndicator,
+    AudioLevel,
+    ComponentPosition,
+} from "../../base/widgets.slint";
 import { LogIn } from "../../base/log-in.slint";
 
 component PreviewPanel inherits Rectangle {
@@ -42,7 +56,9 @@ component PreviewPanel inherits Rectangle {
         title: Logic.tr("Welcome to use wayshot");
         sub-title: Logic.tr("screen recording tool for wayland");
         text-color: Theme.light-text-color;
-        opacity: Theme.golden-ratio;
+        title-opacity: Theme.golden-ratio;
+        sub-title-opacity: Theme.golden-ratio * 0.8;
+        img-opacity: Theme.golden-ratio * Theme.golden-ratio;
     }
 
     if !Store.never-recording-once: Rectangle {

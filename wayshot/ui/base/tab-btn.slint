@@ -3,7 +3,7 @@ import { Theme } from "theme.slint";
 export component TabBtn inherits Rectangle {
     in-out property icon <=> img.source;
     in-out property icon-width <=> img.width;
-    in-out property icon-rotation-angle <=> img.rotation-angle;
+    in-out property icon-transform-rotation <=> img.transform-rotation;
     in-out property text <=> txt.text;
 
     in-out property<length> icon-size: Theme.icon-size;
