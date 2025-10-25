@@ -12,7 +12,6 @@ description.workspace = true
 
 [dependencies]
 log.workspace = true
-serde.workspace = true
 which.workspace = true
 image.workspace = true
 memmap2.workspace = true
@@ -21,6 +20,7 @@ serde_json.workspace = true
 spin_sleep.workspace = true
 wayland-client.workspace = true
 nix = { workspace = true, features = ["fs"] }
+serde = { workspace = true, features = ["derive"] }
 wayland-protocols-wlr = { workspace = true, features = ["client"] }
 wayland-protocols = { workspace = true, features = ["client", "unstable"] }
 

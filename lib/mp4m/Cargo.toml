@@ -13,12 +13,16 @@ description.workspace = true
 
 [dependencies]
 log.workspace = true
+mp4.workspace = true
 hound.workspace = true
 rubato.workspace = true
+fdk-aac.workspace = true
 thiserror.workspace = true
 crossbeam.workspace = true
 derive_builder.workspace = true
 
 [dev-dependencies]
 rand.workspace = true
+image.workspace = true
+recorder.workspace = true
 env_logger.workspace = true
