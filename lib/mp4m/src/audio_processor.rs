@@ -1,8 +1,9 @@
+use crate::SampleType;
 use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_builder::Builder;
-use hound::{WavSpec, WavWriter};
+use hound::{SampleFormat, WavSpec, WavWriter};
 use rubato::{Resampler, SincFixedIn, WindowFunction};
-use std::{fs::File, io::BufWriter, path::PathBuf};
+use std::{fs::File, io::BufWriter, marker::PhantomData, path::PathBuf};
 use thiserror::Error;
 
 /// Common audio sample rates
@@ -44,14 +45,14 @@ pub enum AudioError {
 }
 
 #[derive(Debug, Clone)]
-pub enum OutputDestination {
+pub enum OutputDestination<T> {
     File(PathBuf),
-    Channel(Sender<Vec<f32>>),
-    Both(PathBuf, Sender<Vec<f32>>),
+    Channel(Sender<Vec<T>>),
+    Both(PathBuf, Sender<Vec<T>>),
 }
 
 #[derive(Builder)]
-pub struct AudioProcessorConfig {
+pub struct AudioProcessorConfig<T> {
     #[builder(default = "1024")]
     channel_size: usize,
 
@@ -60,20 +61,21 @@ pub struct AudioProcessorConfig {
 
     convert_to_mono: bool,
 
-    output_destination: Option<OutputDestination>,
+    output_destination: Option<OutputDestination<T>>,
 }
 
-pub struct AudioProcessor {
-    config: AudioProcessorConfig,
+pub struct AudioProcessor<T: SampleType = f32> {
+    config: AudioProcessorConfig<T>,
     max_channels: u16,
     specs: Vec<WavSpec>,
     buffers: Vec<Vec<f32>>,
     sample_receiver: Vec<Receiver<Vec<f32>>>,
     writer: Option<WavWriter<BufWriter<File>>>,
+    _marker: PhantomData<T>,
 }
 
-impl AudioProcessor {
-    pub fn new(config: AudioProcessorConfig) -> AudioProcessor {
+impl<T: SampleType> AudioProcessor<T> {
+    pub fn new(config: AudioProcessorConfig<T>) -> AudioProcessor<T> {
         Self {
             config,
             max_channels: 1,
@@ -81,10 +83,13 @@ impl AudioProcessor {
             buffers: vec![],
             sample_receiver: vec![],
             writer: None,
+            _marker: PhantomData,
         }
     }
 
     pub fn add_track(&mut self, spec: WavSpec) -> Sender<Vec<f32>> {
+        assert!(spec.channels <= 2);
+
         let (sender, receiver) = bounded(self.config.channel_size);
 
         self.specs.push(spec);
@@ -110,13 +115,13 @@ impl AudioProcessor {
 
         let mut resampler = SincFixedIn::<f32>::new(
             output_sample_rate as f64 / input_sample_rate as f64,
-            2.0,
+            4.0,
             rubato::SincInterpolationParameters {
-                sinc_len: 256,
-                f_cutoff: 0.95,
+                sinc_len: 1024,
+                f_cutoff: 0.9,
                 window: WindowFunction::BlackmanHarris2,
-                oversampling_factor: 256,
-                interpolation: rubato::SincInterpolationType::Linear,
+                oversampling_factor: 1024,
+                interpolation: rubato::SincInterpolationType::Cubic,
             },
             num_frames,
             channels as usize,
@@ -265,8 +270,13 @@ impl AudioProcessor {
                 final_samples = Self::stereo_to_mono(&final_samples, self.max_channels);
             }
 
-            let normalized = Self::normalize_audio(&final_samples);
-            self.handle_output(&normalized);
+            if self.specs.len() > 1 {
+                // TODO: normalize audio may cause sound unbalanced compare to original sound
+                let normalized = Self::normalize_audio(&final_samples);
+                self.handle_output(&normalized);
+            } else {
+                self.handle_output(&final_samples);
+            }
         }
     }
 
@@ -312,8 +322,8 @@ impl AudioProcessor {
         let spec = &self.specs[track_index];
 
         match spec.sample_format {
-            hound::SampleFormat::Float => (),
-            hound::SampleFormat::Int => {
+            SampleFormat::Float => (),
+            SampleFormat::Int => {
                 // Convert integer samples to f32 in range [-1.0, 1.0]
                 let max_value = (1 << (spec.bits_per_sample - 1)) as f32;
                 for s in samples {
@@ -363,17 +373,40 @@ impl AudioProcessor {
                 }
                 OutputDestination::Channel(sender) => {
                     let sender = sender.clone();
-                    if let Err(e) = sender.send(samples.to_vec()) {
+                    if let Err(e) = sender.try_send(if T::sample_format() == SampleFormat::Float {
+                        samples
+                            .into_iter()
+                            .map(|s| T::from_f32(*s))
+                            .collect::<Vec<T>>()
+                    } else {
+                        samples
+                            .into_iter()
+                            .map(|s| T::from_f32(s * T::max().to_f32()))
+                            .collect::<Vec<T>>()
+                    }) {
                         log::warn!("Failed to send audio samples to receiver channel: {e}");
                     }
                 }
                 OutputDestination::Both(file_path, sender) => {
-                    let file_path = file_path.clone();
-                    let sender = sender.clone();
+                    let (file_path, sender) = (file_path.clone(), sender.clone());
+
                     if let Err(e) = self.write_samples_to_file(&file_path, samples) {
                         log::warn!("Failed to write audio to file {:?}: {}", file_path, e);
                     }
-                    let _ = sender.send(samples.to_vec());
+
+                    if let Err(e) = sender.try_send(if T::sample_format() == SampleFormat::Float {
+                        samples
+                            .into_iter()
+                            .map(|s| T::from_f32(*s))
+                            .collect::<Vec<T>>()
+                    } else {
+                        samples
+                            .into_iter()
+                            .map(|s| T::from_f32(s * T::max().to_f32()))
+                            .collect::<Vec<T>>()
+                    }) {
+                        log::warn!("Failed to send audio samples to receiver channel: {e}");
+                    }
                 }
             }
         }
@@ -392,19 +425,19 @@ impl AudioProcessor {
             };
 
             // Use 16-bit format for mono output, 32-bit float for stereo
-            let spec = if output_channels == 1 {
+            let spec = if self.config.convert_to_mono {
                 hound::WavSpec {
                     channels: output_channels,
                     sample_rate: self.config.target_sample_rate,
                     bits_per_sample: 16,
-                    sample_format: hound::SampleFormat::Int,
+                    sample_format: SampleFormat::Int,
                 }
             } else {
                 hound::WavSpec {
                     channels: output_channels,
                     sample_rate: self.config.target_sample_rate,
-                    bits_per_sample: 32,
-                    sample_format: hound::SampleFormat::Float,
+                    bits_per_sample: T::bits_per_sample(),
+                    sample_format: T::sample_format(),
                 }
             };
             self.writer = Some(hound::WavWriter::create(file_path, spec)?);
@@ -417,15 +450,27 @@ impl AudioProcessor {
             let complete_samples = complete_frames * channels;
 
             for &sample in &samples[0..complete_samples] {
-                // Determine if we should write as i16 (mono) or f32 (stereo)
-                let spec = writer.spec();
-                if spec.channels == 1 {
-                    // Convert f32 to i16 for mono WAV writing
+                if self.config.convert_to_mono {
                     let sample_i16 = (sample * i16::MAX as f32) as i16;
                     writer.write_sample(sample_i16)?;
                 } else {
-                    // Keep as f32 for stereo output
-                    writer.write_sample(sample)?;
+                    match T::sample_format() {
+                        SampleFormat::Float => writer.write_sample(sample)?,
+                        SampleFormat::Int => {
+                            if T::bits_per_sample() == 16 {
+                                writer.write_sample((sample * T::max().to_f32()) as i16)?;
+                            } else if T::bits_per_sample() == 24 {
+                                writer.write_sample((sample * T::max().to_f32()) as i32)?;
+                            } else if T::bits_per_sample() == 32 {
+                                writer.write_sample((sample * T::max().to_f32()) as i32)?;
+                            } else {
+                                unreachable!(
+                                    "unsupported bits_per_sample: {}",
+                                    T::bits_per_sample()
+                                );
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -478,8 +523,13 @@ impl AudioProcessor {
                 final_samples = Self::stereo_to_mono(&final_samples, self.max_channels);
             }
 
-            let normalized = Self::normalize_audio(&final_samples);
-            self.handle_output(&normalized);
+            if self.specs.len() > 1 {
+                // TODO: normalize audio may cause sound unbalanced compare to original sound
+                let normalized = Self::normalize_audio(&final_samples);
+                self.handle_output(&normalized);
+            } else {
+                self.handle_output(&final_samples);
+            }
         }
 
         if let Some(writer) = self.writer.take() {

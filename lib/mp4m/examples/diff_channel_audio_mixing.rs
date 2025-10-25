@@ -78,8 +78,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let config = AudioProcessorConfigBuilder::default()
         .target_sample_rate(sample_rate::CD)
-        .convert_to_mono(true)
-        .output_destination(Some(OutputDestination::File(output_file.into())))
+        .convert_to_mono(false)
+        .output_destination(Some(OutputDestination::<f32>::File(output_file.into())))
         .build()?;
 
     let mut processor = AudioProcessor::new(config);
@@ -89,6 +89,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut rng = rand::rng();
     let mut processed_samples1 = 0;
     let mut processed_samples2 = 0;
+
+    let now = std::time::Instant::now();
 
     while processed_samples1 < all_samples1.len() || processed_samples2 < all_samples2.len() {
         let remaining_samples1 = all_samples1.len() - processed_samples1;
@@ -140,14 +142,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         processor.process_samples()?;
-
-        std::thread::sleep(std::time::Duration::from_millis(10));
     }
 
     processor.flush()?;
 
-    log::debug!("Two-track audio mixing completed!");
-    log::debug!("Mixed output saved to: {}", output_file);
+    log::debug!(
+        "Spent: {:.2?}, Mixed output saved to: {}",
+        now.elapsed(),
+        output_file
+    );
 
     Ok(())
 }

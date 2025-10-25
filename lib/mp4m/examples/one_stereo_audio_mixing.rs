@@ -31,9 +31,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::debug!("Max chunk samples (1000ms): {}", max_chunk_samples);
 
     let config = AudioProcessorConfigBuilder::default()
-        .target_sample_rate(sample_rate::CD)
-        .convert_to_mono(true)
-        .output_destination(Some(OutputDestination::File(output_file.into())))
+        .target_sample_rate(sample_rate::PROFESSIONAL)
+        .convert_to_mono(false)
+        .output_destination(Some(OutputDestination::<f32>::File(output_file.into())))
         .build()?;
 
     let mut processor = AudioProcessor::new(config);

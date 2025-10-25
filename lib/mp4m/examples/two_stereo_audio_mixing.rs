@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = AudioProcessorConfigBuilder::default()
         .target_sample_rate(sample_rate::CD)
         .convert_to_mono(true)
-        .output_destination(Some(OutputDestination::File(output_file.into())))
+        .output_destination(Some(OutputDestination::<f32>::File(output_file.into())))
         .build()?;
 
     let mut processor = AudioProcessor::new(config);
