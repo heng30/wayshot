@@ -14,6 +14,7 @@ description.workspace = true
 log.workspace = true
 x264.workspace = true
 cpal.workspace = true
+mp4m.workspace = true
 hound.workspace = true
 image.workspace = true
 chrono.workspace = true
@@ -25,8 +26,9 @@ once_cell.workspace = true
 spin_sleep.workspace = true
 nnnoiseless.workspace = true
 derive_setters.workspace = true
-ffmpeg-sidecar.workspace = true
 fast_image_resize = { workspace = true, features = ["rayon"] }
+
+# ffmpeg-sidecar.workspace = true
 
 [dev-dependencies]
 ctrlc.workspace = true

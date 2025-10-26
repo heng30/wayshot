@@ -105,6 +105,7 @@ nix = { version = "0.30", features = ["fs"] }
 wayland-protocols-wlr = { version = "0.3", features = ["client"] }
 wayland-protocols = { version = "0.32", features = ["client", "unstable"] }
 
+mp4m = { path = "lib/mp4m" }
 cutil = { path = "lib/cutil" }
 sqldb = { path = "lib/sqldb" }
 pmacro = { path = "lib/pmacro" }

@@ -1,5 +1,7 @@
 use crate::audio_level::{apply_gain, calc_rms_level};
 use crossbeam::channel::Sender;
+use derive_setters::Setters;
+use hound::WavSpec;
 use pipewire::{
     context::ContextRc,
     core::CoreRc,
@@ -11,152 +13,42 @@ use pipewire::{
     stream::{StreamBox, StreamFlags, StreamListener},
 };
 use std::{
-    path::PathBuf,
     sync::{
-        Arc, Mutex,
+        Arc,
         atomic::{AtomicBool, AtomicI32, Ordering},
     },
     time::Duration,
 };
 use thiserror::Error;
 
-type WavWriterType = hound::WavWriter<std::io::BufWriter<std::fs::File>>;
-
-/// Error types for speaker output recording operations.
-///
-/// This enum represents errors that can occur during speaker output
-/// recording using PipeWire, including file writing and PipeWire API errors.
-///
-/// # Examples
-///
-/// ```no_run
-/// use recorder::{SpeakerRecorder, SpeakerError};
-/// use std::sync::Arc;
-/// use std::sync::atomic::AtomicBool;
-///
-/// let stop_sig = Arc::new(AtomicBool::new(false));
-/// let recorder = SpeakerRecorder::new("speaker.wav".into(), stop_sig, None, false);
-///
-/// match recorder {
-///     Ok(_) => println!("Speaker recorder created"),
-///     Err(SpeakerError::PipewireError(e)) => eprintln!("PipeWire error: {}", e),
-///     Err(SpeakerError::WriterError(e)) => eprintln!("File error: {}", e),
-/// }
-/// ```
 #[derive(Debug, Error)]
 pub enum SpeakerError {
-    /// WAV file creation or writing failed
-    #[error("Write WAV error: {0}")]
-    WriterError(String),
-
-    /// PipeWire API operation failed
     #[error("Pipewire error: {0}")]
     PipewireError(String),
 }
 
-#[derive(Clone)]
-struct RecordingSession {
-    writer: Arc<Mutex<Option<WavWriterType>>>,
-    mainloop: MainLoopRc,
-}
-
-impl RecordingSession {
-    fn stop_recording(&self) -> Result<(), SpeakerError> {
-        log::info!("Stop recording speaker and close WAV file...");
-
-        if let Ok(mut writer_opt) = self.writer.lock() {
-            if let Some(writer) = writer_opt.take() {
-                writer
-                    .finalize()
-                    .map_err(|e| SpeakerError::WriterError(format!("Finalize WAV failed: {e}")))?;
-                log::info!("Successfully close WAV file");
-            }
-        }
-        self.mainloop.quit();
-        Ok(())
-    }
-}
-
-/// Speaker output recorder for capturing system audio using PipeWire.
-///
-/// This struct provides speaker output recording capabilities on Wayland systems
-/// using the PipeWire audio server. It can capture system audio output (what you hear)
-/// and save it to WAV files with optional real-time audio level monitoring.
-///
-/// # Features
-///
-/// - System audio output recording using PipeWire monitor ports
-/// - Automatic discovery of default output devices
-/// - Real-time audio level monitoring with RMS calculation
-/// - WAV file output with CD-quality settings (48kHz, 32-bit float, stereo)
-/// - Preview mode for processing without file output
-///
-/// # Examples
-///
-/// ```no_run
-/// use recorder::SpeakerRecorder;
-/// use std::sync::Arc;
-/// use std::sync::atomic::AtomicBool;
-///
-/// let stop_sig = Arc::new(AtomicBool::new(false));
-/// let recorder = SpeakerRecorder::new("speaker.wav".into(), stop_sig, None, false).unwrap();
-///
-/// // Start recording in a separate thread
-/// // recorder.start_recording().unwrap();
-/// ```
-#[derive(Debug)]
+#[derive(Setters)]
+#[setters(prefix = "with_")]
 pub struct SpeakerRecorder {
-    /// PipeWire main loop for event processing
-    mainloop: MainLoopRc,
-    /// PipeWire core for API operations
+    #[setters(skip)]
     core: CoreRc,
-    /// Path where the WAV file will be saved
-    save_path: PathBuf,
-    /// Signal to stop recording when set to true
-    stop_sig: Arc<AtomicBool>,
-    /// Optional sender for audio level data (if monitoring enabled)
-    level_sender: Option<Arc<Sender<f32>>>,
-    /// Whether to run in preview mode (no file output)
-    disable_save_file: bool,
-    // [0, infinity]
-    amplification: Option<Arc<AtomicI32>>,
 
+    #[setters(skip)]
+    mainloop: MainLoopRc,
+
+    #[setters(skip)]
+    stop_sig: Arc<AtomicBool>,
+
+    #[setters(skip)]
     device_info: Option<(u32, String)>,
+
+    level_sender: Option<Sender<f32>>,
+    frame_sender: Option<Sender<Vec<f32>>>,
+    amplification: Option<Arc<AtomicI32>>, // db
 }
 
 impl SpeakerRecorder {
-    /// Create a new speaker recorder with specified parameters.
-    ///
-    /// This constructor initializes the PipeWire context and prepares
-    /// the recorder for capturing system audio output.
-    ///
-    /// # Arguments
-    ///
-    /// * `save_path` - Path where the WAV file will be saved
-    /// * `stop_sig` - Atomic boolean signal to stop recording
-    /// * `level_sender` - Optional sender for audio level monitoring
-    /// * `disable_save_file` - If true, no file will be written
-    ///
-    /// # Returns
-    ///
-    /// `Ok(SpeakerRecorder)` if initialization succeeded, or `Err(SpeakerError)` if failed.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use recorder::SpeakerRecorder;
-    /// use std::sync::Arc;
-    /// use std::sync::atomic::AtomicBool;
-    ///
-    /// let stop_sig = Arc::new(AtomicBool::new(false));
-    /// let recorder = SpeakerRecorder::new("speaker.wav".into(), stop_sig, None, false).unwrap();
-    /// ```
-    pub fn new(
-        save_path: PathBuf,
-        stop_sig: Arc<AtomicBool>,
-        level_sender: Option<Arc<Sender<f32>>>,
-        disable_save_file: bool,
-    ) -> Result<Self, SpeakerError> {
+    pub fn new(stop_sig: Arc<AtomicBool>) -> Result<Self, SpeakerError> {
         pipewire::init();
 
         let mainloop = MainLoopRc::new(None)
@@ -168,12 +60,13 @@ impl SpeakerRecorder {
             .map_err(|e| SpeakerError::PipewireError(format!("context connect failed: {e}")))?;
 
         let mut recoder = Self {
-            mainloop,
             core,
-            save_path,
+            mainloop,
             stop_sig,
-            level_sender,
-            disable_save_file,
+
+            level_sender: None,
+            frame_sender: None,
+
             amplification: None,
             device_info: None,
         };
@@ -183,35 +76,7 @@ impl SpeakerRecorder {
         Ok(recoder)
     }
 
-    pub fn with_amplification(mut self, v: Arc<AtomicI32>) -> Self {
-        self.amplification = Some(v);
-        self
-    }
-
-    /// Start recording system audio output to WAV file.
-    ///
-    /// This method begins capturing system audio output using PipeWire monitor ports.
-    /// It automatically discovers the default output device, creates a WAV file,
-    /// and starts the recording session with real-time audio level monitoring.
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` if recording started successfully, or `Err(SpeakerError)` if failed.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use recorder::SpeakerRecorder;
-    /// use std::sync::Arc;
-    /// use std::sync::atomic::AtomicBool;
-    ///
-    /// let stop_sig = Arc::new(AtomicBool::new(false));
-    /// let recorder = SpeakerRecorder::new("speaker.wav".into(), stop_sig, None, false).unwrap();
-    ///
-    /// // Start recording (this will block until stop_sig is set)
-    /// // recorder.start_recording().unwrap();
-    /// ```
-    pub fn start_recording(&mut self) -> Result<(), SpeakerError> {
+    pub fn start_recording(self) -> Result<(), SpeakerError> {
         let Some((node_id, ref node_name)) = self.device_info else {
             return Err(SpeakerError::PipewireError(format!(
                 "No found output speaker device (None)"
@@ -224,30 +89,11 @@ impl SpeakerRecorder {
             node_id
         );
 
-        let writer = if self.disable_save_file {
-            Arc::new(Mutex::new(None))
-        } else {
-            let spec = hound::WavSpec {
-                channels: 2,
-                sample_rate: 48000,
-                bits_per_sample: 32,
-                sample_format: hound::SampleFormat::Float,
-            };
-            let writer = hound::WavWriter::create(&self.save_path, spec)
-                .map_err(|e| SpeakerError::WriterError(format!("crate WavWriter faile: {e}")))?;
-            Arc::new(Mutex::new(Some(writer)))
-        };
-
-        let session = RecordingSession {
-            writer: writer.clone(),
-            mainloop: self.mainloop.clone(),
-        };
-
         // Create an input stream to record the monitoring port of the output device.
         let stream = self.create_stream()?;
         let _stream_listener = Self::stream_register(
             &stream,
-            writer.clone(),
+            self.frame_sender.clone(),
             self.level_sender.clone(),
             self.amplification.clone(),
         )?;
@@ -257,46 +103,25 @@ impl SpeakerRecorder {
             self.mainloop.loop_().iterate(Duration::from_millis(100));
         }
 
-        session.stop_recording()?;
-
-        if !self.disable_save_file {
-            log::info!(
-                "Successfully save speaker file: {}",
-                self.save_path.display()
-            );
-        }
+        self.mainloop.quit();
+        log::info!("record speaker exit...");
 
         Ok(())
+    }
+
+    pub fn spec() -> WavSpec {
+        WavSpec {
+            channels: 2,
+            sample_rate: 48000,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        }
     }
 
     pub fn get_device_info(&self) -> Option<(u32, String)> {
         self.device_info.clone()
     }
 
-    /// Stop the speaker recording session.
-    ///
-    /// This method signals the recording thread to stop and clean up resources.
-    /// It sets the stop signal which will cause the recording loop to exit,
-    /// finalize the WAV file, and close the PipeWire connection.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use recorder::SpeakerRecorder;
-    /// use std::sync::Arc;
-    /// use std::sync::atomic::AtomicBool;
-    ///
-    /// let stop_sig = Arc::new(AtomicBool::new(false));
-    /// let recorder = SpeakerRecorder::new("speaker.wav".into(), stop_sig.clone(), None, false).unwrap();
-    ///
-    /// // In another thread, start recording
-    /// // std::thread::spawn(move || {
-    /// //     recorder.start_recording().unwrap();
-    /// // });
-    ///
-    /// // Later, stop the recording
-    /// recorder.stop();
-    /// ```
     pub fn stop(&self) {
         self.stop_sig.store(true, Ordering::Relaxed);
     }
@@ -392,8 +217,8 @@ impl SpeakerRecorder {
 
     fn stream_register(
         stream: &StreamBox,
-        writer: Arc<Mutex<Option<WavWriterType>>>,
-        level_sender: Option<Arc<Sender<f32>>>,
+        frame_sender: Option<Sender<Vec<f32>>>,
+        level_sender: Option<Sender<f32>>,
         amplification: Option<Arc<AtomicI32>>,
     ) -> Result<StreamListener<()>, SpeakerError> {
         let stream_listener = stream
@@ -435,14 +260,10 @@ impl SpeakerRecorder {
                         f32_samples
                     };
 
-                    if let Ok(mut writer_opt) = writer.lock()
-                        && let Some(ref mut wav_writer) = *writer_opt
+                    if let Some(ref tx) = frame_sender
+                        && let Err(e) = tx.try_send(f32_samples.to_vec())
                     {
-                        for &sample in f32_samples {
-                            if wav_writer.write_sample(sample).is_err() {
-                                break;
-                            }
-                        }
+                        log::warn!("try send speaker audio frame failed: {e}");
                     }
 
                     if let Some(ref tx) = level_sender

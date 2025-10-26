@@ -34,12 +34,16 @@ pub mod sample_rate {
 pub enum AudioError {
     #[error("Track index {0} out of bounds")]
     TrackIndexOutOfBounds(usize),
+
     #[error("No track")]
     NoTrack,
+
     #[error("Resampling error: {0}")]
     ResamplingError(String),
+
     #[error("File I/O error: {0}")]
     FileIoError(#[from] std::io::Error),
+
     #[error("WAV file error: {0}")]
     WavError(#[from] hound::Error),
 }
