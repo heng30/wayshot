@@ -1,8 +1,7 @@
 use hound::WavReader;
 use image::{ImageBuffer, Rgb};
 use mp4m::mp4_processor::{
-    AudioConfig, AudioFrameType, Mp4Processor, Mp4ProcessorConfigBuilder, VideoConfig,
-    VideoFrameType,
+    AudioConfig, Mp4Processor, Mp4ProcessorConfigBuilder, VideoConfig, VideoFrameType,
 };
 use recorder::{EncodedFrame, FPS, VideoEncoder};
 use std::{path::PathBuf, thread, time::Duration};
@@ -76,7 +75,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         // Use AAC-friendly frame size (1024 samples per channel)
-        let aac_frame_size = 1024; // AAC typically uses 1024 samples per frame
+        // let aac_frame_size = 1024; // AAC typically uses 1024 samples per frame
+        let aac_frame_size = 1124 * 3; // AAC typically uses 1024 samples per frame
         let samples_per_frame = aac_frame_size * spec.channels as usize;
 
         log::debug!(
@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Use f32 samples directly for AAC encoding
                 let f32_chunk: Vec<f32> = chunk.to_vec();
 
-                if let Err(e) = audio_sender.send(AudioFrameType::Frame(f32_chunk)) {
+                if let Err(e) = audio_sender.send(f32_chunk) {
                     log::warn!("audio sender failed: {e}");
                     break;
                 }
@@ -156,7 +156,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     thread::sleep(Duration::from_secs(1));
 
     _ = video_sender.send(VideoFrameType::End);
-    _ = audio_sender.send(AudioFrameType::End);
 
     drop(video_sender);
     drop(audio_sender);

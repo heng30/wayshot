@@ -14,17 +14,14 @@ pub enum VideoFrameType {
     End,
 }
 
-pub enum AudioFrameType {
-    Frame(Vec<f32>),
-    End,
-}
-
 #[derive(Error, Debug)]
 pub enum Mp4ProcessorError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+
     #[error("MP4 muxing error: {0}")]
     Mp4(String),
+
     #[error("AAC encoding error: {0}")]
     AacEncoding(String),
 }
@@ -67,7 +64,8 @@ pub struct Mp4Processor {
 
     aac_encoder: Vec<Encoder>,
     audio_config: Vec<AudioConfig>,
-    audio_receiver: Vec<Receiver<AudioFrameType>>,
+    audio_receiver: Vec<Receiver<Vec<f32>>>,
+    audio_buffer_cache: Vec<Vec<f32>>,
 }
 
 impl Mp4Processor {
@@ -82,6 +80,7 @@ impl Mp4Processor {
             aac_encoder: vec![],
             audio_config: vec![],
             audio_receiver: vec![],
+            audio_buffer_cache: vec![],
         }
     }
 
@@ -92,7 +91,7 @@ impl Mp4Processor {
     pub fn add_audio_track(
         &mut self,
         config: AudioConfig,
-    ) -> Result<Sender<AudioFrameType>, Mp4ProcessorError> {
+    ) -> Result<Sender<Vec<f32>>, Mp4ProcessorError> {
         if config.spec.channels > 2 {
             return Err(Mp4ProcessorError::Mp4(
                 "Audio channels is great then 2".to_string(),
@@ -102,6 +101,7 @@ impl Mp4Processor {
         let (sender, receiver) = bounded(self.config.channel_size);
         self.audio_config.push(config);
         self.audio_receiver.push(receiver);
+        self.audio_buffer_cache.push(Vec::new());
 
         // Initialize AAC encoder for this track
         let track_index = self.audio_config.len() - 1;
@@ -374,28 +374,52 @@ impl Mp4Processor {
         audio_data_counters: &mut Vec<u64>,
         data: Vec<f32>,
     ) {
-        match self.encode_samples_to_aac(track_index, &data) {
-            Ok(aac_data) => {
-                let config = &self.audio_config[track_index];
-                let samples_per_channel = data.len() / config.spec.channels as usize;
+        let config = &self.audio_config[track_index];
+        let channels = config.spec.channels as usize;
 
-                let sample = Mp4Sample {
-                    start_time: audio_timestamps[track_index],
-                    duration: samples_per_channel as u32, // Duration in audio timescale units (samples per channel)
-                    rendering_offset: 0,
-                    is_sync: true,
-                    bytes: aac_data.into(),
-                };
+        // AAC encoder typically expects 1024 samples per channel
+        let aac_frame_size = 1024 * channels;
 
-                if let Err(e) = mp4_writer.write_sample(audio_track_ids[track_index], &sample) {
-                    log::warn!("Write audio sample failed for track {}: {e}", track_index);
-                }
+        // Combine cached data with new data
+        let mut combined_data = std::mem::take(&mut self.audio_buffer_cache[track_index]);
+        combined_data.extend(data);
 
-                audio_timestamps[track_index] += samples_per_channel as u64;
-                audio_data_counters[track_index] += 1;
+        // Process data in chunks suitable for AAC encoding
+        for chunk_start in (0..combined_data.len()).step_by(aac_frame_size) {
+            let chunk_end = (chunk_start + aac_frame_size).min(combined_data.len());
+            let chunk = &combined_data[chunk_start..chunk_end];
+
+            // If chunk is too small, cache it for next time
+            if chunk.len() < aac_frame_size {
+                log::debug!("Caching incomplete audio frame: {} samples", chunk.len());
+                self.audio_buffer_cache[track_index] = chunk.to_vec();
+                break;
             }
-            Err(e) => {
-                log::warn!("AAC encoding failed for track {}: {e}", track_index);
+
+            match self.encode_samples_to_aac(track_index, chunk) {
+                Ok(aac_data) => {
+                    log::info!("aac_data len: {} bytes", aac_data.len());
+
+                    let samples_per_channel = chunk.len() / channels;
+
+                    let sample = Mp4Sample {
+                        start_time: audio_timestamps[track_index],
+                        duration: samples_per_channel as u32, // Duration in audio timescale units (samples per channel)
+                        rendering_offset: 0,
+                        is_sync: true,
+                        bytes: aac_data.into(),
+                    };
+
+                    if let Err(e) = mp4_writer.write_sample(audio_track_ids[track_index], &sample) {
+                        log::warn!("Write audio sample failed for track {}: {e}", track_index);
+                    }
+
+                    audio_timestamps[track_index] += samples_per_channel as u64;
+                    audio_data_counters[track_index] += 1;
+                }
+                Err(e) => {
+                    log::warn!("AAC encoding failed for track {}: {e}", track_index);
+                }
             }
         }
     }
@@ -410,25 +434,49 @@ impl Mp4Processor {
         let mut all_ended = true;
         for track_index in 0..self.audio_receiver.len() {
             if let Ok(audio_data) = self.audio_receiver[track_index].try_recv() {
-                match audio_data {
-                    AudioFrameType::Frame(data) => {
-                        all_ended = false;
-                        self.process_audio_frame(
-                            mp4_writer,
-                            audio_track_ids,
-                            track_index,
-                            audio_timestamps,
-                            audio_data_counters,
-                            data,
-                        );
-                    }
-                    AudioFrameType::End => {
-                        log::info!("Audio track {} receive `End`", track_index);
-                    }
-                }
+                // log::info!("audio data len: {} bytes", audio_data.len());
+
+                all_ended = false;
+                self.process_audio_frame(
+                    mp4_writer,
+                    audio_track_ids,
+                    track_index,
+                    audio_timestamps,
+                    audio_data_counters,
+                    audio_data,
+                );
             }
         }
         all_ended
+    }
+
+    fn flush_audio_cache(
+        &mut self,
+        mp4_writer: &mut Mp4Writer<BufWriter<File>>,
+        audio_track_ids: &[u32],
+        audio_timestamps: &mut Vec<u64>,
+        audio_data_counters: &mut Vec<u64>,
+    ) {
+        for track_index in 0..self.audio_buffer_cache.len() {
+            if !self.audio_buffer_cache[track_index].is_empty() {
+                log::info!(
+                    "Flushing cached audio data for track {}: {} samples",
+                    track_index,
+                    self.audio_buffer_cache[track_index].len()
+                );
+
+                // Process the remaining cached data
+                let cached_data = std::mem::take(&mut self.audio_buffer_cache[track_index]);
+                self.process_audio_frame(
+                    mp4_writer,
+                    audio_track_ids,
+                    track_index,
+                    audio_timestamps,
+                    audio_data_counters,
+                    cached_data,
+                );
+            }
+        }
     }
 
     fn main_processing_loop(
@@ -474,6 +522,13 @@ impl Mp4Processor {
                     }
 
                     if video_ended && audio_ended && self.h264_receiver.is_empty() {
+                        // Flush any remaining cached audio data before breaking
+                        self.flush_audio_cache(
+                            mp4_writer,
+                            &audio_track_ids,
+                            audio_timestamps,
+                            audio_data_counters,
+                        );
                         break;
                     }
                 }
