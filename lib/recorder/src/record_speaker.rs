@@ -104,8 +104,6 @@ impl SpeakerRecorder {
         }
 
         self.mainloop.quit();
-        log::info!("record speaker exit...");
-
         Ok(())
     }
 

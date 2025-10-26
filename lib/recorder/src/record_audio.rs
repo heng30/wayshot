@@ -232,7 +232,7 @@ impl AudioRecorder {
             if let Some(ref tx) = frame_sender
                 && let Err(e) = tx.try_send(f32_samples.to_vec())
             {
-                log::warn!("try send speaker audio frame failed: {e}");
+                log::warn!("try send audio frame failed: {e}");
             }
 
             if let Some(ref tx) = level_sender

@@ -1,12 +1,17 @@
 use crate::{
-    AudioError, AudioRecorder, EncodedFrame, Frame, FrameUser, ProgressState, RecorderConfig,
-    RecorderError, Resolution, SimpleFpsCounter, SpeakerRecorder, StatsUser, VideoEncoder,
+    AudioRecorder, EncodedFrame, Frame, FrameUser, ProgressState, RecorderConfig, RecorderError,
+    Resolution, SimpleFpsCounter, SpeakerRecorder, StatsUser, VideoEncoder,
 };
 use capture::{Capture, CaptureIterConfig, capture_output_iter};
 use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_setters::Setters;
 use fast_image_resize::images::Image;
+use hound::WavSpec;
 use image::{ImageBuffer, Rgb, Rgba, buffer::ConvertBuffer};
+use mp4m::{
+    AudioConfig, AudioProcessor, AudioProcessorConfigBuilder, Mp4Processor,
+    Mp4ProcessorConfigBuilder, OutputDestination, VideoConfig, VideoFrameType,
+};
 use once_cell::sync::Lazy;
 use spin_sleep::SpinSleeper;
 use std::{
@@ -23,6 +28,7 @@ pub(crate) type ResizedImageBuffer = ImageBuffer<Rgb<u8>, Vec<u8>>;
 
 const USER_CHANNEL_SIZE: usize = 64;
 const ENCODER_WORKER_CHANNEL_SIZE: usize = 128;
+const AUDIO_MIXER_CHANNEL_SIZE: usize = 1024;
 
 static CAPTURE_MEAN_TIME: Lazy<Mutex<Option<Duration>>> = Lazy::new(|| Mutex::new(None));
 
@@ -45,6 +51,11 @@ pub struct RecordingSession {
 
     speaker_level_receiver: Option<Receiver<f32>>,
     speaker_recorder_worker: Option<JoinHandle<Result<(), RecorderError>>>,
+
+    audio_mixer_stop_sig: Option<Arc<AtomicBool>>,
+    audio_mixer_worker: Option<JoinHandle<()>>,
+    mp4_writer_worker: Option<JoinHandle<()>>,
+    h264_frame_sender: Option<Sender<VideoFrameType>>,
 
     // statistic
     start_time: Instant,
@@ -74,23 +85,28 @@ impl RecordingSession {
 
         Self {
             config,
+            stop_sig: Arc::new(AtomicBool::new(false)),
 
-            start_time: std::time::Instant::now(),
-            total_frame_count: Arc::new(AtomicU64::new(0)),
-            loss_frame_count: Arc::new(AtomicU64::new(0)),
-
-            frame_sender_user: None,
             frame_sender: Some(frame_sender),
             frame_receiver,
-
-            stop_sig: Arc::new(AtomicBool::new(false)),
             capture_workers: vec![],
+
+            frame_sender_user: None,
 
             audio_recorder: None,
             audio_level_receiver: None,
 
-            speaker_level_receiver: None,
             speaker_recorder_worker: None,
+            speaker_level_receiver: None,
+
+            audio_mixer_stop_sig: None,
+            audio_mixer_worker: None,
+            mp4_writer_worker: None,
+            h264_frame_sender: None,
+
+            start_time: std::time::Instant::now(),
+            total_frame_count: Arc::new(AtomicU64::new(0)),
+            loss_frame_count: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -100,13 +116,13 @@ impl RecordingSession {
             return Err(RecorderError::Other(format!("capture thread counts is 0")));
         }
 
-        log::debug!("capture thread counts: {thread_counts}");
+        log::info!("capture thread counts: {thread_counts}");
 
         let frame_iterval_ms = self.config.frame_interval_ms();
         let fps_per_thread = self.config.fps.to_u32() as f64 / thread_counts as f64;
 
         let config = CaptureIterConfig {
-            name: self.config.name.clone(),
+            name: self.config.screen_name.clone(),
             include_cursor: self.config.include_cursor,
             fps: Some(fps_per_thread),
             cancel_sig: self.stop_sig.clone(),
@@ -114,15 +130,16 @@ impl RecordingSession {
 
         self.start_time = std::time::Instant::now();
 
-        // Start audio recording if enabled
+        let (audio_sender, speaker_sender) = self.mp4_worker()?;
+
         if let Some(device_name) = self.config.audio_device_name.clone() {
-            self.enable_audio(device_name.as_str())?;
-            log::info!("Audio recording started with video recording");
+            self.enable_audio(device_name.as_str(), audio_sender)?;
+            log::info!("Enable audio recording successfully");
         }
 
         if self.config.enable_recording_speaker {
-            self.enable_speaker_audio()?;
-            log::info!("Speaker recording started with video recording");
+            self.enable_speaker_audio(speaker_sender)?;
+            log::info!("Enable speaker recording successfully");
         };
 
         for i in 0..thread_counts {
@@ -158,21 +175,21 @@ impl RecordingSession {
 
     pub fn wait(self) -> Result<ProgressState, RecorderError> {
         let (encoder_sender, encoder_receiver) = bounded(ENCODER_WORKER_CHANNEL_SIZE);
-        let resize_handle = Self::resize_workers(&self, encoder_sender);
+        let resize_handle = Self::resize_worker(&self, encoder_sender);
 
         let (width, height) = self.config.resolution.dimensions(
-            self.config.screen_logical_size.width as u32,
-            self.config.screen_logical_size.height as u32,
+            self.config.screen_size.width as u32,
+            self.config.screen_size.height as u32,
         );
         let mut video_encoder = VideoEncoder::new(width, height, self.config.fps)?;
 
-        // TODO:
-        // Write encoder headers first if we have a writer
-        // if let Some(ref writer) = h264_writer {
-        //     let headers = video_encoder.headers()?;
-        //     let headers_data = headers.entirety().to_vec();
-        //     writer.write_frame(EncodedFrame::Frame((0, headers_data)));
-        // }
+        if let Some(ref sender) = self.h264_frame_sender {
+            let headers = video_encoder.headers()?;
+            let headers_data = headers.entirety().to_vec();
+            if let Err(e) = sender.try_send(VideoFrameType::Frame(headers_data)) {
+                log::warn!("Try send h264 header frames faield: {e}");
+            }
+        }
 
         loop {
             match encoder_receiver.recv() {
@@ -185,13 +202,14 @@ impl RecordingSession {
                                 encoded_frame.len()
                             );
 
-                            // TODO:
-                            // if let Some(ref writer) = h264_writer {
-                            //     writer.write_frame(EncodedFrame::Frame((
-                            //         total_frame_index,
-                            //         encoded_frame,
-                            //     )));
-                            // }
+                            if let Some(ref sender) = self.h264_frame_sender {
+                                if let Err(e) =
+                                    sender.try_send(VideoFrameType::Frame(encoded_frame))
+                                {
+                                    self.loss_frame_count.fetch_add(1, Ordering::Relaxed);
+                                    log::warn!("Try send h264 body frame faield: {e}");
+                                }
+                            }
                         }
                         Err(e) => log::warn!("encode frame failed: {e}"),
                         _ => unreachable!("invalid EncodedFrame"),
@@ -204,9 +222,9 @@ impl RecordingSession {
                     );
                 }
                 _ => {
-                    log::info!("exit encoder receiver channel");
+                    log::info!("encoder receiver channel exit...");
                     self.stop();
-                    self.wait_stop(resize_handle, Some(video_encoder))?;
+                    self.wait_stop(resize_handle, video_encoder)?;
                     break;
                 }
             }
@@ -215,8 +233,11 @@ impl RecordingSession {
         return Ok(ProgressState::Stopped);
     }
 
-    /// Enable audio recording with specified device
-    fn enable_audio(&mut self, device_name: &str) -> Result<(), RecorderError> {
+    fn enable_audio(
+        &mut self,
+        device_name: &str,
+        frame_sender: Option<Sender<Vec<f32>>>,
+    ) -> Result<(), RecorderError> {
         let (sender, receiver) = if self.config.enable_audio_level_channel {
             let (tx, rx) = bounded(USER_CHANNEL_SIZE);
             (Some(tx), Some(rx))
@@ -226,20 +247,21 @@ impl RecordingSession {
 
         let mut audio_recorder = AudioRecorder::new()
             .with_level_sender(sender)
+            .with_frame_sender(frame_sender)
             .with_gain(self.config.audio_gain.clone())
             .with_enable_denoise(self.config.enable_denoise);
 
-        audio_recorder
-            .start_recording(device_name)
-            .map_err(|e: AudioError| RecorderError::AudioError(e.to_string()))?;
-
+        audio_recorder.start_recording(device_name)?;
         self.audio_recorder = Some(audio_recorder);
         self.audio_level_receiver = receiver;
 
         Ok(())
     }
 
-    fn enable_speaker_audio(&mut self) -> Result<(), RecorderError> {
+    fn enable_speaker_audio(
+        &mut self,
+        frame_sender: Option<Sender<Vec<f32>>>,
+    ) -> Result<(), RecorderError> {
         let (sender, receiver) = if self.config.enable_speaker_level_channel {
             let (tx, rx) = bounded(USER_CHANNEL_SIZE);
             (Some(tx), Some(rx))
@@ -250,14 +272,11 @@ impl RecordingSession {
         let stop_sig = self.stop_sig.clone();
         let gain = self.config.speaker_gain.clone();
         let handle = thread::spawn(move || {
-            let recorder = SpeakerRecorder::new(stop_sig)
-                .map_err(|e| RecorderError::SpeakerError(e.to_string()))?
+            let recorder = SpeakerRecorder::new(stop_sig)?
                 .with_level_sender(sender)
+                .with_frame_sender(frame_sender)
                 .with_gain(gain);
-
-            recorder
-                .start_recording()
-                .map_err(|e| RecorderError::SpeakerError(e.to_string()))?;
+            recorder.start_recording()?;
             Ok(())
         });
 
@@ -267,7 +286,7 @@ impl RecordingSession {
         Ok(())
     }
 
-    fn resize_workers(
+    fn resize_worker(
         session: &RecordingSession,
         encoder_sender: Sender<EncoderChannelData>,
     ) -> JoinHandle<()> {
@@ -287,7 +306,7 @@ impl RecordingSession {
                             total_frame_count.fetch_add(1, Ordering::Relaxed) + 1;
 
                         log::debug!(
-                            "total frame[{}] thread[{}] thread_frame[{}] capture time: {:.2?}. thread_fps: {:.2}. timestamp: {:.2?}. capture receiver channel remained: {}",
+                            "total frame[{}] thread[{}] thread_frame[{}] capture time: {:.2?}. thread_fps: {:.2}. timestamp: {:.2?}. capture channel remained: {}",
                             total_frame_count,
                             frame.thread_id,
                             frame.cb_data.frame_index,
@@ -297,11 +316,6 @@ impl RecordingSession {
                             frame.timestamp.duration_since(start_time),
                             capture_receiver.capacity().unwrap_or_default()
                                 - capture_receiver.len()
-                        );
-
-                        log::debug!(
-                            "encoder channel remained: {}. ",
-                            encoder_sender.capacity().unwrap_or_default() - encoder_sender.len()
                         );
 
                         if let Some(ref sender) = frame_sender_user {
@@ -318,15 +332,17 @@ impl RecordingSession {
                             }
                         }
 
+                        let resize_now = Instant::now();
                         match Self::resize_frame(frame, resolution) {
-                            Err(e) => log::warn!("resize frame failed: {e}"),
                             Ok(img) => {
                                 if let Err(e) = encoder_sender.try_send((total_frame_count, img)) {
                                     loss_frame_count.fetch_add(1, Ordering::Relaxed);
                                     log::warn!("resize worker try send failed: {e}");
                                 }
                             }
+                            Err(e) => log::warn!("resize frame failed: {e}"),
                         }
+                        log::debug!("resize image spent: {:.2?}", resize_now.elapsed());
                     }
                     _ => {
                         log::info!("resize forward thread exit");
@@ -339,49 +355,186 @@ impl RecordingSession {
         handle
     }
 
+    fn mp4_worker(
+        &mut self,
+    ) -> Result<(Option<Sender<Vec<f32>>>, Option<Sender<Vec<f32>>>), RecorderError> {
+        let mut specs = vec![];
+        if let Some(ref device_name) = self.config.audio_device_name {
+            specs.push(AudioRecorder::new().spec(device_name)?);
+        }
+
+        if self.config.enable_recording_speaker {
+            specs.push(SpeakerRecorder::spec());
+        }
+
+        let (mut audio_sender, mut speak_sender) = (None, None);
+        let mut mp4_processor = Mp4Processor::new(
+            Mp4ProcessorConfigBuilder::default()
+                .save_path(self.config.save_path.clone())
+                .channel_size(AUDIO_MIXER_CHANNEL_SIZE)
+                .video_config(VideoConfig {
+                    width: self.config.screen_size.width as u32,
+                    height: self.config.screen_size.height as u32,
+                    fps: self.config.fps.to_u32(),
+                })
+                .build()?,
+        );
+
+        if !specs.is_empty() {
+            let target_sample_rate = specs
+                .iter()
+                .max_by_key(|item| item.sample_rate)
+                .unwrap()
+                .sample_rate;
+
+            let target_channels = if self.config.convert_to_mono {
+                1
+            } else {
+                specs
+                    .iter()
+                    .max_by_key(|item| item.channels)
+                    .unwrap()
+                    .channels
+            };
+
+            let mp4_audio_sender = mp4_processor.add_audio_track(AudioConfig {
+                convert_to_mono: false,
+                spec: WavSpec {
+                    channels: target_channels,
+                    sample_rate: target_sample_rate,
+                    bits_per_sample: 32,
+                    sample_format: hound::SampleFormat::Float,
+                },
+            })?;
+
+            let config = AudioProcessorConfigBuilder::default()
+                .target_sample_rate(target_sample_rate)
+                .channel_size(AUDIO_MIXER_CHANNEL_SIZE)
+                .convert_to_mono(self.config.convert_to_mono)
+                .output_destination(Some(OutputDestination::<f32>::Channel(mp4_audio_sender)))
+                .build()?;
+
+            let mut audio_processor = AudioProcessor::new(config);
+
+            if self.config.audio_device_name.is_some() && self.config.enable_recording_speaker {
+                audio_sender = Some(audio_processor.add_track(specs[0]));
+                speak_sender = Some(audio_processor.add_track(specs[1]));
+            } else if self.config.audio_device_name.is_some() {
+                audio_sender = Some(audio_processor.add_track(specs[0]));
+            } else if self.config.enable_recording_speaker {
+                speak_sender = Some(audio_processor.add_track(specs[0]));
+            }
+
+            self.audio_mixer_stop_sig = Some(Arc::new(AtomicBool::new(false)));
+            let stop_sig = self.audio_mixer_stop_sig.clone().unwrap();
+
+            let handle = thread::spawn(move || {
+                loop {
+                    if let Err(e) = audio_processor.process_samples() {
+                        log::warn!("Audio mixer process samples failed: {e}");
+                    }
+
+                    if stop_sig.load(Ordering::Relaxed) {
+                        return;
+                    }
+
+                    thread::sleep(Duration::from_millis(100));
+                }
+            });
+
+            self.audio_mixer_worker = Some(handle);
+        }
+
+        self.h264_frame_sender = Some(mp4_processor.h264_sender());
+        let handle = thread::spawn(move || {
+            if let Err(e) = mp4_processor.run_processing_loop() {
+                log::warn!("MP4 processing error: {}", e);
+            }
+        });
+        self.mp4_writer_worker = Some(handle);
+
+        Ok((audio_sender, speak_sender))
+    }
+
     fn wait_stop(
         mut self,
         resize_handle: JoinHandle<()>,
-        encoder: Option<VideoEncoder>,
+        encoder: VideoEncoder,
     ) -> Result<(), RecorderError> {
         if let Some(audio_recorder) = self.audio_recorder.take() {
             audio_recorder.stop();
+            log::info!("audio recorder exit...");
         }
 
-        if let Some(speaker_recorder_handle) = self.speaker_recorder_worker.take()
-            && let Err(e) = speaker_recorder_handle.join()
-        {
-            log::warn!("join speaker recorder thread failed: {:?}", e);
+        if let Some(speaker_recorder_handle) = self.speaker_recorder_worker.take() {
+            if let Err(e) = speaker_recorder_handle.join() {
+                log::warn!("join speaker recorder thread failed: {:?}", e);
+            } else {
+                log::info!("speaker recorder exit...");
+            }
         }
 
         for (i, thread) in self.capture_workers.into_iter().enumerate() {
             if let Err(e) = thread.join() {
                 log::warn!("join capture thread[{i}] failed: {:?}", e);
+            } else {
+                log::info!("join capture thread[{i}] successfully");
             }
         }
 
         if let Err(e) = resize_handle.join() {
             log::warn!("join resize thread failed: {:?}", e);
+        } else {
+            log::info!("join resize thread successfully");
         }
 
-        if let Some(encoder) = encoder {
-            match encoder.flush() {
-                Ok(mut flush) => {
-                    while let Some(result) = flush.next() {
-                        match result {
-                            Ok((data, _)) => {
-                                // TODO:
-                                let _frame_data = data.entirety().to_vec();
+        match encoder.flush() {
+            Ok(mut flush) => {
+                while let Some(result) = flush.next() {
+                    match result {
+                        Ok((data, _)) => {
+                            if let Some(ref sender) = self.h264_frame_sender {
+                                if let Err(e) =
+                                    sender.try_send(VideoFrameType::Frame(data.entirety().to_vec()))
+                                {
+                                    log::warn!("Try send h264 flushed frame faield: {e}");
+                                }
                             }
-                            Err(e) => {
-                                log::warn!("Failed to flush encoder frame: {:?}", e);
-                            }
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to flush encoder frame: {e:?}");
                         }
                     }
                 }
-                Err(e) => {
-                    log::warn!("Failed to flush encoder: {}", e);
-                }
+            }
+            Err(e) => {
+                log::warn!("Failed to flush encoder: {e}");
+            }
+        }
+
+        if let Some(stop_sig) = self.audio_mixer_stop_sig {
+            stop_sig.store(true, Ordering::Relaxed);
+        }
+
+        if let Some(sender) = self.h264_frame_sender.take()
+            && let Err(e) = sender.try_send(VideoFrameType::End)
+        {
+            log::warn!("h264_frame_sender send `End` failed: {e:?}");
+        }
+
+        if let Some(handle) = self.audio_mixer_worker.take() {
+            if let Err(e) = handle.join() {
+                log::warn!("join audio mixer worker failed: {:?}", e);
+            } else {
+                log::info!("join audio mixer worker successfully");
+            }
+        }
+
+        if let Some(handle) = self.mp4_writer_worker.take() {
+            if let Err(e) = handle.join() {
+                log::warn!("join mp4 writer worker failed: {:?}", e);
+            } else {
+                log::info!("join mp4 writer worker successfully");
             }
         }
 
@@ -392,6 +545,12 @@ impl RecordingSession {
             self.loss_frame_count.load(Ordering::Relaxed) as f64 * 100.0
                 / self.total_frame_count.load(Ordering::Relaxed).max(1) as f64,
         );
+
+        if self.config.save_path.exists() {
+            log::info!("Successfully save: {}", self.config.save_path.display())
+        } else {
+            log::info!("No found: {}", self.config.save_path.display())
+        }
 
         Ok(())
     }
@@ -494,7 +653,7 @@ impl RecordingSession {
         self.audio_level_receiver.clone()
     }
 
-    pub fn get_speaker_level_receiver_user(&self) -> Option<Receiver<f32>> {
+    pub fn get_speaker_level_receiver(&self) -> Option<Receiver<f32>> {
         self.speaker_level_receiver.clone()
     }
 
@@ -508,8 +667,7 @@ impl RecordingSession {
                 .as_millis() as f64
         };
 
-        let iterval_ms = 1000.0 / self.config.fps.to_u32() as f64;
-
+        let iterval_ms = self.config.frame_interval_ms() as f64;
         ((mean_ms / iterval_ms).ceil() * 2.0).ceil() as u32
     }
 }

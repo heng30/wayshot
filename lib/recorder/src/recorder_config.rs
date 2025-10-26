@@ -35,15 +35,14 @@ impl FPS {
 #[derive(Debug, Clone, Setters)]
 #[setters(prefix = "with_")]
 pub struct RecorderConfig {
-    pub name: String,
-    pub save_path: PathBuf,
-    pub screen_logical_size: LogicalSize,
+    pub screen_name: String,
+    pub screen_size: LogicalSize,
     pub fps: FPS,
     pub resolution: Resolution,
     pub include_cursor: bool,
+
     pub audio_device_name: Option<String>,
     pub enable_recording_speaker: bool,
-    pub enable_frame_channel_user: bool,
     pub enable_audio_level_channel: bool,
     pub enable_speaker_level_channel: bool,
     pub enable_denoise: bool,
@@ -54,22 +53,22 @@ pub struct RecorderConfig {
 
     #[setters(strip_option)]
     pub speaker_gain: Option<Arc<AtomicI32>>,
+
+    pub save_path: PathBuf,
 }
 
 impl RecorderConfig {
-    pub fn new(name: String, screen_logical_size: LogicalSize, save_path: PathBuf) -> Self {
+    pub fn new(screen_name: String, screen_size: LogicalSize, save_path: PathBuf) -> Self {
         Self {
-            name,
+            screen_name,
             save_path,
-            screen_logical_size,
+            screen_size,
             fps: FPS::Fps25,
             resolution: Resolution::P1080,
             include_cursor: true,
 
             audio_device_name: None,
             enable_recording_speaker: false,
-
-            enable_frame_channel_user: false,
 
             enable_audio_level_channel: false,
             enable_speaker_level_channel: false,

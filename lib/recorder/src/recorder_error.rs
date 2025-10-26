@@ -21,50 +21,48 @@ use thiserror::Error;
 /// ```
 #[derive(Error, Debug)]
 pub enum RecorderError {
-    /// Screenshot capture failed
     #[error("Screenshot capture failed: {0}")]
     CaptureFailed(#[from] capture::Error),
 
-    /// Image processing failed (resizing, format conversion, etc.)
     #[error("Image processing failed: {0}")]
     ImageProcessingFailed(String),
 
-    /// Video encoding to H.264 format failed
     #[error("Video encoding failed: {0}")]
     VideoEncodingFailed(String),
 
-    /// Video decoding from H.264 format failed
     #[error("Video decoding failed: {0}")]
     VideoDecodingFailed(String),
 
-    /// File operation failed (reading, writing, creating files)
     #[error("File operation failed: {0}")]
     FileOperationFailed(#[from] std::io::Error),
 
-    /// Invalid configuration parameters provided
     #[error("Invalid configuration parameters: {0}")]
     InvalidConfig(String),
 
-    /// Crossbeam channel queue operation failed
     #[error("Queue operation failed: {0}")]
     QueueError(String),
 
-    /// Input audio recording failed
     #[error("Audio recording failed: {0}")]
-    AudioError(String),
+    AudioError(#[from] super::record_audio::AudioError),
 
-    /// Speaker output recording failed
     #[error("Speaker recording failed: {0}")]
-    SpeakerError(String),
+    SpeakerError(#[from] super::record_speaker::SpeakerError),
+
+    #[error("Audio mixer config builder failed: {0}")]
+    AudioMixerConfigBuilderError(#[from] mp4m::audio_processor::AudioProcessorConfigBuilderError),
+
+    #[error("Mp4 processor config builder failed: {0}")]
+    Mp4ProcessorConfigBuilderError(#[from] mp4m::mp4_processor::Mp4ProcessorConfigBuilderError),
+
+    #[error("Mp4 processor failed: {0}")]
+    Mp4ProcessorError(#[from] mp4m::mp4_processor::Mp4ProcessorError),
 
     #[error("Denoise failed: {0}")]
     DenoiseError(String),
 
-    /// FFmpeg operation failed during track combining
     #[error("ffmpeg failed: {0}")]
     Ffmpeg(String),
 
-    /// Other unspecified error
     #[error("{0}")]
     Other(String),
 }
