@@ -3,7 +3,8 @@ use cpal::{
     Device, Host, InputCallbackInfo, SampleFormat, Stream, StreamConfig,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
-use crossbeam::channel::{Receiver, Sender, bounded};
+use crossbeam::channel::Sender;
+use derive_setters::Setters;
 use hound::WavSpec;
 use nnnoiseless::RnnModel;
 use once_cell::sync::Lazy;
@@ -37,50 +38,32 @@ pub struct AudioDeviceInfo {
     pub supported_formats: Vec<SampleFormat>,
 }
 
+#[derive(Setters)]
+#[setters(prefix = "with_")]
 pub struct AudioRecorder {
+    #[setters(skip)]
     host: Host,
+
+    #[setters(skip)]
     stream: Option<Stream>,
 
-    audio_level_sender: Option<Arc<Sender<f32>>>,
-    audio_level_receiver: Option<Arc<Receiver<f32>>>,
+    level_sender: Option<Sender<f32>>,
+    frame_sender: Option<Sender<Vec<f32>>>,
 
-    real_time_denoise: bool,
-    amplification: Option<Arc<AtomicI32>>,
+    enable_denoise: bool,
+    gain: Option<Arc<AtomicI32>>,
 }
 
 impl AudioRecorder {
-    pub fn new(level_channel_size: Option<usize>) -> Result<Self, AudioError> {
-        let host = cpal::default_host();
-        let (audio_level_sender, audio_level_receiver) = if let Some(size) = level_channel_size {
-            assert!(size > 0);
-            let (tx, rx) = bounded(size);
-            (Some(Arc::new(tx)), Some(Arc::new(rx)))
-        } else {
-            (None, None)
-        };
-
-        Ok(Self {
-            host,
-            audio_level_sender,
-            audio_level_receiver,
-            amplification: None,
-            real_time_denoise: false,
+    pub fn new() -> Self {
+        Self {
+            host: cpal::default_host(),
             stream: None,
-        })
-    }
-
-    pub fn with_amplification(mut self, v: Arc<AtomicI32>) -> Self {
-        self.amplification = Some(v);
-        self
-    }
-
-    pub fn with_real_time_denoise(mut self, v: bool) -> Self {
-        self.real_time_denoise = v;
-        self
-    }
-
-    pub fn get_audio_level_receiver(&self) -> Option<Arc<Receiver<f32>>> {
-        self.audio_level_receiver.clone()
+            level_sender: None,
+            frame_sender: None,
+            enable_denoise: false,
+            gain: None,
+        }
     }
 
     pub fn get_available_devices(&self) -> Result<Vec<AudioDeviceInfo>, AudioError> {
@@ -202,7 +185,7 @@ impl AudioRecorder {
         // Note:
         //  Without calling `denoise.flush` is not a problem.
         //  Just losing the last frame of real-time samples.
-        let mut denoiser = if self.real_time_denoise {
+        let mut denoiser = if self.enable_denoise {
             let spec = self.spec(device_name)?;
             let denoiser = RealTimeDenoise::new(&DENOISE_MODEL, spec)
                 .map_err(|e| AudioError::DenoiseError(e.to_string()))?;
@@ -211,8 +194,9 @@ impl AudioRecorder {
             None
         };
 
-        let amplification = self.amplification.clone();
-        let audio_level_sender = self.audio_level_sender.clone();
+        let gain = self.gain.clone();
+        let level_sender = self.level_sender.clone();
+        let frame_sender = self.frame_sender.clone();
 
         let stream = self.stream_play(device_name, move |f32_samples: &[f32], _info: &_| {
             let mut denoise_samples = None;
@@ -232,12 +216,12 @@ impl AudioRecorder {
             };
 
             let mut f32_sample_amplification = Vec::with_capacity(f32_samples.len());
-            let data = if let Some(ref amplification) = amplification {
+            let data = if let Some(ref gain) = gain {
                 f32_sample_amplification.extend_from_slice(f32_samples);
 
                 apply_gain(
                     &mut f32_sample_amplification,
-                    amplification.load(Ordering::Relaxed) as f32,
+                    gain.load(Ordering::Relaxed) as f32,
                 );
 
                 &f32_sample_amplification[..]
@@ -245,18 +229,27 @@ impl AudioRecorder {
                 f32_samples
             };
 
-            if let Some(ref tx) = audio_level_sender
+            if let Some(ref tx) = frame_sender
+                && let Err(e) = tx.try_send(f32_samples.to_vec())
+            {
+                log::warn!("try send speaker audio frame failed: {e}");
+            }
+
+            if let Some(ref tx) = level_sender
                 && let Some(db) = calc_rms_level(data)
                 && let Err(e) = tx.try_send(db)
             {
                 log::warn!("try send input audio db level data failed: {e}");
             }
-
-            // TODO:
         })?;
 
         self.stream = Some(stream);
 
         Ok(())
+    }
+
+    pub fn stop(self) {
+        drop(self);
+        log::debug!("Stop recording audio...");
     }
 }

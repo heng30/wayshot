@@ -246,7 +246,7 @@ component ControlPanel inherits HorizontalLayout {
                                 changed(value) => {
                                     Store.setting-control.input-audio-gain = self.value;
                                     Logic.set-setting-control(Store.setting-control);
-                                    Logic.input-audio-amplification-changed(self.value);
+                                    Logic.input-audio-gain-changed(self.value);
                                 }
                             }
                         }
@@ -333,7 +333,7 @@ component ControlPanel inherits HorizontalLayout {
                                 changed(value) => {
                                     Store.setting-control.desktop-speaker-gain = self.value;
                                     Logic.set-setting-control(Store.setting-control);
-                                    Logic.desktop-speaker-amplification-changed(self.value);
+                                    Logic.desktop-speaker-gain-changed(self.value);
                                 }
                             }
                         }

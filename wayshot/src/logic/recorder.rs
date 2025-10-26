@@ -247,15 +247,15 @@ fn create_desktop_speaker(ui: &AppWindow) -> Result<()> {
             }
 
             Ok(recorder) => {
-                let amplification = Arc::new(AtomicI32::new(
+                let gain = Arc::new(AtomicI32::new(
                     config::all().control.desktop_speaker_gain as i32,
                 ));
-                let mut recorder = recorder.with_amplification(amplification.clone());
+                let mut recorder = recorder.with_amplification(gain.clone());
 
                 {
                     let mut cache = CACHE.lock().unwrap();
                     cache.desktop_speaker_stop_sig = Some(stop_sig);
-                    cache.desktop_speaker_amplification = Some(amplification);
+                    cache.desktop_speaker_amplification = Some(gain);
                     cache.speaker_device_info = recorder.get_device_info();
                 }
 
@@ -399,21 +399,21 @@ fn choose_save_dir(ui: &AppWindow) {
     });
 }
 
-fn input_audio_amplification_changed(_ui: &AppWindow, v: f32) {
-    let amplification = CACHE.lock().unwrap().input_audio_amplification.clone();
-    if let Some(amplification) = amplification {
-        amplification.store(v as i32, Ordering::Relaxed);
+fn input_audio_gain_changed(_ui: &AppWindow, v: f32) {
+    let gain = CACHE.lock().unwrap().input_audio_gain.clone();
+    if let Some(gain) = gain {
+        gain.store(v as i32, Ordering::Relaxed);
     } else {
-        log::warn!("input audio amplification is None");
+        log::warn!("input audio gian is None");
     }
 }
 
 fn desktop_speaker_amplification_changed(_ui: &AppWindow, v: f32) {
-    let amplification = CACHE.lock().unwrap().desktop_speaker_amplification.clone();
-    if let Some(amplification) = amplification {
-        amplification.store(v as i32, Ordering::Relaxed);
+    let gain = CACHE.lock().unwrap().desktop_speaker_gain.clone();
+    if let Some(gain) = gain {
+        gain.store(v as i32, Ordering::Relaxed);
     } else {
-        log::warn!("desktop speaker amplification is None");
+        log::warn!("desktop speaker gain is None");
     }
 }
 
@@ -472,18 +472,18 @@ fn inner_input_audio_changed(ui: &AppWindow, name: SharedString) -> Result<()> {
         }
     }
 
-    let amplification = Arc::new(AtomicI32::new(
+    let gain = Arc::new(AtomicI32::new(
         config::all().control.input_audio_gain as i32,
     ));
 
-    let recorder = AudioRecorder::new(Some(1024))?.with_amplification(amplification.clone());
+    let recorder = AudioRecorder::new(Some(1024))?.with_amplification(gain.clone());
     let streaming_recorder = StreamingAudioRecorder::start(recorder, &name, PathBuf::new(), true)?;
 
     let receiver = streaming_recorder.get_audio_level_receiver();
 
     {
         let mut cache = CACHE.lock().unwrap();
-        cache.input_audio_amplification = Some(amplification);
+        cache.input_audio_amplification = Some(gain);
         cache.input_streaming_audio_recorder = Some(streaming_recorder);
     }
 
@@ -578,8 +578,7 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
     .with_enable_frame_channel_user(true)
     .with_enable_preview_mode(all_config.recorder.enable_preview)
     .with_enable_denoise(all_config.recorder.enable_denoise)
-    .with_real_time_denoise(all_config.recorder.real_time_denoise)
-    .with_convert_input_wav_to_mono(all_config.recorder.convert_input_wav_to_mono)
+    .with_convert_to_mono(all_config.recorder.convert_to_mono)
     .with_enable_recording_speaker(all_config.control.enable_desktop_speaker)
     .with_include_cursor(all_config.recorder.include_cursor)
     .with_remove_cache_files(all_config.recorder.remove_temporary_files)
@@ -679,7 +678,6 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
         let all_config = config::all();
 
         if all_config.recorder.enable_denoise
-            && !all_config.recorder.real_time_denoise
             && global_store!(ui).get_denoise_status() != UIDenoiseStatus::Cancelled
         {
             global_store!(ui).set_denoise_status(UIDenoiseStatus::Finished);
@@ -707,7 +705,7 @@ fn stop_recording(ui: &AppWindow) {
     }
 
     let all_config = config::all();
-    if all_config.recorder.enable_denoise && !all_config.recorder.real_time_denoise {
+    if all_config.recorder.enable_denoise {
         global_store!(ui).set_record_status(UIRecordStatus::Denoising);
     } else {
         global_store!(ui).set_record_status(UIRecordStatus::Mergeing);

@@ -44,7 +44,7 @@ pub struct SpeakerRecorder {
 
     level_sender: Option<Sender<f32>>,
     frame_sender: Option<Sender<Vec<f32>>>,
-    amplification: Option<Arc<AtomicI32>>, // db
+    gain: Option<Arc<AtomicI32>>, // db
 }
 
 impl SpeakerRecorder {
@@ -67,7 +67,7 @@ impl SpeakerRecorder {
             level_sender: None,
             frame_sender: None,
 
-            amplification: None,
+            gain: None,
             device_info: None,
         };
 
@@ -95,7 +95,7 @@ impl SpeakerRecorder {
             &stream,
             self.frame_sender.clone(),
             self.level_sender.clone(),
-            self.amplification.clone(),
+            self.gain.clone(),
         )?;
         Self::stream_connect(&stream, node_id)?;
 
@@ -219,7 +219,7 @@ impl SpeakerRecorder {
         stream: &StreamBox,
         frame_sender: Option<Sender<Vec<f32>>>,
         level_sender: Option<Sender<f32>>,
-        amplification: Option<Arc<AtomicI32>>,
+        gain: Option<Arc<AtomicI32>>,
     ) -> Result<StreamListener<()>, SpeakerError> {
         let stream_listener = stream
             .add_local_listener::<()>()
@@ -246,16 +246,13 @@ impl SpeakerRecorder {
                         )
                     };
 
-                    let mut f32_sample_amplification = Vec::with_capacity(f32_samples.len());
-                    let f32_samples = if let Some(ref amplification) = amplification {
-                        f32_sample_amplification.extend_from_slice(f32_samples);
+                    let mut f32_sample_gain = Vec::with_capacity(f32_samples.len());
+                    let f32_samples = if let Some(ref gain) = gain {
+                        f32_sample_gain.extend_from_slice(f32_samples);
 
-                        apply_gain(
-                            &mut f32_sample_amplification,
-                            amplification.load(Ordering::Relaxed) as f32,
-                        );
+                        apply_gain(&mut f32_sample_gain, gain.load(Ordering::Relaxed) as f32);
 
-                        &f32_sample_amplification[..]
+                        &f32_sample_gain[..]
                     } else {
                         f32_samples
                     };

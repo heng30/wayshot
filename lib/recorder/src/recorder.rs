@@ -4,6 +4,7 @@ use crate::{
 };
 use capture::{Capture, CaptureIterConfig, capture_output_iter};
 use crossbeam::channel::{Receiver, Sender, bounded};
+use derive_setters::Setters;
 use fast_image_resize::images::Image;
 use image::{ImageBuffer, Rgb, Rgba, buffer::ConvertBuffer};
 use once_cell::sync::Lazy;
@@ -25,6 +26,9 @@ const ENCODER_WORKER_CHANNEL_SIZE: usize = 128;
 
 static CAPTURE_MEAN_TIME: Lazy<Mutex<Option<Duration>>> = Lazy::new(|| Mutex::new(None));
 
+#[derive(Setters)]
+#[setters(prefix = "with_")]
+#[setters(generate = false)]
 pub struct RecordingSession {
     config: RecorderConfig,
     stop_sig: Arc<AtomicBool>,
@@ -33,11 +37,13 @@ pub struct RecordingSession {
     frame_receiver: Receiver<Frame>,
     capture_workers: Vec<JoinHandle<()>>,
 
+    #[setters(generate)]
     frame_sender_user: Option<Sender<FrameUser>>,
-    frame_receiver_user: Option<Receiver<FrameUser>>,
 
     audio_recorder: Option<AudioRecorder>,
-    speaker_level_receiver_user: Option<Receiver<f32>>,
+    audio_level_receiver: Option<Receiver<f32>>,
+
+    speaker_level_receiver: Option<Receiver<f32>>,
     speaker_recorder_worker: Option<JoinHandle<Result<(), RecorderError>>>,
 
     // statistic
@@ -66,13 +72,6 @@ impl RecordingSession {
     pub fn new(config: RecorderConfig) -> Self {
         let (frame_sender, frame_receiver) = bounded(ENCODER_WORKER_CHANNEL_SIZE);
 
-        let (frame_sender_user, frame_receiver_user) = if config.enable_frame_channel_user {
-            let (tx, rx) = bounded(USER_CHANNEL_SIZE);
-            (Some(tx), Some(rx))
-        } else {
-            (None, None)
-        };
-
         Self {
             config,
 
@@ -80,17 +79,17 @@ impl RecordingSession {
             total_frame_count: Arc::new(AtomicU64::new(0)),
             loss_frame_count: Arc::new(AtomicU64::new(0)),
 
+            frame_sender_user: None,
             frame_sender: Some(frame_sender),
             frame_receiver,
-            frame_sender_user,
-            frame_receiver_user,
 
             stop_sig: Arc::new(AtomicBool::new(false)),
             capture_workers: vec![],
 
             audio_recorder: None,
+            audio_level_receiver: None,
 
-            speaker_level_receiver_user: None,
+            speaker_level_receiver: None,
             speaker_recorder_worker: None,
         }
     }
@@ -218,32 +217,30 @@ impl RecordingSession {
 
     /// Enable audio recording with specified device
     fn enable_audio(&mut self, device_name: &str) -> Result<(), RecorderError> {
-        let audio_recorder = AudioRecorder::new(if self.config.enable_audio_channel_user {
-            Some(USER_CHANNEL_SIZE)
+        let (sender, receiver) = if self.config.enable_audio_level_channel {
+            let (tx, rx) = bounded(USER_CHANNEL_SIZE);
+            (Some(tx), Some(rx))
         } else {
-            None
-        })
-        .map_err(|e: AudioError| RecorderError::AudioError(e.to_string()))?;
-
-        let mut audio_recorder = if self.config.audio_amplification.is_some() {
-            audio_recorder
-                .with_amplification(self.config.audio_amplification.clone().unwrap())
-                .with_real_time_denoise(self.config.enable_denoise && self.config.real_time_denoise)
-        } else {
-            audio_recorder
+            (None, None)
         };
+
+        let mut audio_recorder = AudioRecorder::new()
+            .with_level_sender(sender)
+            .with_gain(self.config.audio_gain.clone())
+            .with_enable_denoise(self.config.enable_denoise);
 
         audio_recorder
             .start_recording(device_name)
             .map_err(|e: AudioError| RecorderError::AudioError(e.to_string()))?;
 
         self.audio_recorder = Some(audio_recorder);
+        self.audio_level_receiver = receiver;
 
         Ok(())
     }
 
     fn enable_speaker_audio(&mut self) -> Result<(), RecorderError> {
-        let (sender, receiver) = if self.config.enable_speaker_channel_user {
+        let (sender, receiver) = if self.config.enable_speaker_level_channel {
             let (tx, rx) = bounded(USER_CHANNEL_SIZE);
             (Some(tx), Some(rx))
         } else {
@@ -251,12 +248,12 @@ impl RecordingSession {
         };
 
         let stop_sig = self.stop_sig.clone();
-        let amplification = self.config.speaker_amplification.clone();
+        let gain = self.config.speaker_gain.clone();
         let handle = thread::spawn(move || {
             let recorder = SpeakerRecorder::new(stop_sig)
                 .map_err(|e| RecorderError::SpeakerError(e.to_string()))?
                 .with_level_sender(sender)
-                .with_amplification(amplification);
+                .with_gain(gain);
 
             recorder
                 .start_recording()
@@ -265,7 +262,7 @@ impl RecordingSession {
         });
 
         self.speaker_recorder_worker = Some(handle);
-        self.speaker_level_receiver_user = receiver;
+        self.speaker_level_receiver = receiver;
 
         Ok(())
     }
@@ -348,7 +345,7 @@ impl RecordingSession {
         encoder: Option<VideoEncoder>,
     ) -> Result<(), RecorderError> {
         if let Some(audio_recorder) = self.audio_recorder.take() {
-            drop(audio_recorder);
+            audio_recorder.stop();
         }
 
         if let Some(speaker_recorder_handle) = self.speaker_recorder_worker.take()
@@ -493,20 +490,12 @@ impl RecordingSession {
         self.stop_sig.clone()
     }
 
-    pub fn get_frame_receiver_user(&self) -> Option<Receiver<FrameUser>> {
-        self.frame_receiver_user.clone()
-    }
-
-    pub fn get_audio_level_receiver_user(&self) -> Option<Arc<Receiver<f32>>> {
-        if let Some(ref recorder) = self.audio_recorder {
-            recorder.get_audio_level_receiver()
-        } else {
-            None
-        }
+    pub fn get_audio_level_receiver(&self) -> Option<Receiver<f32>> {
+        self.audio_level_receiver.clone()
     }
 
     pub fn get_speaker_level_receiver_user(&self) -> Option<Receiver<f32>> {
-        self.speaker_level_receiver_user.clone()
+        self.speaker_level_receiver.clone()
     }
 
     fn evaluate_need_threads(&self) -> u32 {

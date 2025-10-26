@@ -1,4 +1,17 @@
-import { Store, SettingPreference, TabIndex, SettingDetailIndex, MobileSettingDetailIndex, PopupIndex, MobileTabIndex, SettingBackup, SettingRecorder, SettingControl, Fps, Resolution } from "store.slint";
+import {
+    Store,
+    SettingPreference,
+    TabIndex,
+    SettingDetailIndex,
+    MobileSettingDetailIndex,
+    PopupIndex,
+    MobileTabIndex,
+    SettingBackup,
+    SettingRecorder,
+    SettingControl,
+    Fps,
+    Resolution,
+} from "store.slint";
 
 import { SideBarEntry } from "base/def.slint";
 
@@ -78,8 +91,8 @@ export global Logic {
     callback update-sources(setting: SettingControl);
     callback choose-save-dir();
     callback input-audio-changed(name: string, show-toast: bool);
-    callback input-audio-amplification-changed(value: float);
-    callback desktop-speaker-amplification-changed(value: float);
+    callback input-audio-gain-changed(value: float);
+    callback desktop-speaker-gain-changed(value: float);
     callback refresh-desktop-speaker(show-toast: bool);
     callback start-recording();
     callback stop-recording();

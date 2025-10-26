@@ -1,6 +1,6 @@
 use recorder::AudioRecorder;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let recorder = AudioRecorder::new(None)?;
+    let recorder = AudioRecorder::new();
 
     println!("\nAvailable Audio Devices:");
     println!("------------------------");

@@ -1,6 +1,24 @@
-import { Store, Logic, Theme, DeviceType, Icons, SettingRecorder } from "../../def.slint";
+import {
+    Store,
+    Logic,
+    Theme,
+    DeviceType,
+    Icons,
+    SettingRecorder,
+} from "../../def.slint";
 import { Fps, Resolution } from "../../../store.slint";
-import { SettingDetail, SettingDetailInner, RadioBtn, SettingDetailInnerVbox, SettingDetailLabel, LineInput, ConfirmBtn, Label, SettingDetailSwitch, Select } from "../../../base/widgets.slint";
+import {
+    SettingDetail,
+    SettingDetailInner,
+    RadioBtn,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+    ConfirmBtn,
+    Label,
+    SettingDetailSwitch,
+    Select,
+} from "../../../base/widgets.slint";
 
 export component Recorder inherits SettingDetail {
     callback confirmed();
@@ -11,7 +29,7 @@ export component Recorder inherits SettingDetail {
     private property <bool> enable-preview;
     private property <bool> enable-denoise;
     private property <bool> real-time-denoise;
-    private property <bool> convert-input-wav-to-mono;
+    private property <bool> convert-to-mono;
     private property <Fps> fps;
     private property <Resolution> resolution;
 
@@ -27,7 +45,7 @@ export component Recorder inherits SettingDetail {
             enable-preview: root.enable-preview,
             enable-denoise: root.enable-denoise,
             real-time-denoise: root.real-time-denoise,
-            convert-input-wav-to-mono: root.convert-input-wav-to-mono,
+            convert-to-mono: root.convert-to-mono,
             fps: root.fps,
             resolution: root.resolution,
         };
@@ -40,7 +58,7 @@ export component Recorder inherits SettingDetail {
         root.enable-preview = setting.enable-preview;
         root.enable-denoise = setting.enable-denoise;
         root.real-time-denoise = setting.real-time-denoise;
-        root.convert-input-wav-to-mono = setting.convert-input-wav-to-mono;
+        root.convert-to-mono = setting.convert-to-mono;
         root.fps = setting.fps;
         root.resolution = setting.resolution;
     }
@@ -123,10 +141,10 @@ export component Recorder inherits SettingDetail {
             SettingDetailSwitch {
                 icon: Icons.audio-light;
                 text: self.checked ? Logic.tr("Convert the microphone audio to mono") : Logic.tr("Don't convert the microphone audio to mono");
-                checked: root.convert-input-wav-to-mono;
+                checked: root.convert-to-mono;
 
                 toggled => {
-                    root.convert-input-wav-to-mono = self.checked;
+                    root.convert-to-mono = self.checked;
                     Logic.set-setting-recorder(root.get());
                 }
             }
