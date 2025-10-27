@@ -57,6 +57,8 @@ pub struct RecordingSession {
     mp4_writer_worker: Option<JoinHandle<()>>,
     h264_frame_sender: Option<Sender<VideoFrameType>>,
 
+    video_encoder: Option<VideoEncoder>,
+
     // statistic
     start_time: Instant,
     total_frame_count: Arc<AtomicU64>,
@@ -104,6 +106,8 @@ impl RecordingSession {
             mp4_writer_worker: None,
             h264_frame_sender: None,
 
+            video_encoder: None,
+
             start_time: std::time::Instant::now(),
             total_frame_count: Arc::new(AtomicU64::new(0)),
             loss_frame_count: Arc::new(AtomicU64::new(0)),
@@ -118,19 +122,23 @@ impl RecordingSession {
 
         log::info!("capture thread counts: {thread_counts}");
 
-        let frame_iterval_ms = self.config.frame_interval_ms();
-        let fps_per_thread = self.config.fps.to_u32() as f64 / thread_counts as f64;
-
-        let config = CaptureIterConfig {
-            name: self.config.screen_name.clone(),
-            include_cursor: self.config.include_cursor,
-            fps: Some(fps_per_thread),
-            cancel_sig: self.stop_sig.clone(),
-        };
-
         self.start_time = std::time::Instant::now();
 
-        let (audio_sender, speaker_sender) = self.mp4_worker()?;
+        let (encoder_width, encoder_height) = self.config.resolution.dimensions(
+            self.config.screen_size.width as u32,
+            self.config.screen_size.height as u32,
+        );
+        let mut video_encoder = VideoEncoder::new(encoder_width, encoder_height, self.config.fps)?;
+        let headers_data = video_encoder.headers()?.entirety().to_vec();
+        self.video_encoder = Some(video_encoder);
+
+        let (audio_sender, speaker_sender) = self.mp4_worker(headers_data.clone())?;
+
+        if let Some(ref sender) = self.h264_frame_sender {
+            if let Err(e) = sender.try_send(VideoFrameType::Frame(headers_data)) {
+                log::warn!("Try send h264 header frames faield: {e}");
+            }
+        }
 
         if let Some(device_name) = self.config.audio_device_name.clone() {
             self.enable_audio(device_name.as_str(), audio_sender)?;
@@ -140,6 +148,15 @@ impl RecordingSession {
         if self.config.enable_recording_speaker {
             self.enable_speaker_audio(speaker_sender)?;
             log::info!("Enable speaker recording successfully");
+        };
+
+        let frame_iterval_ms = self.config.frame_interval_ms();
+        let fps_per_thread = self.config.fps.to_u32() as f64 / thread_counts as f64;
+        let config = CaptureIterConfig {
+            name: self.config.screen_name.clone(),
+            include_cursor: self.config.include_cursor,
+            fps: Some(fps_per_thread),
+            cancel_sig: self.stop_sig.clone(),
         };
 
         for i in 0..thread_counts {
@@ -173,29 +190,20 @@ impl RecordingSession {
         Ok(())
     }
 
-    pub fn wait(self) -> Result<ProgressState, RecorderError> {
+    pub fn wait(mut self) -> Result<ProgressState, RecorderError> {
         let (encoder_sender, encoder_receiver) = bounded(ENCODER_WORKER_CHANNEL_SIZE);
         let resize_handle = Self::resize_worker(&self, encoder_sender);
-
-        let (width, height) = self.config.resolution.dimensions(
-            self.config.screen_size.width as u32,
-            self.config.screen_size.height as u32,
-        );
-        let mut video_encoder = VideoEncoder::new(width, height, self.config.fps)?;
-
-        if let Some(ref sender) = self.h264_frame_sender {
-            let headers = video_encoder.headers()?;
-            let headers_data = headers.entirety().to_vec();
-            if let Err(e) = sender.try_send(VideoFrameType::Frame(headers_data)) {
-                log::warn!("Try send h264 header frames faield: {e}");
-            }
-        }
 
         loop {
             match encoder_receiver.recv() {
                 Ok((total_frame_index, img)) => {
                     let now = std::time::Instant::now();
-                    match video_encoder.encode_frame(img.into()) {
+                    match self
+                        .video_encoder
+                        .as_mut()
+                        .unwrap()
+                        .encode_frame(img.into())
+                    {
                         Ok(EncodedFrame::Frame((_, encoded_frame))) => {
                             log::debug!(
                                 "total encoded frame[{total_frame_index}] {} bytes",
@@ -224,7 +232,7 @@ impl RecordingSession {
                 _ => {
                     log::info!("encoder receiver channel exit...");
                     self.stop();
-                    self.wait_stop(resize_handle, video_encoder)?;
+                    self.wait_stop(resize_handle)?;
                     break;
                 }
             }
@@ -357,6 +365,7 @@ impl RecordingSession {
 
     fn mp4_worker(
         &mut self,
+        video_encoder_header_data: Vec<u8>,
     ) -> Result<(Option<Sender<Vec<f32>>>, Option<Sender<Vec<f32>>>), RecorderError> {
         let mut specs = vec![];
         if let Some(ref device_name) = self.config.audio_device_name {
@@ -447,7 +456,7 @@ impl RecordingSession {
 
         self.h264_frame_sender = Some(mp4_processor.h264_sender());
         let handle = thread::spawn(move || {
-            if let Err(e) = mp4_processor.run_processing_loop(None) {
+            if let Err(e) = mp4_processor.run_processing_loop(Some(video_encoder_header_data)) {
                 log::warn!("MP4 processing error: {}", e);
             }
         });
@@ -456,11 +465,7 @@ impl RecordingSession {
         Ok((audio_sender, speak_sender))
     }
 
-    fn wait_stop(
-        mut self,
-        resize_handle: JoinHandle<()>,
-        encoder: VideoEncoder,
-    ) -> Result<(), RecorderError> {
+    fn wait_stop(mut self, resize_handle: JoinHandle<()>) -> Result<(), RecorderError> {
         if let Some(audio_recorder) = self.audio_recorder.take() {
             audio_recorder.stop();
             log::info!("audio recorder exit...");
@@ -488,7 +493,7 @@ impl RecordingSession {
             log::info!("join resize thread successfully");
         }
 
-        match encoder.flush() {
+        match self.video_encoder.take().unwrap().flush() {
             Ok(mut flush) => {
                 while let Some(result) = flush.next() {
                     match result {
