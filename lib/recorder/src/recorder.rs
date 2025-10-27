@@ -447,7 +447,7 @@ impl RecordingSession {
 
         self.h264_frame_sender = Some(mp4_processor.h264_sender());
         let handle = thread::spawn(move || {
-            if let Err(e) = mp4_processor.run_processing_loop() {
+            if let Err(e) = mp4_processor.run_processing_loop(None) {
                 log::warn!("MP4 processing error: {}", e);
             }
         });

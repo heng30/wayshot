@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     log::debug!("Recording for exactly 5 seconds...");
 
-    let audio_recorder = AudioRecorder::new(None)?;
+    let audio_recorder = AudioRecorder::new();
     let Some(default_input) = audio_recorder.get_default_input_device()? else {
         panic!("No default input device found");
     };
@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut session = RecordingSession::new(config);
 
-    let stop_sig = session.stop_sig().clone();
+    let stop_sig = session.get_stop_sig().clone();
 
     // Start a timer thread that stops recording after 5 seconds
     thread::spawn(move || {
@@ -53,10 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     session.start()?;
-    session.wait(None::<Box<dyn FnMut(f32)>>, move |v| {
-        let v = (v * 100.0) as u32;
-        log::debug!("combine tracks progress: {v}%");
-    })?;
+    session.wait()?;
 
     log::debug!("Recording completed successfully!");
 

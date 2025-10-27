@@ -58,13 +58,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         spec: *spec,
     })?;
 
-    // Start processing in a separate thread
-    let processor_thread = thread::spawn(move || {
-        if let Err(e) = processor.run_processing_loop() {
-            log::warn!("MP4 processing error: {}", e);
-        }
-    });
-
     // Process audio samples if available
     if let Some(spec) = audio_spec {
         log::debug!(
@@ -75,8 +68,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         // Use AAC-friendly frame size (1024 samples per channel)
-        // let aac_frame_size = 1024; // AAC typically uses 1024 samples per frame
-        let aac_frame_size = 1124 * 3; // AAC typically uses 1024 samples per frame
+        let aac_frame_size = 1024; // AAC typically uses 1024 samples per frame
+        // let aac_frame_size = 1124 * 3; // AAC typically uses 1024 samples per frame
         let samples_per_frame = aac_frame_size * spec.channels as usize;
 
         log::debug!(
@@ -108,9 +101,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Generate and send video frames
     let mut h264_encoder = VideoEncoder::new(width, height, fps)?;
     let headers_data = h264_encoder.headers()?.entirety().to_vec();
-    if let Err(e) = video_sender.send(VideoFrameType::Frame(headers_data)) {
-        panic!("video sender h264 header failed: {e}");
-    }
+
+    // Start processing in a separate thread with headers data
+    let processor_thread = thread::spawn(move || {
+        if let Err(e) = processor.run_processing_loop(Some(headers_data)) {
+            log::warn!("MP4 processing error: {}", e);
+        }
+    });
 
     for frame_num in 0..total_frames {
         let img = match (frame_num / fps.to_u32()) % 3 {

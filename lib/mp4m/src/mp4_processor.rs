@@ -1,13 +1,28 @@
 use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_builder::Builder;
 use fdk_aac::enc::{BitRate, ChannelMode, Encoder, EncoderParams, Transport};
+use h264_reader::{
+    annexb::AnnexBReader,
+    nal::{Nal, RefNal, UnitType},
+    push::NalInterest,
+};
 use hound::WavSpec;
 use mp4::{
     AacConfig, AvcConfig, ChannelConfig, Mp4Config, Mp4Sample, Mp4Writer, SampleFreqIndex,
     TrackConfig, TrackType,
 };
-use std::{fs::File, io::BufWriter, path::PathBuf};
+use std::{
+    fs::File,
+    io::{BufWriter, Read},
+    path::PathBuf,
+};
 use thiserror::Error;
+
+const DEFAULT_PPS: [u8; 6] = [0x68, 0xeb, 0xe3, 0xcb, 0x22, 0xc0];
+const DEFAULT_SPS: [u8; 25] = [
+    0x67, 0x64, 0x00, 0x1e, 0xac, 0xd9, 0x40, 0xa0, 0x2f, 0xf9, 0x70, 0x11, 0x00, 0x00, 0x03, 0x03,
+    0xe9, 0x00, 0x00, 0xea, 0x60, 0x0f, 0x16, 0x2d, 0x96,
+];
 
 pub enum VideoFrameType {
     Frame(Vec<u8>),
@@ -221,18 +236,72 @@ impl Mp4Processor {
             .map_err(|e| Mp4ProcessorError::Mp4(e.to_string()))
     }
 
+    fn extract_sps_pps_from_headers(
+        &self,
+        headers_data: &[u8],
+    ) -> Result<(Vec<u8>, Vec<u8>), Mp4ProcessorError> {
+        let mut sps = None;
+        let mut pps = None;
+
+        let mut reader = AnnexBReader::accumulate(|nal: RefNal<'_>| {
+            let nal_unit_type = nal.header().unwrap().nal_unit_type();
+
+            // Read all data from the NAL unit
+            let mut reader = nal.reader();
+            let mut data = Vec::new();
+            if let Ok(_) = reader.read_to_end(&mut data) {
+                match nal_unit_type {
+                    UnitType::SeqParameterSet => {
+                        sps = Some(data);
+                    }
+                    UnitType::PicParameterSet => {
+                        pps = Some(data);
+                    }
+                    _ => {}
+                }
+            }
+
+            NalInterest::Buffer
+        });
+
+        reader.push(headers_data);
+        reader.reset();
+
+        match (sps, pps) {
+            (Some(sps_data), Some(pps_data)) => {
+                log::info!(
+                    "Successfully extracted SPS ({} bytes) and PPS ({} bytes) from headers",
+                    sps_data.len(),
+                    pps_data.len()
+                );
+                log::debug!(
+                    "SPS first 10 bytes: {:02x?}",
+                    &sps_data[..sps_data.len().min(10)]
+                );
+                log::debug!(
+                    "PPS first 10 bytes: {:02x?}",
+                    &pps_data[..pps_data.len().min(10)]
+                );
+                Ok((sps_data, pps_data))
+            }
+            _ => {
+                log::warn!("Failed to extract SPS/PPS from headers, using fallback");
+                Ok((DEFAULT_SPS.to_vec(), DEFAULT_PPS.to_vec()))
+            }
+        }
+    }
+
     fn setup_video_track(
         &self,
         mp4_writer: &mut Mp4Writer<BufWriter<File>>,
         video_config: &VideoConfig,
+        headers_data: Option<&[u8]>,
     ) -> Result<(), Mp4ProcessorError> {
-        // Setup video track with minimal SPS/PPS for H.264
-        // These are basic parameters that should work for most cases
-        let sps = vec![
-            0x67, 0x64, 0x00, 0x1e, 0xac, 0xd9, 0x40, 0xa0, 0x2f, 0xf9, 0x70, 0x11, 0x00, 0x00,
-            0x03, 0x03, 0xe9, 0x00, 0x00, 0xea, 0x60, 0x0f, 0x16, 0x2d, 0x96,
-        ];
-        let pps = vec![0x68, 0xeb, 0xe3, 0xcb, 0x22, 0xc0];
+        let (sps, pps) = if let Some(headers) = headers_data {
+            self.extract_sps_pps_from_headers(headers)?
+        } else {
+            (DEFAULT_SPS.to_vec(), DEFAULT_PPS.to_vec())
+        };
 
         let video_track_config = TrackConfig {
             track_type: TrackType::Video,
@@ -318,9 +387,16 @@ impl Mp4Processor {
         Ok(audio_track_ids)
     }
 
-    pub fn run_processing_loop(&mut self) -> Result<(), Mp4ProcessorError> {
+    pub fn run_processing_loop(
+        &mut self,
+        headers_data: Option<Vec<u8>>,
+    ) -> Result<(), Mp4ProcessorError> {
         let mut mp4_writer = self.setup_mp4_writer()?;
-        self.setup_video_track(&mut mp4_writer, &self.config.video_config)?;
+        self.setup_video_track(
+            &mut mp4_writer,
+            &self.config.video_config,
+            headers_data.as_deref(),
+        )?;
         let audio_track_ids = self.setup_audio_tracks(&mut mp4_writer)?;
 
         let mut video_timestamp = 0u64;
@@ -398,7 +474,7 @@ impl Mp4Processor {
 
             match self.encode_samples_to_aac(track_index, chunk) {
                 Ok(aac_data) => {
-                    log::info!("aac_data len: {} bytes", aac_data.len());
+                    // log::info!("aac_data len: {} bytes", aac_data.len());
 
                     let samples_per_channel = chunk.len() / channels;
 
@@ -459,11 +535,11 @@ impl Mp4Processor {
     ) {
         for track_index in 0..self.audio_buffer_cache.len() {
             if !self.audio_buffer_cache[track_index].is_empty() {
-                log::info!(
-                    "Flushing cached audio data for track {}: {} samples",
-                    track_index,
-                    self.audio_buffer_cache[track_index].len()
-                );
+                // log::info!(
+                //     "Flushing cached audio data for track {}: {} samples",
+                //     track_index,
+                //     self.audio_buffer_cache[track_index].len()
+                // );
 
                 // Process the remaining cached data
                 let cached_data = std::mem::take(&mut self.audio_buffer_cache[track_index]);

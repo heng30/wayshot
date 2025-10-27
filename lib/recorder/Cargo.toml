@@ -26,6 +26,7 @@ once_cell.workspace = true
 spin_sleep.workspace = true
 nnnoiseless.workspace = true
 derive_setters.workspace = true
+yuv = { workspace = true, features = ["rayon"] }
 fast_image_resize = { workspace = true, features = ["rayon"] }
 
 # ffmpeg-sidecar.workspace = true
