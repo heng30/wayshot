@@ -244,6 +244,7 @@ impl Mp4Processor {
         let mut sps = None;
         let mut pps = None;
 
+        // Try to parse as Annex B format first
         let mut reader = AnnexBReader::accumulate(|nal: RefNal<'_>| {
             let nal_unit_type = nal.header().unwrap().nal_unit_type();
 
@@ -267,6 +268,44 @@ impl Mp4Processor {
 
         reader.push(headers_data);
         reader.reset();
+
+        // If Annex B parsing failed, try length-prefixed format
+        if sps.is_none() || pps.is_none() {
+            // log::debug!("Annex B parsing failed, trying length-prefixed format");
+            let mut i = 0;
+            while i + 4 <= headers_data.len() {
+                // Read NAL unit length (big-endian)
+                let nal_length = ((headers_data[i] as u32) << 24)
+                    | ((headers_data[i + 1] as u32) << 16)
+                    | ((headers_data[i + 2] as u32) << 8)
+                    | (headers_data[i + 3] as u32);
+
+                if i + 4 + nal_length as usize > headers_data.len() {
+                    break;
+                }
+
+                let nal_start = i + 4;
+                let nal_end = nal_start + nal_length as usize;
+                let nal_data = &headers_data[nal_start..nal_end];
+
+                if nal_data.len() > 0 {
+                    let nal_unit_type = nal_data[0] & 0x1F;
+                    match nal_unit_type {
+                        7 => {
+                            // SPS
+                            sps = Some(nal_data.to_vec());
+                        }
+                        8 => {
+                            // PPS
+                            pps = Some(nal_data.to_vec());
+                        }
+                        _ => {}
+                    }
+                }
+
+                i += 4 + nal_length as usize;
+            }
+        }
 
         match (sps, pps) {
             (Some(sps_data), Some(pps_data)) => {
@@ -432,11 +471,14 @@ impl Mp4Processor {
         // Calculate duration in 90kHz timescale units (90000 / fps)
         let duration = VIDEO_TIMESCALE / self.config.video_config.fps;
 
+        // Detect if this is a keyframe (I-frame) by checking for SPS/PPS or start code
+        let is_sync = self.is_keyframe(&data);
+
         let sample = Mp4Sample {
             start_time: *video_timestamp,
             duration,
             rendering_offset: 0,
-            is_sync: true, // Assume all H.264 frames are sync points
+            is_sync, // Only mark keyframes as sync points
             bytes: data.into(),
         };
 
@@ -445,6 +487,38 @@ impl Mp4Processor {
         }
 
         *video_timestamp += duration as u64;
+    }
+
+    fn is_keyframe(&self, data: &[u8]) -> bool {
+        // Since we're using length-prefixed NAL units (not Annex B),
+        // we need to parse the NAL units differently
+        let mut i = 0;
+        while i + 4 <= data.len() {
+            // Read NAL unit length (big-endian)
+            let nal_length = ((data[i] as u32) << 24)
+                | ((data[i + 1] as u32) << 16)
+                | ((data[i + 2] as u32) << 8)
+                | (data[i + 3] as u32);
+
+            if i + 4 + nal_length as usize > data.len() {
+                break;
+            }
+
+            let nal_start = i + 4;
+            let nal_end = nal_start + nal_length as usize;
+            let nal_data = &data[nal_start..nal_end];
+
+            if nal_data.len() > 0 {
+                let nal_unit_type = nal_data[0] & 0x1F;
+                // NAL unit types: 5 = IDR frame, 7 = SPS, 8 = PPS
+                if nal_unit_type == 5 || nal_unit_type == 7 || nal_unit_type == 8 {
+                    return true;
+                }
+            }
+
+            i += 4 + nal_length as usize;
+        }
+        false
     }
 
     fn process_audio_frame(

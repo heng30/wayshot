@@ -51,6 +51,10 @@ impl VideoEncoder {
             true, // zero_latency: Minimal internal buffering
         )
         .fps(fps.to_u32(), 1)
+        .max_keyframe_interval(fps.to_u32() as i32 * 2) // Insert keyframe every 2 seconds for better seeking
+        .min_keyframe_interval(fps.to_u32() as i32) // Minimum keyframe interval
+        .scenecut_threshold(0) // Disable scene detection to guarantee keyframes at max interval
+        .annexb(false) // Disable Annex B start codes for MP4 compatibility
         .high() // Use High profile for best browser compatibility
         .build(Colorspace::I420, width as i32, height as i32)
         .map_err(|e| {
