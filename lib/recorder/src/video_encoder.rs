@@ -44,16 +44,14 @@ impl VideoEncoder {
     pub fn new(width: u32, height: u32, fps: FPS) -> Result<Self, RecorderError> {
         assert!(width > 0 && height > 0);
 
-        // Create x264 encoder with optimized settings for screen recording
-        // Using ultrafast preset with stillimage tune for minimal memory usage
         let encoder = Setup::preset(
-            Preset::Ultrafast, // Minimal memory usage and fastest encoding
-            Tune::StillImage,  // Optimized for screen content (static images)
-            true,              // fast_decode: Enable fast decoding
-            true,              // zero_latency: Minimal internal buffering
+            Preset::Superfast,
+            Tune::StillImage,
+            true, // fast_decode: Enable fast decoding
+            true, // zero_latency: Minimal internal buffering
         )
         .fps(fps.to_u32(), 1)
-        .baseline()
+        .high() // Use High profile for best browser compatibility
         .build(Colorspace::I420, width as i32, height as i32)
         .map_err(|e| {
             RecorderError::VideoEncodingFailed(format!("Failed to create x264 encoder: {:?}", e))

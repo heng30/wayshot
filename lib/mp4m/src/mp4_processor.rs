@@ -18,6 +18,7 @@ use std::{
 };
 use thiserror::Error;
 
+const VIDEO_TIMESCALE: u32 = 90000; // Standard video timescale (90kHz) for better compatibility
 const DEFAULT_PPS: [u8; 6] = [0x68, 0xeb, 0xe3, 0xcb, 0x22, 0xc0];
 const DEFAULT_SPS: [u8; 25] = [
     0x67, 0x64, 0x00, 0x1e, 0xac, 0xd9, 0x40, 0xa0, 0x2f, 0xf9, 0x70, 0x11, 0x00, 0x00, 0x03, 0x03,
@@ -219,7 +220,7 @@ impl Mp4Processor {
         })?;
         let writer = BufWriter::new(file);
 
-        // Create MP4 configuration
+        // Create MP4 configuration with better browser compatibility
         let mp4_config = Mp4Config {
             major_brand: str::parse("isom").unwrap(),
             minor_version: 512,
@@ -229,7 +230,7 @@ impl Mp4Processor {
                 str::parse("avc1").unwrap(),
                 str::parse("mp41").unwrap(),
             ],
-            timescale: 1000, // 1ms units
+            timescale: VIDEO_TIMESCALE,
         };
 
         Mp4Writer::write_start(writer, &mp4_config)
@@ -305,7 +306,7 @@ impl Mp4Processor {
 
         let video_track_config = TrackConfig {
             track_type: TrackType::Video,
-            timescale: video_config.fps, // Use fps as timescale for video
+            timescale: VIDEO_TIMESCALE,
             language: "und".to_string(),
             media_conf: mp4::MediaConfig::AvcConfig(AvcConfig {
                 width: video_config.width as u16,
@@ -426,9 +427,14 @@ impl Mp4Processor {
     ) {
         self.total_video_frames += 1;
 
+        const VIDEO_TIMESCALE: u32 = 90000;
+
+        // Calculate duration in 90kHz timescale units (90000 / fps)
+        let duration = VIDEO_TIMESCALE / self.config.video_config.fps;
+
         let sample = Mp4Sample {
             start_time: *video_timestamp,
-            duration: 1,
+            duration,
             rendering_offset: 0,
             is_sync: true, // Assume all H.264 frames are sync points
             bytes: data.into(),
@@ -438,7 +444,7 @@ impl Mp4Processor {
             log::warn!("Write video sample failed: {e}");
         }
 
-        *video_timestamp += 1;
+        *video_timestamp += duration as u64;
     }
 
     fn process_audio_frame(
