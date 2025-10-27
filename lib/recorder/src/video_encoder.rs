@@ -22,26 +22,13 @@ pub struct VideoEncoder {
     width: u32,
     height: u32,
     frame_index: u64,
+    annexb: bool,
     encoder: Encoder,
     fps: FPS,
 }
 
 impl VideoEncoder {
-    pub fn encoder(&mut self) -> &mut Encoder {
-        &mut self.encoder
-    }
-
-    pub fn headers(&mut self) -> Result<Data<'_>, RecorderError> {
-        self.encoder.headers().map_err(|e| {
-            RecorderError::VideoEncodingFailed(format!("Failed to get encoder headers: {:?}", e))
-        })
-    }
-
-    pub fn flush(self) -> Result<x264::Flush, RecorderError> {
-        Ok(self.encoder.flush())
-    }
-
-    pub fn new(width: u32, height: u32, fps: FPS) -> Result<Self, RecorderError> {
+    pub fn new(width: u32, height: u32, fps: FPS, annexb: bool) -> Result<Self, RecorderError> {
         assert!(width > 0 && height > 0);
 
         let encoder = Setup::preset(
@@ -54,7 +41,7 @@ impl VideoEncoder {
         .max_keyframe_interval(fps.to_u32() as i32 * 2) // Insert keyframe every 2 seconds for better seeking
         .min_keyframe_interval(fps.to_u32() as i32) // Minimum keyframe interval
         .scenecut_threshold(0) // Disable scene detection to guarantee keyframes at max interval
-        .annexb(false) // Disable Annex B start codes for MP4 compatibility
+        .annexb(annexb) // Disable Annex B start codes for MP4 compatibility
         .high() // Use High profile for best browser compatibility
         .build(Colorspace::I420, width as i32, height as i32)
         .map_err(|e| {
@@ -65,6 +52,7 @@ impl VideoEncoder {
             encoder,
             width,
             height,
+            annexb,
             frame_index: 0,
             fps,
         })
@@ -125,6 +113,24 @@ impl VideoEncoder {
         self.frame_index += 1;
 
         Ok(encoded_frame)
+    }
+
+    pub fn encoder(&mut self) -> &mut Encoder {
+        &mut self.encoder
+    }
+
+    pub fn headers(&mut self) -> Result<Data<'_>, RecorderError> {
+        self.encoder.headers().map_err(|e| {
+            RecorderError::VideoEncodingFailed(format!("Failed to get encoder headers: {:?}", e))
+        })
+    }
+
+    pub fn flush(self) -> Result<x264::Flush, RecorderError> {
+        Ok(self.encoder.flush())
+    }
+
+    pub fn annexb(&self) -> bool {
+        self.annexb
     }
 }
 

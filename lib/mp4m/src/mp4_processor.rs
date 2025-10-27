@@ -271,7 +271,7 @@ impl Mp4Processor {
 
         // If Annex B parsing failed, try length-prefixed format
         if sps.is_none() || pps.is_none() {
-            // log::debug!("Annex B parsing failed, trying length-prefixed format");
+            log::debug!("Annex B parsing failed, trying length-prefixed format");
             let mut i = 0;
             while i + 4 <= headers_data.len() {
                 // Read NAL unit length (big-endian)
@@ -291,14 +291,8 @@ impl Mp4Processor {
                 if nal_data.len() > 0 {
                     let nal_unit_type = nal_data[0] & 0x1F;
                     match nal_unit_type {
-                        7 => {
-                            // SPS
-                            sps = Some(nal_data.to_vec());
-                        }
-                        8 => {
-                            // PPS
-                            pps = Some(nal_data.to_vec());
-                        }
+                        7 => sps = Some(nal_data.to_vec()),
+                        8 => pps = Some(nal_data.to_vec()),
                         _ => {}
                     }
                 }

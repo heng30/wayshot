@@ -128,11 +128,17 @@ impl RecordingSession {
             self.config.screen_size.width as u32,
             self.config.screen_size.height as u32,
         );
-        let mut video_encoder = VideoEncoder::new(encoder_width, encoder_height, self.config.fps)?;
+        let mut video_encoder =
+            VideoEncoder::new(encoder_width, encoder_height, self.config.fps, false)?;
         let headers_data = video_encoder.headers()?.entirety().to_vec();
-        self.video_encoder = Some(video_encoder);
 
-        let (audio_sender, speaker_sender) = self.mp4_worker(headers_data.clone())?;
+        let (audio_sender, speaker_sender) = self.mp4_worker(if video_encoder.annexb() {
+            Some(headers_data.clone())
+        } else {
+            None
+        })?;
+
+        self.video_encoder = Some(video_encoder);
 
         if let Some(ref sender) = self.h264_frame_sender {
             if let Err(e) = sender.try_send(VideoFrameType::Frame(headers_data)) {
@@ -350,7 +356,7 @@ impl RecordingSession {
                             }
                             Err(e) => log::warn!("resize frame failed: {e}"),
                         }
-                        log::debug!("resize image spent: {:.2?}", resize_now.elapsed());
+                        log::debug!("resize frame spent: {:.2?}", resize_now.elapsed());
                     }
                     _ => {
                         log::info!("resize forward thread exit");
@@ -365,9 +371,11 @@ impl RecordingSession {
 
     fn mp4_worker(
         &mut self,
-        video_encoder_header_data: Vec<u8>,
+        video_encoder_header_data: Option<Vec<u8>>,
     ) -> Result<(Option<Sender<Vec<f32>>>, Option<Sender<Vec<f32>>>), RecorderError> {
         let mut specs = vec![];
+        let (mut audio_sender, mut speak_sender) = (None, None);
+
         if let Some(ref device_name) = self.config.audio_device_name {
             specs.push(AudioRecorder::new().spec(device_name)?);
         }
@@ -376,14 +384,18 @@ impl RecordingSession {
             specs.push(SpeakerRecorder::spec());
         }
 
-        let (mut audio_sender, mut speak_sender) = (None, None);
+        let (encoder_width, encoder_height) = self.config.resolution.dimensions(
+            self.config.screen_size.width as u32,
+            self.config.screen_size.height as u32,
+        );
+
         let mut mp4_processor = Mp4Processor::new(
             Mp4ProcessorConfigBuilder::default()
                 .save_path(self.config.save_path.clone())
                 .channel_size(AUDIO_MIXER_CHANNEL_SIZE)
                 .video_config(VideoConfig {
-                    width: self.config.screen_size.width as u32,
-                    height: self.config.screen_size.height as u32,
+                    width: encoder_width,
+                    height: encoder_height,
                     fps: self.config.fps.to_u32(),
                 })
                 .build()?,
@@ -456,7 +468,7 @@ impl RecordingSession {
 
         self.h264_frame_sender = Some(mp4_processor.h264_sender());
         let handle = thread::spawn(move || {
-            if let Err(e) = mp4_processor.run_processing_loop(Some(video_encoder_header_data)) {
+            if let Err(e) = mp4_processor.run_processing_loop(video_encoder_header_data) {
                 log::warn!("MP4 processing error: {}", e);
             }
         });
@@ -580,13 +592,10 @@ impl RecordingSession {
             let (original_width, original_height) =
                 (frame.cb_data.data.width, frame.cb_data.data.height);
 
-            let now = std::time::Instant::now();
             let img = Self::resize_image(
                 frame.cb_data.data,
                 resolution.dimensions(original_width, original_height),
             )?;
-
-            log::debug!("resize image time: {:.2?}", now.elapsed());
 
             img
         };

@@ -99,12 +99,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Generate and send video frames
-    let mut h264_encoder = VideoEncoder::new(width, height, fps)?;
-    let headers_data = h264_encoder.headers()?.entirety().to_vec();
+    let mut h264_encoder = VideoEncoder::new(width, height, fps, false)?;
+    let headers_data = if h264_encoder.annexb() {
+        Some(h264_encoder.headers()?.entirety().to_vec())
+    } else {
+        None
+    };
 
     // Start processing in a separate thread with headers data
     let processor_thread = thread::spawn(move || {
-        if let Err(e) = processor.run_processing_loop(Some(headers_data)) {
+        if let Err(e) = processor.run_processing_loop(headers_data) {
             log::warn!("MP4 processing error: {}", e);
         }
     });
