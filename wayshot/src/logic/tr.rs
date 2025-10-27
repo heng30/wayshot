@@ -241,14 +241,13 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Welcome to use wayshot", "欢迎使用Wayshot"),
             ("screen recording tool for wayland", "Wayland录屏工具"),
             ("Finished Mergeing Tracks", "完成合并轨道"),
-            ("Disabled microphone noise reduction", "已禁用麦克风降噪"),
-            ("Enabled microphone noise reduction", "已启用麦克风降噪"),
-            ("Post-processing noise reduction", "后处理降噪"),
-            ("Real-time noise reduction", "实时降噪"),
             ("create desktop speaker recorder failed", "创建桌面扬声器录制器失败"),
             ("start desktop speaker recorder failed", "启动桌面扬声器录制器失败"),
-            ("Convert the microphone audio to mono", "将麦克风音频转换为单声道"),
             ("Don't convert the microphone audio to mono", "不要将麦克风音频转换为单声道"),
+            ("Convert audio to mono", "将音频转换为单声道"),
+            ("Disabled noise reduction", "禁用降噪功能"),
+            ("Don't convert audio to mono", "不要将音频转换为单声道"),
+            ("Enabled noise reduction", "启用降噪功能"),
         ])
     })
 }

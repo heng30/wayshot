@@ -247,9 +247,19 @@ impl RecordingSession {
                     }
 
                     log::debug!(
-                        "frame encoding time: {:.2?}. encoder receiver channel remained: {}\n",
+                        "frame encoding time: {:.2?}. encoder channel remained: {}. h264 channel remained: {}.\n",
                         now.elapsed(),
                         encoder_receiver.capacity().unwrap_or_default() - encoder_receiver.len(),
+                        if self.h264_frame_sender.is_some() {
+                            self.h264_frame_sender
+                                .as_ref()
+                                .unwrap()
+                                .capacity()
+                                .unwrap_or_default()
+                                - self.h264_frame_sender.as_ref().unwrap().len()
+                        } else {
+                            0
+                        }
                     );
                 }
                 _ => {
