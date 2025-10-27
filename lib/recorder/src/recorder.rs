@@ -15,6 +15,7 @@ use mp4m::{
 use once_cell::sync::Lazy;
 use spin_sleep::SpinSleeper;
 use std::{
+    path::PathBuf,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -115,6 +116,22 @@ impl RecordingSession {
     }
 
     pub fn start(&mut self) -> Result<(), RecorderError> {
+        if !self
+            .config
+            .save_path
+            .parent()
+            .ok_or(RecorderError::InvalidConfig(format!(
+                "No parent directory found: {}",
+                self.config.save_path.display()
+            )))?
+            .exists()
+        {
+            return Err(RecorderError::InvalidConfig(format!(
+                "Save directory no found: {}",
+                self.config.save_path.parent().unwrap().display()
+            )));
+        }
+
         let thread_counts = self.evaluate_need_threads();
         if thread_counts == 0 {
             return Err(RecorderError::Other(format!("capture thread counts is 0")));
@@ -653,6 +670,10 @@ impl RecordingSession {
             })?;
 
         Ok(img.convert())
+    }
+
+    pub fn save_path(&self) -> PathBuf {
+        self.config.save_path.clone()
     }
 
     pub fn stop(&self) {

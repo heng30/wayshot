@@ -1,13 +1,21 @@
 import { ListView } from "std-widgets.slint";
 import { Theme, Store, Logic, Util, Icons, PopupIndex } from "../def.slint";
-import { Dialog, NoDataImg, Label, SettingDetailLabel, IconBtn, RadioBtn, CenterLayout } from "../../base/widgets.slint";
+import {
+    Dialog,
+    NoDataImg,
+    Label,
+    SettingDetailLabel,
+    IconBtn,
+    RadioBtn,
+    CenterLayout,
+} from "../../base/widgets.slint";
 
 export component SourcesDialog inherits Dialog {
     title: Logic.tr("Select Sources");
     is-prevent-event-forward: true;
 
     private property <string> selected-screen: Store.setting-control.screen;
-    private property <string> selected-microphone: Store.setting-control.input-audio;
+    private property <string> selected-audio: Store.setting-control.audio;
 
     init => {
         Logic.init-sources-dialog();
@@ -51,7 +59,7 @@ export component SourcesDialog inherits Dialog {
 
                     ta1 := TouchArea {
                         clicked => {
-                            root.selected-microphone = item;
+                            root.selected-audio = item;
                         }
                     }
 
@@ -61,9 +69,9 @@ export component SourcesDialog inherits Dialog {
                         alignment: start;
 
                         RadioBtn {
-                            checked: root.selected-microphone == item;
+                            checked: root.selected-audio == item;
                             check => {
-                                root.selected-microphone = item;
+                                root.selected-audio = item;
                             }
                         }
 
@@ -135,20 +143,20 @@ export component SourcesDialog inherits Dialog {
 
     confirmed => {
         let is-screen-changed = root.selected-screen != Store.setting-control.screen;
-        let is-micrphone-changed = root.selected-microphone != Store.setting-control.input-audio;
+        let is-audio-changed = root.selected-audio != Store.setting-control.audio;
 
-        if (is-micrphone-changed) {
-            Store.setting-control.input-audio = root.selected-microphone;
+        if (is-audio-changed) {
+            Store.setting-control.audio = root.selected-audio;
         }
         if (is-screen-changed) {
             Store.setting-control.screen = root.selected-screen;
         }
-        if (is-micrphone-changed || is-screen-changed) {
+        if (is-audio-changed || is-screen-changed) {
             Logic.set-setting-control(Store.setting-control);
             Logic.update-sources(Store.setting-control);
         }
-        if (is-micrphone-changed) {
-            Logic.input-audio-changed(Store.setting-control.input-audio, true);
+        if (is-audio-changed) {
+            Logic.audio-changed(Store.setting-control.audio, true);
         }
         Logic.switch-popup(PopupIndex.None);
     }

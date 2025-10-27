@@ -29,25 +29,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = RecorderConfig::new(
         screen_infos[0].name.clone(),
         screen_infos[0].logical_size.clone(),
-        RecorderConfig::make_filename("target"),
+        RecorderConfig::make_filename("/tmp"),
     )
     .with_enable_recording_speaker(true)
-    // .with_audio_device_name(Some(default_input.name))
+    .with_audio_device_name(Some(default_input.name))
+    .with_resolution(recorder::Resolution::Original((
+        screen_infos[0].logical_size.width as u32,
+        screen_infos[0].logical_size.height as u32,
+    )))
     .with_fps(FPS::Fps30);
-    // .with_resolution(recorder::Resolution::Original((
-    //     screen_infos[0].logical_size.width as u32,
-    //     screen_infos[0].logical_size.height as u32,
-    // )));
 
     log::debug!("Recording configuration: {:#?}", config);
 
     let mut session = RecordingSession::new(config);
 
     let stop_sig = session.get_stop_sig().clone();
-
-    // Start a timer thread that stops recording after 5 seconds
     thread::spawn(move || {
-        thread::sleep(Duration::from_secs(3600));
+        thread::sleep(Duration::from_secs(600));
         log::debug!("5 seconds elapsed, stopping recording...");
         stop_sig.store(true, Ordering::Relaxed);
     });

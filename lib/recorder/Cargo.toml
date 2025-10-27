@@ -29,8 +29,6 @@ derive_setters.workspace = true
 yuv = { workspace = true, features = ["rayon"] }
 fast_image_resize = { workspace = true, features = ["rayon"] }
 
-# ffmpeg-sidecar.workspace = true
-
 [dev-dependencies]
 ctrlc.workspace = true
 env_logger.workspace = true

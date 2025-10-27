@@ -88,16 +88,17 @@ export global Logic {
     callback set-setting-control(setting: SettingControl);
 
     callback init-sources-dialog();
-    callback update-sources(setting: SettingControl);
     callback choose-save-dir();
-    callback input-audio-changed(name: string, show-toast: bool);
-    callback input-audio-gain-changed(value: float);
-    callback desktop-speaker-gain-changed(value: float);
-    callback refresh-desktop-speaker(show-toast: bool);
+    callback update-sources(setting: SettingControl);
+
+    callback audio-changed(name: string, show-toast: bool);
+    callback audio-gain-changed(value: float);
+
+    callback refresh-speaker(show-toast: bool);
+    callback speaker-gain-changed(value: float);
+
     callback start-recording();
     callback stop-recording();
-    callback stop-merge-tracks();
-    callback stop-denoise();
 
     pure public function fps-to-int(fps: Fps) -> int {
         if (fps == Fps.Fps24) {

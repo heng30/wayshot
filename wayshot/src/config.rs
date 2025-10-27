@@ -120,13 +120,9 @@ pub struct Preference {
 #[from("UISettingRecorder")]
 pub struct Recorder {
     pub save_dir: String,
-    pub remove_temporary_files: bool,
 
     #[derivative(Default(value = "true"))]
     pub include_cursor: bool,
-
-    #[derivative(Default(value = "true"))]
-    pub enable_preview: bool,
 
     pub enable_denoise: bool,
 
@@ -147,21 +143,21 @@ crate::impl_slint_enum_serde!(UIResolution, Original, P720, P1080, P2K, P4K);
 #[from("UISettingControl")]
 pub struct Control {
     pub screen: String,
-    pub input_audio: String,
+    pub audio: String,
 
     // db
     #[derivative(Default(value = "0.0"))]
-    pub input_audio_gain: f32,
+    pub audio_gain: f32,
 
     #[derivative(Default(value = "true"))]
-    pub enable_input_audio: bool,
+    pub enable_audio: bool,
 
     // db
     #[derivative(Default(value = "0.0"))]
-    pub desktop_speaker_gain: f32,
+    pub speaker_gain: f32,
 
     #[derivative(Default(value = "true"))]
-    pub enable_desktop_speaker: bool,
+    pub enable_speaker: bool,
 }
 
 impl Config {

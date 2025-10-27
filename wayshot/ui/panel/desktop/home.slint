@@ -1,6 +1,6 @@
 import { ListView } from "std-widgets.slint";
 import { Theme, Icons, Util, Logic, Store, PopupIndex } from "../def.slint";
-import { RecordStatus, SourceType, MergeTrackStatus } from "../../store.slint";
+import { RecordStatus, SourceType } from "../../store.slint";
 import {
     Link,
     Slider,
@@ -125,23 +125,18 @@ component ControlPanel inherits HorizontalLayout {
 
     private property <int> record-duration: 0;
     property <length> slider-width: Theme.default-height * 0.25;
-    in-out property <length> inner-height;
 
     Timer {
         interval: 1s;
-        running: Store.record-status == RecordStatus.Recording || Store.record-status == RecordStatus.Mergeing || Store.record-status == RecordStatus.Denoising;
+        running: Store.record-status == RecordStatus.Recording;
 
         triggered() => {
             record-duration += 1;
         }
     }
 
-    if Store.record-status == RecordStatus.Stopped || Store.record-status == RecordStatus.Recording: HorizontalLayout {
+    HorizontalLayout {
         spacing: Theme.spacing * 4;
-
-        init => {
-            root.inner-height = max(root.inner-height, self.preferred-height);
-        }
 
         SettingDetailInnerVbox {
             horizontal-stretch: 1;
@@ -198,7 +193,7 @@ component ControlPanel inherits HorizontalLayout {
 
             Label {
                 text: Logic.tr("Microphone");
-                color: input-audio-slider.enabled ? Theme.primary-text-color : Theme.disabled-color;
+                color: audio-slider.enabled ? Theme.primary-text-color : Theme.disabled-color;
             }
 
             VerticalLayout {
@@ -206,8 +201,8 @@ component ControlPanel inherits HorizontalLayout {
 
                 AudioLevel {
                     width: is-hbox.preferred-width;
-                    db: Store.input-audio-db;
-                    enable: Store.setting-control.enable-input-audio;
+                    db: Store.audio-db;
+                    enable: Store.setting-control.enable-audio;
                 }
 
                 is-hbox := HorizontalLayout {
@@ -217,14 +212,14 @@ component ControlPanel inherits HorizontalLayout {
                         alignment: center;
 
                         IconBtn {
-                            icon: Store.setting-control.enable-input-audio ? Icons.sound-on-fill : Icons.sound-off-fill;
+                            icon: Store.setting-control.enable-audio ? Icons.sound-on-fill : Icons.sound-off-fill;
                             icon-size: Theme.icon-size * 3 / 4;
                             show-icon-hover-background: false;
                             enabled-toucharea: Store.record-status == RecordStatus.Stopped;
-                            colorize: Store.setting-control.enable-input-audio && Store.record-status == RecordStatus.Stopped ? Theme.icon-color : Theme.disabled-color;
+                            colorize: Store.setting-control.enable-audio && Store.record-status == RecordStatus.Stopped ? Theme.icon-color : Theme.disabled-color;
 
                             clicked => {
-                                Store.setting-control.enable-input-audio = !Store.setting-control.enable-input-audio;
+                                Store.setting-control.enable-audio = !Store.setting-control.enable-audio;
                                 Logic.set-setting-control(Store.setting-control);
                             }
                         }
@@ -234,19 +229,19 @@ component ControlPanel inherits HorizontalLayout {
                         VerticalLayout {
                             alignment: center;
 
-                            input-audio-slider := Slider {
-                                value: Store.setting-control.input-audio-gain;
+                            audio-slider := Slider {
+                                value: Store.setting-control.audio-gain;
                                 minimum: -20;
                                 maximum: 20;
                                 indicator-size: self.has-hover ? Theme.icon-size * 2 / 3 : 0;
                                 height: Theme.icon-size / 3;
                                 width: root.slider-width;
-                                enabled: Store.setting-control.enable-input-audio && Store.record-status == RecordStatus.Stopped;
+                                enabled: Store.setting-control.enable-audio && Store.record-status == RecordStatus.Stopped;
 
                                 changed(value) => {
-                                    Store.setting-control.input-audio-gain = self.value;
+                                    Store.setting-control.audio-gain = self.value;
                                     Logic.set-setting-control(Store.setting-control);
-                                    Logic.input-audio-gain-changed(self.value);
+                                    Logic.audio-gain-changed(self.value);
                                 }
                             }
                         }
@@ -257,8 +252,8 @@ component ControlPanel inherits HorizontalLayout {
                             Label {
                                 horizontal-alignment: right;
                                 width: self.font-size * 3;
-                                text: input-audio-slider.value.to-fixed(0) + "db";
-                                color: input-audio-slider.enabled ? Theme.primary-text-color : Theme.disabled-color;
+                                text: audio-slider.value.to-fixed(0) + "db";
+                                color: audio-slider.enabled ? Theme.primary-text-color : Theme.disabled-color;
                             }
                         }
                     }
@@ -274,16 +269,16 @@ component ControlPanel inherits HorizontalLayout {
 
                 Label {
                     text: Logic.tr("Desktop");
-                    color: desktop-speaker-slider.enabled ? Theme.primary-text-color : Theme.disabled-color;
+                    color: speaker-slider.enabled ? Theme.primary-text-color : Theme.disabled-color;
                 }
 
                 IconBtn {
                     icon: Icons.refresh-fill;
                     icon-size: Theme.icon-size;
-                    colorize: desktop-speaker-slider.enabled ? Theme.icon-color : Theme.disabled-color;
+                    colorize: speaker-slider.enabled ? Theme.icon-color : Theme.disabled-color;
 
                     clicked => {
-                        Logic.refresh-desktop-speaker(true);
+                        Logic.refresh-speaker(true);
                     }
                 }
             }
@@ -294,7 +289,7 @@ component ControlPanel inherits HorizontalLayout {
                 AudioLevel {
                     width: ds-hbox.preferred-width;
                     db: Store.speaker-audio-db;
-                    enable: Store.setting-control.enable-desktop-speaker;
+                    enable: Store.setting-control.enable-speaker;
                 }
 
                 ds-hbox := HorizontalLayout {
@@ -304,14 +299,14 @@ component ControlPanel inherits HorizontalLayout {
                         alignment: center;
 
                         IconBtn {
-                            icon: Store.setting-control.enable-desktop-speaker ? Icons.sound-on-fill : Icons.sound-off-fill;
+                            icon: Store.setting-control.enable-speaker ? Icons.sound-on-fill : Icons.sound-off-fill;
                             icon-size: Theme.icon-size * 3 / 4;
                             show-icon-hover-background: false;
                             enabled-toucharea: Store.record-status == RecordStatus.Stopped;
-                            colorize: Store.setting-control.enable-desktop-speaker && Store.record-status == RecordStatus.Stopped ? Theme.icon-color : Theme.disabled-color;
+                            colorize: Store.setting-control.enable-speaker && Store.record-status == RecordStatus.Stopped ? Theme.icon-color : Theme.disabled-color;
 
                             clicked => {
-                                Store.setting-control.enable-desktop-speaker = !Store.setting-control.enable-desktop-speaker;
+                                Store.setting-control.enable-speaker = !Store.setting-control.enable-speaker;
                                 Logic.set-setting-control(Store.setting-control);
                             }
                         }
@@ -320,20 +315,20 @@ component ControlPanel inherits HorizontalLayout {
                     HorizontalLayout {
                         VerticalLayout {
                             alignment: center;
-                            desktop-speaker-slider := Slider {
-                                value: Store.setting-control.desktop-speaker-gain;
+                            speaker-slider := Slider {
+                                value: Store.setting-control.speaker-gain;
                                 minimum: -20;
                                 maximum: 20;
                                 indicator-size: self.has-hover ? Theme.icon-size * 2 / 3 : 0;
                                 width: root.slider-width;
 
                                 height: Theme.icon-size / 3;
-                                enabled: Store.setting-control.enable-desktop-speaker && Store.record-status == RecordStatus.Stopped;
+                                enabled: Store.setting-control.enable-speaker && Store.record-status == RecordStatus.Stopped;
 
                                 changed(value) => {
-                                    Store.setting-control.desktop-speaker-gain = self.value;
+                                    Store.setting-control.speaker-gain = self.value;
                                     Logic.set-setting-control(Store.setting-control);
-                                    Logic.desktop-speaker-gain-changed(self.value);
+                                    Logic.speaker-gain-changed(self.value);
                                 }
                             }
                         }
@@ -344,8 +339,8 @@ component ControlPanel inherits HorizontalLayout {
                             Label {
                                 horizontal-alignment: right;
                                 width: self.font-size * 3;
-                                text: desktop-speaker-slider.value.to-fixed(0) + "db";
-                                color: desktop-speaker-slider.enabled ? Theme.primary-text-color : Theme.disabled-color;
+                                text: speaker-slider.value.to-fixed(0) + "db";
+                                color: speaker-slider.enabled ? Theme.primary-text-color : Theme.disabled-color;
                             }
                         }
                     }
@@ -397,135 +392,20 @@ component ControlPanel inherits HorizontalLayout {
             }
         }
     }
-
-    if Store.record-status == RecordStatus.Denoising:  SettingDetailInnerVbox {
-        init => {
-            root.inner-height = max(root.inner-height, self.preferred-height);
-        }
-
-        HorizontalLayout {
-            spacing: Theme.spacing * 4;
-
-            VerticalLayout {
-                alignment: center;
-
-                ProgressBar {
-                    height: Theme.icon-size * 1.5;
-                    progress: clamp(Store.denoise-progress, 0, 1);
-                    unfinished-text: Logic.tr("Denoising") + " " + self.calc-percent(self.progress) + "%";
-                    finished-text: Logic.tr("Finished Denoising");
-                }
-            }
-
-            VerticalLayout {
-                alignment: center;
-                padding: Theme.padding * 4;
-
-                HorizontalLayout {
-                    alignment: center;
-                    spacing: Theme.spacing * 2;
-
-                    init => {
-                        record-duration = 0;
-                    }
-
-                    Label {
-                        text: Util.seconds-to-media-timestamp(root.record-duration);
-                    }
-
-                    ElevatedBtn {
-                        background: self.has-hover ? Theme.warning-color.darker(30%) : Theme.warning-color;
-                        icon: Icons.stop-light;
-                        colorize: Theme.light-text-color;
-
-                        clicked => {
-                            Logic.stop-denoise();
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if Store.record-status == RecordStatus.Mergeing:  SettingDetailInnerVbox {
-        init => {
-            root.inner-height = max(root.inner-height, self.preferred-height);
-        }
-
-        HorizontalLayout {
-            spacing: Theme.spacing * 4;
-
-            VerticalLayout {
-                alignment: center;
-
-                ProgressBar {
-                    height: Theme.icon-size * 1.5;
-                    progress: clamp(Store.merge-tracks-progress, 0, 1);
-                    unfinished-text: Logic.tr("Merging Tracks") + " " + self.calc-percent(self.progress) + "%";
-                    finished-text: Logic.tr("Finished Mergeing Tracks");
-                }
-            }
-
-            VerticalLayout {
-                alignment: center;
-                padding: Theme.padding * 4;
-
-                HorizontalLayout {
-                    alignment: center;
-                    spacing: Theme.spacing * 2;
-
-                    init => {
-                        record-duration = 0;
-                    }
-
-                    Label {
-                        text: Util.seconds-to-media-timestamp(root.record-duration);
-                    }
-
-                    ElevatedBtn {
-                        background: self.has-hover ? Theme.warning-color.darker(30%) : Theme.warning-color;
-                        icon: Icons.stop-light;
-                        colorize: Theme.light-text-color;
-
-                        clicked => {
-                            Logic.stop-merge-tracks();
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 component Banners inherits VerticalLayout {
     spacing: Theme.spacing;
 
-    if !Store.ffmpeg-is-installed: Banner {
-        Link {
-            color: Theme.light-text-color;
-            is-show-icon: true;
-            text: Logic.tr("No found ffmpeg. Download ffmpeg");
-            font-weight: Theme.bold-font-weight;
-
-            clicked => {
-                Util.open-url("Default", "https://www.ffmpeg.org/download.html");
-            }
-        }
-
-        close => {
-            Store.ffmpeg-is-installed = true;
-        }
-    }
-
-    if Store.merge-tracks-status == MergeTrackStatus.Finished || Store.merge-tracks-status == MergeTrackStatus.Failed: Banner {
-        background: Store.merge-tracks-status == MergeTrackStatus.Finished ? Theme.success-color : Theme.warning-color;
+    if !Store.final-video-path.is-empty: Banner {
+        background: Theme.success-color;
 
         HorizontalLayout {
             spacing: Theme.spacing;
 
             Label {
                 color: Theme.light-text-color;
-                text: Store.merge-tracks-status == MergeTrackStatus.Finished ? (Logic.tr("Merging tracks successfully") + "! " + Logic.tr("Output file") + ": " + Store.final-video-path) : Logic.tr("Merging tracks failed");
+                text: Store.final-video-path;
                 font-weight: Theme.bold-font-weight;
             }
 
@@ -541,7 +421,7 @@ component Banners inherits VerticalLayout {
         }
 
         close => {
-            Store.merge-tracks-status = MergeTrackStatus.None;
+            Store.final-video-path = "";
         }
     }
 }
@@ -551,7 +431,7 @@ export component Home inherits VerticalLayout {
     spacing: Theme.spacing;
 
     private property <length> banner-height;
-    private property <bool> is-show-banners: !Store.ffmpeg-is-installed || Store.merge-tracks-status == MergeTrackStatus.Finished || Store.merge-tracks-status == MergeTrackStatus.Failed;
+    private property <bool> is-show-banners:  !Store.final-video-path.is-empty;
 
     if is-show-banners: Banners {
         init => {
@@ -564,7 +444,7 @@ export component Home inherits VerticalLayout {
     }
 
     PreviewPanel {
-        height: Theme.default-height - cp.inner-height - cp.padding * 2 - parent.padding * 2 - parent.spacing - (Store.setting-preference.no-frame ? Theme.header-height : 0) - (root.is-show-banners ? root.banner-height : 0);
+        height: Theme.default-height - cp.preferred-height - cp.padding * 2 - parent.padding * 2 - parent.spacing - (Store.setting-preference.no-frame ? Theme.header-height : 0) - (root.is-show-banners ? root.banner-height : 0);
     }
 
     cp := ControlPanel { }

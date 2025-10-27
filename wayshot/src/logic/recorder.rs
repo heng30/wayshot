@@ -6,18 +6,15 @@ use crate::{
     },
     logic_cb,
     slint_generatedAppWindow::{
-        AppWindow, DenoiseStatus as UIDenoiseStatus, Fps as UIFps,
-        MergeTrackStatus as UIMergeTrackStatus, RecordStatus as UIRecordStatus,
-        Resolution as UIResolution, SettingControl as UISettingControl, Source as UISource,
-        SourceType,
+        AppWindow, Fps as UIFps, RecordStatus as UIRecordStatus, Resolution as UIResolution,
+        SettingControl as UISettingControl, Source as UISource, SourceType,
     },
     toast_success, toast_warn,
 };
 use anyhow::{Result, bail};
 use once_cell::sync::Lazy;
 use recorder::{
-    AudioRecorder, FPS, RecorderConfig, RecordingSession, Resolution, SpeakerRecorder,
-    StreamingAudioRecorder, bounded,
+    AudioRecorder, FPS, RecorderConfig, RecordingSession, Resolution, SpeakerRecorder, bounded,
 };
 use slint::{
     ComponentHandle, Model, SharedPixelBuffer, SharedString, ToSharedString, VecModel, Weak,
@@ -33,16 +30,13 @@ use std::{
 
 #[derive(Default)]
 struct Cache {
-    desktop_speaker_amplification: Option<Arc<AtomicI32>>,
-    desktop_speaker_stop_sig: Option<Arc<AtomicBool>>,
-
-    input_audio_amplification: Option<Arc<AtomicI32>>,
-    input_streaming_audio_recorder: Option<StreamingAudioRecorder>,
-
     recorder_stop_sig: Option<Arc<AtomicBool>>,
-    denoise_stop_sig: Option<Arc<AtomicBool>>,
-    merge_stop_sig: Option<Arc<AtomicBool>>,
 
+    audio_gain: Option<Arc<AtomicI32>>,
+    audio_recorder: Option<AudioRecorder>,
+
+    speaker_gain: Option<Arc<AtomicI32>>,
+    speaker_stop_sig: Option<Arc<AtomicBool>>,
     speaker_device_info: Option<(u32, String)>,
 }
 
@@ -85,16 +79,17 @@ pub fn init(ui: &AppWindow) {
     inner_init(&ui);
 
     logic_cb!(init_sources_dialog, ui);
-    logic_cb!(update_sources, ui, setting);
     logic_cb!(choose_save_dir, ui);
-    logic_cb!(input_audio_amplification_changed, ui, v);
-    logic_cb!(desktop_speaker_amplification_changed, ui, v);
-    logic_cb!(refresh_desktop_speaker, ui, show_toast);
-    logic_cb!(input_audio_changed, ui, name, show_toast);
+    logic_cb!(update_sources, ui, setting);
+
+    logic_cb!(audio_changed, ui, name, show_toast);
+    logic_cb!(audio_gain_changed, ui, v);
+
+    logic_cb!(refresh_speaker, ui, show_toast);
+    logic_cb!(speaker_gain_changed, ui, v);
+
     logic_cb!(start_recording, ui);
     logic_cb!(stop_recording, ui);
-    logic_cb!(stop_merge_tracks, ui);
-    logic_cb!(stop_denoise, ui);
 }
 
 fn inner_init(ui: &AppWindow) {
@@ -103,22 +98,20 @@ fn inner_init(ui: &AppWindow) {
     store_audio_sources!(ui).set_vec(vec![]);
     store_video_sources!(ui).set_vec(vec![]);
 
-    global_store!(ui).set_ffmpeg_is_installed(recorder::is_ffmpeg_installed());
-
-    if let Err(e) = init_input_audio(&ui) {
+    if let Err(e) = init_audio(&ui) {
         toast_warn!(ui, format!("{e}"));
     }
 
-    init_desktop_speaker(&ui);
+    init_speaker(&ui);
 
     if let Err(e) = init_video(&ui) {
         toast_warn!(ui, format!("{e}"));
     }
 }
 
-fn init_input_audio(ui: &AppWindow) -> Result<()> {
+fn init_audio(ui: &AppWindow) -> Result<()> {
     let mut names = vec![];
-    let recorder = AudioRecorder::new(None)?;
+    let recorder = AudioRecorder::new();
 
     log::info!("Available Audio Devices:");
 
@@ -141,10 +134,10 @@ fn init_input_audio(ui: &AppWindow) -> Result<()> {
     }
 
     let control_config = config::all().control;
-    if control_config.input_audio.is_empty()
+    if control_config.audio.is_empty()
         || names
             .iter()
-            .find(|item| item.as_str() == control_config.input_audio.as_str())
+            .find(|item| item.as_str() == control_config.audio.as_str())
             .is_none()
     {
         if let Some(default_input) = recorder.get_default_input_device()? {
@@ -155,9 +148,9 @@ fn init_input_audio(ui: &AppWindow) -> Result<()> {
             );
 
             let mut control_setting = global_store!(ui).get_setting_control();
-            control_setting.input_audio = default_input.name.into();
-            control_setting.input_audio_gain = 0.0;
-            control_setting.enable_input_audio = true;
+            control_setting.audio = default_input.name.into();
+            control_setting.audio_gain = 0.0;
+            control_setting.enable_audio = true;
             global_store!(ui).set_setting_control(control_setting.clone());
             global_logic!(ui).invoke_set_setting_control(control_setting);
         } else {
@@ -165,28 +158,26 @@ fn init_input_audio(ui: &AppWindow) -> Result<()> {
         }
     }
 
-    let name: SharedString = config::all().control.input_audio.into();
+    let name: SharedString = config::all().control.audio.into();
     store_sources!(ui).push(UISource {
         ty: SourceType::Audio,
         name: name.clone(),
     });
 
-    input_audio_changed(&ui, name, false);
+    audio_changed(&ui, name, false);
 
     Ok(())
 }
 
-fn init_desktop_speaker(ui: &AppWindow) {
+fn init_speaker(ui: &AppWindow) {
     let ui_weak = ui.as_weak();
 
-    if let Err(e) = create_desktop_speaker(ui) {
+    if let Err(e) = create_speaker(ui) {
         log::warn!("{e}");
     }
 
     thread::spawn(move || {
-        let Ok(recorder) =
-            SpeakerRecorder::new(PathBuf::new(), Arc::new(AtomicBool::new(false)), None, true)
-        else {
+        let Ok(recorder) = SpeakerRecorder::new(Arc::new(AtomicBool::new(false))) else {
             log::warn!("init desktop speaker recorder failed");
             return;
         };
@@ -194,7 +185,7 @@ fn init_desktop_speaker(ui: &AppWindow) {
         loop {
             thread::sleep(std::time::Duration::from_secs(5));
 
-            if !config::all().control.enable_desktop_speaker {
+            if !config::all().control.enable_speaker {
                 continue;
             }
 
@@ -204,22 +195,23 @@ fn init_desktop_speaker(ui: &AppWindow) {
                 log::info!("speaker device changed: current speaker deivce info: {device_info:?}");
 
                 _ = ui_weak.clone().upgrade_in_event_loop(move |ui| {
-                    refresh_desktop_speaker(&ui, false);
+                    refresh_speaker(&ui, false);
                 });
             }
         }
     });
 }
 
-fn create_desktop_speaker(ui: &AppWindow) -> Result<()> {
+fn create_speaker(ui: &AppWindow) -> Result<()> {
     let ui_weak = ui.as_weak();
 
     thread::spawn(move || {
-        let (sender, receiver) = bounded(3);
+        let stop_sig = Arc::new(AtomicBool::new(false));
+        let (level_sender, level_receiver) = bounded(16);
 
         let ui_weak_clone = ui_weak.clone();
         thread::spawn(move || {
-            while let Ok(db) = receiver.recv() {
+            while let Ok(db) = level_receiver.recv() {
                 // log::debug!("speaker_level_receiver db level: {db:.0}",);
 
                 _ = ui_weak_clone.upgrade_in_event_loop(move |ui| {
@@ -229,14 +221,7 @@ fn create_desktop_speaker(ui: &AppWindow) -> Result<()> {
             log::info!("exit desktop speaker receiver thread");
         });
 
-        let stop_sig = Arc::new(AtomicBool::new(false));
-
-        match SpeakerRecorder::new(
-            PathBuf::new(),
-            stop_sig.clone(),
-            Some(Arc::new(sender)),
-            true,
-        ) {
+        match SpeakerRecorder::new(stop_sig.clone()) {
             Err(e) => {
                 async_toast_warn(
                     ui_weak.clone(),
@@ -247,15 +232,15 @@ fn create_desktop_speaker(ui: &AppWindow) -> Result<()> {
             }
 
             Ok(recorder) => {
-                let gain = Arc::new(AtomicI32::new(
-                    config::all().control.desktop_speaker_gain as i32,
-                ));
-                let mut recorder = recorder.with_amplification(gain.clone());
+                let gain = Arc::new(AtomicI32::new(config::all().control.speaker_gain as i32));
+                let recorder = recorder
+                    .with_level_sender(Some(level_sender))
+                    .with_gain(Some(gain.clone()));
 
                 {
                     let mut cache = CACHE.lock().unwrap();
-                    cache.desktop_speaker_stop_sig = Some(stop_sig);
-                    cache.desktop_speaker_amplification = Some(gain);
+                    cache.speaker_gain = Some(gain);
+                    cache.speaker_stop_sig = Some(stop_sig);
                     cache.speaker_device_info = recorder.get_device_info();
                 }
 
@@ -334,7 +319,7 @@ fn init_sources_dialog(ui: &AppWindow) {
 
 fn inner_init_sources_dialog(ui: &AppWindow) -> Result<()> {
     let mut names = vec![];
-    let recorder = AudioRecorder::new(None)?;
+    let recorder = AudioRecorder::new();
 
     log::info!("Available Audio Devices:");
 
@@ -376,7 +361,7 @@ fn update_sources(ui: &AppWindow, setting: UISettingControl) {
 
     store_sources!(ui).push(UISource {
         ty: SourceType::Audio,
-        name: setting.input_audio,
+        name: setting.audio,
     });
 
     store_sources!(ui).push(UISource {
@@ -399,8 +384,8 @@ fn choose_save_dir(ui: &AppWindow) {
     });
 }
 
-fn input_audio_gain_changed(_ui: &AppWindow, v: f32) {
-    let gain = CACHE.lock().unwrap().input_audio_gain.clone();
+fn audio_gain_changed(_ui: &AppWindow, v: f32) {
+    let gain = CACHE.lock().unwrap().audio_gain.clone();
     if let Some(gain) = gain {
         gain.store(v as i32, Ordering::Relaxed);
     } else {
@@ -408,23 +393,23 @@ fn input_audio_gain_changed(_ui: &AppWindow, v: f32) {
     }
 }
 
-fn desktop_speaker_amplification_changed(_ui: &AppWindow, v: f32) {
-    let gain = CACHE.lock().unwrap().desktop_speaker_gain.clone();
+fn speaker_gain_changed(_ui: &AppWindow, v: f32) {
+    let gain = CACHE.lock().unwrap().speaker_gain.clone();
     if let Some(gain) = gain {
         gain.store(v as i32, Ordering::Relaxed);
     } else {
-        log::warn!("desktop speaker gain is None");
+        log::warn!("speaker gain is None");
     }
 }
 
-fn refresh_desktop_speaker(ui: &AppWindow, show_toast: bool) {
+fn refresh_speaker(ui: &AppWindow, show_toast: bool) {
     {
-        if let Some(stop_sig) = CACHE.lock().unwrap().desktop_speaker_stop_sig.take() {
+        if let Some(stop_sig) = CACHE.lock().unwrap().speaker_stop_sig.take() {
             stop_sig.store(true, Ordering::Relaxed);
         }
     }
 
-    if let Err(e) = create_desktop_speaker(ui) {
+    if let Err(e) = create_speaker(ui) {
         if show_toast {
             toast_warn!(ui, format!("{e}"));
         } else {
@@ -450,8 +435,8 @@ fn speaker_device_changed(recorder: &SpeakerRecorder, device_info: &Option<(u32,
     true
 }
 
-fn input_audio_changed(ui: &AppWindow, name: SharedString, show_toast: bool) {
-    if let Err(e) = inner_input_audio_changed(ui, name) {
+fn audio_changed(ui: &AppWindow, name: SharedString, show_toast: bool) {
+    if let Err(e) = inner_audio_changed(ui, name) {
         if show_toast {
             toast_warn!(ui, format!("{e}"));
         }
@@ -462,42 +447,40 @@ fn input_audio_changed(ui: &AppWindow, name: SharedString, show_toast: bool) {
     }
 }
 
-fn inner_input_audio_changed(ui: &AppWindow, name: SharedString) -> Result<()> {
+fn inner_audio_changed(ui: &AppWindow, name: SharedString) -> Result<()> {
     {
         let mut cache = CACHE.lock().unwrap();
-        cache.input_audio_amplification.take();
+        cache.audio_gain.take();
 
-        if let Some(recorder) = cache.input_streaming_audio_recorder.take() {
-            _ = recorder.stop();
+        if let Some(recorder) = cache.audio_recorder.take() {
+            recorder.stop();
         }
     }
 
-    let gain = Arc::new(AtomicI32::new(
-        config::all().control.input_audio_gain as i32,
-    ));
+    let gain = Arc::new(AtomicI32::new(config::all().control.audio_gain as i32));
+    let (level_sender, level_receiver) = bounded(16);
 
-    let recorder = AudioRecorder::new(Some(1024))?.with_amplification(gain.clone());
-    let streaming_recorder = StreamingAudioRecorder::start(recorder, &name, PathBuf::new(), true)?;
+    let mut recorder = AudioRecorder::new()
+        .with_gain(Some(gain.clone()))
+        .with_level_sender(Some(level_sender));
 
-    let receiver = streaming_recorder.get_audio_level_receiver();
+    recorder.start_recording(name.as_str())?;
 
     {
         let mut cache = CACHE.lock().unwrap();
-        cache.input_audio_amplification = Some(gain);
-        cache.input_streaming_audio_recorder = Some(streaming_recorder);
+        cache.audio_gain = Some(gain);
+        cache.audio_recorder = Some(recorder);
     }
 
-    if let Some(receiver) = receiver {
-        let ui_weak = ui.as_weak();
-        thread::spawn(move || {
-            while let Ok(db) = receiver.recv() {
-                // log::debug!("input_audio_level_receiver db level: {db:.0}",);
-                _ = ui_weak.upgrade_in_event_loop(move |ui| {
-                    global_store!(ui).set_input_audio_db(db as i32);
-                });
-            }
-        });
-    }
+    let ui_weak = ui.as_weak();
+    thread::spawn(move || {
+        while let Ok(db) = level_receiver.recv() {
+            // log::debug!("audio_level_receiver db level: {db:.0}",);
+            _ = ui_weak.upgrade_in_event_loop(move |ui| {
+                global_store!(ui).set_audio_db(db as i32);
+            });
+        }
+    });
 
     Ok(())
 }
@@ -559,12 +542,11 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
         all_config.recorder.resolution.into()
     };
 
-    let input_audio_name =
-        if all_config.control.input_audio.is_empty() || !all_config.control.enable_input_audio {
-            None
-        } else {
-            Some(all_config.control.input_audio)
-        };
+    let audio_name = if all_config.control.audio.is_empty() || !all_config.control.enable_audio {
+        None
+    } else {
+        Some(all_config.control.audio)
+    };
 
     if !RecordingSession::init_finished() {
         RecordingSession::init(&all_config.control.screen)?;
@@ -575,120 +557,72 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
         screen_info.logical_size.clone(),
         RecorderConfig::make_filename(&all_config.recorder.save_dir),
     )
-    .with_enable_frame_channel_user(true)
-    .with_enable_preview_mode(all_config.recorder.enable_preview)
+    .with_include_cursor(all_config.recorder.include_cursor)
     .with_enable_denoise(all_config.recorder.enable_denoise)
     .with_convert_to_mono(all_config.recorder.convert_to_mono)
-    .with_enable_recording_speaker(all_config.control.enable_desktop_speaker)
-    .with_include_cursor(all_config.recorder.include_cursor)
-    .with_remove_cache_files(all_config.recorder.remove_temporary_files)
-    .with_audio_device_name(input_audio_name)
-    .with_audio_amplification(Arc::new(AtomicI32::new(
-        all_config.control.input_audio_gain as i32,
+    .with_enable_recording_speaker(all_config.control.enable_speaker)
+    .with_audio_device_name(audio_name)
+    .with_audio_gain(Arc::new(AtomicI32::new(
+        all_config.control.audio_gain as i32,
     )))
-    .with_speaker_amplification(Arc::new(AtomicI32::new(
-        all_config.control.desktop_speaker_gain as i32,
+    .with_speaker_gain(Arc::new(AtomicI32::new(
+        all_config.control.speaker_gain as i32,
     )))
     .with_fps(all_config.recorder.fps.clone().into())
     .with_resolution(resolution);
 
     log::info!("Recording configuration: {:#?}", config);
 
-    let mut session = RecordingSession::new(config);
+    let (frame_sender_user, frame_receiver_user) = bounded(16);
+    let mut session = RecordingSession::new(config).with_frame_sender_user(Some(frame_sender_user));
     session.start()?;
 
     _ = ui_weak.upgrade_in_event_loop(move |ui| {
-        global_store!(ui).set_denoise_progress(0.0);
-        global_store!(ui).set_merge_tracks_progress(0.0);
-        global_store!(ui).set_denoise_status(UIDenoiseStatus::None);
-        global_store!(ui).set_merge_tracks_status(UIMergeTrackStatus::None);
+        global_store!(ui).set_final_video_path(SharedString::default());
         global_store!(ui).set_record_status(UIRecordStatus::Recording);
     });
 
-    let stop_sig = session.stop_sig().clone();
-    let stop_sig_merge = session.get_stop_combine_tracks();
-    let stop_sig_denoise = session.get_stop_denoise();
+    let stop_sig = session.get_stop_sig().clone();
     {
         let mut cache = CACHE.lock().unwrap();
         cache.recorder_stop_sig = Some(stop_sig);
-        cache.merge_stop_sig = Some(stop_sig_merge);
-        cache.denoise_stop_sig = Some(stop_sig_denoise);
     }
 
-    let frame_receiver_user = session.get_frame_receiver_user();
     let ui_weak_clone = ui_weak.clone();
     thread::spawn(move || {
-        if let Some(rx) = frame_receiver_user {
-            while let Ok(frame) = rx.recv() {
-                if let Some(ref frame) = frame.frame {
-                    log::debug!(
-                        "frame_receiver_user frame len: {} bytes",
-                        frame.cb_data.data.pixel_data.len()
-                    );
-                }
+        while let Ok(frame) = frame_receiver_user.recv() {
+            log::debug!(
+                "frame_receiver_user frame len: {} bytes",
+                frame.frame.cb_data.data.pixel_data.len()
+            );
 
-                _ = ui_weak_clone.upgrade_in_event_loop(move |ui| {
-                    if let Some(ref frame) = frame.frame {
-                        let buffer = SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(
-                            &frame.cb_data.data.pixel_data,
-                            frame.cb_data.data.width,
-                            frame.cb_data.data.height,
-                        );
-                        let img = slint::Image::from_rgba8(buffer);
-                        global_store!(ui).set_preview_image(img);
-                    }
+            _ = ui_weak_clone.upgrade_in_event_loop(move |ui| {
+                let buffer = SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(
+                    &frame.frame.cb_data.data.pixel_data,
+                    frame.frame.cb_data.data.width,
+                    frame.frame.cb_data.data.height,
+                );
+                let img = slint::Image::from_rgba8(buffer);
+                global_store!(ui).set_preview_image(img);
 
-                    let mut sinfo = global_store!(ui).get_stats_info();
-                    sinfo.fps = frame.stats.fps;
-                    sinfo.total = frame.stats.total_frames as i32;
-                    sinfo.loss =
-                        frame.stats.loss_frames as f32 / frame.stats.total_frames.max(1) as f32;
-                    global_store!(ui).set_stats_info(sinfo);
-                });
-            }
-            log::info!("exit frame_receiver_user");
-        } else {
-            log::info!("frame_receiver_user is none");
+                let mut sinfo = global_store!(ui).get_stats_info();
+                sinfo.fps = frame.stats.fps;
+                sinfo.total = frame.stats.total_frames as i32;
+                sinfo.loss =
+                    frame.stats.loss_frames as f32 / frame.stats.total_frames.max(1) as f32;
+                global_store!(ui).set_stats_info(sinfo);
+            });
         }
+        log::info!("exit frame_receiver_user");
     });
 
-    let ui_weak_denoise_clone = ui_weak.clone();
-    let ui_weak_merge_clone = ui_weak.clone();
-    let final_video_path = session.output_path();
+    let final_video_path = session.save_path();
 
-    session.wait(
-        Some(move |v| {
-            // log::debug!("denoise progress: {}%", (v * 100.0) as u32);
-            _ = ui_weak_denoise_clone.upgrade_in_event_loop(move |ui| {
-                global_store!(ui).set_record_status(UIRecordStatus::Denoising);
-                global_store!(ui).set_denoise_progress(v);
-            });
-        }),
-        move |v| {
-            // log::debug!("combine tracks progress: {}%", (v * 100.0) as u32);
-            _ = ui_weak_merge_clone.upgrade_in_event_loop(move |ui| {
-                global_store!(ui).set_record_status(UIRecordStatus::Mergeing);
-                global_store!(ui).set_merge_tracks_progress(v);
-            });
-        },
-    )?;
+    session.wait()?;
 
     _ = ui_weak.upgrade_in_event_loop(move |ui| {
         global_store!(ui).set_record_status(UIRecordStatus::Stopped);
-        let all_config = config::all();
-
-        if all_config.recorder.enable_denoise
-            && global_store!(ui).get_denoise_status() != UIDenoiseStatus::Cancelled
-        {
-            global_store!(ui).set_denoise_status(UIDenoiseStatus::Finished);
-        }
-
-        if global_store!(ui).get_denoise_status() != UIDenoiseStatus::Cancelled
-            && global_store!(ui).get_merge_tracks_status() != UIMergeTrackStatus::Cancelled
-        {
-            global_store!(ui).set_merge_tracks_status(UIMergeTrackStatus::Finished);
-            global_store!(ui).set_final_video_path(final_video_path.display().to_shared_string());
-        }
+        global_store!(ui).set_final_video_path(final_video_path.display().to_shared_string());
     });
 
     log::info!("Recording completed successfully!");
@@ -704,36 +638,7 @@ fn stop_recording(ui: &AppWindow) {
         log::warn!("recorder_stop_sig is None");
     }
 
-    let all_config = config::all();
-    if all_config.recorder.enable_denoise {
-        global_store!(ui).set_record_status(UIRecordStatus::Denoising);
-    } else {
-        global_store!(ui).set_record_status(UIRecordStatus::Mergeing);
-    }
-}
-
-fn stop_denoise(ui: &AppWindow) {
-    let stop_sig = CACHE.lock().unwrap().denoise_stop_sig.take();
-    if let Some(sig) = stop_sig {
-        sig.store(true, Ordering::Relaxed);
-    } else {
-        log::warn!("denoise_stop_sig is None");
-    }
-
     global_store!(ui).set_record_status(UIRecordStatus::Stopped);
-    global_store!(ui).set_denoise_status(UIDenoiseStatus::Cancelled);
-}
-
-fn stop_merge_tracks(ui: &AppWindow) {
-    let stop_sig = CACHE.lock().unwrap().merge_stop_sig.take();
-    if let Some(sig) = stop_sig {
-        sig.store(true, Ordering::Relaxed);
-    } else {
-        log::warn!("merge_stop_sig is None");
-    }
-
-    global_store!(ui).set_record_status(UIRecordStatus::Stopped);
-    global_store!(ui).set_merge_tracks_status(UIMergeTrackStatus::Cancelled);
 }
 
 pub fn picker_directory(ui: Weak<AppWindow>, title: &str, filename: &str) -> Option<PathBuf> {

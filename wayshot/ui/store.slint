@@ -74,12 +74,9 @@ export enum Resolution {
 }
 
 export struct SettingRecorder {
-    remove-temporary-files: bool,
     save-dir: string,
     include-cursor: bool,
-    enable-preview: bool,
     enable-denoise: bool,
-    real-time-denoise: bool,
     convert-to-mono: bool,
     fps: Fps,
     resolution: Resolution,
@@ -88,12 +85,12 @@ export struct SettingRecorder {
 export struct SettingControl {
     screen: string,
 
-    input-audio: string,
-    input-audio-gain: float,
-    enable-input-audio: bool,
+    audio: string,
+    audio-gain: float,
+    enable-audio: bool,
 
-    desktop-speaker-gain: float,
-    enable-desktop-speaker: bool,
+    speaker-gain: float,
+    enable-speaker: bool,
  }
 
 export struct StatsInfo {
@@ -105,8 +102,6 @@ export struct StatsInfo {
 export enum RecordStatus{
     Stopped,
     Recording,
-    Denoising,
-    Mergeing,
 }
 
 export enum SourceType {
@@ -117,20 +112,6 @@ export enum SourceType {
 export struct Source{
     ty: SourceType,
     name: string,
-}
-
-export enum MergeTrackStatus {
-    None,
-    Finished,
-    Failed,
-    Cancelled,
-}
-
-export enum DenoiseStatus {
-    None,
-    Finished,
-    Failed,
-    Cancelled,
 }
 
 //////////////////////////////// Logic Struct End  ////////////////////////////////
@@ -168,18 +149,11 @@ export global Store {
     in-out property <bool> is-cn: setting-preference.language == "cn";
     in-out property <RecordStatus> record-status: RecordStatus.Stopped;
     in-out property <string> save-dir;
-    in-out property <bool> ffmpeg-is-installed;
     in-out property <bool> never-recording-once: true;
 
-    in-out property <float> denoise-progress;
-    in-out property <DenoiseStatus> denoise-status: DenoiseStatus.None;
-
-    in-out property <float> merge-tracks-progress;
-    in-out property <MergeTrackStatus> merge-tracks-status: MergeTrackStatus.None;
-
     in-out property <string> final-video-path;
-    in-out property <image> preview-image; //@image-url("./images/png/wechat-pay.png");
-    in-out property <int> input-audio-db: -60;
+    in-out property <image> preview-image;
+    in-out property <int> audio-db: -60;
     in-out property <int> speaker-audio-db: -60;
 
     in-out property <[string]> audio-sources: [
@@ -205,11 +179,11 @@ export global Store {
 
     in-out property <SettingControl> setting-control:  {
         screen: sources[1].name,
-        input-audio: sources[0].name,
-        input-audio-gain: -2,
-        enable-input-audio: true,
-        desktop-speaker-gain: 2,
-        enable-desktop-speaker: true,
+        audio: sources[0].name,
+        audio-gain: -2,
+        enable-audio: true,
+        speaker-gain: 2,
+        enable-speaker: true,
     };
 
     //////////////////////////////// Logic End  ////////////////////////////////

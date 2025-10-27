@@ -23,12 +23,9 @@ import {
 export component Recorder inherits SettingDetail {
     callback confirmed();
 
-    private property <bool> remove-temporary-files;
     private property <string> save-dir <=> Store.save-dir;
     private property <bool> include-cursor;
-    private property <bool> enable-preview;
     private property <bool> enable-denoise;
-    private property <bool> real-time-denoise;
     private property <bool> convert-to-mono;
     private property <Fps> fps;
     private property <Resolution> resolution;
@@ -39,12 +36,9 @@ export component Recorder inherits SettingDetail {
 
     public function get() -> SettingRecorder {
         return {
-            remove-temporary-files: root.remove-temporary-files,
             save-dir: root.save-dir,
             include-cursor: root.include-cursor,
-            enable-preview: root.enable-preview,
             enable-denoise: root.enable-denoise,
-            real-time-denoise: root.real-time-denoise,
             convert-to-mono: root.convert-to-mono,
             fps: root.fps,
             resolution: root.resolution,
@@ -52,12 +46,9 @@ export component Recorder inherits SettingDetail {
     }
 
     public function set(setting: SettingRecorder) {
-        root.remove-temporary-files = setting.remove-temporary-files;
         root.save-dir = setting.save-dir;
         root.include-cursor = setting.include-cursor;
-        root.enable-preview = setting.enable-preview;
         root.enable-denoise = setting.enable-denoise;
-        root.real-time-denoise = setting.real-time-denoise;
         root.convert-to-mono = setting.convert-to-mono;
         root.fps = setting.fps;
         root.resolution = setting.resolution;
@@ -111,19 +102,6 @@ export component Recorder inherits SettingDetail {
         }
 
         SettingDetailInnerVbox {
-            enable-preview-swicth := SettingDetailSwitch {
-                icon: Icons.preview-light;
-                text: self.checked ? Logic.tr("Enabled preivew") : Logic.tr("Disabled preivew");
-                checked: root.enable-preview;
-
-                toggled => {
-                    root.enable-preview = self.checked;
-                    Logic.set-setting-recorder(root.get());
-                }
-            }
-        }
-
-        SettingDetailInnerVbox {
             include-cursor-swicth := SettingDetailSwitch {
                 icon: Icons.cursor-light;
                 icon-size: Theme.icon-size * 0.8;
@@ -138,37 +116,11 @@ export component Recorder inherits SettingDetail {
         }
 
         SettingDetailInnerVbox {
-            SettingDetailSwitch {
-                icon: Icons.audio-light;
-                text: self.checked ? Logic.tr("Convert the microphone audio to mono") : Logic.tr("Don't convert the microphone audio to mono");
-                checked: root.convert-to-mono;
-
-                toggled => {
-                    root.convert-to-mono = self.checked;
-                    Logic.set-setting-recorder(root.get());
-                }
-            }
-        }
-
-        SettingDetailInnerVbox {
-            remove-temporary-files-swicth := SettingDetailSwitch {
-                icon: Icons.clear-light;
-                text: Logic.tr("Remove the temporary files after the track merging is finished");
-                checked: root.remove-temporary-files;
-
-                toggled => {
-                    root.remove-temporary-files = self.checked;
-                    Logic.set-setting-recorder(root.get());
-                }
-            }
-        }
-
-        SettingDetailInnerVbox {
             spacing: Theme.spacing * 2;
 
             SettingDetailSwitch {
                 icon: Icons.denoise-light;
-                text: self.checked ? Logic.tr("Enabled microphone noise reduction") : Logic.tr("Disabled microphone noise reduction");
+                text: self.checked ? Logic.tr("Enabled noise reduction") : Logic.tr("Disabled noise reduction");
                 checked: root.enable-denoise;
 
                 toggled => {
@@ -176,28 +128,17 @@ export component Recorder inherits SettingDetail {
                     Logic.set-setting-recorder(root.get());
                 }
             }
+        }
 
-            if root.enable-denoise: HorizontalLayout {
-                HorizontalLayout {
-                    width: 50%;
+        SettingDetailInnerVbox {
+            SettingDetailSwitch {
+                icon: Icons.audio-light;
+                text: self.checked ? Logic.tr("Convert audio to mono") : Logic.tr("Don't convert audio to mono");
+                checked: root.convert-to-mono;
 
-                    RadioBtn {
-                        text: Logic.tr("Real-time noise reduction");
-                        checked: root.real-time-denoise;
-                        check => {
-                            root.real-time-denoise = true;
-                            Logic.set-setting-recorder(root.get());
-                        }
-                    }
-                }
-
-                RadioBtn {
-                    text: Logic.tr("Post-processing noise reduction");
-                    checked: !root.real-time-denoise;
-                    check => {
-                        root.real-time-denoise = false;
-                        Logic.set-setting-recorder(root.get());
-                    }
+                toggled => {
+                    root.convert-to-mono = self.checked;
+                    Logic.set-setting-recorder(root.get());
                 }
             }
         }
