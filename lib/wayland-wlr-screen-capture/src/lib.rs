@@ -10,6 +10,12 @@ pub use screen_info::*;
 #[derive(Clone)]
 pub struct WaylandWlrScreenCapture;
 
+impl WaylandWlrScreenCapture {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
 impl screen_capture::ScreenCapture for WaylandWlrScreenCapture {
     fn available_screens(
         &mut self,
@@ -27,7 +33,7 @@ impl screen_capture::ScreenCapture for WaylandWlrScreenCapture {
     }
 
     fn capture_output_stream(
-        &mut self,
+        self,
         config: screen_capture::CaptureStreamConfig,
         cb: impl FnMut(screen_capture::CaptureStreamCallbackData),
     ) -> Result<screen_capture::CaptureStatus, screen_capture::ScreenCaptureError> {

@@ -1,28 +1,9 @@
 use thiserror::Error;
 
-/// Error types for recording operations.
-///
-/// This enum represents all possible errors that can occur during
-/// screen recording, video encoding, audio recording, and file operations.
-/// It uses the `thiserror` crate to provide automatic error formatting
-/// and conversion from other error types.
-///
-/// # Examples
-///
-/// ```no_run
-/// use recorder::{RecordingSession, RecorderError};
-///
-/// match RecordingSession::init("eDP-1") {
-///     Ok(()) => println!("Initialization successful"),
-///     Err(RecorderError::CaptureFailed(e)) => eprintln!("Capture failed: {}", e),
-///     Err(RecorderError::VideoEncodingFailed(msg)) => eprintln!("Encoding failed: {}", msg),
-///     Err(e) => eprintln!("Other error: {}", e),
-/// }
-/// ```
 #[derive(Error, Debug)]
 pub enum RecorderError {
     #[error("Screenshot capture failed: {0}")]
-    CaptureFailed(#[from] capture::Error),
+    CaptureFailed(#[from] screen_capture::ScreenCaptureError),
 
     #[error("Image processing failed: {0}")]
     ImageProcessingFailed(String),

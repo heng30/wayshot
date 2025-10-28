@@ -1,5 +1,5 @@
-use capture::Capture;
 use recorder::RecordingSession;
+use screen_capture::Capture;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();

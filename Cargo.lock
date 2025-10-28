@@ -5717,6 +5717,7 @@ dependencies = [
  "nnnoiseless",
  "once_cell",
  "pipewire",
+ "screen-capture",
  "spin_sleep",
  "thiserror 2.0.17",
  "wayland-wlr-screen-capture",

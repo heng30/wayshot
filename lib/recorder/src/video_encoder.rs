@@ -1,4 +1,4 @@
-use crate::{FPS, recorder::ResizedImageBuffer, recorder_error::RecorderError};
+use crate::{FPS, RecorderError, recorder::ResizedImageBuffer};
 use x264::{Colorspace, Data, Encoder, Image, Preset, Setup, Tune};
 use yuv::{
     YuvChromaSubsampling, YuvConversionMode, YuvPlanarImageMut, YuvRange, YuvStandardMatrix,

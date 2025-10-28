@@ -1,4 +1,7 @@
-use recorder::{AudioRecorder, FPS, RecorderConfig, RecordingSession, bounded};
+use recorder::{
+    AudioRecorder, FPS, RecorderConfig, RecordingSession, bounded, platform_screen_capture,
+};
+use screen_capture::ScreenCapture;
 use std::{sync::atomic::Ordering, thread, time::Duration};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -17,10 +20,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         default_input.default_config
     );
 
-    let screen_infos = capture::available_screens()?;
+    let mut screen_capturer = platform_screen_capture();
+    let screen_infos = screen_capturer.available_screens()?;
     assert!(!screen_infos.is_empty());
-
-    RecordingSession::init(&screen_infos[0].name)?;
 
     log::info!("screen_infos: {screen_infos:?}");
 
@@ -45,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (frame_sender, frame_receiver) = bounded(32);
     let mut session = RecordingSession::new(config).with_frame_sender_user(Some(frame_sender));
-    session.start()?;
+    session.start(screen_capturer)?;
 
     let stop_sig = session.get_stop_sig().clone();
     thread::spawn(move || {

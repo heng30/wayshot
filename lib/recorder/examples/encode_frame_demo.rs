@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img = image::open(&img_path)?;
     log::debug!("Loaded image {}x{}", img.width(), img.height());
 
-    let mut encoder = VideoEncoder::new(img.width(), img.height(), FPS::Fps30)?;
+    let mut encoder = VideoEncoder::new(img.width(), img.height(), FPS::Fps30, false)?;
     let now = std::time::Instant::now();
     encoder.encode_frame(img.into())?;
     log::info!("MP4 encoding time: {:.2?}", now.elapsed());

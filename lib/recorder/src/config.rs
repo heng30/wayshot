@@ -1,7 +1,7 @@
 use crate::resolution::Resolution;
-use capture::LogicalSize;
 use chrono::Local;
 use derive_setters::Setters;
+use screen_capture::LogicalSize;
 use std::{
     collections::VecDeque,
     path::{Path, PathBuf},

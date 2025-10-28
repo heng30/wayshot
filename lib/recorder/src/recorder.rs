@@ -2,7 +2,6 @@ use crate::{
     AudioRecorder, EncodedFrame, Frame, FrameUser, ProgressState, RecorderConfig, RecorderError,
     Resolution, SimpleFpsCounter, SpeakerRecorder, StatsUser, VideoEncoder,
 };
-use capture::{Capture, CaptureIterConfig, capture_output_iter};
 use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_setters::Setters;
 use fast_image_resize::images::Image;
@@ -12,7 +11,8 @@ use mp4m::{
     AudioConfig, AudioProcessor, AudioProcessorConfigBuilder, Mp4Processor,
     Mp4ProcessorConfigBuilder, OutputDestination, VideoConfig, VideoFrameType,
 };
-use once_cell::sync::Lazy;
+use once_cell::sync::OnceCell;
+use screen_capture::{Capture, CaptureStreamConfig, ScreenCapture, ScreenCaptureError};
 use spin_sleep::SpinSleeper;
 use std::{
     path::PathBuf,
@@ -30,8 +30,6 @@ pub(crate) type ResizedImageBuffer = ImageBuffer<Rgb<u8>, Vec<u8>>;
 const USER_CHANNEL_SIZE: usize = 64;
 const ENCODER_WORKER_CHANNEL_SIZE: usize = 128;
 const AUDIO_MIXER_CHANNEL_SIZE: usize = 1024;
-
-static CAPTURE_MEAN_TIME: Lazy<Mutex<Option<Duration>>> = Lazy::new(|| Mutex::new(None));
 
 #[derive(Setters)]
 #[setters(prefix = "with_")]
@@ -67,22 +65,6 @@ pub struct RecordingSession {
 }
 
 impl RecordingSession {
-    pub fn init(screen_name: &str) -> Result<(), RecorderError> {
-        let mean_time = capture::capture_mean_time(screen_name, 10)?;
-
-        {
-            *CAPTURE_MEAN_TIME.lock().unwrap() = Some(mean_time);
-        }
-
-        log::info!("capture_mean_time: {mean_time:.2?}");
-
-        Ok(())
-    }
-
-    pub fn init_finished() -> bool {
-        CAPTURE_MEAN_TIME.lock().unwrap().is_some()
-    }
-
     pub fn new(config: RecorderConfig) -> Self {
         let (frame_sender, frame_receiver) = bounded(ENCODER_WORKER_CHANNEL_SIZE);
 
@@ -115,7 +97,10 @@ impl RecordingSession {
         }
     }
 
-    pub fn start(&mut self) -> Result<(), RecorderError> {
+    pub fn start(
+        &mut self,
+        mut screen_capturer: impl ScreenCapture + Clone + Send + 'static,
+    ) -> Result<(), RecorderError> {
         if !self
             .config
             .save_path
@@ -132,7 +117,7 @@ impl RecordingSession {
             )));
         }
 
-        let thread_counts = self.evaluate_need_threads();
+        let thread_counts = self.evaluate_need_threads(&mut screen_capturer)?;
         if thread_counts == 0 {
             return Err(RecorderError::Other(format!("capture thread counts is 0")));
         }
@@ -175,7 +160,7 @@ impl RecordingSession {
 
         let frame_iterval_ms = self.config.frame_interval_ms();
         let fps_per_thread = self.config.fps.to_u32() as f64 / thread_counts as f64;
-        let config = CaptureIterConfig {
+        let config = CaptureStreamConfig {
             name: self.config.screen_name.clone(),
             include_cursor: self.config.include_cursor,
             fps: Some(fps_per_thread),
@@ -184,20 +169,24 @@ impl RecordingSession {
 
         for i in 0..thread_counts {
             let config_duplicate = config.clone();
+            let screen_capturer_duplicate = screen_capturer.clone();
             let tx = self.frame_sender.clone().unwrap();
 
             let handle = thread::spawn(move || {
                 SpinSleeper::default().sleep(Duration::from_millis(i as u64 * frame_iterval_ms));
 
-                match capture_output_iter(config_duplicate, move |cb_data| {
-                    if let Err(e) = tx.send(Frame {
-                        thread_id: i,
-                        cb_data,
-                        timestamp: std::time::Instant::now(),
-                    }) {
-                        log::warn!("send frame failed: {e}");
-                    }
-                }) {
+                match screen_capturer_duplicate.capture_output_stream(
+                    config_duplicate,
+                    move |cb_data| {
+                        if let Err(e) = tx.send(Frame {
+                            thread_id: i,
+                            cb_data,
+                            timestamp: std::time::Instant::now(),
+                        }) {
+                            log::warn!("send frame failed: {e}");
+                        }
+                    },
+                ) {
                     Ok(status) => {
                         log::info!("capture thread[{i}] exit. status: {status:?}")
                     }
@@ -702,17 +691,28 @@ impl RecordingSession {
         self.speaker_level_receiver.clone()
     }
 
-    fn evaluate_need_threads(&self) -> u32 {
-        let mean_ms = {
-            CAPTURE_MEAN_TIME
-                .lock()
-                .unwrap()
-                .clone()
-                .expect("Need to call `RecordingSession::init()`")
-                .as_millis() as f64
-        };
+    fn evaluate_need_threads(
+        &self,
+        screen_capturer: &mut impl ScreenCapture,
+    ) -> Result<u32, RecorderError> {
+        static CAPTURE_MEAN_TIME: OnceCell<Mutex<Result<Duration, ScreenCaptureError>>> =
+            OnceCell::new();
+
+        let mean_time = CAPTURE_MEAN_TIME.get_or_init(|| {
+            let mean_time = screen_capturer.capture_mean_time(&self.config.screen_name, 10);
+            Mutex::new(mean_time)
+        });
+
+        let mean_ms = mean_time
+            .lock()
+            .unwrap()
+            .clone()
+            .map_err(|e| RecorderError::CaptureFailed(e))?
+            .as_millis() as f64;
+
+        log::info!("capture mean time: {mean_ms:.2?}ms");
 
         let iterval_ms = self.config.frame_interval_ms() as f64;
-        ((mean_ms / iterval_ms).ceil() * 2.0).ceil() as u32
+        Ok(((mean_ms / iterval_ms).ceil() * 2.0).ceil() as u32)
     }
 }

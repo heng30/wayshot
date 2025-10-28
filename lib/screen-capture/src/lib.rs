@@ -4,7 +4,7 @@ mod screen_info;
 pub use capture::*;
 pub use screen_info::*;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Clone)]
 pub enum ScreenCaptureError {
     #[error("{0}")]
     Capture(String),
@@ -20,7 +20,7 @@ pub trait ScreenCapture {
     ) -> Result<std::time::Duration, ScreenCaptureError>;
 
     fn capture_output_stream(
-        &mut self,
+        self,
         config: CaptureStreamConfig,
         cb: impl FnMut(CaptureStreamCallbackData),
     ) -> Result<CaptureStatus, ScreenCaptureError>;
