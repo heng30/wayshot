@@ -244,13 +244,11 @@ impl SpeakerRecorder {
                         )
                     };
 
-                    let mut f32_sample_gain = Vec::with_capacity(f32_samples.len());
+                    let mut f32_samples_gained = Vec::with_capacity(f32_samples.len());
                     let f32_samples = if let Some(ref gain) = gain {
-                        f32_sample_gain.extend_from_slice(f32_samples);
-
-                        apply_gain(&mut f32_sample_gain, gain.load(Ordering::Relaxed) as f32);
-
-                        &f32_sample_gain[..]
+                        f32_samples_gained.extend_from_slice(f32_samples);
+                        apply_gain(&mut f32_samples_gained, gain.load(Ordering::Relaxed) as f32);
+                        &f32_samples_gained[..]
                     } else {
                         f32_samples
                     };

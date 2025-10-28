@@ -121,13 +121,13 @@ impl RecordingSession {
             .save_path
             .parent()
             .ok_or(RecorderError::InvalidConfig(format!(
-                "No parent directory found: {}",
+                "No found parent directory: {}",
                 self.config.save_path.display()
             )))?
             .exists()
         {
             return Err(RecorderError::InvalidConfig(format!(
-                "Save directory no found: {}",
+                "No found saved directory: {}",
                 self.config.save_path.parent().unwrap().display()
             )));
         }

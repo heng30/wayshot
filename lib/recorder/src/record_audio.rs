@@ -215,16 +215,11 @@ impl AudioRecorder {
                 f32_samples
             };
 
-            let mut f32_sample_amplification = Vec::with_capacity(f32_samples.len());
-            let data = if let Some(ref gain) = gain {
-                f32_sample_amplification.extend_from_slice(f32_samples);
-
-                apply_gain(
-                    &mut f32_sample_amplification,
-                    gain.load(Ordering::Relaxed) as f32,
-                );
-
-                &f32_sample_amplification[..]
+            let mut f32_samples_gained = Vec::with_capacity(f32_samples.len());
+            let f32_samples = if let Some(ref gain) = gain {
+                f32_samples_gained.extend_from_slice(f32_samples);
+                apply_gain(&mut f32_samples_gained, gain.load(Ordering::Relaxed) as f32);
+                &f32_samples_gained[..]
             } else {
                 f32_samples
             };
@@ -236,7 +231,7 @@ impl AudioRecorder {
             }
 
             if let Some(ref tx) = level_sender
-                && let Some(db) = calc_rms_level(data)
+                && let Some(db) = calc_rms_level(f32_samples)
                 && let Err(e) = tx.try_send(db)
             {
                 log::warn!("try send input audio db level data failed: {e}");
