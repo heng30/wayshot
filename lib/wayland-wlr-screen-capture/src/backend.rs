@@ -1,10 +1,5 @@
-//! Backend implementation for Wayland screen capture.
-//!
-//! This module handles the low-level Wayland protocol interactions for screen capture,
-//! including connection management, output enumeration, and buffer handling.
-
-use crate::screen_info::{LogicalSize, Position};
 use nix::sys::memfd;
+use screen_capture::{LogicalSize, Position};
 use std::{
     os::fd::{AsFd, AsRawFd},
     os::unix::io::FromRawFd,
@@ -18,40 +13,49 @@ use wayland_protocols_wlr::screencopy::v1::client::{
     zwlr_screencopy_frame_v1, zwlr_screencopy_manager_v1,
 };
 
-/// Information about a Wayland output for screen capture.
-///
-/// This struct contains all the state information needed to manage
-/// a single Wayland output during screen capture operations.
 #[derive(Debug)]
 pub(crate) struct OutputInfo {
     /// Wayland output object
     pub wl_output: wl_output::WlOutput,
+
     /// Name of the output
     pub name: Option<String>,
+
     /// Logical position of the output in compositor space
     pub output_logical_position: Option<Position>,
+
     /// Logical size of the output
     pub output_logical_size: Option<LogicalSize>,
+
     /// Output transformation (rotation, flipping)
     pub transform: Option<wl_output::Transform>,
+
     /// Scale factor of the output
     pub scale_factor: i32,
+
     /// Memory file descriptor for image data
     pub image_memfd: Option<std::os::fd::OwnedFd>,
+
     /// Memory mapping for image data
     pub image_mmap: Option<memmap2::MmapMut>,
+
     /// Size of the memory-mapped image
     pub image_mmap_size: Option<LogicalSize>,
+
     /// Logical position of the captured image
     pub image_logical_position: Option<Position>,
+
     /// Logical size of the captured image
     pub image_logical_size: Option<LogicalSize>,
+
     /// Pixel format of the captured image
     pub image_pixel_format: Option<wl_shm::Format>,
+
     /// Whether the image capture is complete
     pub image_ready: bool,
 
     pub wlsh_pool: Option<wl_shm_pool::WlShmPool>,
+
     pub wl_buffer: Option<wl_buffer::WlBuffer>,
 }
 
@@ -76,46 +80,33 @@ impl Drop for OutputInfo {
     }
 }
 
-/// Global state for Wayland connection and screen capture.
-///
-/// This struct maintains the global state for the Wayland connection,
-/// including all the necessary protocol objects and output information.
 #[derive(Default, Debug)]
 pub(crate) struct State {
     /// Whether global enumeration is complete
     pub done: bool,
+
     /// WLR screencopy manager for capturing screens
     pub wlr_screencopy_manager: Option<zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1>,
+
     /// XDG output manager for output information
     pub xdg_output_manager: Option<zxdg_output_manager_v1::ZxdgOutputManagerV1>,
+
     /// Shared memory manager for buffer creation
     pub wl_shm: Option<wl_shm::WlShm>,
+
     /// Information about all available outputs
     pub output_infos: Vec<OutputInfo>,
 }
 
 impl Drop for State {
     fn drop(&mut self) {
-        log::debug!("Cleaning up State resources");
-
-        // Wayland objects will be automatically cleaned up when dropped
-        // No need to explicitly call release() on them
         self.wlr_screencopy_manager.take();
         self.xdg_output_manager.take();
         self.wl_shm.take();
-
-        // OutputInfo objects will be cleaned up automatically through their Drop implementation
         self.output_infos.clear();
-
-        log::debug!("State resources cleaned up");
     }
 }
 
-/// Handle Wayland registry events to discover available globals.
-///
-/// This implementation processes Wayland registry events to bind to the necessary
-/// global interfaces for screen capture: screencopy manager, xdg output manager,
-/// shared memory, and outputs.
 impl Dispatch<wl_registry::WlRegistry, ()> for State {
     fn event(
         state: &mut State,
@@ -196,7 +187,6 @@ impl Dispatch<wl_registry::WlRegistry, ()> for State {
     }
 }
 
-/// Handle callback events, used to detect when global enumeration is complete.
 impl Dispatch<wl_callback::WlCallback, ()> for State {
     fn event(
         state: &mut State,
@@ -212,7 +202,6 @@ impl Dispatch<wl_callback::WlCallback, ()> for State {
     }
 }
 
-/// Handle Wayland output events to collect output information.
 impl Dispatch<wl_output::WlOutput, usize> for State {
     fn event(
         state: &mut State,
@@ -239,7 +228,6 @@ impl Dispatch<wl_output::WlOutput, usize> for State {
     }
 }
 
-/// Handle XDG output events for additional output information.
 impl Dispatch<zxdg_output_v1::ZxdgOutputV1, usize> for State {
     fn event(
         state: &mut State,
@@ -264,10 +252,6 @@ impl Dispatch<zxdg_output_v1::ZxdgOutputV1, usize> for State {
     }
 }
 
-/// Handle screencopy frame events for capturing screen data.
-///
-/// This implementation processes screencopy frame events to allocate buffers,
-/// handle pixel data, and mark captures as ready.
 impl Dispatch<zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1, usize> for State {
     fn event(
         state: &mut State,
@@ -475,40 +459,6 @@ impl Dispatch<zxdg_output_manager_v1::ZxdgOutputManagerV1, ()> for State {
     }
 }
 
-/// Connect to the Wayland server and gather information about available outputs.
-///
-/// This function establishes a connection to the Wayland server, enumerates all
-/// available globals, and collects information about outputs for screen capture.
-/// It performs the following steps:
-///
-/// 1. Connects to the Wayland server
-/// 2. Gets the registry and syncs to discover globals
-/// 3. Binds to necessary protocols (screencopy, xdg output, shm)
-/// 4. Collects information about all outputs
-/// 5. Waits for all output information to be available
-///
-/// # Returns
-///
-/// Returns a tuple containing the global state and event queue for the connection.
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - Connection to the Wayland server fails
-/// - Event dispatch fails
-/// - Required protocols are not available
-///
-/// # Example
-///
-/// This function is typically called internally by the capture functions,
-/// but can be used directly for advanced use cases:
-///
-/// ```no_run
-/// use lib::capture::backend::connect_and_get_output_info;
-///
-/// let (state, event_queue) = connect_and_get_output_info().unwrap();
-/// println!("Found {} outputs", state.output_infos.len());
-/// ```
 pub fn connect_and_get_output_info()
 -> Result<(State, wayland_client::EventQueue<State>), crate::Error> {
     let connection = Connection::connect_to_env()?;

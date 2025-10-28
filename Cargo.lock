@@ -883,26 +883,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "capture"
-version = "0.1.0"
-dependencies = [
- "ctrlc",
- "env_logger",
- "image",
- "log",
- "memmap2",
- "nix",
- "serde",
- "serde_json",
- "spin_sleep",
- "thiserror 2.0.17",
- "wayland-client",
- "wayland-protocols",
- "wayland-protocols-wlr",
- "which 8.0.0",
-]
-
-[[package]]
 name = "cbc"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5723,7 +5703,6 @@ dependencies = [
 name = "recorder"
 version = "0.1.0"
 dependencies = [
- "capture",
  "chrono",
  "cpal",
  "crossbeam",
@@ -5740,6 +5719,7 @@ dependencies = [
  "pipewire",
  "spin_sleep",
  "thiserror 2.0.17",
+ "wayland-wlr-screen-capture",
  "x264",
  "yuv",
 ]
@@ -6156,6 +6136,15 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
+
+[[package]]
+name = "screen-capture"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror 2.0.17",
+ "wayland-client",
+]
 
 [[package]]
 name = "sctk-adwaita"
@@ -8126,13 +8115,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "wayland-wlr-screen-capture"
+version = "0.1.0"
+dependencies = [
+ "ctrlc",
+ "env_logger",
+ "image",
+ "log",
+ "memmap2",
+ "nix",
+ "screen-capture",
+ "serde",
+ "serde_json",
+ "spin_sleep",
+ "thiserror 2.0.17",
+ "wayland-client",
+ "wayland-protocols",
+ "wayland-protocols-wlr",
+ "which 8.0.0",
+]
+
+[[package]]
 name = "wayshot"
 version = "0.1.0"
 dependencies = [
  "android_clipboard",
  "android_logger",
  "anyhow",
- "capture",
  "clipboard",
  "console_log",
  "cutil",

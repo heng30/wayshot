@@ -1,4 +1,6 @@
-use capture::CaptureIterConfig;
+use screen_capture::CaptureStreamConfig;
+use wayland_wlr_screen_capture as capture;
+
 use std::{
     sync::{
         Arc,
@@ -16,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sig = Arc::new(AtomicBool::new(false));
     let mut ctrlc_count = 0;
 
-    let config = CaptureIterConfig {
+    let config = CaptureStreamConfig {
         name: screen_infos[0].name.clone(),
         include_cursor: true,
         fps: Some(25.0),
@@ -34,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     })?;
 
     thread::spawn(move || {
-        match capture::capture_output_iter(config, move |data| {
+        match capture::capture_output_stream(config, move |data| {
             println!(
                 "capture time [{}]: {:.2?}. fps: {:.2}",
                 data.frame_index,
@@ -49,7 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     while let Ok((index, output)) = rx.recv() {
-        let temp_file = format!("target/screenshot-one-{index}.png");
+        let temp_file = format!("/tmp/screenshot-one-{index}.png");
         let img = image::RgbaImage::from_raw(
             output.width as u32,
             output.height as u32,

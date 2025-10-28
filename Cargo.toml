@@ -110,5 +110,6 @@ mp4m = { path = "lib/mp4m" }
 cutil = { path = "lib/cutil" }
 sqldb = { path = "lib/sqldb" }
 pmacro = { path = "lib/pmacro" }
-capture = { path = "lib/capture" }
 recorder = { path = "lib/recorder" }
+screen-capture = { path = "lib/screen-capture" }
+wayland-wlr-screen-capture = { path = "lib/wayland-wlr-screen-capture" }

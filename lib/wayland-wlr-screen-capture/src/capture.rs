@@ -1,8 +1,9 @@
 use crate::{
-    Capture, CaptureIterCallbackData, CaptureIterConfig, CaptureIterStatus, Error,
-    available_screens,
+    Error, available_screens,
     backend::{self, State},
-    screen_info::{LogicalSize, Position},
+};
+use screen_capture::{
+    Capture, CaptureStatus, CaptureStreamCallbackData, CaptureStreamConfig, LogicalSize, Position,
 };
 use spin_sleep::SpinSleeper;
 use std::{
@@ -10,39 +11,16 @@ use std::{
     time::{Duration, Instant},
 };
 
-/// Captures all connected outputs as a single image.
-///
-/// This function captures all available outputs and composites them into a single image.
-/// The outputs are positioned according to their logical positions in the Wayland compositor.
-///
-/// # Arguments
-///
-/// * `include_cursor` - Whether to include the mouse cursor in the capture
-///
-/// # Returns
-///
-/// Returns a [`Capture`] containing the composited image of all outputs.
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - No outputs are available
-/// - Connection to Wayland server fails
-/// - Event dispatch fails
 pub fn capture_all_outputs(include_cursor: bool) -> Result<Capture, Error> {
     let (mut state, mut event_queue) = backend::connect_and_get_output_info()?;
     inner_capture_all_outputs(&mut state, &mut event_queue, include_cursor)
 }
 
-/// Internal function to capture all outputs.
-///
-/// This function handles the actual capture process for all outputs.
 fn inner_capture_all_outputs(
     state: &mut State,
     event_queue: &mut wayland_client::EventQueue<State>,
     include_cursor: bool,
 ) -> Result<Capture, Error> {
-    // Check if there are any outputs available
     if state.output_infos.is_empty() {
         return Err(crate::Error::NoCaptures);
     }
@@ -79,34 +57,11 @@ fn inner_capture_all_outputs(
     captures_to_buffer(&state.output_infos)
 }
 
-/// Captures a specific output by name.
-///
-/// This function captures a single output identified by its name.
-/// Output names can be obtained by querying the Wayland compositor.
-///
-/// # Arguments
-///
-/// * `name` - The name of the output to capture
-/// * `include_cursor` - Whether to include the mouse cursor in the capture
-///
-/// # Returns
-///
-/// Returns a [`Capture`] containing the image of the specified output.
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - The specified output is not found
-/// - Connection to Wayland server fails
-/// - Event dispatch fails
 pub fn capture_output(name: &str, include_cursor: bool) -> Result<Capture, Error> {
     let (mut state, mut event_queue) = backend::connect_and_get_output_info()?;
     inner_capture_output(&mut state, &mut event_queue, name, include_cursor)
 }
 
-/// Internal function to capture a specific output by name.
-///
-/// This function filters outputs by name and performs the capture.
 fn inner_capture_output(
     state: &mut State,
     event_queue: &mut wayland_client::EventQueue<State>,
@@ -159,58 +114,10 @@ fn inner_capture_output(
     captures_to_buffer(&state.output_infos)
 }
 
-/// Captures a specific output repeatedly at a specified frame rate.
-///
-/// This function continuously captures the specified output and calls the provided
-/// callback with each captured frame. The capture loop can be cancelled using the
-/// `cancel_sig` in the configuration.
-///
-/// # Arguments
-///
-/// * `config` - Configuration for the iterative capture
-/// * `cb` - Callback function that receives frame index, capture data, and capture duration
-///
-/// # Returns
-///
-/// Returns a [`CaptureIterStatus`] indicating whether the iteration finished normally
-/// or was cancelled.
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - The specified output is not found
-/// - Connection to Wayland server fails
-/// - Event dispatch fails
-///
-/// # Example
-///
-/// ```no_run
-/// use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
-/// use lib::capture::{CaptureIterConfig, CaptureIterStatus};
-///
-/// let cancel_sig = Arc::new(AtomicBool::new(false));
-/// let config = CaptureIterConfig {
-///     name: "eDP-1".to_string(),
-///     include_cursor: true,
-///     fps: Some(30.0),
-///     cancel_sig: cancel_sig.clone(),
-/// };
-///
-/// let result = capture_output_iter(config, |data| {
-///     println!("Frame {} captured in {:?}", data.frame_index, data.capture_time);
-///     // Process the capture...
-/// });
-///
-/// match result {
-///     Ok(CaptureIterStatus::Stopped) => println!("Capture Stopped"),
-///     Ok(CaptureIterStatus::Finished) => println!("Capture finished"),
-///     Err(e) => eprintln!("Capture error: {}", e),
-/// }
-/// ```
-pub fn capture_output_iter(
-    config: CaptureIterConfig,
-    mut cb: impl FnMut(CaptureIterCallbackData),
-) -> Result<CaptureIterStatus, Error> {
+pub fn capture_output_stream(
+    config: CaptureStreamConfig,
+    mut cb: impl FnMut(CaptureStreamCallbackData),
+) -> Result<CaptureStatus, Error> {
     let (mut state, mut event_queue) = backend::connect_and_get_output_info()?;
 
     let mut index = 0;
@@ -233,7 +140,7 @@ pub fn capture_output_iter(
             }
 
             drop(state);
-            return Ok(CaptureIterStatus::Stopped);
+            return Ok(CaptureStatus::Stopped);
         }
 
         // Periodically clean up event queue
@@ -256,7 +163,7 @@ pub fn capture_output_iter(
         )?;
 
         // Call the user-provided callback with capture data
-        cb(CaptureIterCallbackData {
+        cb(CaptureStreamCallbackData {
             frame_index: index,
             capture_time: start.elapsed(),
             elapse: start_time.elapsed(),
@@ -297,40 +204,6 @@ fn dispatch_pending(state: &mut State, event_queue: &mut wayland_client::EventQu
     attempts
 }
 
-/// Captures a specific region of an output.
-///
-/// This function captures a rectangular region of a specific output.
-/// The region coordinates and size are specified in logical pixels.
-///
-/// # Arguments
-///
-/// * `name` - The name of the output to capture from
-/// * `region_position` - The top-left position of the capture region in logical pixels
-/// * `region_size` - The size of the capture region in logical pixels
-/// * `include_cursor` - Whether to include the mouse cursor in the capture
-///
-/// # Returns
-///
-/// Returns a [`Capture`] containing the image of the specified region.
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - The specified output is not found
-/// - The scale factor is zero
-/// - Connection to Wayland server fails
-/// - Event dispatch fails
-///
-/// # Example
-///
-/// ```no_run
-/// use lib::capture::{capture_region, Position, LogicalSize};
-///
-/// let position = Position::new(100, 100);
-/// let size = LogicalSize::new(800, 600);
-/// let capture = capture_region("eDP-1", position, size, false).unwrap();
-/// println!("Captured region: {}x{}", capture.width, capture.height);
-/// ```
 pub fn capture_region(
     name: &str,
     region_position: Position,
@@ -396,22 +269,6 @@ pub fn capture_region(
     captures_to_buffer(&state.output_infos)
 }
 
-/// Converts captured output information into a buffer.
-///
-/// This internal function takes the captured output information and converts it
-/// into a [`Capture`] structure containing the pixel data.
-///
-/// # Arguments
-///
-/// * `output_infos` - Vector of output information from the capture
-///
-/// # Returns
-///
-/// Returns a [`Capture`] containing the pixel data from the first output.
-///
-/// # Errors
-///
-/// Returns an error if no output information is provided.
 fn captures_to_buffer(output_infos: &[backend::OutputInfo]) -> Result<Capture, Error> {
     // Ensure we have at least one output with captured data
     if output_infos.is_empty() {
@@ -433,33 +290,6 @@ fn captures_to_buffer(output_infos: &[backend::OutputInfo]) -> Result<Capture, E
     })
 }
 
-/// Measure the average capture time for a specific output.
-///
-/// This function performs multiple captures of the first available output and
-/// calculates the average time taken per capture. Useful for performance testing.
-///
-/// # Arguments
-///
-/// * `counts` - Number of captures to perform for timing measurement
-///
-/// # Returns
-///
-/// Returns `Some(Duration)` with the average capture time, or `None` if:
-/// - No outputs are available
-/// - `counts` is zero
-/// - Connection to Wayland server fails
-///
-/// # Example
-///
-/// ```no_run
-/// use lib::capture::capture_output_mean_time;
-///
-/// if let Some(avg_time) = capture_mean_time("eDP-1", 10) {
-///     println!("Average capture time: {:?}", avg_time);
-/// } else {
-///     println!("Failed to measure capture time");
-/// }
-/// ```
 pub fn capture_mean_time(screen_name: &str, counts: u32) -> Result<Duration, Error> {
     assert!(counts > 0);
 

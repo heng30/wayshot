@@ -1,5 +1,5 @@
 [package]
-name = "capture"
+name = "wayland-wlr-screen-capture"
 license.workspace = true
 edition.workspace = true
 version.workspace = true
@@ -21,6 +21,7 @@ spin_sleep.workspace = true
 wayland-client.workspace = true
 nix = { workspace = true, features = ["fs"] }
 serde = { workspace = true, features = ["derive"] }
+screen-capture = { workspace = true, features = ["wayland"] }
 wayland-protocols-wlr = { workspace = true, features = ["client"] }
 wayland-protocols = { workspace = true, features = ["client", "unstable"] }
 

@@ -44,7 +44,6 @@ platform-dirs.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 duct.workspace = true
-capture.workspace = true
 recorder.workspace = true
 
 [target.'cfg(target_os = "android")'.dependencies]

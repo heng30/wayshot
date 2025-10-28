@@ -1,0 +1,20 @@
+[package]
+name = "screen-capture"
+license.workspace = true
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+serde = { workspace = true, features = ["derive"] }
+wayland-client = { workspace = true, optional = true }
+
+[features]
+default = ["wayland"]
+wayland = ["dep:wayland-client"]

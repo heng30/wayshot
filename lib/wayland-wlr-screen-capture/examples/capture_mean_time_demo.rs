@@ -1,4 +1,4 @@
-use capture::{available_screens, capture_mean_time};
+use wayland_wlr_screen_capture::{available_screens, capture_mean_time};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let screen_infos = available_screens()?;

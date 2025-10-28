@@ -18,7 +18,6 @@ mp4m.workspace = true
 hound.workspace = true
 image.workspace = true
 chrono.workspace = true
-capture.workspace = true
 pipewire.workspace = true
 crossbeam.workspace = true
 thiserror.workspace = true
@@ -28,10 +27,12 @@ nnnoiseless.workspace = true
 derive_setters.workspace = true
 yuv = { workspace = true, features = ["rayon"] }
 fast_image_resize = { workspace = true, features = ["rayon"] }
+wayland-wlr-screen-capture = { workspace = true, optional = true }
 
 [dev-dependencies]
 ctrlc.workspace = true
 env_logger.workspace = true
 
 [features]
-default = []
+default = ["wayland-wlr"]
+wayland-wlr = ["dep:wayland-wlr-screen-capture"]
