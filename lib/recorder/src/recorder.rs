@@ -1,6 +1,7 @@
 use crate::{
     AudioRecorder, EncodedFrame, Frame, FrameUser, ProgressState, RecorderConfig, RecorderError,
     Resolution, SimpleFpsCounter, SpeakerRecorder, StatsUser, VideoEncoder,
+    platform_speaker_recoder, speaker_recorder::SpeakerRecorderConfig,
 };
 use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_setters::Setters;
@@ -302,10 +303,12 @@ impl RecordingSession {
         let stop_sig = self.stop_sig.clone();
         let gain = self.config.speaker_gain.clone();
         let handle = thread::spawn(move || {
-            let recorder = SpeakerRecorder::new(stop_sig)?
+            let config = SpeakerRecorderConfig::new(stop_sig)
                 .with_level_sender(sender)
                 .with_frame_sender(frame_sender)
                 .with_gain(gain);
+
+            let recorder = platform_speaker_recoder(config)?;
             recorder.start_recording()?;
             Ok(())
         });
@@ -397,7 +400,7 @@ impl RecordingSession {
         }
 
         if self.config.enable_recording_speaker {
-            specs.push(SpeakerRecorder::spec());
+            specs.push(platform_speaker_recoder(SpeakerRecorderConfig::default())?.spec());
         }
 
         let (encoder_width, encoder_height) = self.config.resolution.dimensions(

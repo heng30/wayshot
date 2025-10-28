@@ -10,7 +10,8 @@ desktop-build-env = SLINT_STYLE=fluent $(build-env)
 web-build-env = SLINT_STYLE=fluent $(build-env) RUSTFLAGS='--cfg getrandom_backend="wasm_js"'
 
 run-env = RUST_LOG=debug
-proj-features = --features=desktop,database,qrcode,center-window
+proj-features = --features=${desktop-features},database,qrcode,center-window
+desktop-features = desktop-wayland-wlr
 
 all: desktop-build-release
 
@@ -24,23 +25,22 @@ android-debug:
 	$(android-build-env) $(run-env) cargo apk run --lib -p ${app-name} --no-default-features --features=mobile,android
 
 desktop-build:
-	$(desktop-build-env) cargo build --no-default-features --features=desktop
+	$(desktop-build-env) cargo build --no-default-features --features=${desktop-features}
 
 desktop-build-release:
-	$(desktop-build-env) cargo build --release --no-default-features --features=desktop
+	$(desktop-build-env) cargo build --release --no-default-features --features=${desktop-features}
 
 desktop-debug:
-	$(desktop-build-env) $(run-env) cargo run --bin ${app-name} --no-default-features --features=desktop
+	$(desktop-build-env) $(run-env) cargo run --bin ${app-name} --no-default-features --features=${desktop-features}
 
 desktop-debug-winit:
-	SLINT_BACKEND=winit-femtovg $(desktop-build-env) $(run-env) cargo run --bin ${app-name} --no-default-features --features=desktop
+	SLINT_BACKEND=winit-femtovg $(desktop-build-env) $(run-env) cargo run --bin ${app-name} --no-default-features --features=${desktop-features}
 
 desktop-run-release:
-	$(desktop-build-env) RUST_LOG=info cargo run --release --bin ${app-name} --no-default-features --features=desktop
-
+	$(desktop-build-env) RUST_LOG=info cargo run --release --bin ${app-name} --no-default-features --features=${desktop-features}
 
 desktop-run-release-winit:
-	SLINT_BACKEND=winit-femtovg $(desktop-build-env) RUST_LOG=info cargo run --release --bin ${app-name} --no-default-features --features=desktop
+	SLINT_BACKEND=winit-femtovg $(desktop-build-env) RUST_LOG=info cargo run --release --bin ${app-name} --no-default-features --features=${desktop-features}
 
 web-build:
 	cd $(app-name) && $(web-build-env) wasm-pack build --no-opt --dev --target web --out-dir ./web/pkg --no-default-features --features=web

@@ -7,16 +7,10 @@ pub use capture::*;
 pub use error::*;
 pub use screen_info::*;
 
-#[derive(Clone)]
-pub struct WaylandWlrScreenCapture;
+#[derive(Clone, Default)]
+pub struct ScreenCaptureWaylandWlr;
 
-impl WaylandWlrScreenCapture {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl screen_capture::ScreenCapture for WaylandWlrScreenCapture {
+impl screen_capture::ScreenCapture for ScreenCaptureWaylandWlr {
     fn available_screens(
         &mut self,
     ) -> Result<Vec<screen_capture::ScreenInfo>, screen_capture::ScreenInfoError> {

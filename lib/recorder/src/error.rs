@@ -24,10 +24,10 @@ pub enum RecorderError {
     QueueError(String),
 
     #[error("Audio recording failed: {0}")]
-    AudioError(#[from] super::record_audio::AudioError),
+    AudioRecorderError(#[from] super::audio_recorder::AudioRecorderError),
 
     #[error("Speaker recording failed: {0}")]
-    SpeakerError(#[from] super::record_speaker::SpeakerError),
+    SpeakerRecorderError(#[from] super::speaker_recorder::SpeakerRecorderError),
 
     #[error("Audio mixer config builder failed: {0}")]
     AudioMixerConfigBuilderError(#[from] mp4m::audio_processor::AudioProcessorConfigBuilderError),

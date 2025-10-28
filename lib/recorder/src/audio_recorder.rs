@@ -17,7 +17,7 @@ use thiserror::Error;
 static DENOISE_MODEL: Lazy<RnnModel> = Lazy::new(|| denoise_model());
 
 #[derive(Debug, Error)]
-pub enum AudioError {
+pub enum AudioRecorderError {
     #[error("Audio host error: {0}")]
     HostError(String),
 
@@ -66,15 +66,15 @@ impl AudioRecorder {
         }
     }
 
-    pub fn get_available_devices(&self) -> Result<Vec<AudioDeviceInfo>, AudioError> {
+    pub fn get_available_devices(&self) -> Result<Vec<AudioDeviceInfo>, AudioRecorderError> {
         self.get_input_devices()
     }
 
-    pub fn get_input_devices(&self) -> Result<Vec<AudioDeviceInfo>, AudioError> {
+    pub fn get_input_devices(&self) -> Result<Vec<AudioDeviceInfo>, AudioRecorderError> {
         let devices = self
             .host
             .input_devices()
-            .map_err(|e| AudioError::HostError(e.to_string()))?;
+            .map_err(|e| AudioRecorderError::HostError(e.to_string()))?;
 
         let mut input_devices = Vec::new();
         for device in devices {
@@ -86,20 +86,20 @@ impl AudioRecorder {
         Ok(input_devices)
     }
 
-    pub fn get_default_input_device(&self) -> Result<Option<AudioDeviceInfo>, AudioError> {
+    pub fn get_default_input_device(&self) -> Result<Option<AudioDeviceInfo>, AudioRecorderError> {
         if let Some(device) = self.host.default_input_device() {
             self.get_device_info(&device)
                 .map(Some)
-                .map_err(|e| AudioError::DeviceError(e.to_string()))
+                .map_err(|e| AudioRecorderError::DeviceError(e.to_string()))
         } else {
             Ok(None)
         }
     }
 
-    fn get_device_info(&self, device: &Device) -> Result<AudioDeviceInfo, AudioError> {
+    fn get_device_info(&self, device: &Device) -> Result<AudioDeviceInfo, AudioRecorderError> {
         let name = device
             .name()
-            .map_err(|e| AudioError::DeviceError(e.to_string()))?;
+            .map_err(|e| AudioRecorderError::DeviceError(e.to_string()))?;
 
         let default_config = device
             .default_input_config()
@@ -118,19 +118,27 @@ impl AudioRecorder {
         })
     }
 
-    pub fn find_device_by_name(&self, name: &str) -> Result<Option<AudioDeviceInfo>, AudioError> {
+    pub fn find_device_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<AudioDeviceInfo>, AudioRecorderError> {
         let devices = self.get_available_devices()?;
         Ok(devices.into_iter().find(|device| device.name == name))
     }
 
-    pub fn get_config(&self, name: &str) -> Result<(StreamConfig, Vec<SampleFormat>), AudioError> {
+    pub fn get_config(
+        &self,
+        name: &str,
+    ) -> Result<(StreamConfig, Vec<SampleFormat>), AudioRecorderError> {
         let device_infos = self.find_device_by_name(name)?;
         let Some(device_info) = device_infos else {
-            return Err(AudioError::DeviceError(format!("no found device `{name}`")));
+            return Err(AudioRecorderError::DeviceError(format!(
+                "no found device `{name}`"
+            )));
         };
 
         let Some(default_config) = device_info.default_config else {
-            return Err(AudioError::DeviceError(format!(
+            return Err(AudioRecorderError::DeviceError(format!(
                 "no found default_config for device `{name}`"
             )));
         };
@@ -142,16 +150,16 @@ impl AudioRecorder {
         &self,
         device_name: &str,
         callback: impl FnMut(&[f32], &InputCallbackInfo) + Send + 'static,
-    ) -> Result<Stream, AudioError> {
+    ) -> Result<Stream, AudioRecorderError> {
         let (stream_config, _) = self.get_config(device_name)?;
 
         let physical_device = self
             .host
             .input_devices()
-            .map_err(|e| AudioError::HostError(e.to_string()))?
+            .map_err(|e| AudioRecorderError::HostError(e.to_string()))?
             .find(|d| d.name().map(|name| name == device_name).unwrap_or(false))
             .ok_or_else(|| {
-                AudioError::DeviceError(format!("Device '{}' not found", device_name))
+                AudioRecorderError::DeviceError(format!("Device '{}' not found", device_name))
             })?;
 
         let stream = physical_device
@@ -161,16 +169,16 @@ impl AudioRecorder {
                 |err| eprintln!("Audio stream error: {}", err),
                 None,
             )
-            .map_err(|e| AudioError::StreamError(e.to_string()))?;
+            .map_err(|e| AudioRecorderError::StreamError(e.to_string()))?;
 
         stream
             .play()
-            .map_err(|e| AudioError::StreamError(e.to_string()))?;
+            .map_err(|e| AudioRecorderError::StreamError(e.to_string()))?;
 
         Ok(stream)
     }
 
-    pub fn spec(&self, device_name: &str) -> Result<WavSpec, AudioError> {
+    pub fn spec(&self, device_name: &str) -> Result<WavSpec, AudioRecorderError> {
         let (stream_config, _) = self.get_config(device_name)?;
 
         Ok(WavSpec {
@@ -181,14 +189,14 @@ impl AudioRecorder {
         })
     }
 
-    pub fn start_recording(&mut self, device_name: &str) -> Result<(), AudioError> {
+    pub fn start_recording(&mut self, device_name: &str) -> Result<(), AudioRecorderError> {
         // Note:
         //  Without calling `denoise.flush` is not a problem.
         //  Just losing the last frame of real-time samples.
         let mut denoiser = if self.enable_denoise {
             let spec = self.spec(device_name)?;
             let denoiser = RealTimeDenoise::new(&DENOISE_MODEL, spec)
-                .map_err(|e| AudioError::DenoiseError(e.to_string()))?;
+                .map_err(|e| AudioRecorderError::DenoiseError(e.to_string()))?;
             Some(denoiser)
         } else {
             None

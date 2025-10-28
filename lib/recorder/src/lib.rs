@@ -1,22 +1,24 @@
 mod audio_level;
+mod audio_recorder;
 mod config;
 mod denoise;
 mod error;
-mod record_audio;
-mod record_speaker;
 mod recorder;
 mod resolution;
+mod speaker_recorder;
 mod video_encoder;
 
 pub use audio_level::*;
+pub use audio_recorder::{AudioDeviceInfo, AudioRecorder, AudioRecorderError};
 pub use config::{FPS, RecorderConfig, SimpleFpsCounter};
 pub use crossbeam::channel::{Receiver, Sender, bounded};
 pub use denoise::*;
 pub use error::RecorderError;
-pub use record_audio::{AudioDeviceInfo, AudioError, AudioRecorder};
-pub use record_speaker::SpeakerRecorder;
 pub use recorder::RecordingSession;
 pub use resolution::Resolution;
+pub use speaker_recorder::{
+    SpeakerRecorder, SpeakerRecorderConfig, SpeakerRecorderError, platform_speaker_recoder,
+};
 pub use video_encoder::{EncodedFrame, VideoEncoder};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,8 +48,8 @@ pub struct FrameUser {
 }
 
 pub fn platform_screen_capture() -> impl screen_capture::ScreenCapture + Clone + Send + 'static {
-    #[cfg(feature = "wayland-wlr")]
-    let screen_capturer = wayland_wlr_screen_capture::WaylandWlrScreenCapture::new();
+    #[cfg(all(target_os = "linux", feature = "wayland-wlr"))]
+    let screen_capturer = screen_capture_wayland_wlr::ScreenCaptureWaylandWlr::default();
 
     screen_capturer
 }

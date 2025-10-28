@@ -37,14 +37,15 @@ cutil = { workspace = true, features = ["str", "time", "number", "fs"] }
 
 [target.'cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))'.dependencies]
 tempfile.workspace = true
+recorder.workspace = true
 clipboard.workspace = true
 env_logger.workspace = true
 native-dialog.workspace = true
 platform-dirs.workspace = true
+screen-capture.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 duct.workspace = true
-recorder.workspace = true
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger.workspace = true
@@ -63,11 +64,13 @@ slint-build.workspace = true
 embed-resource.workspace = true
 
 [features]
-default = ["desktop"]
+default = ["desktop-wayland-wlr"]
+
+desktop = ["cutil/backup-recover"]
+desktop-wayland-wlr = ["desktop", "recorder/wayland-wlr"]
 
 web = []
 mobile = ["android"]
-desktop = ["cutil/backup-recover"]
 android = ["slint/backend-android-activity-06"]
 
 database = ["dep:sqldb"]

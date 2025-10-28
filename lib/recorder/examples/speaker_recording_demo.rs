@@ -1,5 +1,5 @@
 use hound::WavWriter;
-use recorder::{SpeakerRecorder, bounded};
+use recorder::{SpeakerRecorder, SpeakerRecorderConfig, bounded, platform_speaker_recoder};
 use std::{
     error::Error,
     path::PathBuf,
@@ -32,7 +32,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let handle = thread::spawn(move || {
         let save_path = PathBuf::from("/tmp/speaker_output.wav");
-        let spec = SpeakerRecorder::spec();
+        let spec = platform_speaker_recoder(SpeakerRecorderConfig::default())
+            .unwrap()
+            .spec();
 
         let mut writer = match WavWriter::create(&save_path, spec) {
             Ok(writer) => {
@@ -60,9 +62,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    SpeakerRecorder::new(stop_sig)?
-        .with_frame_sender(Some(sender))
-        .start_recording()?;
+    let config = SpeakerRecorderConfig::new(stop_sig).with_frame_sender(Some(sender));
+    platform_speaker_recoder(config)?.start_recording()?;
 
     handle.join().unwrap();
 

@@ -14,8 +14,10 @@ use crate::{
 use anyhow::{Result, bail};
 use once_cell::sync::Lazy;
 use recorder::{
-    AudioRecorder, FPS, RecorderConfig, RecordingSession, Resolution, SpeakerRecorder, bounded,
+    AudioRecorder, FPS, RecorderConfig, RecordingSession, Resolution, SpeakerRecorder,
+    SpeakerRecorderConfig, bounded, platform_screen_capture, platform_speaker_recoder,
 };
+use screen_capture::ScreenCapture;
 use slint::{
     ComponentHandle, Model, SharedPixelBuffer, SharedString, ToSharedString, VecModel, Weak,
 };
@@ -177,7 +179,8 @@ fn init_speaker(ui: &AppWindow) {
     }
 
     thread::spawn(move || {
-        let Ok(recorder) = SpeakerRecorder::new(Arc::new(AtomicBool::new(false))) else {
+        let config = SpeakerRecorderConfig::new(Arc::new(AtomicBool::new(false)));
+        let Ok(recorder) = platform_speaker_recoder(config) else {
             log::warn!("init desktop speaker recorder failed");
             return;
         };
@@ -221,7 +224,12 @@ fn create_speaker(ui: &AppWindow) -> Result<()> {
             log::info!("exit desktop speaker receiver thread");
         });
 
-        match SpeakerRecorder::new(stop_sig.clone()) {
+        let gain = Arc::new(AtomicI32::new(config::all().control.speaker_gain as i32));
+        let config = SpeakerRecorderConfig::new(stop_sig.clone())
+            .with_level_sender(Some(level_sender))
+            .with_gain(Some(gain.clone()));
+
+        match platform_speaker_recoder(config) {
             Err(e) => {
                 async_toast_warn(
                     ui_weak.clone(),
@@ -232,11 +240,6 @@ fn create_speaker(ui: &AppWindow) -> Result<()> {
             }
 
             Ok(recorder) => {
-                let gain = Arc::new(AtomicI32::new(config::all().control.speaker_gain as i32));
-                let recorder = recorder
-                    .with_level_sender(Some(level_sender))
-                    .with_gain(Some(gain.clone()));
-
                 {
                     let mut cache = CACHE.lock().unwrap();
                     cache.speaker_gain = Some(gain);
@@ -262,7 +265,7 @@ fn create_speaker(ui: &AppWindow) -> Result<()> {
 
 fn init_video(ui: &AppWindow) -> Result<()> {
     let mut names = vec![];
-    let screen_infos = capture::available_screens()?;
+    let screen_infos = platform_screen_capture().available_screens()?;
 
     if screen_infos.is_empty() {
         bail!("available screen no found");
@@ -302,12 +305,6 @@ fn init_video(ui: &AppWindow) -> Result<()> {
         name: name.clone(),
     });
 
-    tokio::spawn(async move {
-        if let Err(e) = RecordingSession::init(name.as_str()) {
-            log::warn!("RecordingSession::init failed in `init_video`: {e}");
-        }
-    });
-
     Ok(())
 }
 
@@ -338,7 +335,7 @@ fn inner_init_sources_dialog(ui: &AppWindow) -> Result<()> {
     store_audio_sources!(ui).set_vec(names);
 
     let mut names = vec![];
-    let screen_infos = capture::available_screens()?;
+    let screen_infos = platform_screen_capture().available_screens()?;
     if screen_infos.is_empty() {
         bail!("available screen no found");
     }
@@ -422,7 +419,10 @@ fn refresh_speaker(ui: &AppWindow, show_toast: bool) {
     }
 }
 
-fn speaker_device_changed(recorder: &SpeakerRecorder, device_info: &Option<(u32, String)>) -> bool {
+fn speaker_device_changed(
+    recorder: &impl SpeakerRecorder,
+    device_info: &Option<(u32, String)>,
+) -> bool {
     let Ok(Some((node_id, node_name))) = recorder.find_default_output() else {
         log::warn!("find default speaker device failed");
         return false;
@@ -522,7 +522,9 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
         bail!("available screen no found");
     }
 
-    let screen_info = capture::available_screens()?
+    let mut capture = platform_screen_capture();
+    let screen_info = capture
+        .available_screens()?
         .into_iter()
         .find(|item| item.name == all_config.control.screen);
 
@@ -548,10 +550,6 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
         Some(all_config.control.audio)
     };
 
-    if !RecordingSession::init_finished() {
-        RecordingSession::init(&all_config.control.screen)?;
-    }
-
     let config = RecorderConfig::new(
         all_config.control.screen.clone(),
         screen_info.logical_size.clone(),
@@ -575,7 +573,7 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
 
     let (frame_sender_user, frame_receiver_user) = bounded(16);
     let mut session = RecordingSession::new(config).with_frame_sender_user(Some(frame_sender_user));
-    session.start()?;
+    session.start(capture)?;
 
     _ = ui_weak.upgrade_in_event_loop(move |ui| {
         global_store!(ui).set_final_video_path(SharedString::default());

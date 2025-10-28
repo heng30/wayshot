@@ -18,7 +18,6 @@ mp4m.workspace = true
 hound.workspace = true
 image.workspace = true
 chrono.workspace = true
-pipewire.workspace = true
 crossbeam.workspace = true
 thiserror.workspace = true
 once_cell.workspace = true
@@ -28,7 +27,10 @@ derive_setters.workspace = true
 screen-capture.workspace = true
 yuv = { workspace = true, features = ["rayon"] }
 fast_image_resize = { workspace = true, features = ["rayon"] }
-wayland-wlr-screen-capture = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+pipewire.workspace = true
+screen-capture-wayland-wlr = { workspace = true, optional = true }
 
 [dev-dependencies]
 ctrlc.workspace = true
@@ -36,4 +38,4 @@ env_logger.workspace = true
 
 [features]
 default = ["wayland-wlr"]
-wayland-wlr = ["dep:wayland-wlr-screen-capture"]
+wayland-wlr = ["dep:screen-capture-wayland-wlr"]
