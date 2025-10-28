@@ -221,7 +221,7 @@ impl<T: SampleType> AudioProcessor<T> {
                 if max_samples_seconds < 3 {
                     return Ok(());
                 } else {
-                    log::warn!(
+                    log::debug!(
                         "At least one audio buffer samples counts is great than 3 second's samples counts"
                     );
                 }

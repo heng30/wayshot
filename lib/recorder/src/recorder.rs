@@ -53,6 +53,7 @@ pub struct RecordingSession {
     speaker_recorder_worker: Option<JoinHandle<Result<(), RecorderError>>>,
 
     audio_mixer_stop_sig: Option<Arc<AtomicBool>>,
+    audio_mixer_finished_sig: Option<Arc<AtomicBool>>,
     audio_mixer_worker: Option<JoinHandle<()>>,
     mp4_writer_worker: Option<JoinHandle<()>>,
     h264_frame_sender: Option<Sender<VideoFrameType>>,
@@ -86,7 +87,9 @@ impl RecordingSession {
             speaker_level_receiver: None,
 
             audio_mixer_stop_sig: None,
+            audio_mixer_finished_sig: None,
             audio_mixer_worker: None,
+
             mp4_writer_worker: None,
             h264_frame_sender: None,
 
@@ -466,7 +469,10 @@ impl RecordingSession {
             }
 
             self.audio_mixer_stop_sig = Some(Arc::new(AtomicBool::new(false)));
+            self.audio_mixer_finished_sig = Some(Arc::new(AtomicBool::new(false)));
+
             let stop_sig = self.audio_mixer_stop_sig.clone().unwrap();
+            let finished_sig = self.audio_mixer_finished_sig.clone().unwrap();
 
             let handle = thread::spawn(move || {
                 loop {
@@ -475,6 +481,10 @@ impl RecordingSession {
                     }
 
                     if stop_sig.load(Ordering::Relaxed) {
+                        if let Err(e) = audio_processor.flush() {
+                            log::warn!("Audio mixer flush sample failed: {e}");
+                        }
+                        finished_sig.store(true, Ordering::Relaxed);
                         return;
                     }
 
@@ -550,6 +560,16 @@ impl RecordingSession {
 
         if let Some(stop_sig) = self.audio_mixer_stop_sig {
             stop_sig.store(true, Ordering::Relaxed);
+
+            let mut try_counts = 0;
+            while let Some(ref finished_sig) = self.audio_mixer_finished_sig {
+                if finished_sig.load(Ordering::Relaxed) || try_counts > 5 {
+                    break;
+                }
+
+                try_counts += 1;
+                thread::sleep(Duration::from_millis(100));
+            }
         }
 
         if let Some(sender) = self.h264_frame_sender.take()
