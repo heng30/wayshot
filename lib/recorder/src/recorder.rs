@@ -12,13 +12,12 @@ use mp4m::{
     AudioConfig, AudioProcessor, AudioProcessorConfigBuilder, Mp4Processor,
     Mp4ProcessorConfigBuilder, OutputDestination, VideoConfig, VideoFrameType,
 };
-use once_cell::sync::OnceCell;
-use screen_capture::{Capture, CaptureStreamConfig, ScreenCapture, ScreenCaptureError};
+use screen_capture::{Capture, CaptureStreamConfig, ScreenCapture};
 use spin_sleep::SpinSleeper;
 use std::{
     path::PathBuf,
     sync::{
-        Arc, Mutex,
+        Arc,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
     thread::{self, JoinHandle},
@@ -31,8 +30,6 @@ pub(crate) type ResizedImageBuffer = ImageBuffer<Rgb<u8>, Vec<u8>>;
 const USER_CHANNEL_SIZE: usize = 64;
 const ENCODER_WORKER_CHANNEL_SIZE: usize = 128;
 const AUDIO_MIXER_CHANNEL_SIZE: usize = 1024;
-
-static CAPTURE_MEAN_TIME: OnceCell<Mutex<Result<Duration, ScreenCaptureError>>> = OnceCell::new();
 
 #[derive(Setters)]
 #[setters(prefix = "with_")]
@@ -711,41 +708,12 @@ impl RecordingSession {
         self.speaker_level_receiver.clone()
     }
 
-    pub fn init_capture_mean_time(
-        screen_name: &str,
-        screen_capturer: &mut impl ScreenCapture,
-    ) -> Result<(), RecorderError> {
-        let mean_time = CAPTURE_MEAN_TIME.get_or_init(|| {
-            let mean_time = screen_capturer.capture_mean_time(screen_name, 10);
-            Mutex::new(mean_time)
-        });
-
-        let mean_ms = mean_time
-            .lock()
-            .unwrap()
-            .clone()
-            .map_err(|e| RecorderError::CaptureFailed(e))?
-            .as_millis() as f64;
-
-        log::info!("capture mean time: {mean_ms:.2?}ms");
-
-        Ok(())
-    }
-
     fn evaluate_need_threads(
         &self,
         screen_capturer: &mut impl ScreenCapture,
     ) -> Result<u32, RecorderError> {
-        let mean_time = CAPTURE_MEAN_TIME.get_or_init(|| {
-            let mean_time = screen_capturer.capture_mean_time(&self.config.screen_name, 10);
-            Mutex::new(mean_time)
-        });
-
-        let mean_ms = mean_time
-            .lock()
-            .unwrap()
-            .clone()
-            .map_err(|e| RecorderError::CaptureFailed(e))?
+        let mean_ms = screen_capturer
+            .capture_mean_time(&self.config.screen_name, 3)?
             .as_millis() as f64;
 
         log::info!("capture mean time: {mean_ms:.2?}ms");

@@ -91,8 +91,6 @@ export global Logic {
     callback choose-save-dir();
     callback update-sources(setting: SettingControl);
 
-    callback screen-changed(name: string);
-
     callback audio-changed(name: string, show-toast: bool);
     callback audio-gain-changed(value: float);
 
@@ -101,6 +99,8 @@ export global Logic {
 
     callback start-recording();
     callback stop-recording();
+
+    callback open-file(file: string);
 
     pure public function fps-to-int(fps: Fps) -> int {
         if (fps == Fps.Fps24) {

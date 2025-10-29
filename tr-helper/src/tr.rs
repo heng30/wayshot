@@ -246,6 +246,7 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Disabled noise reduction", "禁用降噪功能"),
             ("Don't convert audio to mono", "不要将音频转换为单声道"),
             ("Enabled noise reduction", "启用降噪功能"),
+            ("Open file failed", "打开文件失败"),
         ])
     })
 }

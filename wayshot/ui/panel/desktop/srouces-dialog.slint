@@ -155,9 +155,6 @@ export component SourcesDialog inherits Dialog {
             Logic.set-setting-control(Store.setting-control);
             Logic.update-sources(Store.setting-control);
         }
-        if (is-screen-changed) {
-            Logic.screen-changed(Store.setting-control.screen);
-        }
         if (is-audio-changed) {
             Logic.audio-changed(Store.setting-control.audio, true);
         }

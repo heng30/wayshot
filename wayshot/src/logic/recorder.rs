@@ -84,8 +84,6 @@ pub fn init(ui: &AppWindow) {
     logic_cb!(choose_save_dir, ui);
     logic_cb!(update_sources, ui, setting);
 
-    logic_cb!(screen_changed, ui, name);
-
     logic_cb!(audio_changed, ui, name, show_toast);
     logic_cb!(audio_gain_changed, ui, v);
 
@@ -94,6 +92,8 @@ pub fn init(ui: &AppWindow) {
 
     logic_cb!(start_recording, ui);
     logic_cb!(stop_recording, ui);
+
+    logic_cb!(open_file, ui, file);
 }
 
 fn inner_init(ui: &AppWindow) {
@@ -307,8 +307,6 @@ fn init_video(ui: &AppWindow) -> Result<()> {
         name: name.clone(),
     });
 
-    global_logic!(ui).invoke_screen_changed(name);
-
     Ok(())
 }
 
@@ -489,16 +487,6 @@ fn inner_audio_changed(ui: &AppWindow, name: SharedString) -> Result<()> {
     Ok(())
 }
 
-fn screen_changed(_ui: &AppWindow, name: SharedString) {
-    tokio::spawn(async move {
-        if let Err(e) =
-            RecordingSession::init_capture_mean_time(name.as_str(), &mut platform_screen_capture())
-        {
-            log::warn!("init capture mean time failed: {e}")
-        }
-    });
-}
-
 fn start_recording(ui: &AppWindow) {
     let all_config = config::all();
 
@@ -651,6 +639,14 @@ fn stop_recording(ui: &AppWindow) {
     }
 
     global_store!(ui).set_record_status(UIRecordStatus::Stopped);
+}
+
+fn open_file(ui: &AppWindow, file: SharedString) {
+    if !file.is_empty()
+        && let Err(e) = open::that_detached(file.as_str())
+    {
+        toast_warn!(ui, format!("{}: `{}`. {e}", tr("Open file failed"), file));
+    }
 }
 
 pub fn picker_directory(ui: Weak<AppWindow>, title: &str, filename: &str) -> Option<PathBuf> {

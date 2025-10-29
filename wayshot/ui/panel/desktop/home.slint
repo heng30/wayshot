@@ -17,6 +17,7 @@ import {
     ComponentPosition,
 } from "../../base/widgets.slint";
 import { LogIn } from "../../base/log-in.slint";
+import { Divider } from "../../base/divider.slint";
 
 component PreviewPanel inherits Rectangle {
     background: Theme.dark-text-color;
@@ -403,10 +404,29 @@ component Banners inherits VerticalLayout {
         HorizontalLayout {
             spacing: Theme.spacing;
 
-            Label {
-                color: Theme.light-text-color;
-                text: Store.final-video-path;
-                font-weight: Theme.bold-font-weight;
+            VerticalLayout {
+                alignment: start;
+
+                lb := Label {
+                    color: Theme.light-text-color;
+                    text: Store.final-video-path;
+                    font-weight: Theme.bold-font-weight;
+
+                    lb-ta := TouchArea {
+                        mouse-cursor: MouseCursor.pointer;
+
+                        clicked => {
+                            Logic.open-file(Store.final-video-path);
+                        }
+                    }
+                }
+
+                Divider {
+                    visible: lb-ta.has-hover;
+                    background: lb.color;
+                    height: Theme.default-border-width;
+                    width: lb.preferred-width;
+                }
             }
 
             IconBtn {
