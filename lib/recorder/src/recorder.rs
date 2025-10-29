@@ -32,6 +32,8 @@ const USER_CHANNEL_SIZE: usize = 64;
 const ENCODER_WORKER_CHANNEL_SIZE: usize = 128;
 const AUDIO_MIXER_CHANNEL_SIZE: usize = 1024;
 
+static CAPTURE_MEAN_TIME: OnceCell<Mutex<Result<Duration, ScreenCaptureError>>> = OnceCell::new();
+
 #[derive(Setters)]
 #[setters(prefix = "with_")]
 #[setters(generate = false)]
@@ -137,12 +139,7 @@ impl RecordingSession {
         let mut video_encoder =
             VideoEncoder::new(encoder_width, encoder_height, self.config.fps, false)?;
         let headers_data = video_encoder.headers()?.entirety().to_vec();
-
-        let (audio_sender, speaker_sender) = self.mp4_worker(if video_encoder.annexb() {
-            Some(headers_data.clone())
-        } else {
-            None
-        })?;
+        let (audio_sender, speaker_sender) = self.mp4_worker(Some(headers_data.clone()))?;
 
         self.video_encoder = Some(video_encoder);
 
@@ -714,13 +711,31 @@ impl RecordingSession {
         self.speaker_level_receiver.clone()
     }
 
+    pub fn init_capture_mean_time(
+        screen_name: &str,
+        screen_capturer: &mut impl ScreenCapture,
+    ) -> Result<(), RecorderError> {
+        let mean_time = CAPTURE_MEAN_TIME.get_or_init(|| {
+            let mean_time = screen_capturer.capture_mean_time(screen_name, 10);
+            Mutex::new(mean_time)
+        });
+
+        let mean_ms = mean_time
+            .lock()
+            .unwrap()
+            .clone()
+            .map_err(|e| RecorderError::CaptureFailed(e))?
+            .as_millis() as f64;
+
+        log::info!("capture mean time: {mean_ms:.2?}ms");
+
+        Ok(())
+    }
+
     fn evaluate_need_threads(
         &self,
         screen_capturer: &mut impl ScreenCapture,
     ) -> Result<u32, RecorderError> {
-        static CAPTURE_MEAN_TIME: OnceCell<Mutex<Result<Duration, ScreenCaptureError>>> =
-            OnceCell::new();
-
         let mean_time = CAPTURE_MEAN_TIME.get_or_init(|| {
             let mean_time = screen_capturer.capture_mean_time(&self.config.screen_name, 10);
             Mutex::new(mean_time)

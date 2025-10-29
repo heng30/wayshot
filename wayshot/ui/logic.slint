@@ -91,6 +91,8 @@ export global Logic {
     callback choose-save-dir();
     callback update-sources(setting: SettingControl);
 
+    callback screen-changed(name: string);
+
     callback audio-changed(name: string, show-toast: bool);
     callback audio-gain-changed(value: float);
 

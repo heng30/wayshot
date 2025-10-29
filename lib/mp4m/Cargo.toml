@@ -19,11 +19,12 @@ rubato.workspace = true
 fdk-aac.workspace = true
 thiserror.workspace = true
 crossbeam.workspace = true
-h264-reader.workspace = true
 derive_builder.workspace = true
 
 [dev-dependencies]
 rand.workspace = true
 image.workspace = true
-recorder.workspace = true
 env_logger.workspace = true
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+recorder = { workspace = true, features = ["wayland-wlr"] }

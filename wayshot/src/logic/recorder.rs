@@ -84,6 +84,8 @@ pub fn init(ui: &AppWindow) {
     logic_cb!(choose_save_dir, ui);
     logic_cb!(update_sources, ui, setting);
 
+    logic_cb!(screen_changed, ui, name);
+
     logic_cb!(audio_changed, ui, name, show_toast);
     logic_cb!(audio_gain_changed, ui, v);
 
@@ -305,6 +307,8 @@ fn init_video(ui: &AppWindow) -> Result<()> {
         name: name.clone(),
     });
 
+    global_logic!(ui).invoke_screen_changed(name);
+
     Ok(())
 }
 
@@ -483,6 +487,16 @@ fn inner_audio_changed(ui: &AppWindow, name: SharedString) -> Result<()> {
     });
 
     Ok(())
+}
+
+fn screen_changed(_ui: &AppWindow, name: SharedString) {
+    tokio::spawn(async move {
+        if let Err(e) =
+            RecordingSession::init_capture_mean_time(name.as_str(), &mut platform_screen_capture())
+        {
+            log::warn!("init capture mean time failed: {e}")
+        }
+    });
 }
 
 fn start_recording(ui: &AppWindow) {

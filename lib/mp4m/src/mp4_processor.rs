@@ -1,21 +1,12 @@
 use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_builder::Builder;
 use fdk_aac::enc::{BitRate, ChannelMode, Encoder, EncoderParams, Transport};
-use h264_reader::{
-    annexb::AnnexBReader,
-    nal::{Nal, RefNal, UnitType},
-    push::NalInterest,
-};
 use hound::WavSpec;
 use mp4::{
     AacConfig, AvcConfig, ChannelConfig, Mp4Config, Mp4Sample, Mp4Writer, SampleFreqIndex,
     TrackConfig, TrackType,
 };
-use std::{
-    fs::File,
-    io::{BufWriter, Read},
-    path::PathBuf,
-};
+use std::{fs::File, io::BufWriter, path::PathBuf};
 use thiserror::Error;
 
 const VIDEO_TIMESCALE: u32 = 90000; // Standard video timescale (90kHz) for better compatibility
@@ -241,64 +232,34 @@ impl Mp4Processor {
         &self,
         headers_data: &[u8],
     ) -> Result<(Vec<u8>, Vec<u8>), Mp4ProcessorError> {
-        let mut sps = None;
-        let mut pps = None;
+        let (mut sps, mut pps) = (None, None);
 
-        // Try to parse as Annex B format first
-        let mut reader = AnnexBReader::accumulate(|nal: RefNal<'_>| {
-            let nal_unit_type = nal.header().unwrap().nal_unit_type();
+        let mut i = 0;
+        while i + 4 <= headers_data.len() {
+            // Read NAL unit length (big-endian)
+            let nal_length = ((headers_data[i] as u32) << 24)
+                | ((headers_data[i + 1] as u32) << 16)
+                | ((headers_data[i + 2] as u32) << 8)
+                | (headers_data[i + 3] as u32);
 
-            // Read all data from the NAL unit
-            let mut reader = nal.reader();
-            let mut data = Vec::new();
-            if let Ok(_) = reader.read_to_end(&mut data) {
+            if i + 4 + nal_length as usize > headers_data.len() {
+                break;
+            }
+
+            let nal_start = i + 4;
+            let nal_end = nal_start + nal_length as usize;
+            let nal_data = &headers_data[nal_start..nal_end];
+
+            if nal_data.len() > 0 {
+                let nal_unit_type = nal_data[0] & 0x1F;
                 match nal_unit_type {
-                    UnitType::SeqParameterSet => {
-                        sps = Some(data);
-                    }
-                    UnitType::PicParameterSet => {
-                        pps = Some(data);
-                    }
+                    7 => sps = Some(nal_data.to_vec()),
+                    8 => pps = Some(nal_data.to_vec()),
                     _ => {}
                 }
             }
 
-            NalInterest::Buffer
-        });
-
-        reader.push(headers_data);
-        reader.reset();
-
-        // If Annex B parsing failed, try length-prefixed format
-        if sps.is_none() || pps.is_none() {
-            log::debug!("Annex B parsing failed, trying length-prefixed format");
-            let mut i = 0;
-            while i + 4 <= headers_data.len() {
-                // Read NAL unit length (big-endian)
-                let nal_length = ((headers_data[i] as u32) << 24)
-                    | ((headers_data[i + 1] as u32) << 16)
-                    | ((headers_data[i + 2] as u32) << 8)
-                    | (headers_data[i + 3] as u32);
-
-                if i + 4 + nal_length as usize > headers_data.len() {
-                    break;
-                }
-
-                let nal_start = i + 4;
-                let nal_end = nal_start + nal_length as usize;
-                let nal_data = &headers_data[nal_start..nal_end];
-
-                if nal_data.len() > 0 {
-                    let nal_unit_type = nal_data[0] & 0x1F;
-                    match nal_unit_type {
-                        7 => sps = Some(nal_data.to_vec()),
-                        8 => pps = Some(nal_data.to_vec()),
-                        _ => {}
-                    }
-                }
-
-                i += 4 + nal_length as usize;
-            }
+            i += 4 + nal_length as usize;
         }
 
         match (sps, pps) {

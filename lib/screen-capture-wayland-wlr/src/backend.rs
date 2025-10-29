@@ -61,22 +61,15 @@ pub(crate) struct OutputInfo {
 
 impl Drop for OutputInfo {
     fn drop(&mut self) {
-        log::debug!("Cleaning up OutputInfo resources");
-
-        // Release Wayland output object
         self.wl_output.release();
 
-        // Clean up memory mapping first
         if let Some(mmap) = self.image_mmap.take() {
             drop(mmap);
         }
 
-        // Clean up memory file descriptor
         if let Some(memfd) = self.image_memfd.take() {
             drop(memfd);
         }
-
-        log::debug!("OutputInfo resources cleaned up");
     }
 }
 
