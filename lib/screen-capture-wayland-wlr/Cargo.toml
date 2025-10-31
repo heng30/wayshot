@@ -25,8 +25,6 @@ screen-capture = { workspace = true, features = ["wayland"] }
 wayland-protocols-wlr = { workspace = true, features = ["client"] }
 wayland-protocols = { workspace = true, features = ["client", "unstable"] }
 
-tempfile.workspace = true
-
 [dev-dependencies]
 ctrlc.workspace = true
 env_logger.workspace = true
