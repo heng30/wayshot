@@ -6146,6 +6146,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spin_sleep",
+ "tempfile",
  "thiserror 2.0.17",
  "wayland-client",
  "wayland-protocols",

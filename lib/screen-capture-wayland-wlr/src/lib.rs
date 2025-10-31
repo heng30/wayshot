@@ -1,9 +1,11 @@
 mod backend;
 mod capture;
+mod cursor;
 mod error;
 mod screen_info;
 
 pub use capture::*;
+pub use cursor::*;
 pub use error::*;
 pub use screen_info::*;
 
