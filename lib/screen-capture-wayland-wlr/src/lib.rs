@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate derivative;
+
 mod backend;
 mod capture;
 mod cursor;

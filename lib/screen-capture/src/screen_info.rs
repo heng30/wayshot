@@ -12,7 +12,7 @@ pub enum ScreenInfoError {
     Other(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ScreenInfo {
     /// Name of the output (e.g., "eDP-1", "HDMI-A-1")
     pub name: String,
@@ -33,7 +33,7 @@ pub struct ScreenInfo {
     pub scale_factor: f32,
 }
 
-#[derive(Debug, Clone, Deserialize, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Default, Deserialize, Copy, PartialEq, PartialOrd)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
@@ -45,7 +45,7 @@ impl Position {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Default, Clone, Deserialize, Copy, PartialEq, PartialOrd)]
 pub struct LogicalSize {
     pub width: i32,
     pub height: i32,
@@ -57,7 +57,7 @@ impl LogicalSize {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Default, Clone, Deserialize, Copy, PartialEq, PartialOrd)]
 pub struct PhysicalSize {
     pub width: i32,
     pub height: i32,
@@ -73,6 +73,12 @@ pub enum Transform {
     Flipped90,
     Flipped180,
     Flipped270,
+}
+
+impl Default for Transform {
+    fn default() -> Self {
+        Self::Normal
+    }
 }
 
 #[cfg(feature = "wayland")]

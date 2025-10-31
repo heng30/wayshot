@@ -1,4 +1,6 @@
-use screen_capture_wayland_wlr::{available_screens, monitor_cursor_position};
+use screen_capture_wayland_wlr::{
+    MonitorCursorPositionConfig, available_screens, monitor_cursor_position,
+};
 use std::{
     sync::{
         Arc,
@@ -36,7 +38,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         stop_sig.store(true, Ordering::Relaxed);
     });
 
-    _ = monitor_cursor_position(stop_sig_clone, target_screen, move |position| {
+    let config =
+        MonitorCursorPositionConfig::new(target_screen).with_use_transparent_layer_surface(false);
+
+    if let Err(e) = monitor_cursor_position(config, stop_sig_clone, move |position| {
         log::info!("Current mouse position: x={}, y={}", position.x, position.y);
         log::info!(
             "Output dimensions: {}x{} at ({}, {})",
@@ -45,7 +50,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             position.output_x,
             position.output_y
         );
-    });
+    }) {
+        log::error!("{e}");
+    }
 
     Ok(())
 }
