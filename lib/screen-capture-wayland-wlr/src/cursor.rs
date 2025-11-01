@@ -119,8 +119,8 @@ impl CursorTracker {
             return Err(CursorError::ProtocolNotAvailable("wl_shm".to_string()));
         }
 
-        state.target_screen = screen_info;
         state.hole_radius = 30;
+        state.target_screen = screen_info;
         state.use_transparent_layer_surface = true;
 
         Ok(Self { queue, state })
@@ -451,6 +451,13 @@ impl CursorTracker {
             .map(|(output, name)| (output.clone(), name.clone()))
             .collect();
 
+        if target_outputs.is_empty() {
+            return Err(CursorError::ConnectionFailed(format!(
+                "No found output of {}",
+                target_screen_name
+            )));
+        }
+
         let mut surfaces = Vec::new();
         let mut layer_surfaces = Vec::new();
         let mut surface_buffers = Vec::new();
@@ -465,17 +472,63 @@ impl CursorTracker {
             self.state.input_regions.push(None);
         }
 
-        self.state.surfaces.extend(surfaces.clone());
+        let surfaces_len = surfaces.len();
+        self.state.surfaces.extend(surfaces);
         self.state.layer_surfaces.extend(layer_surfaces);
         self.state.surface_buffers.extend(surface_buffers);
 
-        self.wait_for_surface_configuration(surfaces.len())?;
+        self.wait_for_surface_configuration(surfaces_len)?;
         self.setup_pointer()?;
 
         Ok(())
     }
 }
 
+// This callback will be called firstly
+impl Dispatch<wl_registry::WlRegistry, ()> for CursorTrackerState {
+    fn event(
+        state: &mut Self,
+        registry: &wl_registry::WlRegistry,
+        event: wl_registry::Event,
+        _: &(),
+        _: &Connection,
+        qh: &QueueHandle<Self>,
+    ) {
+        match event {
+            wl_registry::Event::Global {
+                name,
+                interface,
+                version,
+            } => match interface.as_str() {
+                "wl_compositor" => {
+                    let compositor = registry.bind(name, version, qh, ());
+                    state.compositor = Some(compositor);
+                }
+                "wl_seat" => {
+                    let seat = registry.bind(name, version, qh, ());
+                    state.seat = Some(seat);
+                }
+                "wl_output" => {
+                    let output = registry.bind(name, version, qh, ());
+                    state.outputs.push((output, String::new()));
+                }
+                "zwlr_layer_shell_v1" => {
+                    let layer_shell = registry.bind(name, version, qh, ());
+                    state.layer_shell = Some(layer_shell);
+                }
+                "wl_shm" => {
+                    let shm = registry.bind(name, version, qh, ());
+                    state.shm = Some(shm);
+                }
+                _ => {}
+            },
+            wl_registry::Event::GlobalRemove { name: _ } => {}
+            _ => {}
+        }
+    }
+}
+
+// Get all screens' name of output
 impl Dispatch<wl_output::WlOutput, ()> for CursorTrackerState {
     fn event(
         state: &mut Self,
@@ -496,6 +549,81 @@ impl Dispatch<wl_output::WlOutput, ()> for CursorTrackerState {
                 }
             }
             _ => {}
+        }
+    }
+}
+
+// Attach surfaces buffer to layer surfaces
+impl Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, ()> for CursorTrackerState {
+    fn event(
+        state: &mut Self,
+        layer_surface: &zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+        event: zwlr_layer_surface_v1::Event,
+        _: &(),
+        _: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        match event {
+            zwlr_layer_surface_v1::Event::Configure {
+                serial,
+                width,
+                height,
+            } => {
+                handle_surface_configure(state, layer_surface, serial, width, height);
+            }
+            zwlr_layer_surface_v1::Event::Closed => {}
+            _ => {}
+        }
+    }
+}
+
+impl Dispatch<wl_seat::WlSeat, ()> for CursorTrackerState {
+    fn event(
+        state: &mut Self,
+        seat: &wl_seat::WlSeat,
+        event: wl_seat::Event,
+        _: &(),
+        _: &Connection,
+        qh: &QueueHandle<Self>,
+    ) {
+        match event {
+            wl_seat::Event::Capabilities { capabilities } => {
+                if let wayland_client::WEnum::Value(caps) = capabilities {
+                    if caps.contains(wl_seat::Capability::Pointer) {
+                        let pointer = seat.get_pointer(qh, ());
+                        state.pointer = Some(pointer);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+impl Dispatch<wl_pointer::WlPointer, ()> for CursorTrackerState {
+    fn event(
+        state: &mut Self,
+        _pointer: &wl_pointer::WlPointer,
+        event: wl_pointer::Event,
+        _: &(),
+        _: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        let new_position = match event {
+            wl_pointer::Event::Motion {
+                surface_x,
+                surface_y,
+                ..
+            } => handle_motion_event(surface_x, surface_y, &state.target_screen),
+            wl_pointer::Event::Enter { .. } => None,
+            wl_pointer::Event::Leave { .. } => None,
+            wl_pointer::Event::Button { .. } => None,
+            wl_pointer::Event::Axis { .. } => None,
+            _ => None,
+        };
+
+        if let Some(position) = new_position {
+            update_cursor_state(state, position);
         }
     }
 }
@@ -549,98 +677,105 @@ fn update_cursor_state(state: &mut CursorTrackerState, position: CursorPosition)
     state.last_cursor_pos = Some((position.x, position.y));
 }
 
-impl Dispatch<wl_pointer::WlPointer, ()> for CursorTrackerState {
-    fn event(
-        state: &mut Self,
-        _pointer: &wl_pointer::WlPointer,
-        event: wl_pointer::Event,
-        _: &(),
-        _: &Connection,
-        _qh: &QueueHandle<Self>,
-    ) {
-        let new_position = match event {
-            wl_pointer::Event::Motion {
-                surface_x,
-                surface_y,
-                ..
-            } => handle_motion_event(surface_x, surface_y, &state.target_screen),
-            wl_pointer::Event::Enter { .. } => None,
-            wl_pointer::Event::Leave { .. } => None,
-            wl_pointer::Event::Button { .. } => None,
-            wl_pointer::Event::Axis { .. } => None,
-            _ => None,
-        };
+fn handle_surface_configure(
+    state: &mut CursorTrackerState,
+    layer_surface: &zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+    serial: u32,
+    _width: u32,
+    _height: u32,
+) {
+    layer_surface.ack_configure(serial);
+    state.configured_surfaces += 1;
 
-        if let Some(position) = new_position {
-            update_cursor_state(state, position);
+    if let Some(surface_idx) = state
+        .layer_surfaces
+        .iter()
+        .position(|(ls, _)| ls.id() == layer_surface.id())
+    {
+        if let (Some(surface), Some(buffer)) = (
+            state.surfaces.get(surface_idx),
+            state
+                .surface_buffers
+                .get(surface_idx)
+                .and_then(|b| b.as_ref()),
+        ) {
+            let target_screen = &state.target_screen;
+            let physical_width =
+                (target_screen.logical_size.width as f32 / target_screen.scale_factor) as i32;
+            let physical_height =
+                (target_screen.logical_size.height as f32 / target_screen.scale_factor) as i32;
+
+            surface.attach(Some(buffer), 0, 0);
+            surface.damage(0, 0, physical_width, physical_height);
+            surface.commit();
+        } else if let Some(surface) = state.surfaces.get(surface_idx) {
+            surface.commit();
         }
     }
 }
 
-impl Dispatch<wl_seat::WlSeat, ()> for CursorTrackerState {
-    fn event(
-        state: &mut Self,
-        seat: &wl_seat::WlSeat,
-        event: wl_seat::Event,
-        _: &(),
-        _: &Connection,
-        qh: &QueueHandle<Self>,
-    ) {
-        match event {
-            wl_seat::Event::Capabilities { capabilities } => {
-                if let wayland_client::WEnum::Value(caps) = capabilities {
-                    if caps.contains(wl_seat::Capability::Pointer) {
-                        let pointer = seat.get_pointer(qh, ());
-                        state.pointer = Some(pointer);
-                    }
-                }
-            }
-            _ => {}
+#[derive(Debug, Clone, Setters)]
+#[setters(prefix = "with_")]
+pub struct MonitorCursorPositionConfig {
+    #[setters(skip)]
+    pub screen_info: ScreenInfo,
+
+    pub use_transparent_layer_surface: bool,
+    pub hole_radius: i32,
+}
+
+impl MonitorCursorPositionConfig {
+    pub fn new(screen_info: ScreenInfo) -> Self {
+        Self {
+            screen_info,
+            use_transparent_layer_surface: true,
+            hole_radius: 30,
         }
     }
 }
 
-impl Dispatch<wl_registry::WlRegistry, ()> for CursorTrackerState {
-    fn event(
-        state: &mut Self,
-        registry: &wl_registry::WlRegistry,
-        event: wl_registry::Event,
-        _: &(),
-        _: &Connection,
-        qh: &QueueHandle<Self>,
-    ) {
-        match event {
-            wl_registry::Event::Global {
-                name,
-                interface,
-                version,
-            } => match interface.as_str() {
-                "wl_compositor" => {
-                    let compositor = registry.bind(name, version, qh, ());
-                    state.compositor = Some(compositor);
-                }
-                "wl_seat" => {
-                    let seat = registry.bind(name, version, qh, ());
-                    state.seat = Some(seat);
-                }
-                "wl_output" => {
-                    let output = registry.bind(name, version, qh, ());
-                    state.outputs.push((output, String::new()));
-                }
-                "zwlr_layer_shell_v1" => {
-                    let layer_shell = registry.bind(name, version, qh, ());
-                    state.layer_shell = Some(layer_shell);
-                }
-                "wl_shm" => {
-                    let shm = registry.bind(name, version, qh, ());
-                    state.shm = Some(shm);
-                }
-                _ => {}
-            },
-            wl_registry::Event::GlobalRemove { name: _ } => {}
-            _ => {}
+pub fn monitor_cursor_position<F>(
+    config: MonitorCursorPositionConfig,
+    stop_sig: Arc<AtomicBool>,
+    callback: F,
+) -> Result<(), CursorError>
+where
+    F: FnMut(CursorPosition) + Send + 'static,
+{
+    let mut tracker = CursorTracker::new(config.screen_info)?;
+    tracker.state.callback = Some(Box::new(callback));
+    tracker.state.use_transparent_layer_surface = config.use_transparent_layer_surface;
+    tracker.state.hole_radius = config.hole_radius;
+    tracker.start_tracking()?;
+
+    loop {
+        if stop_sig.load(Ordering::Relaxed) {
+            break;
         }
+
+        if let Err(e) = tracker.queue.dispatch_pending(&mut tracker.state) {
+            log::warn!("Dispatch pending error: {}", e);
+        }
+
+        // Process input region updates immediately after dispatching events
+        if let Err(e) = tracker.process_pending_input_updates() {
+            log::warn!("Input region update error: {}", e);
+        }
+
+        // Try to process any pending events immediately
+        if let Err(e) = tracker.queue.blocking_dispatch(&mut tracker.state) {
+            log::debug!("Blocking dispatch error (may be expected): {}", e);
+        }
+
+        if let Err(e) = tracker.queue.roundtrip(&mut tracker.state) {
+            log::warn!("Roundtrip  error: {}", e);
+        }
+
+        // Reduced sleep time for better responsiveness
+        std::thread::sleep(Duration::from_millis(5));
     }
+
+    Ok(())
 }
 
 impl Dispatch<wl_compositor::WlCompositor, ()> for CursorTrackerState {
@@ -725,130 +860,4 @@ impl Dispatch<wl_region::WlRegion, ()> for CursorTrackerState {
         _: &QueueHandle<Self>,
     ) {
     }
-}
-
-fn handle_surface_configure(
-    state: &mut CursorTrackerState,
-    layer_surface: &zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
-    serial: u32,
-    _width: u32,
-    _height: u32,
-) {
-    layer_surface.ack_configure(serial);
-    state.configured_surfaces += 1;
-
-    if let Some(surface_idx) = state
-        .layer_surfaces
-        .iter()
-        .position(|(ls, _)| ls.id() == layer_surface.id())
-    {
-        if let (Some(surface), Some(buffer)) = (
-            state.surfaces.get(surface_idx),
-            state
-                .surface_buffers
-                .get(surface_idx)
-                .and_then(|b| b.as_ref()),
-        ) {
-            let target_screen = &state.target_screen;
-            let physical_width =
-                (target_screen.logical_size.width as f32 / target_screen.scale_factor) as i32;
-            let physical_height =
-                (target_screen.logical_size.height as f32 / target_screen.scale_factor) as i32;
-
-            surface.attach(Some(buffer), 0, 0);
-            surface.damage(0, 0, physical_width, physical_height);
-            surface.commit();
-        } else if let Some(surface) = state.surfaces.get(surface_idx) {
-            surface.commit();
-        }
-    }
-}
-
-impl Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, ()> for CursorTrackerState {
-    fn event(
-        state: &mut Self,
-        layer_surface: &zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
-        event: zwlr_layer_surface_v1::Event,
-        _: &(),
-        _: &Connection,
-        _qh: &QueueHandle<Self>,
-    ) {
-        match event {
-            zwlr_layer_surface_v1::Event::Configure {
-                serial,
-                width,
-                height,
-            } => {
-                handle_surface_configure(state, layer_surface, serial, width, height);
-            }
-            zwlr_layer_surface_v1::Event::Closed => {}
-            _ => {}
-        }
-    }
-}
-
-#[derive(Debug, Clone, Derivative, Setters)]
-#[setters(prefix = "with_")]
-#[derivative(Default)]
-pub struct MonitorCursorPositionConfig {
-    #[setters(skip)]
-    pub screen_info: ScreenInfo,
-
-    #[derivative(Default(value = "true"))]
-    pub use_transparent_layer_surface: bool,
-
-    #[derivative(Default(value = "30"))]
-    pub hole_radius: i32,
-}
-
-impl MonitorCursorPositionConfig {
-    pub fn new(screen_info: ScreenInfo) -> Self {
-        let mut config = Self::default();
-        config.screen_info = screen_info;
-        config
-    }
-}
-
-pub fn monitor_cursor_position<F>(
-    config: MonitorCursorPositionConfig,
-    stop_sig: Arc<AtomicBool>,
-    callback: F,
-) -> Result<(), CursorError>
-where
-    F: FnMut(CursorPosition) + Send + 'static,
-{
-    let mut tracker = CursorTracker::new(config.screen_info)?;
-    tracker.state.callback = Some(Box::new(callback));
-    tracker.state.use_transparent_layer_surface = config.use_transparent_layer_surface;
-    tracker.state.hole_radius = config.hole_radius;
-    tracker.start_tracking()?;
-
-    loop {
-        if stop_sig.load(Ordering::Relaxed) {
-            break;
-        }
-
-        if let Err(e) = tracker.queue.dispatch_pending(&mut tracker.state) {
-            log::warn!("Dispatch pending error: {}", e);
-        }
-
-        // Process input region updates immediately after dispatching events
-        if let Err(e) = tracker.process_pending_input_updates() {
-            log::warn!("Input region update error: {}", e);
-        }
-
-        // Try to process any pending events immediately
-        if let Err(e) = tracker.queue.blocking_dispatch(&mut tracker.state) {
-            log::debug!("Blocking dispatch error (may be expected): {}", e);
-        }
-
-        if let Err(e) = tracker.queue.roundtrip(&mut tracker.state) {
-            log::warn!("Roundtrip  error: {}", e);
-        }
-
-        // Reduced sleep time for better responsiveness
-        std::thread::sleep(Duration::from_millis(5));
-    }
-
-    Ok(())
 }
