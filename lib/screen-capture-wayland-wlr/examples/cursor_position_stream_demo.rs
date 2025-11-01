@@ -38,8 +38,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         stop_sig.store(true, Ordering::Relaxed);
     });
 
-    let config =
-        MonitorCursorPositionConfig::new(target_screen).with_use_transparent_layer_surface(false);
+    let config = MonitorCursorPositionConfig::new(target_screen)
+        .with_use_transparent_layer_surface(false)
+        .with_hole_radius(50);
 
     if let Err(e) = monitor_cursor_position(config, stop_sig_clone, move |position| {
         log::info!(

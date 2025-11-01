@@ -6137,7 +6137,6 @@ name = "screen-capture-wayland-wlr"
 version = "0.1.0"
 dependencies = [
  "ctrlc",
- "derivative",
  "derive_setters",
  "env_logger",
  "image",

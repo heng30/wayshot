@@ -1,6 +1,6 @@
 use derive_setters::Setters;
 use nix::sys::memfd;
-use screen_capture::ScreenInfo;
+use screen_capture::{Rectangle, ScreenInfo};
 use std::{
     fs::File,
     io::{Seek, Write},
@@ -66,23 +66,19 @@ struct CursorTrackerState {
         wl_output::WlOutput,
     )>,
 
-    pointer: Option<wl_pointer::WlPointer>,
-
+    configured_surfaces: usize,
     surfaces: Vec<wl_surface::WlSurface>,
     surface_buffers: Vec<Option<wl_buffer::WlBuffer>>,
 
+    pointer: Option<wl_pointer::WlPointer>,
     current_position: Option<CursorPosition>,
-    target_screen: ScreenInfo,
     outputs: Vec<(wl_output::WlOutput, String)>,
-    callback: Option<Box<dyn FnMut(CursorPosition) + Send>>,
-    configured_surfaces: usize,
-
-    // Dynamic input region fields
-    last_cursor_pos: Option<(i32, i32)>,
     input_regions: Vec<Option<wl_region::WlRegion>>,
 
-    hole_radius: i32, // Size of the transparent square hole around cursor (30px to each side)
+    hole_radius: i32, // Size of the transparent square hole around cursor
+    target_screen: ScreenInfo,
     use_transparent_layer_surface: bool,
+    callback: Option<Box<dyn FnMut(CursorPosition) + Send>>,
 }
 
 impl CursorTracker {
@@ -119,7 +115,7 @@ impl CursorTracker {
             return Err(CursorError::ProtocolNotAvailable("wl_shm".to_string()));
         }
 
-        state.hole_radius = 30;
+        state.hole_radius = 50;
         state.target_screen = screen_info;
         state.use_transparent_layer_surface = true;
 
@@ -296,27 +292,15 @@ impl CursorTracker {
         Ok(())
     }
 
-    fn setup_pointer(&mut self) -> Result<(), CursorError> {
-        let seat = self
-            .state
-            .seat
-            .as_ref()
-            .ok_or_else(|| CursorError::ProtocolNotAvailable("wl_seat".to_string()))?;
-        let pointer = seat.get_pointer(&self.queue.handle(), ());
-        self.state.pointer = Some(pointer);
-        Ok(())
-    }
-
     /// Create a rectangular region with a square hole in the input region
     /// Returns a list of rectangles that form the donut shape (full area minus square)
-    /// return: (x, y, w, h)
     fn create_donut_rectangles(
         surface_width: i32,
         surface_height: i32,
         center_x: i32,
         center_y: i32,
         radius: i32,
-    ) -> Vec<(i32, i32, i32, i32)> {
+    ) -> Vec<Rectangle> {
         let mut rectangles = Vec::new();
         let left = (center_x - radius).max(0);
         let right = (center_x + radius).min(surface_width);
@@ -324,19 +308,29 @@ impl CursorTracker {
         let bottom = (center_y + radius).min(surface_height);
 
         if top > 0 {
-            rectangles.push((0, 0, surface_width, top));
+            rectangles.push(Rectangle::new(0, 0, surface_width, top));
         }
 
         if bottom < surface_height {
-            rectangles.push((0, bottom, surface_width, surface_height - bottom));
+            rectangles.push(Rectangle::new(
+                0,
+                bottom,
+                surface_width,
+                surface_height - bottom,
+            ));
         }
 
         if left > 0 {
-            rectangles.push((0, top, left, bottom - top));
+            rectangles.push(Rectangle::new(0, top, left, bottom - top));
         }
 
         if right < surface_width {
-            rectangles.push((right, top, surface_width - right, bottom - top));
+            rectangles.push(Rectangle::new(
+                right,
+                top,
+                surface_width - right,
+                bottom - top,
+            ));
         }
 
         rectangles
@@ -370,7 +364,13 @@ impl CursorTracker {
                 .ok_or_else(|| CursorError::ProtocolNotAvailable("wl_compositor".to_string()))?
                 .create_region(&self.queue.handle(), ());
 
-            for (x, y, width, height) in rectangles {
+            for Rectangle {
+                x,
+                y,
+                width,
+                height,
+            } in rectangles
+            {
                 region.add(x, y, width, height);
             }
 
@@ -425,7 +425,6 @@ impl CursorTracker {
             )?;
         }
 
-        self.state.last_cursor_pos = Some((cursor_x, cursor_y));
         Ok(())
     }
 
@@ -478,7 +477,6 @@ impl CursorTracker {
         self.state.surface_buffers.extend(surface_buffers);
 
         self.wait_for_surface_configuration(surfaces_len)?;
-        self.setup_pointer()?;
 
         Ok(())
     }
@@ -548,7 +546,7 @@ impl Dispatch<wl_output::WlOutput, ()> for CursorTrackerState {
                     *output_name = name.clone();
                 }
             }
-            _ => {}
+            _ => (),
         }
     }
 }
@@ -564,15 +562,11 @@ impl Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, ()> for CursorTrackerSt
         _qh: &QueueHandle<Self>,
     ) {
         match event {
-            zwlr_layer_surface_v1::Event::Configure {
-                serial,
-                width,
-                height,
-            } => {
-                handle_surface_configure(state, layer_surface, serial, width, height);
+            zwlr_layer_surface_v1::Event::Configure { serial, .. } => {
+                handle_surface_configure(state, layer_surface, serial);
             }
-            zwlr_layer_surface_v1::Event::Closed => {}
-            _ => {}
+            zwlr_layer_surface_v1::Event::Closed => (),
+            _ => (),
         }
     }
 }
@@ -595,7 +589,7 @@ impl Dispatch<wl_seat::WlSeat, ()> for CursorTrackerState {
                     }
                 }
             }
-            _ => {}
+            _ => (),
         }
     }
 }
@@ -673,16 +667,12 @@ fn update_cursor_state(state: &mut CursorTrackerState, position: CursorPosition)
         };
         callback(scaled_position);
     }
-
-    state.last_cursor_pos = Some((position.x, position.y));
 }
 
 fn handle_surface_configure(
     state: &mut CursorTrackerState,
     layer_surface: &zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
     serial: u32,
-    _width: u32,
-    _height: u32,
 ) {
     layer_surface.ack_configure(serial);
     state.configured_surfaces += 1;
@@ -729,7 +719,7 @@ impl MonitorCursorPositionConfig {
         Self {
             screen_info,
             use_transparent_layer_surface: true,
-            hole_radius: 30,
+            hole_radius: 50,
         }
     }
 }
@@ -753,18 +743,13 @@ where
             break;
         }
 
-        if let Err(e) = tracker.queue.dispatch_pending(&mut tracker.state) {
-            log::warn!("Dispatch pending error: {}", e);
-        }
-
         // Process input region updates immediately after dispatching events
         if let Err(e) = tracker.process_pending_input_updates() {
             log::warn!("Input region update error: {}", e);
         }
 
-        // Try to process any pending events immediately
-        if let Err(e) = tracker.queue.blocking_dispatch(&mut tracker.state) {
-            log::debug!("Blocking dispatch error (may be expected): {}", e);
+        if let Err(e) = tracker.queue.dispatch_pending(&mut tracker.state) {
+            log::warn!("Dispatch pending error: {}", e);
         }
 
         if let Err(e) = tracker.queue.roundtrip(&mut tracker.state) {
