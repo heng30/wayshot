@@ -1,4 +1,5 @@
 use crate::{FPS, RecorderError, recorder::ResizedImageBuffer};
+use mp4m::VIDEO_TIMESCALE;
 use x264::{Colorspace, Data, Encoder, Image, Preset, Setup, Tune};
 use yuv::{
     YuvChromaSubsampling, YuvConversionMode, YuvPlanarImageMut, YuvRange, YuvStandardMatrix,
@@ -32,17 +33,16 @@ impl VideoEncoder {
         assert!(width > 0 && height > 0);
 
         let encoder = Setup::preset(
-            Preset::Superfast,
-            Tune::StillImage,
-            true, // fast_decode: Enable fast decoding
-            true, // zero_latency: Minimal internal buffering
+            Preset::Superfast, // Use faster preset to avoid potential encoder issues
+            Tune::None,        // Use no specific tuning for screen recording
+            true,              // fast_decode: Standard decoding
+            true,              // zero_latency: Minimal internal buffering
         )
         .fps(fps.to_u32(), 1)
-        .max_keyframe_interval(fps.to_u32() as i32 * 2) // Insert keyframe every 2 seconds for better seeking
-        .min_keyframe_interval(fps.to_u32() as i32) // Minimum keyframe interval
+        .max_keyframe_interval(fps.to_u32() as i32) // Simpler keyframe interval
         .scenecut_threshold(0) // Disable scene detection to guarantee keyframes at max interval
-        .annexb(annexb) // Disable Annex B start codes for MP4 compatibility
-        .high() // Use High profile for best browser compatibility
+        .annexb(annexb) // Use Annex B format if true (start codes), or AVCC format if false (length prefixes, MP4 compatible)
+        .baseline() // Use Baseline profile for maximum compatibility
         .build(Colorspace::I420, width as i32, height as i32)
         .map_err(|e| {
             RecorderError::VideoEncodingFailed(format!("Failed to create x264 encoder: {:?}", e))
@@ -98,15 +98,12 @@ impl VideoEncoder {
             &planes,
         );
 
-        // Calculate timestamp in milliseconds (frame_index * 1000 / fps)
-        let timestamp_ms = (self.frame_index * 1000) / self.fps.to_u32() as u64;
-
-        let (data, _) = self
-            .encoder
-            .encode(timestamp_ms as i64, image)
-            .map_err(|e| {
-                RecorderError::VideoEncodingFailed(format!("x264 encoding failed: {:?}", e))
-            })?;
+        // Calculate timestamp in x264 timebase units (frame_index * timebase / fps)
+        // x264 uses a timebase of 1/90000 by default, so we need to convert frame number to this timescale
+        let timestamp = (self.frame_index * VIDEO_TIMESCALE as u64) / self.fps.to_u32() as u64;
+        let (data, _) = self.encoder.encode(timestamp as i64, image).map_err(|e| {
+            RecorderError::VideoEncodingFailed(format!("x264 encoding failed: {:?}", e))
+        })?;
 
         let encoded_data = data.entirety().to_vec();
         let encoded_frame = EncodedFrame::Frame((self.frame_index, encoded_data));

@@ -6,7 +6,8 @@ pub use audio_processor::{
     AudioProcessor, AudioProcessorConfigBuilder, OutputDestination, sample_rate,
 };
 pub use mp4_processor::{
-    AudioConfig, Mp4Processor, Mp4ProcessorConfigBuilder, VideoConfig, VideoFrameType,
+    AudioConfig, Mp4Processor, Mp4ProcessorConfigBuilder, VIDEO_TIMESCALE, VideoConfig,
+    VideoFrameType,
 };
 pub use sample_type::{I24, SampleType};
 
