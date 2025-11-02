@@ -46,4 +46,13 @@ pub enum RecorderError {
 
     #[error("{0}")]
     Other(String),
+
+    #[error("Cursor tracker configuration error: {0}")]
+    CursorTrackerConfigError(String),
+
+    #[error("Cursor tracker channel error: {0}")]
+    CursorTrackerChannelError(String),
+
+    #[error("Cursor tracker validation error: {0}")]
+    CursorTrackerValidationError(String),
 }

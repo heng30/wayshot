@@ -1,6 +1,6 @@
 use derive_setters::Setters;
 use nix::sys::memfd;
-use screen_capture::{Rectangle, ScreenInfo};
+use screen_capture::{CursorPosition, Rectangle, ScreenInfo};
 use std::{
     fs::File,
     io::{Seek, Write},
@@ -37,16 +37,6 @@ pub enum CursorError {
 
     #[error("Dispatch Failed: {0}")]
     DispatchFailed(#[from] wayland_client::DispatchError),
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct CursorPosition {
-    pub x: i32,
-    pub y: i32,
-    pub output_x: i32,
-    pub output_y: i32,
-    pub output_width: i32,
-    pub output_height: i32,
 }
 
 pub struct CursorTracker {

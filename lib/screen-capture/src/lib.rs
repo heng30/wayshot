@@ -44,3 +44,22 @@ impl Rectangle {
         }
     }
 }
+
+impl From<Rectangle> for LogicalSize {
+    fn from(value: Rectangle) -> Self {
+        Self {
+            width: value.width,
+            height: value.height,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct CursorPosition {
+    pub x: i32,
+    pub y: i32,
+    pub output_x: i32,
+    pub output_y: i32,
+    pub output_width: i32,
+    pub output_height: i32,
+}

@@ -1,6 +1,7 @@
 mod audio_level;
 mod audio_recorder;
 mod config;
+mod cursor_tracker;
 mod denoise;
 mod error;
 mod recorder;
@@ -12,6 +13,7 @@ pub use audio_level::*;
 pub use audio_recorder::{AudioDeviceInfo, AudioRecorder, AudioRecorderError};
 pub use config::{FPS, RecorderConfig, SimpleFpsCounter};
 pub use crossbeam::channel::{Receiver, Sender, bounded};
+pub use cursor_tracker::{CursorTracker, CursorTrackerConfig};
 pub use denoise::*;
 pub use error::RecorderError;
 pub use recorder::RecordingSession;
