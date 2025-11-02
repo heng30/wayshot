@@ -1,7 +1,7 @@
 use crate::{
-    AudioRecorder, EncodedFrame, Frame, FrameUser, ProgressState, RecorderConfig, RecorderError,
-    Resolution, SimpleFpsCounter, SpeakerRecorder, StatsUser, VideoEncoder,
-    platform_speaker_recoder, speaker_recorder::SpeakerRecorderConfig,
+    AudioRecorder, CursorTracker, CursorTrackerConfig, EncodedFrame, Frame, FrameUser,
+    ProgressState, RecorderConfig, RecorderError, Resolution, SimpleFpsCounter, SpeakerRecorder,
+    StatsUser, VideoEncoder, platform_speaker_recoder, speaker_recorder::SpeakerRecorderConfig,
 };
 use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_setters::Setters;
@@ -12,12 +12,16 @@ use mp4m::{
     AudioConfig, AudioProcessor, AudioProcessorConfigBuilder, Mp4Processor,
     Mp4ProcessorConfigBuilder, OutputDestination, VideoConfig, VideoFrameType,
 };
-use screen_capture::{Capture, CaptureStreamConfig, MonitorCursorPositionConfig, ScreenCapture};
+use once_cell::sync::Lazy;
+use screen_capture::{
+    Capture, CaptureStreamConfig, LogicalSize, MonitorCursorPositionConfig, Position, Rectangle,
+    ScreenCapture, ScreenInfoError,
+};
 use spin_sleep::SpinSleeper;
 use std::{
     path::PathBuf,
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
     thread::{self, JoinHandle},
@@ -30,6 +34,8 @@ pub type ResizedImageBuffer = ImageBuffer<Rgb<u8>, Vec<u8>>;
 const USER_CHANNEL_SIZE: usize = 64;
 const ENCODER_WORKER_CHANNEL_SIZE: usize = 128;
 const AUDIO_MIXER_CHANNEL_SIZE: usize = 1024;
+const CURSOR_CHANNEL_SIZE: usize = 4094;
+static CURSOR_POSITION: Lazy<Mutex<Option<Position>>> = Lazy::new(|| Mutex::new(None));
 
 #[derive(Setters)]
 #[setters(prefix = "with_")]
@@ -57,6 +63,7 @@ pub struct RecordingSession {
     mp4_writer_worker: Option<JoinHandle<()>>,
     h264_frame_sender: Option<Sender<VideoFrameType>>,
 
+    crop_region_receiver: Option<Receiver<Rectangle>>,
     video_encoder: Option<VideoEncoder>,
 
     // statistic
@@ -92,6 +99,7 @@ impl RecordingSession {
             mp4_writer_worker: None,
             h264_frame_sender: None,
 
+            crop_region_receiver: None,
             video_encoder: None,
 
             start_time: std::time::Instant::now(),
@@ -147,7 +155,9 @@ impl RecordingSession {
         }
 
         if self.config.enable_cursor_tracking {
-            self.cursor_thread(screen_capturer.clone())?;
+            let (crop_region_sender, crop_region_receiver) = bounded(CURSOR_CHANNEL_SIZE);
+            self.cursor_thread(screen_capturer.clone(), crop_region_sender)?;
+            self.crop_region_receiver = Some(crop_region_receiver);
         }
 
         if let Some(device_name) = self.config.audio_device_name.clone() {
@@ -206,7 +216,7 @@ impl RecordingSession {
 
     pub fn wait(mut self) -> Result<ProgressState, RecorderError> {
         let (encoder_sender, encoder_receiver) = bounded(ENCODER_WORKER_CHANNEL_SIZE);
-        let resize_handle = Self::resize_worker(&self, encoder_sender);
+        let process_frame_handle = Self::process_frame_worker(&self, encoder_sender);
 
         loop {
             match encoder_receiver.recv() {
@@ -256,7 +266,7 @@ impl RecordingSession {
                 _ => {
                     log::info!("encoder receiver channel exit...");
                     self.stop();
-                    self.wait_stop(resize_handle)?;
+                    self.wait_stop(process_frame_handle)?;
                     break;
                 }
             }
@@ -268,32 +278,67 @@ impl RecordingSession {
     fn cursor_thread(
         &mut self,
         mut screen_capturer: impl ScreenCapture + Clone + Send + 'static,
+        crop_region_sender: Sender<Rectangle>,
     ) -> Result<(), RecorderError> {
         let stop_sig = self.stop_sig.clone();
         let screen_name = self.config.screen_name.clone();
 
+        let screen_info = screen_capturer
+            .available_screens()?
+            .iter()
+            .find(|item| item.name == screen_name)
+            .ok_or(RecorderError::ScreenInfoFailed(ScreenInfoError::Other(
+                format!("No found screen in cursor monitor thread {screen_name}"),
+            )))?
+            .clone();
+
+        let target_size = LogicalSize::new(500, 400); // TODO
+        let (cursor_sender, cursor_receiver) = bounded(CURSOR_CHANNEL_SIZE);
+
+        // TODO
+        let cursor_tracker_config = CursorTrackerConfig::new(
+            screen_info.logical_size,
+            target_size,
+            crop_region_sender,
+            cursor_receiver,
+            stop_sig.clone(),
+        )?
+        .with_stable_radius(100)
+        .with_fast_moving_duration(Duration::from_millis(100))
+        .with_linear_transition_duration(Duration::from_millis(1000))
+        .with_max_stable_region_duration(Duration::from_secs(3));
+
         thread::spawn(move || {
-            let screens = match screen_capturer.available_screens() {
+            let cursor_tracker = match CursorTracker::new(cursor_tracker_config) {
                 Ok(v) => v,
                 Err(e) => {
-                    log::warn!("{e}");
+                    log::warn!("New cursor tracker faild: {e}");
                     return;
                 }
             };
 
-            let target_screen = match screens.iter().find(|item| item.name == screen_name) {
-                Some(v) => v.clone(),
-                _ => {
-                    log::warn!("No found screen in cursor monitor thread {screen_name}");
-                    return;
-                }
-            };
+            if let Err(e) = cursor_tracker.run() {
+                log::error!("Run Cursor tracker failed: {e}");
+            }
 
-            let config = MonitorCursorPositionConfig::new(target_screen, stop_sig)
+            log::info!("Exit cursor tracker thread");
+        });
+
+        let cursor_monitor_stop_sig = stop_sig.clone();
+        thread::spawn(move || {
+            {
+                *CURSOR_POSITION.lock().unwrap() = None;
+            }
+
+            let config = MonitorCursorPositionConfig::new(screen_info, cursor_monitor_stop_sig)
                 .with_use_transparent_layer_surface(true)
                 .with_hole_radius(50);
 
             if let Err(e) = screen_capturer.monitor_cursor_position(config, move |position| {
+                {
+                    *CURSOR_POSITION.lock().unwrap() = Some(Position::new(position.x, position.y));
+                }
+
                 log::info!(
                     "dimensions: {}x{} at ({}, {}). (x, y) = ({}, {})",
                     position.output_width,
@@ -303,9 +348,15 @@ impl RecordingSession {
                     position.x,
                     position.y
                 );
+
+                if let Err(e) = cursor_sender.try_send((Instant::now(), position)) {
+                    log::warn!("cursor sender failed: {e}");
+                }
             }) {
-                log::error!("{e}");
+                log::error!("monitor cursor position faield: {e}");
             }
+
+            log::info!("Exit monitor cursor position thread");
         });
 
         Ok(())
@@ -366,7 +417,7 @@ impl RecordingSession {
         Ok(())
     }
 
-    fn resize_worker(
+    fn process_frame_worker(
         session: &RecordingSession,
         encoder_sender: Sender<EncoderChannelData>,
     ) -> JoinHandle<()> {
@@ -376,6 +427,7 @@ impl RecordingSession {
         let frame_sender_user = session.frame_sender_user.clone();
         let loss_frame_count = session.loss_frame_count.clone();
         let total_frame_count = session.total_frame_count.clone();
+        let enable_cursor_tracking = session.config.enable_cursor_tracking;
         let mut fps_counter = SimpleFpsCounter::new();
 
         let handle = thread::spawn(move || {
@@ -399,33 +451,53 @@ impl RecordingSession {
                                 - capture_receiver.len()
                         );
 
-                        let resize_now = Instant::now();
-                        match Self::resize_frame(frame, resolution) {
-                            Ok(img) => {
-                                if let Some(ref sender) = frame_sender_user {
-                                    let frame_user = FrameUser {
-                                        stats: StatsUser {
-                                            fps,
-                                            total_frames: total_frame_count,
-                                            loss_frames: loss_frame_count.load(Ordering::Relaxed),
-                                        },
-                                        buffer: img.clone(),
-                                    };
-                                    if let Err(e) = sender.try_send(frame_user) {
-                                        log::warn!(
-                                            "try send frame to user frame channel failed: {e}"
-                                        );
-                                    }
-                                }
-
-                                if let Err(e) = encoder_sender.try_send((total_frame_count, img)) {
-                                    loss_frame_count.fetch_add(1, Ordering::Relaxed);
-                                    log::warn!("resize worker try send failed: {e}");
+                        let now = Instant::now();
+                        let img = if enable_cursor_tracking {
+                            match Self::crop_and_resize_frame(frame, resolution) {
+                                Ok(img) => img,
+                                Err(e) => {
+                                    log::warn!("crop and resize frame failed: {e}");
+                                    continue;
                                 }
                             }
-                            Err(e) => log::warn!("resize frame failed: {e}"),
+                        } else {
+                            match Self::resize_frame(frame, resolution) {
+                                Ok(img) => img,
+                                Err(e) => {
+                                    log::warn!("resize frame failed: {e}");
+                                    continue;
+                                }
+                            }
+                        };
+
+                        log::debug!(
+                            "{} frame spent: {:.2?}",
+                            if enable_cursor_tracking {
+                                "crop"
+                            } else {
+                                "resize"
+                            },
+                            now.elapsed()
+                        );
+
+                        if let Some(ref sender) = frame_sender_user {
+                            let frame_user = FrameUser {
+                                stats: StatsUser {
+                                    fps,
+                                    total_frames: total_frame_count,
+                                    loss_frames: loss_frame_count.load(Ordering::Relaxed),
+                                },
+                                buffer: img.clone(),
+                            };
+                            if let Err(e) = sender.try_send(frame_user) {
+                                log::warn!("try send frame to user frame channel failed: {e}");
+                            }
                         }
-                        log::debug!("resize frame spent: {:.2?}", resize_now.elapsed());
+
+                        if let Err(e) = encoder_sender.try_send((total_frame_count, img)) {
+                            loss_frame_count.fetch_add(1, Ordering::Relaxed);
+                            log::warn!("resize worker try send failed: {e}");
+                        }
                     }
                     _ => {
                         log::info!("resize forward thread exit");
@@ -553,7 +625,7 @@ impl RecordingSession {
         Ok((audio_sender, speak_sender))
     }
 
-    fn wait_stop(mut self, resize_handle: JoinHandle<()>) -> Result<(), RecorderError> {
+    fn wait_stop(mut self, process_frame_handle: JoinHandle<()>) -> Result<(), RecorderError> {
         if let Some(audio_recorder) = self.audio_recorder.take() {
             audio_recorder.stop();
             log::info!("audio recorder exit...");
@@ -575,10 +647,10 @@ impl RecordingSession {
             }
         }
 
-        if let Err(e) = resize_handle.join() {
-            log::warn!("join resize thread failed: {:?}", e);
+        if let Err(e) = process_frame_handle.join() {
+            log::warn!("join process frame thread failed: {:?}", e);
         } else {
-            log::info!("join resize thread successfully");
+            log::info!("join process frame thread successfully");
         }
 
         match self.video_encoder.take().unwrap().flush() {
@@ -656,6 +728,38 @@ impl RecordingSession {
         }
 
         Ok(())
+    }
+
+    fn crop_and_resize_frame(
+        frame: Frame,
+        resolution: Resolution,
+    ) -> Result<ResizedImageBuffer, RecorderError> {
+        // TODO: 裁剪图片并缩放图片
+        let img = if matches!(resolution, Resolution::Original(_)) {
+            let img: ImageBuffer<Rgba<u8>, Vec<u8>> = ImageBuffer::from_raw(
+                frame.cb_data.data.width,
+                frame.cb_data.data.height,
+                frame.cb_data.data.pixel_data,
+            )
+            .ok_or_else(|| {
+                RecorderError::ImageProcessingFailed("Failed to create image buffer".to_string())
+            })?;
+
+            let img: ImageBuffer<Rgb<u8>, Vec<u8>> = img.convert();
+            img
+        } else {
+            let (original_width, original_height) =
+                (frame.cb_data.data.width, frame.cb_data.data.height);
+
+            let img = Self::resize_image(
+                frame.cb_data.data,
+                resolution.dimensions(original_width, original_height),
+            )?;
+
+            img
+        };
+
+        Ok(img)
     }
 
     fn resize_frame(
