@@ -321,20 +321,10 @@ fn validate_no_input_cycle_results(
         );
     }
 
-    // Validation criteria
-    let final_region = regions.last().unwrap().1;
-    let ends_in_screen_size =
-        final_region.width == screen_size.width && final_region.height == screen_size.height;
-
     // Check Phase 1: Should start with screen_size (check if overall we have screen_size at start)
     let first_region = regions.first().unwrap().1;
     let phase1_starts_screen =
         first_region.width == screen_size.width && first_region.height == screen_size.height;
-
-    // Check Phase 2: May have transition starting (fast movement can trigger zoom_in)
-    let empty_vec2 = vec![];
-    let phase2_regions = phase_regions.get("Phase 2").unwrap_or(&empty_vec2);
-    let phase2_has_transition = phase2_regions.len() > 1; // More than just screen_size
 
     // Check Phase 3: Should have target_size
     let empty_vec3 = vec![];
@@ -416,4 +406,3 @@ fn validate_no_input_cycle_results(
 
     Ok(())
 }
-

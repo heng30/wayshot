@@ -55,6 +55,8 @@ pub struct RecorderConfig {
     pub speaker_gain: Option<Arc<AtomicI32>>,
 
     pub save_path: PathBuf,
+
+    pub enable_cursor_tracking: bool,
 }
 
 impl RecorderConfig {
@@ -77,6 +79,8 @@ impl RecorderConfig {
             speaker_gain: None,
             enable_denoise: false,
             convert_to_mono: false,
+
+            enable_cursor_tracking: false,
         }
     }
 

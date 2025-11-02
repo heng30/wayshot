@@ -16,7 +16,7 @@ pub use crossbeam::channel::{Receiver, Sender, bounded};
 pub use cursor_tracker::{CursorTracker, CursorTrackerConfig};
 pub use denoise::*;
 pub use error::RecorderError;
-pub use recorder::RecordingSession;
+pub use recorder::{RecordingSession, ResizedImageBuffer};
 pub use resolution::Resolution;
 pub use speaker_recorder::{
     SpeakerRecorder, SpeakerRecorderConfig, SpeakerRecorderError, platform_speaker_recoder,
@@ -46,7 +46,7 @@ pub struct StatsUser {
 #[derive(Debug, Clone)]
 pub struct FrameUser {
     pub stats: StatsUser,
-    pub frame: Frame,
+    pub buffer: ResizedImageBuffer,
 }
 
 pub fn platform_screen_capture() -> impl screen_capture::ScreenCapture + Clone + Send + 'static {

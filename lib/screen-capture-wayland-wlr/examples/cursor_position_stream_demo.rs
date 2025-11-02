@@ -1,6 +1,5 @@
-use screen_capture_wayland_wlr::{
-    MonitorCursorPositionConfig, available_screens, monitor_cursor_position,
-};
+use screen_capture::MonitorCursorPositionConfig;
+use screen_capture_wayland_wlr::{available_screens, monitor_cursor_position};
 use std::{
     sync::{
         Arc,
@@ -38,11 +37,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         stop_sig.store(true, Ordering::Relaxed);
     });
 
-    let config = MonitorCursorPositionConfig::new(target_screen)
+    let config = MonitorCursorPositionConfig::new(target_screen, stop_sig_clone)
         .with_use_transparent_layer_surface(false)
         .with_hole_radius(50);
 
-    if let Err(e) = monitor_cursor_position(config, stop_sig_clone, move |position| {
+    if let Err(e) = monitor_cursor_position(config, move |position| {
         log::info!(
             "dimensions: {}x{} at ({}, {}). (x, y) = ({}, {})",
             position.output_width,

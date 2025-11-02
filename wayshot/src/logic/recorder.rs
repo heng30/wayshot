@@ -592,17 +592,17 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
     thread::spawn(move || {
         while let Ok(frame) = frame_receiver_user.recv() {
             log::debug!(
-                "frame_receiver_user frame len: {} bytes",
-                frame.frame.cb_data.data.pixel_data.len()
+                "frame_receiver_user buffer len: {} bytes",
+                frame.buffer.len()
             );
 
             _ = ui_weak_clone.upgrade_in_event_loop(move |ui| {
-                let buffer = SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(
-                    &frame.frame.cb_data.data.pixel_data,
-                    frame.frame.cb_data.data.width,
-                    frame.frame.cb_data.data.height,
+                let buffer = SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(
+                    &frame.buffer.as_raw(),
+                    frame.buffer.width(),
+                    frame.buffer.height(),
                 );
-                let img = slint::Image::from_rgba8(buffer);
+                let img = slint::Image::from_rgb8(buffer);
                 global_store!(ui).set_preview_image(img);
 
                 let mut sinfo = global_store!(ui).get_stats_info();

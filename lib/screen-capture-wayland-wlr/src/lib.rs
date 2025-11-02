@@ -36,4 +36,12 @@ impl screen_capture::ScreenCapture for ScreenCaptureWaylandWlr {
         capture::capture_output_stream(config, cb)
             .map_err(|e| screen_capture::ScreenCaptureError::Capture(e.to_string()))
     }
+
+    fn monitor_cursor_position(
+        &mut self,
+        config: screen_capture::MonitorCursorPositionConfig,
+        callback: impl FnMut(screen_capture::CursorPosition) + Send + 'static,
+    ) -> Result<(), screen_capture::CursorError> {
+        cursor::monitor_cursor_position(config, callback)
+    }
 }

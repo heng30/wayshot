@@ -5,6 +5,9 @@ pub enum RecorderError {
     #[error("Screenshot capture failed: {0}")]
     CaptureFailed(#[from] screen_capture::ScreenCaptureError),
 
+    #[error("Get screen info failed: {0}")]
+    ScreenInfoFailed(#[from] screen_capture::ScreenInfoError),
+
     #[error("Image processing failed: {0}")]
     ImageProcessingFailed(String),
 
@@ -40,9 +43,6 @@ pub enum RecorderError {
 
     #[error("Denoise failed: {0}")]
     DenoiseError(String),
-
-    #[error("ffmpeg failed: {0}")]
-    Ffmpeg(String),
 
     #[error("{0}")]
     Other(String),

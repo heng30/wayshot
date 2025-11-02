@@ -1,7 +1,9 @@
 mod capture;
+mod cursor;
 mod screen_info;
 
 pub use capture::*;
+pub use cursor::*;
 pub use screen_info::*;
 
 #[derive(thiserror::Error, Debug, Clone)]
@@ -24,6 +26,12 @@ pub trait ScreenCapture {
         config: CaptureStreamConfig,
         cb: impl FnMut(CaptureStreamCallbackData),
     ) -> Result<CaptureStatus, ScreenCaptureError>;
+
+    fn monitor_cursor_position(
+        &mut self,
+        config: MonitorCursorPositionConfig,
+        callback: impl FnMut(CursorPosition) + Send + 'static,
+    ) -> Result<(), CursorError>;
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
