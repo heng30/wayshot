@@ -215,6 +215,7 @@ impl CursorTracker {
             let transition_regions = self.handle_transition(&self.config.screen_size);
             self.stable_start_time = None;
             self.stable_cursor_position = None;
+            self.last_cursor_capture_timestamp = None;
             final_region = transition_regions.last().cloned();
 
             for region in &transition_regions {

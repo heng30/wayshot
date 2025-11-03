@@ -352,7 +352,7 @@ impl RecordingSession {
                     *CURSOR_POSITION.lock().unwrap() = Some(Position::new(position.x, position.y));
                 }
 
-                log::info!(
+                log::debug!(
                     "dimensions: {}x{} at ({}, {}). (x, y) = ({}, {})",
                     position.output_width,
                     position.output_height,

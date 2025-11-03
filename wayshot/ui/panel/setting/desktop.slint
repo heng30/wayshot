@@ -42,6 +42,8 @@ component SettingBody inherits Rectangle {
             preference.apply();
         } else if (Store.current-setting-detail-index == SettingDetailIndex.Recorder) {
             recorder.apply();
+        } else if (Store.current-setting-detail-index == SettingDetailIndex.CursorTracking) {
+            cursor-tracker.apply();
         }
     }
 
