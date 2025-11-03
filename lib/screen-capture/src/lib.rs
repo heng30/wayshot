@@ -51,6 +51,13 @@ impl Rectangle {
             height,
         }
     }
+
+    pub fn contain_position(&self, pos: &Position) -> bool {
+        self.x <= pos.x
+            && self.y <= pos.y
+            && (self.x + self.width) > pos.x
+            && (self.y + self.height) > pos.y
+    }
 }
 
 impl From<Rectangle> for LogicalSize {

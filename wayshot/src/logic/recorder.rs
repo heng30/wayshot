@@ -307,6 +307,12 @@ fn init_video(ui: &AppWindow) -> Result<()> {
         name: name.clone(),
     });
 
+    tokio::spawn(async move {
+        if let Err(e) = warmup_video_encoder() {
+            log::warn!("Warmup video encoder failed: {e}");
+        }
+    });
+
     Ok(())
 }
 
@@ -514,6 +520,44 @@ fn start_recording(ui: &AppWindow) {
             toast::async_toast_warn(ui_weak, e.to_string());
         }
     });
+}
+
+fn warmup_video_encoder() -> Result<()> {
+    let all_config = config::all();
+
+    if all_config.control.screen.is_empty() {
+        bail!("available screen no found");
+    }
+
+    let mut capture = platform_screen_capture();
+    let screen_info = capture
+        .available_screens()?
+        .into_iter()
+        .find(|item| item.name == all_config.control.screen);
+
+    if screen_info.is_none() {
+        bail!("no found screen: {}", all_config.control.screen);
+    }
+
+    let screen_info = screen_info.unwrap();
+    log::debug!("screen_info: {screen_info:?}");
+
+    let resolution = if matches!(all_config.recorder.resolution, UIResolution::Original) {
+        Resolution::Original((
+            screen_info.logical_size.width as u32,
+            screen_info.logical_size.height as u32,
+        ))
+    } else {
+        all_config.recorder.resolution.into()
+    };
+
+    RecordingSession::warmup_video_encoder(
+        screen_info.logical_size,
+        resolution,
+        all_config.recorder.fps.into(),
+    );
+
+    Ok(())
 }
 
 fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {

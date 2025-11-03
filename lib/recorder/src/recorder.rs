@@ -1,5 +1,5 @@
 use crate::{
-    AudioRecorder, CursorTracker, CursorTrackerConfig, EncodedFrame, Frame, FrameUser,
+    AudioRecorder, CursorTracker, CursorTrackerConfig, EncodedFrame, FPS, Frame, FrameUser,
     ProgressState, RecorderConfig, RecorderError, Resolution, SimpleFpsCounter, SpeakerRecorder,
     StatsUser, VideoEncoder, platform_speaker_recoder, speaker_recorder::SpeakerRecorderConfig,
 };
@@ -36,6 +36,7 @@ const ENCODER_WORKER_CHANNEL_SIZE: usize = 128;
 const AUDIO_MIXER_CHANNEL_SIZE: usize = 1024;
 const CURSOR_CHANNEL_SIZE: usize = 4094;
 static CURSOR_POSITION: Lazy<Mutex<Option<Position>>> = Lazy::new(|| Mutex::new(None));
+static LAST_CROP_REGION: Lazy<Mutex<Option<Rectangle>>> = Lazy::new(|| Mutex::new(None));
 
 #[derive(Setters)]
 #[setters(prefix = "with_")]
@@ -292,7 +293,7 @@ impl RecordingSession {
             )))?
             .clone();
 
-        let target_size = LogicalSize::new(500, 400); // TODO
+        let target_size = LogicalSize::new(840, 680); // TODO
         let (cursor_sender, cursor_receiver) = bounded(CURSOR_CHANNEL_SIZE);
 
         // TODO
@@ -328,6 +329,12 @@ impl RecordingSession {
         thread::spawn(move || {
             {
                 *CURSOR_POSITION.lock().unwrap() = None;
+                *LAST_CROP_REGION.lock().unwrap() = Some(Rectangle::new(
+                    0,
+                    0,
+                    screen_info.logical_size.width,
+                    screen_info.logical_size.height,
+                ));
             }
 
             let config = MonitorCursorPositionConfig::new(screen_info, cursor_monitor_stop_sig)
@@ -428,6 +435,7 @@ impl RecordingSession {
         let loss_frame_count = session.loss_frame_count.clone();
         let total_frame_count = session.total_frame_count.clone();
         let enable_cursor_tracking = session.config.enable_cursor_tracking;
+        let crop_region_receiver = session.crop_region_receiver.clone();
         let mut fps_counter = SimpleFpsCounter::new();
 
         let handle = thread::spawn(move || {
@@ -453,7 +461,11 @@ impl RecordingSession {
 
                         let now = Instant::now();
                         let img = if enable_cursor_tracking {
-                            match Self::crop_and_resize_frame(frame, resolution) {
+                            match Self::crop_and_resize_frame(
+                                frame,
+                                resolution,
+                                crop_region_receiver.clone().unwrap(),
+                            ) {
                                 Ok(img) => img,
                                 Err(e) => {
                                     log::warn!("crop and resize frame failed: {e}");
@@ -730,12 +742,36 @@ impl RecordingSession {
         Ok(())
     }
 
+    fn get_matched_crop_region(crop_region_receiver: Receiver<Rectangle>) -> Rectangle {
+        let cursor_position = CURSOR_POSITION.lock().unwrap().clone();
+        let Some(cursor_position) = cursor_position else {
+            return LAST_CROP_REGION.lock().unwrap().clone().unwrap();
+        };
+
+        loop {
+            match crop_region_receiver.try_recv() {
+                Ok(v) => {
+                    if v.contain_position(&cursor_position) {
+                        *LAST_CROP_REGION.lock().unwrap() = Some(v);
+                        return v;
+                    }
+                }
+                _ => return LAST_CROP_REGION.lock().unwrap().clone().unwrap(),
+            };
+        }
+    }
+
     fn crop_and_resize_frame(
         frame: Frame,
         resolution: Resolution,
+        crop_region_receiver: Receiver<Rectangle>,
     ) -> Result<ResizedImageBuffer, RecorderError> {
-        // TODO: 裁剪图片并缩放图片
-        let img = if matches!(resolution, Resolution::Original(_)) {
+        let region = Self::get_matched_crop_region(crop_region_receiver);
+
+        if matches!(resolution, Resolution::Original(_))
+            && region.width as u32 == frame.cb_data.data.width
+            && region.height as u32 == frame.cb_data.data.height
+        {
             let img: ImageBuffer<Rgba<u8>, Vec<u8>> = ImageBuffer::from_raw(
                 frame.cb_data.data.width,
                 frame.cb_data.data.height,
@@ -746,20 +782,13 @@ impl RecordingSession {
             })?;
 
             let img: ImageBuffer<Rgb<u8>, Vec<u8>> = img.convert();
-            img
-        } else {
-            let (original_width, original_height) =
-                (frame.cb_data.data.width, frame.cb_data.data.height);
+            return Ok(img);
+        }
 
-            let img = Self::resize_image(
-                frame.cb_data.data,
-                resolution.dimensions(original_width, original_height),
-            )?;
-
-            img
-        };
-
-        Ok(img)
+        let (original_width, original_height) =
+            (frame.cb_data.data.width, frame.cb_data.data.height);
+        let target_size = resolution.dimensions(original_width, original_height);
+        Self::resize_image(frame.cb_data.data, target_size, Some(region))
     }
 
     fn resize_frame(
@@ -785,6 +814,7 @@ impl RecordingSession {
             let img = Self::resize_image(
                 frame.cb_data.data,
                 resolution.dimensions(original_width, original_height),
+                None,
             )?;
 
             img
@@ -796,6 +826,7 @@ impl RecordingSession {
     pub fn resize_image(
         mut capture: Capture,
         target_size: (u32, u32),
+        region: Option<Rectangle>,
     ) -> Result<ResizedImageBuffer, RecorderError> {
         let (src_width, src_height) = (capture.width as u32, capture.height as u32);
         let (dst_width, dst_height) = target_size;
@@ -826,12 +857,23 @@ impl RecordingSession {
             ))
         })?;
 
-        let mut resizer = fast_image_resize::Resizer::new();
         let resize_options = fast_image_resize::ResizeOptions::new().resize_alg(
-            fast_image_resize::ResizeAlg::SuperSampling(fast_image_resize::FilterType::Lanczos3, 2),
+            fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Lanczos3),
+            // fast_image_resize::ResizeAlg::SuperSampling(fast_image_resize::FilterType::Lanczos3, 2),
         );
 
-        resizer
+        let resize_options = if let Some(region) = region {
+            resize_options.crop(
+                region.x as f64,
+                region.y as f64,
+                region.width as f64,
+                region.height as f64,
+            )
+        } else {
+            resize_options
+        };
+
+        fast_image_resize::Resizer::new()
             .resize(&src_image, &mut dst_image, &resize_options)
             .map_err(|e| RecorderError::ImageProcessingFailed(format!("Resize failed: {}", e)))?;
 
@@ -863,6 +905,15 @@ impl RecordingSession {
 
     pub fn get_speaker_level_receiver(&self) -> Option<Receiver<f32>> {
         self.speaker_level_receiver.clone()
+    }
+
+    pub fn warmup_video_encoder(screen_size: LogicalSize, resolution: Resolution, fps: FPS) {
+        let (encoder_width, encoder_height) =
+            resolution.dimensions(screen_size.width as u32, screen_size.height as u32);
+        match VideoEncoder::new(encoder_width, encoder_height, fps, false) {
+            Ok(_) => log::info!("Warmup video encoder successfully"),
+            Err(e) => log::warn!("Warmup video encoder failed: {e}"),
+        }
     }
 
     fn evaluate_need_threads(
