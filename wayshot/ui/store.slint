@@ -21,8 +21,9 @@ export enum PopupIndex {
 }
 
 export enum SettingDetailIndex {
-    Recorder ,
     Preference,
+    Recorder,
+    CursorTracking,
 }
 
 export enum MobileTabIndex {
@@ -71,6 +72,16 @@ export enum Resolution {
     P1080,
     P2K,
     P4K,
+}
+
+export struct SettingCursorTracker {
+    enable-tracking: bool,
+    region-width: int,
+    region-height: int,
+    stable-radius: int,
+    fast-moving-duration: int,
+    linear-transition-duration: int,
+    max-stable-region-duration: int,
 }
 
 export struct SettingRecorder {

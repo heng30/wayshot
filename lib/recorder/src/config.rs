@@ -57,6 +57,12 @@ pub struct RecorderConfig {
     pub save_path: PathBuf,
 
     pub enable_cursor_tracking: bool,
+    pub region_width: i32,
+    pub region_height: i32,
+    pub stable_radius: u32,
+    pub fast_moving_duration: u64,
+    pub linear_transition_duration: u64,
+    pub max_stable_region_duration: u64,
 }
 
 impl RecorderConfig {
@@ -81,6 +87,12 @@ impl RecorderConfig {
             convert_to_mono: false,
 
             enable_cursor_tracking: false,
+            region_width: 1280,
+            region_height: 720,
+            stable_radius: 15,
+            fast_moving_duration: 100,
+            linear_transition_duration: 1000,
+            max_stable_region_duration: 5,
         }
     }
 

@@ -9,6 +9,7 @@ import {
     SettingBackup,
     SettingRecorder,
     SettingControl,
+    SettingCursorTracker,
     Fps,
     Resolution,
 } from "store.slint";
@@ -86,6 +87,9 @@ export global Logic {
 
     callback get-setting-control() -> SettingControl;
     callback set-setting-control(setting: SettingControl);
+
+    callback get-setting-cursor-tracker() -> SettingCursorTracker;
+    callback set-setting-cursor-tracker(setting: SettingCursorTracker);
 
     callback init-sources-dialog();
     callback choose-save-dir();

@@ -2,7 +2,19 @@ import "fonts/SourceHanSerifCN.ttf";
 import "fonts/SourceHanSansCN.otf";
 
 import { Util, Logic, Theme, Icons, Store, DeviceType } from "panel/def.slint";
-import { Toast, IconsDialogSetting, IconsDialog, ConfirmDialog, ConfirmDialogSetting, Blanket, LandingPage, AboutSetting, ToastSetting, PopupActionSetting, ConfirmDialogSetting } from "base/widgets.slint";
+import {
+    Toast,
+    IconsDialogSetting,
+    IconsDialog,
+    ConfirmDialog,
+    ConfirmDialogSetting,
+    Blanket,
+    LandingPage,
+    AboutSetting,
+    ToastSetting,
+    PopupActionSetting,
+    ConfirmDialogSetting,
+} from "base/widgets.slint";
 import { DesktopPanel } from "panel/desktop/desktop.slint";
 
 export component AppWindow inherits Window {
@@ -56,7 +68,7 @@ export component AppWindow inherits Window {
             },
             {
                 picture: Icons.landing-send,
-                description: Store.is-cn ? "支持录制屏幕、麦克风和桌面音频" : "Supports recording of screen, microphone, and desktop audio",
+                description: Store.is-cn ? "支持录制屏幕、麦克风、桌面音频和跟随光标" : "Supports recording of screen, microphone, desktop audio and cursor tracking",
             },
             {
                 picture: Icons.landing-welcome,

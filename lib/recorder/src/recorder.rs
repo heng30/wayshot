@@ -293,10 +293,12 @@ impl RecordingSession {
             )))?
             .clone();
 
-        let target_size = LogicalSize::new(840, 680); // TODO
         let (cursor_sender, cursor_receiver) = bounded(CURSOR_CHANNEL_SIZE);
+        let target_size = LogicalSize::new(
+            self.config.region_width.max(1),
+            self.config.region_height.max(1),
+        );
 
-        // TODO
         let cursor_tracker_config = CursorTrackerConfig::new(
             screen_info.logical_size,
             target_size,
@@ -304,10 +306,14 @@ impl RecordingSession {
             cursor_receiver,
             stop_sig.clone(),
         )?
-        .with_stable_radius(100)
-        .with_fast_moving_duration(Duration::from_millis(100))
-        .with_linear_transition_duration(Duration::from_millis(1000))
-        .with_max_stable_region_duration(Duration::from_secs(3));
+        .with_stable_radius(self.config.stable_radius)
+        .with_fast_moving_duration(Duration::from_millis(self.config.fast_moving_duration))
+        .with_linear_transition_duration(Duration::from_millis(
+            self.config.linear_transition_duration,
+        ))
+        .with_max_stable_region_duration(Duration::from_secs(
+            self.config.max_stable_region_duration,
+        ));
 
         thread::spawn(move || {
             let cursor_tracker = match CursorTracker::new(cursor_tracker_config) {
@@ -339,7 +345,7 @@ impl RecordingSession {
 
             let config = MonitorCursorPositionConfig::new(screen_info, cursor_monitor_stop_sig)
                 .with_use_transparent_layer_surface(true)
-                .with_hole_radius(50);
+                .with_hole_radius(15);
 
             if let Err(e) = screen_capturer.monitor_cursor_position(config, move |position| {
                 {
@@ -857,10 +863,15 @@ impl RecordingSession {
             ))
         })?;
 
-        let resize_options = fast_image_resize::ResizeOptions::new().resize_alg(
-            fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Lanczos3),
-            // fast_image_resize::ResizeAlg::SuperSampling(fast_image_resize::FilterType::Lanczos3, 2),
-        );
+        let resize_options =
+            fast_image_resize::ResizeOptions::new().resize_alg(if region.is_some() {
+                fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Lanczos3)
+            } else {
+                fast_image_resize::ResizeAlg::SuperSampling(
+                    fast_image_resize::FilterType::Lanczos3,
+                    2,
+                )
+            });
 
         let resize_options = if let Some(region) = region {
             resize_options.crop(

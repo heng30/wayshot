@@ -6,7 +6,7 @@
 
 use crate::slint_generatedAppWindow::{
     Fps as UIFps, Resolution as UIResolution, SettingControl as UISettingControl,
-    SettingRecorder as UISettingRecorder,
+    SettingCursorTracker as UISettingCursorTracker, SettingRecorder as UISettingRecorder,
 };
 use anyhow::{Context, Result, bail};
 use log::debug;
@@ -83,6 +83,7 @@ pub struct Config {
     pub preference: Preference,
     pub recorder: Recorder,
     pub control: Control,
+    pub cursor_tracker: CursorTracker,
 }
 
 /// User preference settings for the application
@@ -135,9 +136,6 @@ pub struct Recorder {
     pub resolution: UIResolution,
 }
 
-crate::impl_slint_enum_serde!(UIFps, Fps24, Fps25, Fps30, Fps60);
-crate::impl_slint_enum_serde!(UIResolution, Original, P720, P1080, P2K, P4K);
-
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
 #[derivative(Default)]
 #[from("UISettingControl")]
@@ -159,6 +157,34 @@ pub struct Control {
     #[derivative(Default(value = "true"))]
     pub enable_speaker: bool,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
+#[derivative(Default)]
+#[from("UISettingCursorTracker")]
+pub struct CursorTracker {
+    pub enable_tracking: bool,
+
+    #[derivative(Default(value = "1280"))]
+    pub region_width: i32,
+
+    #[derivative(Default(value = "720"))]
+    pub region_height: i32,
+
+    #[derivative(Default(value = "15"))]
+    pub stable_radius: i32,
+
+    #[derivative(Default(value = "100"))]
+    pub fast_moving_duration: i32,
+
+    #[derivative(Default(value = "1000"))]
+    pub linear_transition_duration: i32,
+
+    #[derivative(Default(value = "5"))]
+    pub max_stable_region_duration: i32,
+}
+
+crate::impl_slint_enum_serde!(UIFps, Fps24, Fps25, Fps30, Fps60);
+crate::impl_slint_enum_serde!(UIResolution, Original, P720, P1080, P2K, P4K);
 
 impl Config {
     /// Initializes the configuration

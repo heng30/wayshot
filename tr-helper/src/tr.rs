@@ -46,6 +46,8 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
         HashMap::from([
             ("about", "关于"),
             ("About", "关于"),
+            ("Finish", "完成"),
+            ("Next", "下一步"),
             ("Account address", "账户地址"),
             ("Address", "地址"),
             ("Address book", "地址簿"),
@@ -247,6 +249,14 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Don't convert audio to mono", "不要将音频转换为单声道"),
             ("Enabled noise reduction", "启用降噪功能"),
             ("Open file failed", "打开文件失败"),
+            ("Cursor Tracking", "光标跟踪"),
+            ("Disabled cursor tracking", "禁用光标跟踪"),
+            ("Enabled cursor tracking", "启用光标跟踪"),
+            ("Fast moving interval(milliseconds)", "快速移动时间间隔（毫秒）"),
+            ("Linear transition duration(milliseconds)", "线性过渡持续时间（毫秒）"),
+            ("Maximum duration of stay in the stable region(seconds)", "在稳定区域内的最大停留时间（秒）"),
+            ("Region size(width x height)", "区域尺寸（宽 x 高）"),
+            ("Stable radius(pixel)", "稳定半径（像素）"),
         ])
     })
 }
