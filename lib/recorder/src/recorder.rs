@@ -332,6 +332,7 @@ impl RecordingSession {
             log::info!("Exit cursor tracker thread");
         });
 
+        let stable_radius = self.config.stable_radius;
         let cursor_monitor_stop_sig = stop_sig.clone();
         thread::spawn(move || {
             CURSOR_POSITION.store(u64::MAX, Ordering::SeqCst);
@@ -347,7 +348,7 @@ impl RecordingSession {
 
             let config = MonitorCursorPositionConfig::new(screen_info, cursor_monitor_stop_sig)
                 .with_use_transparent_layer_surface(true)
-                .with_hole_radius(15);
+                .with_hole_radius((stable_radius as i32 / 2).max(30));
 
             if let Err(e) = screen_capturer.monitor_cursor_position(config, move |position| {
                 let current_position =
@@ -874,8 +875,8 @@ impl RecordingSession {
 
         let resize_options =
             fast_image_resize::ResizeOptions::new().resize_alg(if region.is_some() {
-                fast_image_resize::ResizeAlg::Nearest
-                // fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Lanczos3)
+                // fast_image_resize::ResizeAlg::Nearest
+                fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Mitchell)
             } else {
                 fast_image_resize::ResizeAlg::SuperSampling(
                     fast_image_resize::FilterType::Lanczos3,

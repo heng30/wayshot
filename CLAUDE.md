@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Rust Slint GUI framework template project that supports cross-platform development for Desktop (Windows, Linux, macOS), Android, and Web platforms. It includes frequently-used UI components, settings panel, configuration management, database features, and other utilities.
+Wayshot is a screen recording tool for Linux Wayland systems using the wlroots extension protocol. It's built with Rust and the Slint GUI framework, supporting single screen recording, audio recording from input devices and desktop, and microphone noise reduction. The project uses a workspace structure with multiple libraries.
 
 ## Build Commands
 
 ### Development
-- `make desktop-debug` - Run desktop application in debug mode
-- `make desktop-debug-winit` - Run with winit backend for fuzzy font resolution on Windows
+- `make desktop-debug` - Run desktop application in debug mode (with RUST_LOG=debug)
+- `make desktop-debug-winit` - Run with winit backend for better font rendering on Linux
 - `make android-debug` - Run on Android device/emulator
 - `make web-debug` - Build and serve web version locally
 
@@ -20,73 +20,86 @@ This is a Rust Slint GUI framework template project that supports cross-platform
 - `make web-build-release` - Build web distribution
 
 ### Testing and Quality
-- `make test` - Run tests
-- `make clippy` - Run clippy linter
-- `make check` - Run cargo check
+- `make test` - Run all tests in the workspace with output
+- `cargo test -p recorder` - Run tests for just the recorder library
+- `cargo test --workspace --all-features` - Run all tests with all features
+- `make clippy` - Run clippy linter on workspace
+- `make check` - Run cargo check on workspace
 
-### Utilities
-- `make tr` - Run translation helper
+### Examples and Utilities
+- Run recorder examples: `cargo run --example recording_5s_demo -p recorder`
+- `make tr` - Run translation helper tool
 - `make icon` - Generate icons from images
 - `make slint-viewer-desktop/android/web` - Preview UI files with auto-reload
 
 ## Architecture
 
 ### Workspace Structure
-- `slint-template/` - Main application crate
+- `wayshot/` - Main application crate with Slint GUI
+- `lib/recorder/` - Core screen recording library (this directory)
+- `lib/screen-capture/` - Screen capture abstraction layer
+- `lib/screen-capture-wayland-wlr/` - Wayland-specific screen capture implementation
+- `lib/mp4m/` - MP4 processing and manipulation
 - `lib/cutil/` - Utility library (crypto, filesystem, time, strings, etc.)
 - `lib/sqldb/` - SQL database abstraction
 - `lib/pmacro/` - Procedural macros
 - `tr-helper/` - Translation helper tool
 - `icon-helper/` - Icon generation tool
 
+### Recorder Library (Current Directory)
+The recorder library provides the core screen recording functionality:
+
+**Key Components:**
+- `RecordingSession` - Main recording orchestrator
+- `AudioRecorder` - Audio input device recording
+- `SpeakerRecorder` - Desktop/system audio recording  
+- `VideoEncoder` - Video encoding using x264
+- `CursorTracker` - Mouse cursor position tracking
+- `RecorderConfig` - Configuration builder for recording sessions
+
+**Key Features:**
+- Multi-threaded video/audio capture and encoding
+- Real-time audio level monitoring
+- Noise reduction support (using nnnoiseless)
+- Various FPS options and video resolutions
+- Cursor tracking integration
+- Cross-platform screen capture abstraction
+
+**Testing Examples:**
+- `recording_5s_demo.rs` - Basic 5-second recording demo
+- `recording_10m_demo.rs` - Longer recording test
+- `audio_recording_demo.rs` - Audio-only recording test
+- `cursor_tracking_*_demo.rs` - Cursor tracking functionality tests
+
 ### Platform Features
-- **Desktop**: Uses `desktop` feature with clipboard, file dialogs, platform directories
-- **Android**: Uses `mobile` feature with Android-specific dependencies and permissions
-- **Web**: Uses `web` feature with WASM compilation and browser APIs
+- **Desktop**: Uses `desktop-wayland-wlr` feature for Wayland support
+- **Android**: Uses `mobile` feature with Android-specific dependencies
+- **Web**: Uses `web` feature with WASM compilation
 
-### UI Architecture
-- **Slint UI Files**: Located in `slint-template/ui/`
-  - `store.slint` - Global state management and data structures
-  - `logic.slint` - UI logic callbacks and functions
-  - Platform-specific windows: `desktop-window.slint`, `android-window.slint`, `web-window.slint`
-  - Component library in `base/` directory
-
-### Rust Logic
-- **Main Entry Points**: Platform-specific main functions in `src/lib.rs`
-- **Logic Modules**: Located in `src/logic/` directory
-- **Macros**: 
-  - `global_store!`, `global_logic!`, `global_util!` - Access global UI objects
-  - `logic_cb!` - Connect Slint callbacks to Rust functions
-  - `impl_slint_enum_serde!` - Generate serde implementations for Slint enums
-
-### Configuration
-- Platform-specific configuration in `src/config.rs`
-- Database initialization when `database` feature is enabled
-- Automatic logger setup for each platform
+### Feature Flags (Recorder Library)
+- `wayland-wlr` - Wayland wlr-protocols support (default)
 
 ## Development Notes
 
-### Platform Requirements
-- **Android**: Requires `cargo-apk`, Android SDK/NDK, JDK 17
-- **Web**: Requires `wasm-pack`
-- **Desktop**: Standard Rust toolchain
+### Dependencies and System Requirements
+- **Linux Wayland**: Requires `libpipewire` and `libalsa` for audio capture
+- **FFmpeg**: Required for final MP4 file processing
+- **Rust**: Uses 2024 edition with workspace dependencies
 
-### Feature Flags
-- `desktop` - Desktop platform support
-- `mobile` - Android platform support (includes `android`)
-- `web` - Web platform support
-- `database` - SQL database support
-- `qrcode` - QR code generation
-- `center-window` - Window centering utilities
+### Audio System Integration
+- Uses CPAL for cross-platform audio input
+- PipeWire for Linux system/desktop audio capture
+- Supports mono conversion and noise reduction
+- Real-time audio level monitoring through channels
 
-### UI Component Organization
-- Components are organized by category in sidebar entries
-- Each component has its own `.slint` file in `ui/base/`
-- Example implementations in platform-specific panels
-- Settings panel with detailed configuration options
+### Video Processing
+- x264 encoding via x264-rust bindings
+- Fast image resize with rayon parallelization
+- YUV color space handling
+- Frame buffering and FPS control
 
-### Asset Management
-- Icons: `ui/images/icons/` (SVG format)
-- Fonts: `ui/fonts/` (Chinese fonts included)
-- Images: `ui/images/png/` and `ui/images/crypto-currency/`
-- Android resources: `android/res/`
+### Common Development Workflow
+1. For recorder development: `cargo test -p recorder -- --nocapture`
+2. For GUI changes: `make slint-viewer-desktop` for live preview
+3. For integration testing: `make test` to run all workspace tests
+4. Examples are in `lib/recorder/examples/` for testing specific functionality

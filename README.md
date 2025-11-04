@@ -12,6 +12,7 @@ This is a screen recording tool for `Linux` `Wayland`, which uses the `wlroots` 
 - Single input device audio recording
 - Desktop audio recording
 - Microphone noise reduction
+- Cursor tracking
 
 ### How to build?
 - Install`Rust`, `Cargo`, `libpipewire` and `libalsa`
