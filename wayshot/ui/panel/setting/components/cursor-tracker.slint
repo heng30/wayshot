@@ -18,6 +18,7 @@ import {
     Label,
     SettingDetailSwitch,
     Select,
+    IconBtn,
 } from "../../../base/widgets.slint";
 
 export component CursorTracker inherits SettingDetail {
@@ -31,6 +32,8 @@ export component CursorTracker inherits SettingDetail {
 
     public function get() -> SettingCursorTracker {
         root.setting.stable-radius = stable-radius-li.text.to-float();
+        root.setting.region-width = region-width-li.text.to-float();
+        root.setting.region-height = region-height-li.text.to-float();
         root.setting.fast-moving-duration = fast-moving-duration-li.text.to-float();
         root.setting.linear-transition-duration = linear-transition-duration-li.text.to-float();
         root.setting.max-stable-region-duration = max-stable-region-duration-li.text.to-float();
@@ -64,6 +67,8 @@ export component CursorTracker inherits SettingDetail {
                 }
 
                 HorizontalLayout {
+                    private property <bool> is-broken;
+
                     spacing: Theme.spacing * 2;
 
                     region-width-li := LineInput {
@@ -71,10 +76,21 @@ export component CursorTracker inherits SettingDetail {
                         input-type: number;
                         placeholder-text: "1280px";
                         text: root.setting.region-width;
+
+                        accepted => {
+                            if (is-broken) {
+                                return;
+                            }
+                            region-height-li.text = Logic.cal-region-height(region-width-li.text.to-float());
+                        }
                     }
 
-                    Label {
-                        text: "X";
+                    IconBtn {
+                        icon: is-broken ? Icons.broken-link-light : Icons.link-light;
+
+                        clicked => {
+                            is-broken = !is-broken;
+                        }
                     }
 
                     region-height-li := LineInput {
@@ -82,6 +98,13 @@ export component CursorTracker inherits SettingDetail {
                         input-type: number;
                         placeholder-text: "720px";
                         text: root.setting.region-height;
+
+                        accepted => {
+                            if (is-broken) {
+                                return;
+                            }
+                            region-width-li.text = Logic.cal-region-width(region-height-li.text.to-float());
+                        }
                     }
                 }
             }
@@ -89,6 +112,7 @@ export component CursorTracker inherits SettingDetail {
             SettingDetailInnerVbox {
                 SettingDetailLabel {
                     text: Logic.tr("Stable radius(pixel)");
+                    tip: Logic.tr("After zooming in, moving the mouse does not trigger the movement within the radius range of the area.");
                 }
 
                 stable-radius-li := LineInput {
@@ -102,6 +126,7 @@ export component CursorTracker inherits SettingDetail {
             SettingDetailInnerVbox {
                 SettingDetailLabel {
                     text: Logic.tr("Fast moving interval(milliseconds)");
+                    tip: Logic.tr("When the mouse moves quickly, the time interval between two adjacent coordinates within this interval will not trigger zooming.");
                 }
 
                 fast-moving-duration-li := LineInput {
@@ -126,6 +151,7 @@ export component CursorTracker inherits SettingDetail {
             SettingDetailInnerVbox {
                 SettingDetailLabel {
                     text: Logic.tr("Maximum duration of stay in the stable region(seconds)");
+                    tip: Logic.tr("After zooming in, if it exceeds this duration within the stable radius, it will revert to recording the entire screen.");
                 }
 
                 max-stable-region-duration-li := LineInput {

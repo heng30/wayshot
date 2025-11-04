@@ -106,6 +106,9 @@ export global Logic {
 
     callback open-file(file: string);
 
+    callback cal-region-width(height: float) -> int;
+    callback cal-region-height(width: float) -> int;
+
     pure public function fps-to-int(fps: Fps) -> int {
         if (fps == Fps.Fps24) {
             return 24;

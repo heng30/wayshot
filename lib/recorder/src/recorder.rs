@@ -35,7 +35,8 @@ const USER_CHANNEL_SIZE: usize = 64;
 const ENCODER_WORKER_CHANNEL_SIZE: usize = 128;
 const AUDIO_MIXER_CHANNEL_SIZE: usize = 1024;
 const CURSOR_CHANNEL_SIZE: usize = 4094;
-static CURSOR_POSITION: Lazy<Mutex<Option<Position>>> = Lazy::new(|| Mutex::new(None));
+
+static CURSOR_POSITION: AtomicU64 = AtomicU64::new(u64::MAX);
 static LAST_CROP_REGION: Lazy<Mutex<Option<Rectangle>>> = Lazy::new(|| Mutex::new(None));
 
 #[derive(Setters)]
@@ -333,8 +334,9 @@ impl RecordingSession {
 
         let cursor_monitor_stop_sig = stop_sig.clone();
         thread::spawn(move || {
+            CURSOR_POSITION.store(u64::MAX, Ordering::SeqCst);
+
             {
-                *CURSOR_POSITION.lock().unwrap() = None;
                 *LAST_CROP_REGION.lock().unwrap() = Some(Rectangle::new(
                     0,
                     0,
@@ -348,9 +350,9 @@ impl RecordingSession {
                 .with_hole_radius(15);
 
             if let Err(e) = screen_capturer.monitor_cursor_position(config, move |position| {
-                {
-                    *CURSOR_POSITION.lock().unwrap() = Some(Position::new(position.x, position.y));
-                }
+                let current_position =
+                    (((position.x as u64) << 32) & 0xffff_ffff_0000_0000) | (position.y as u64);
+                CURSOR_POSITION.store(current_position, Ordering::Relaxed);
 
                 log::debug!(
                     "dimensions: {}x{} at ({}, {}). (x, y) = ({}, {})",
@@ -749,14 +751,19 @@ impl RecordingSession {
     }
 
     fn get_matched_crop_region(crop_region_receiver: Receiver<Rectangle>) -> Rectangle {
-        let cursor_position = CURSOR_POSITION.lock().unwrap().clone();
-        let Some(cursor_position) = cursor_position else {
-            return LAST_CROP_REGION.lock().unwrap().clone().unwrap();
-        };
-
         loop {
             match crop_region_receiver.try_recv() {
                 Ok(v) => {
+                    let cursor_position = CURSOR_POSITION.load(Ordering::Relaxed);
+                    if cursor_position == u64::MAX {
+                        return LAST_CROP_REGION.lock().unwrap().clone().unwrap();
+                    };
+
+                    let cursor_position = Position::new(
+                        ((cursor_position >> 32) & 0x0000_0000_ffff_ffff) as i32,
+                        (cursor_position & 0x0000_0000_ffff_ffff) as i32,
+                    );
+
                     if v.contain_position(&cursor_position) {
                         *LAST_CROP_REGION.lock().unwrap() = Some(v);
                         return v;
@@ -773,6 +780,8 @@ impl RecordingSession {
         crop_region_receiver: Receiver<Rectangle>,
     ) -> Result<ResizedImageBuffer, RecorderError> {
         let region = Self::get_matched_crop_region(crop_region_receiver);
+
+        log::debug!("crop region: {:?}", region);
 
         if matches!(resolution, Resolution::Original(_))
             && region.width as u32 == frame.cb_data.data.width
@@ -865,7 +874,8 @@ impl RecordingSession {
 
         let resize_options =
             fast_image_resize::ResizeOptions::new().resize_alg(if region.is_some() {
-                fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Lanczos3)
+                fast_image_resize::ResizeAlg::Nearest
+                // fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Lanczos3)
             } else {
                 fast_image_resize::ResizeAlg::SuperSampling(
                     fast_image_resize::FilterType::Lanczos3,

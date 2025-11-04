@@ -17,7 +17,7 @@ use recorder::{
     AudioRecorder, FPS, RecorderConfig, RecordingSession, Resolution, SpeakerRecorder,
     SpeakerRecorderConfig, bounded, platform_screen_capture, platform_speaker_recoder,
 };
-use screen_capture::ScreenCapture;
+use screen_capture::{ScreenCapture, ScreenInfo};
 use slint::{
     ComponentHandle, Model, SharedPixelBuffer, SharedString, ToSharedString, VecModel, Weak,
 };
@@ -92,6 +92,9 @@ pub fn init(ui: &AppWindow) {
 
     logic_cb!(start_recording, ui);
     logic_cb!(stop_recording, ui);
+
+    logic_cb!(cal_region_width, ui, height);
+    logic_cb!(cal_region_height, ui, width);
 
     logic_cb!(open_file, ui, file);
 }
@@ -523,25 +526,10 @@ fn start_recording(ui: &AppWindow) {
 }
 
 fn warmup_video_encoder() -> Result<()> {
-    let all_config = config::all();
-
-    if all_config.control.screen.is_empty() {
-        bail!("available screen no found");
-    }
-
-    let mut capture = platform_screen_capture();
-    let screen_info = capture
-        .available_screens()?
-        .into_iter()
-        .find(|item| item.name == all_config.control.screen);
-
-    if screen_info.is_none() {
-        bail!("no found screen: {}", all_config.control.screen);
-    }
-
-    let screen_info = screen_info.unwrap();
+    let screen_info = current_screen_info()?;
     log::debug!("screen_info: {screen_info:?}");
 
+    let all_config = config::all();
     let resolution = if matches!(all_config.recorder.resolution, UIResolution::Original) {
         Resolution::Original((
             screen_info.logical_size.width as u32,
@@ -562,25 +550,11 @@ fn warmup_video_encoder() -> Result<()> {
 
 fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
     log::info!("start recording...");
-    let all_config = config::all();
 
-    if all_config.control.screen.is_empty() {
-        bail!("available screen no found");
-    }
-
-    let mut capture = platform_screen_capture();
-    let screen_info = capture
-        .available_screens()?
-        .into_iter()
-        .find(|item| item.name == all_config.control.screen);
-
-    if screen_info.is_none() {
-        bail!("no found screen: {}", all_config.control.screen);
-    }
-
-    let screen_info = screen_info.unwrap();
+    let screen_info = current_screen_info()?;
     log::debug!("screen_info: {screen_info:?}");
 
+    let all_config = config::all();
     let resolution = if matches!(all_config.recorder.resolution, UIResolution::Original) {
         Resolution::Original((
             screen_info.logical_size.width as u32,
@@ -615,6 +589,8 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
     .with_fps(all_config.recorder.fps.clone().into())
     .with_resolution(resolution)
     .with_enable_cursor_tracking(all_config.cursor_tracker.enable_tracking)
+    .with_region_width(all_config.cursor_tracker.region_width)
+    .with_region_height(all_config.cursor_tracker.region_height)
     .with_stable_radius(all_config.cursor_tracker.stable_radius as u32)
     .with_fast_moving_duration(all_config.cursor_tracker.fast_moving_duration as u64)
     .with_linear_transition_duration(all_config.cursor_tracker.linear_transition_duration as u64)
@@ -624,7 +600,7 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
 
     let (frame_sender_user, frame_receiver_user) = bounded(16);
     let mut session = RecordingSession::new(config).with_frame_sender_user(Some(frame_sender_user));
-    session.start(capture)?;
+    session.start(platform_screen_capture())?;
 
     _ = ui_weak.upgrade_in_event_loop(move |ui| {
         global_store!(ui).set_final_video_path(SharedString::default());
@@ -688,6 +664,62 @@ fn stop_recording(ui: &AppWindow) {
     }
 
     global_store!(ui).set_record_status(UIRecordStatus::Stopped);
+}
+
+fn current_screen_info() -> Result<ScreenInfo> {
+    let all_config = config::all();
+
+    if all_config.control.screen.is_empty() {
+        bail!("available screen no found");
+    }
+
+    let mut capture = platform_screen_capture();
+    let screen_info = capture
+        .available_screens()?
+        .into_iter()
+        .find(|item| item.name == all_config.control.screen);
+
+    if screen_info.is_none() {
+        bail!("no found screen: {}", all_config.control.screen);
+    }
+
+    Ok(screen_info.unwrap())
+}
+
+fn cal_region_width(_ui: &AppWindow, height: f32) -> i32 {
+    match current_screen_info() {
+        Ok(screen_info) => {
+            if screen_info.logical_size.height <= 0 {
+                log::warn!("{} height is zero", screen_info.name);
+                0
+            } else {
+                (height as f32 * screen_info.logical_size.width as f32
+                    / screen_info.logical_size.height as f32) as i32
+            }
+        }
+        Err(e) => {
+            log::warn!("{e}");
+            0
+        }
+    }
+}
+
+fn cal_region_height(_ui: &AppWindow, width: f32) -> i32 {
+    match current_screen_info() {
+        Ok(screen_info) => {
+            if screen_info.logical_size.width <= 0 {
+                log::warn!("{} width is zero", screen_info.name);
+                0
+            } else {
+                (width as f32 * screen_info.logical_size.height as f32
+                    / screen_info.logical_size.width as f32) as i32
+            }
+        }
+        Err(e) => {
+            log::warn!("{e}");
+            0
+        }
+    }
 }
 
 fn open_file(ui: &AppWindow, file: SharedString) {

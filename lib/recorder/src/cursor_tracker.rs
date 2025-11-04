@@ -153,7 +153,7 @@ impl CursorTracker {
                     }
                 }
                 Err(crossbeam::channel::RecvTimeoutError::Disconnected) => {
-                    log::warn!("Exit cursor tracker. Cursor position receiver disconnected");
+                    log::info!("Exit cursor tracker. Cursor position receiver disconnected");
                     break;
                 }
             }
