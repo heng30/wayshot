@@ -876,7 +876,8 @@ impl RecordingSession {
         let resize_options =
             fast_image_resize::ResizeOptions::new().resize_alg(if region.is_some() {
                 // fast_image_resize::ResizeAlg::Nearest
-                fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Mitchell)
+                // fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Mitchell)
+                fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Hamming)
             } else {
                 fast_image_resize::ResizeAlg::SuperSampling(
                     fast_image_resize::FilterType::Lanczos3,
