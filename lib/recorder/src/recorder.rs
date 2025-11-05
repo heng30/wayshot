@@ -455,24 +455,22 @@ impl RecordingSession {
 
     fn process_frame_worker(
         session: &RecordingSession,
-        sender: Sender<(usize, EncoderChannelData)>,
+        sender: Sender<(usize, Instant, EncoderChannelData)>,
         thread_index: usize,
     ) -> JoinHandle<()> {
         let start_time = session.start_time;
         let resolution = session.config.resolution.clone();
         let capture_receiver = session.frame_receiver.clone();
-        let frame_sender_user = session.frame_sender_user.clone();
         let loss_frame_count = session.loss_frame_count.clone();
         let total_frame_count = session.total_frame_count.clone();
         let enable_cursor_tracking = session.config.enable_cursor_tracking;
         let crop_region_receiver = session.crop_region_receiver.clone();
-        let mut fps_counter = SimpleFpsCounter::new();
 
-        let handle = thread::spawn(move || {
+        thread::spawn(move || {
             loop {
                 match capture_receiver.recv() {
                     Ok(frame) => {
-                        let fps = fps_counter.add_frame(frame.timestamp);
+                        let frame_timestamp = frame.timestamp;
                         let total_frame_count =
                             total_frame_count.fetch_add(1, Ordering::Relaxed) + 1;
 
@@ -522,21 +520,11 @@ impl RecordingSession {
                             now.elapsed()
                         );
 
-                        if let Some(ref sender) = frame_sender_user {
-                            let frame_user = FrameUser {
-                                stats: StatsUser {
-                                    fps,
-                                    total_frames: total_frame_count,
-                                    loss_frames: loss_frame_count.load(Ordering::Relaxed),
-                                },
-                                buffer: img.clone(),
-                            };
-                            if let Err(e) = sender.try_send(frame_user) {
-                                log::warn!("try send frame to user frame channel failed: {e}");
-                            }
-                        }
-
-                        if let Err(e) = sender.try_send((thread_index, (total_frame_count, img))) {
+                        if let Err(e) = sender.try_send((
+                            thread_index,
+                            frame_timestamp,
+                            (total_frame_count, img),
+                        )) {
                             loss_frame_count.fetch_add(1, Ordering::Relaxed);
                             log::warn!("resize worker try send failed: {e}");
                         }
@@ -547,60 +535,93 @@ impl RecordingSession {
                     }
                 }
             }
-        });
+        })
+    }
 
-        handle
+    #[inline]
+    fn encoder_send_frame(
+        img: ResizedImageBuffer,
+        encoder_sender: &Sender<EncoderChannelData>,
+        frame_sender_user: &Option<Sender<FrameUser>>,
+        expect_total_frame_index: u64,
+        loss_frame_count: Arc<AtomicU64>,
+        fps: f32,
+    ) {
+        if let Some(sender) = frame_sender_user {
+            let frame_user = FrameUser {
+                stats: StatsUser {
+                    fps,
+                    total_frames: expect_total_frame_index,
+                    loss_frames: loss_frame_count.load(Ordering::Relaxed),
+                },
+                buffer: img.clone(),
+            };
+
+            if let Err(e) = sender.try_send(frame_user) {
+                log::warn!("try send frame to user frame channel failed: {e}");
+            }
+        }
+
+        if let Err(e) = encoder_sender.try_send((expect_total_frame_index, img)) {
+            loss_frame_count.fetch_add(1, Ordering::Relaxed);
+            log::warn!("collected thread try send to encoder reciever failed: {e}");
+        }
     }
 
     fn process_collect_worker(
         session: &RecordingSession,
         sender: Sender<EncoderChannelData>,
-        receiver: Receiver<(usize, EncoderChannelData)>,
+        receiver: Receiver<(usize, Instant, EncoderChannelData)>,
     ) -> JoinHandle<()> {
-        let loss_frame_count_clone = session.loss_frame_count.clone();
+        let loss_frame_count = session.loss_frame_count.clone();
+        let frame_sender_user = session.frame_sender_user.clone();
 
         thread::spawn(move || {
             let mut expect_total_frame_index = 1;
             let mut disorder_frame_counts = 0;
             let mut frame_cache: HashMap<u64, (u64, ResizedImageBuffer)> = HashMap::new();
+            let mut fps_counter = SimpleFpsCounter::new();
 
             loop {
                 match receiver.recv() {
-                    Ok((thread_index, (total_frame_index, img))) => {
-                        // log::debug!("+++ {total_frame_index} - {expect_total_frame_index}");
+                    Ok((thread_index, frame_timestamp, (total_frame_index, img))) => {
+                        // FIXME: no accuracy. because frame_timestamp may be disorder
+                        let fps = fps_counter.add_frame(frame_timestamp);
+
                         if expect_total_frame_index == total_frame_index {
                             disorder_frame_counts = 0;
 
-                            if let Err(e) = sender.try_send((total_frame_index, img)) {
-                                loss_frame_count_clone.fetch_add(1, Ordering::Relaxed);
-                                log::warn!(
-                                    "collected thread try send to encoder reciever failed: {e}"
-                                );
-                            }
+                            Self::encoder_send_frame(
+                                img,
+                                &sender,
+                                &frame_sender_user,
+                                expect_total_frame_index,
+                                loss_frame_count.clone(),
+                                fps,
+                            );
 
                             loop {
                                 expect_total_frame_index += 1;
                                 match frame_cache.remove(&expect_total_frame_index) {
                                     Some(frame) => {
-                                        if let Err(e) = sender.try_send(frame) {
-                                            loss_frame_count_clone.fetch_add(1, Ordering::Relaxed);
-                                            log::warn!(
-                                                "collected thread try send to encoder reciever failed: {e}"
-                                            );
-                                        }
+                                        Self::encoder_send_frame(
+                                            frame.1,
+                                            &sender,
+                                            &frame_sender_user,
+                                            expect_total_frame_index,
+                                            loss_frame_count.clone(),
+                                            fps,
+                                        );
                                     }
                                     _ => break,
                                 }
                             }
                         } else if expect_total_frame_index > total_frame_index {
-                            loss_frame_count_clone.fetch_add(1, Ordering::Relaxed);
+                            loss_frame_count.fetch_add(1, Ordering::Relaxed);
                             log::warn!(
                                 "too late thread[{thread_index}] frame, frame index: {total_frame_index}, expected index: {expect_total_frame_index}"
                             );
                         } else {
-                            // log::warn!(
-                            //     "total_frame_index: {total_frame_index}, expect_total_frame_index {expect_total_frame_index}"
-                            // );
                             frame_cache.insert(total_frame_index, (total_frame_index, img));
                             disorder_frame_counts += 1;
 
@@ -616,13 +637,14 @@ impl RecordingSession {
                                     expect_total_frame_index += 1;
                                     match frame_cache.remove(&expect_total_frame_index) {
                                         Some(frame) => {
-                                            if let Err(e) = sender.try_send(frame) {
-                                                loss_frame_count_clone
-                                                    .fetch_add(1, Ordering::Relaxed);
-                                                log::warn!(
-                                                    "collected thread try send to encoder reciever failed: {e}"
-                                                );
-                                            }
+                                            Self::encoder_send_frame(
+                                                frame.1,
+                                                &sender,
+                                                &frame_sender_user,
+                                                expect_total_frame_index,
+                                                loss_frame_count.clone(),
+                                                fps,
+                                            );
                                         }
                                         _ => break,
                                     }
