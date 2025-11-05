@@ -19,6 +19,7 @@ use screen_capture::{
 };
 use spin_sleep::SpinSleeper;
 use std::{
+    collections::HashMap,
     path::PathBuf,
     sync::{
         Arc, Mutex,
@@ -218,7 +219,7 @@ impl RecordingSession {
 
     pub fn wait(mut self) -> Result<ProgressState, RecorderError> {
         let (encoder_sender, encoder_receiver) = bounded(ENCODER_WORKER_CHANNEL_SIZE);
-        let process_frame_handle = Self::process_frame_worker(&self, encoder_sender);
+        let process_frame_handles = Self::process_frame_workers(&self, encoder_sender);
 
         loop {
             match encoder_receiver.recv() {
@@ -268,7 +269,7 @@ impl RecordingSession {
                 _ => {
                     log::info!("encoder receiver channel exit...");
                     self.stop();
-                    self.wait_stop(process_frame_handle)?;
+                    self.wait_stop(process_frame_handles)?;
                     break;
                 }
             }
@@ -433,9 +434,29 @@ impl RecordingSession {
         Ok(())
     }
 
-    fn process_frame_worker(
+    fn process_frame_workers(
         session: &RecordingSession,
         encoder_sender: Sender<EncoderChannelData>,
+    ) -> Vec<JoinHandle<()>> {
+        let mut handles = vec![];
+        let (sender, receiver) = bounded(ENCODER_WORKER_CHANNEL_SIZE);
+
+        for i in 0..3 {
+            handles.push(Self::process_frame_worker(session, sender.clone(), i));
+        }
+
+        handles.push(Self::process_collect_worker(
+            session,
+            encoder_sender,
+            receiver,
+        ));
+        handles
+    }
+
+    fn process_frame_worker(
+        session: &RecordingSession,
+        sender: Sender<(usize, EncoderChannelData)>,
+        thread_index: usize,
     ) -> JoinHandle<()> {
         let start_time = session.start_time;
         let resolution = session.config.resolution.clone();
@@ -515,7 +536,7 @@ impl RecordingSession {
                             }
                         }
 
-                        if let Err(e) = encoder_sender.try_send((total_frame_count, img)) {
+                        if let Err(e) = sender.try_send((thread_index, (total_frame_count, img))) {
                             loss_frame_count.fetch_add(1, Ordering::Relaxed);
                             log::warn!("resize worker try send failed: {e}");
                         }
@@ -529,6 +550,94 @@ impl RecordingSession {
         });
 
         handle
+    }
+
+    fn process_collect_worker(
+        session: &RecordingSession,
+        sender: Sender<EncoderChannelData>,
+        receiver: Receiver<(usize, EncoderChannelData)>,
+    ) -> JoinHandle<()> {
+        let loss_frame_count_clone = session.loss_frame_count.clone();
+
+        thread::spawn(move || {
+            let mut expect_total_frame_index = 1;
+            let mut disorder_frame_counts = 0;
+            let mut frame_cache: HashMap<u64, (u64, ResizedImageBuffer)> = HashMap::new();
+
+            loop {
+                match receiver.recv() {
+                    Ok((thread_index, (total_frame_index, img))) => {
+                        // log::debug!("+++ {total_frame_index} - {expect_total_frame_index}");
+                        if expect_total_frame_index == total_frame_index {
+                            disorder_frame_counts = 0;
+
+                            if let Err(e) = sender.try_send((total_frame_index, img)) {
+                                loss_frame_count_clone.fetch_add(1, Ordering::Relaxed);
+                                log::warn!(
+                                    "collected thread try send to encoder reciever failed: {e}"
+                                );
+                            }
+
+                            loop {
+                                expect_total_frame_index += 1;
+                                match frame_cache.remove(&expect_total_frame_index) {
+                                    Some(frame) => {
+                                        if let Err(e) = sender.try_send(frame) {
+                                            loss_frame_count_clone.fetch_add(1, Ordering::Relaxed);
+                                            log::warn!(
+                                                "collected thread try send to encoder reciever failed: {e}"
+                                            );
+                                        }
+                                    }
+                                    _ => break,
+                                }
+                            }
+                        } else if expect_total_frame_index > total_frame_index {
+                            loss_frame_count_clone.fetch_add(1, Ordering::Relaxed);
+                            log::warn!(
+                                "too late thread[{thread_index}] frame, frame index: {total_frame_index}, expected index: {expect_total_frame_index}"
+                            );
+                        } else {
+                            // log::warn!(
+                            //     "total_frame_index: {total_frame_index}, expect_total_frame_index {expect_total_frame_index}"
+                            // );
+                            frame_cache.insert(total_frame_index, (total_frame_index, img));
+                            disorder_frame_counts += 1;
+
+                            if disorder_frame_counts > 5 {
+                                disorder_frame_counts = 0;
+
+                                log::warn!(
+                                    "disorder frame counts > 5. So moving to next expected frame index: {expect_total_frame_index} -> {}",
+                                    expect_total_frame_index + 1
+                                );
+
+                                loop {
+                                    expect_total_frame_index += 1;
+                                    match frame_cache.remove(&expect_total_frame_index) {
+                                        Some(frame) => {
+                                            if let Err(e) = sender.try_send(frame) {
+                                                loss_frame_count_clone
+                                                    .fetch_add(1, Ordering::Relaxed);
+                                                log::warn!(
+                                                    "collected thread try send to encoder reciever failed: {e}"
+                                                );
+                                            }
+                                        }
+                                        _ => break,
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => {
+                        drop(sender);
+                        log::info!("precess collected thread exit");
+                        return;
+                    }
+                }
+            }
+        })
     }
 
     fn mp4_worker(
@@ -646,7 +755,10 @@ impl RecordingSession {
         Ok((audio_sender, speak_sender))
     }
 
-    fn wait_stop(mut self, process_frame_handle: JoinHandle<()>) -> Result<(), RecorderError> {
+    fn wait_stop(
+        mut self,
+        process_frame_handles: Vec<JoinHandle<()>>,
+    ) -> Result<(), RecorderError> {
         if let Some(audio_recorder) = self.audio_recorder.take() {
             audio_recorder.stop();
             log::info!("audio recorder exit...");
@@ -668,10 +780,12 @@ impl RecordingSession {
             }
         }
 
-        if let Err(e) = process_frame_handle.join() {
-            log::warn!("join process frame thread failed: {:?}", e);
-        } else {
-            log::info!("join process frame thread successfully");
+        for (index, handle) in process_frame_handles.into_iter().enumerate() {
+            if let Err(e) = handle.join() {
+                log::warn!("join process frame thread[{index}] failed: {:?}", e);
+            } else {
+                log::info!("join process frame thread[{index}] successfully");
+            }
         }
 
         match self.video_encoder.take().unwrap().flush() {
@@ -873,17 +987,21 @@ impl RecordingSession {
             ))
         })?;
 
-        let resize_options =
-            fast_image_resize::ResizeOptions::new().resize_alg(if region.is_some() {
-                // fast_image_resize::ResizeAlg::Nearest
-                // fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Hamming)
-                fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Mitchell)
-            } else {
-                fast_image_resize::ResizeAlg::SuperSampling(
-                    fast_image_resize::FilterType::Lanczos3,
-                    2,
-                )
-            });
+        // let resize_options =
+        //     fast_image_resize::ResizeOptions::new().resize_alg(if region.is_some() {
+        //         // fast_image_resize::ResizeAlg::Nearest
+        //         // fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Hamming)
+        //         fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Mitchell)
+        //     } else {
+        //         fast_image_resize::ResizeAlg::SuperSampling(
+        //             fast_image_resize::FilterType::Lanczos3,
+        //             2,
+        //         )
+        //     });
+
+        let resize_options = fast_image_resize::ResizeOptions::new().resize_alg(
+            fast_image_resize::ResizeAlg::SuperSampling(fast_image_resize::FilterType::Lanczos3, 2),
+        );
 
         let resize_options = if let Some(region) = region {
             resize_options.crop(
