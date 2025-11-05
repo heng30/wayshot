@@ -539,7 +539,7 @@ impl RecordingSession {
     }
 
     #[inline]
-    fn encoder_send_frame(
+    fn send_frame_to_encoder(
         img: ResizedImageBuffer,
         encoder_sender: &Sender<EncoderChannelData>,
         frame_sender_user: &Option<Sender<FrameUser>>,
@@ -591,7 +591,7 @@ impl RecordingSession {
                         if expect_total_frame_index == total_frame_index {
                             disorder_frame_counts = 0;
 
-                            Self::encoder_send_frame(
+                            Self::send_frame_to_encoder(
                                 img,
                                 &sender,
                                 &frame_sender_user,
@@ -604,7 +604,7 @@ impl RecordingSession {
                                 expect_total_frame_index += 1;
                                 match frame_cache.remove(&expect_total_frame_index) {
                                     Some(frame) => {
-                                        Self::encoder_send_frame(
+                                        Self::send_frame_to_encoder(
                                             frame.1,
                                             &sender,
                                             &frame_sender_user,
@@ -637,7 +637,7 @@ impl RecordingSession {
                                     expect_total_frame_index += 1;
                                     match frame_cache.remove(&expect_total_frame_index) {
                                         Some(frame) => {
-                                            Self::encoder_send_frame(
+                                            Self::send_frame_to_encoder(
                                                 frame.1,
                                                 &sender,
                                                 &frame_sender_user,
