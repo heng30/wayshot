@@ -439,102 +439,119 @@ impl RecordingSession {
         encoder_sender: Sender<EncoderChannelData>,
     ) -> Vec<JoinHandle<()>> {
         let mut handles = vec![];
-        let (sender, receiver) = bounded(ENCODER_WORKER_CHANNEL_SIZE);
+
+        let (frame_sender, frame_receiver) = bounded(ENCODER_WORKER_CHANNEL_SIZE);
+        let (collect_sender, collect_receiver) = bounded(ENCODER_WORKER_CHANNEL_SIZE);
+
+        handles.push(Self::process_forward_worker(session, frame_sender));
 
         for i in 0..3 {
-            handles.push(Self::process_frame_worker(session, sender.clone(), i));
+            handles.push(Self::process_frame_worker(
+                session,
+                collect_sender.clone(),
+                frame_receiver.clone(),
+                i,
+            ));
         }
 
         handles.push(Self::process_collect_worker(
             session,
             encoder_sender,
-            receiver,
+            collect_receiver,
         ));
         handles
+    }
+
+    fn process_forward_worker(
+        session: &RecordingSession,
+        sender: Sender<(u64, Frame)>,
+    ) -> JoinHandle<()> {
+        let start_time = session.start_time;
+        let receiver = session.frame_receiver.clone();
+        let loss_frame_count = session.loss_frame_count.clone();
+        let total_frame_count = session.total_frame_count.clone();
+
+        thread::spawn(move || {
+            while let Ok(frame) = receiver.recv() {
+                let total_frame_count = total_frame_count.fetch_add(1, Ordering::Relaxed) + 1;
+
+                log::debug!(
+                    "total frame[{}] thread[{}] thread_frame[{}] capture time: {:.2?}. thread_fps: {:.2}. timestamp: {:.2?}. capture channel remained: {}",
+                    total_frame_count,
+                    frame.thread_id,
+                    frame.cb_data.frame_index,
+                    frame.cb_data.capture_time,
+                    (frame.cb_data.frame_index + 1) as f64 / frame.cb_data.elapse.as_secs_f64(),
+                    frame.timestamp.duration_since(start_time),
+                    receiver.capacity().unwrap_or_default() - receiver.len()
+                );
+
+                if let Err(e) = sender.try_send((total_frame_count, frame)) {
+                    loss_frame_count.fetch_add(1, Ordering::Relaxed);
+                    log::warn!("process worker try send failed: {e}");
+                }
+            }
+
+            log::info!("process forward thread exit");
+        })
     }
 
     fn process_frame_worker(
         session: &RecordingSession,
         sender: Sender<(usize, Instant, EncoderChannelData)>,
+        receiver: Receiver<(u64, Frame)>,
         thread_index: usize,
     ) -> JoinHandle<()> {
-        let start_time = session.start_time;
         let resolution = session.config.resolution.clone();
-        let capture_receiver = session.frame_receiver.clone();
         let loss_frame_count = session.loss_frame_count.clone();
-        let total_frame_count = session.total_frame_count.clone();
         let enable_cursor_tracking = session.config.enable_cursor_tracking;
         let crop_region_receiver = session.crop_region_receiver.clone();
 
         thread::spawn(move || {
-            loop {
-                match capture_receiver.recv() {
-                    Ok(frame) => {
-                        let frame_timestamp = frame.timestamp;
-                        let total_frame_count =
-                            total_frame_count.fetch_add(1, Ordering::Relaxed) + 1;
+            while let Ok((total_frame_count, frame)) = receiver.recv() {
+                let now = Instant::now();
+                let frame_timestamp = frame.timestamp;
 
-                        log::debug!(
-                            "total frame[{}] thread[{}] thread_frame[{}] capture time: {:.2?}. thread_fps: {:.2}. timestamp: {:.2?}. capture channel remained: {}",
-                            total_frame_count,
-                            frame.thread_id,
-                            frame.cb_data.frame_index,
-                            frame.cb_data.capture_time,
-                            (frame.cb_data.frame_index + 1) as f64
-                                / frame.cb_data.elapse.as_secs_f64(),
-                            frame.timestamp.duration_since(start_time),
-                            capture_receiver.capacity().unwrap_or_default()
-                                - capture_receiver.len()
-                        );
-
-                        let now = Instant::now();
-                        let img = if enable_cursor_tracking {
-                            match Self::crop_and_resize_frame(
-                                frame,
-                                resolution,
-                                crop_region_receiver.clone().unwrap(),
-                            ) {
-                                Ok(img) => img,
-                                Err(e) => {
-                                    log::warn!("crop and resize frame failed: {e}");
-                                    continue;
-                                }
-                            }
-                        } else {
-                            match Self::resize_frame(frame, resolution) {
-                                Ok(img) => img,
-                                Err(e) => {
-                                    log::warn!("resize frame failed: {e}");
-                                    continue;
-                                }
-                            }
-                        };
-
-                        log::debug!(
-                            "{} frame spent: {:.2?}",
-                            if enable_cursor_tracking {
-                                "crop"
-                            } else {
-                                "resize"
-                            },
-                            now.elapsed()
-                        );
-
-                        if let Err(e) = sender.try_send((
-                            thread_index,
-                            frame_timestamp,
-                            (total_frame_count, img),
-                        )) {
-                            loss_frame_count.fetch_add(1, Ordering::Relaxed);
-                            log::warn!("resize worker try send failed: {e}");
+                let img = if enable_cursor_tracking {
+                    match Self::crop_and_resize_frame(
+                        frame,
+                        resolution,
+                        crop_region_receiver.clone().unwrap(),
+                    ) {
+                        Ok(img) => img,
+                        Err(e) => {
+                            log::warn!("crop and resize frame failed: {e}");
+                            continue;
                         }
                     }
-                    _ => {
-                        log::info!("resize forward thread exit");
-                        return;
+                } else {
+                    match Self::resize_frame(frame, resolution) {
+                        Ok(img) => img,
+                        Err(e) => {
+                            log::warn!("resize frame failed: {e}");
+                            continue;
+                        }
                     }
+                };
+
+                log::debug!(
+                    "{} frame spent: {:.2?}",
+                    if enable_cursor_tracking {
+                        "crop"
+                    } else {
+                        "resize"
+                    },
+                    now.elapsed()
+                );
+
+                if let Err(e) =
+                    sender.try_send((thread_index, frame_timestamp, (total_frame_count, img)))
+                {
+                    loss_frame_count.fetch_add(1, Ordering::Relaxed);
+                    log::warn!("process worker try send failed: {e}");
                 }
             }
+            log::info!("process worker thread exit");
         })
     }
 
@@ -582,83 +599,78 @@ impl RecordingSession {
             let mut frame_cache: HashMap<u64, (u64, ResizedImageBuffer)> = HashMap::new();
             let mut fps_counter = SimpleFpsCounter::new();
 
-            loop {
-                match receiver.recv() {
-                    Ok((thread_index, frame_timestamp, (total_frame_index, img))) => {
-                        // FIXME: no accuracy. because frame_timestamp may be disorder
-                        let fps = fps_counter.add_frame(frame_timestamp);
+            while let Ok((thread_index, frame_timestamp, (total_frame_index, img))) =
+                receiver.recv()
+            {
+                // FIXME: no accuracy. because frame_timestamp may be disorder
+                let fps = fps_counter.add_frame(frame_timestamp);
 
-                        if expect_total_frame_index == total_frame_index {
-                            disorder_frame_counts = 0;
+                if expect_total_frame_index == total_frame_index {
+                    disorder_frame_counts = 0;
 
-                            Self::send_frame_to_encoder(
-                                img,
-                                &sender,
-                                &frame_sender_user,
-                                expect_total_frame_index,
-                                loss_frame_count.clone(),
-                                fps,
-                            );
+                    Self::send_frame_to_encoder(
+                        img,
+                        &sender,
+                        &frame_sender_user,
+                        expect_total_frame_index,
+                        loss_frame_count.clone(),
+                        fps,
+                    );
 
-                            loop {
-                                expect_total_frame_index += 1;
-                                match frame_cache.remove(&expect_total_frame_index) {
-                                    Some(frame) => {
-                                        Self::send_frame_to_encoder(
-                                            frame.1,
-                                            &sender,
-                                            &frame_sender_user,
-                                            expect_total_frame_index,
-                                            loss_frame_count.clone(),
-                                            fps,
-                                        );
-                                    }
-                                    _ => break,
-                                }
-                            }
-                        } else if expect_total_frame_index > total_frame_index {
-                            loss_frame_count.fetch_add(1, Ordering::Relaxed);
-                            log::warn!(
-                                "too late thread[{thread_index}] frame, frame index: {total_frame_index}, expected index: {expect_total_frame_index}"
-                            );
-                        } else {
-                            frame_cache.insert(total_frame_index, (total_frame_index, img));
-                            disorder_frame_counts += 1;
-
-                            if disorder_frame_counts > 5 {
-                                disorder_frame_counts = 0;
-
-                                log::warn!(
-                                    "disorder frame counts > 5. So moving to next expected frame index: {expect_total_frame_index} -> {}",
-                                    expect_total_frame_index + 1
+                    loop {
+                        expect_total_frame_index += 1;
+                        match frame_cache.remove(&expect_total_frame_index) {
+                            Some(frame) => {
+                                Self::send_frame_to_encoder(
+                                    frame.1,
+                                    &sender,
+                                    &frame_sender_user,
+                                    expect_total_frame_index,
+                                    loss_frame_count.clone(),
+                                    fps,
                                 );
+                            }
+                            _ => break,
+                        }
+                    }
+                } else if expect_total_frame_index > total_frame_index {
+                    loss_frame_count.fetch_add(1, Ordering::Relaxed);
+                    log::warn!(
+                        "too late thread[{thread_index}] frame, frame index: {total_frame_index}, expected index: {expect_total_frame_index}"
+                    );
+                } else {
+                    frame_cache.insert(total_frame_index, (total_frame_index, img));
+                    disorder_frame_counts += 1;
 
-                                loop {
-                                    expect_total_frame_index += 1;
-                                    match frame_cache.remove(&expect_total_frame_index) {
-                                        Some(frame) => {
-                                            Self::send_frame_to_encoder(
-                                                frame.1,
-                                                &sender,
-                                                &frame_sender_user,
-                                                expect_total_frame_index,
-                                                loss_frame_count.clone(),
-                                                fps,
-                                            );
-                                        }
-                                        _ => break,
-                                    }
+                    if disorder_frame_counts > 5 {
+                        disorder_frame_counts = 0;
+
+                        log::warn!(
+                            "disorder frame counts > 5. So moving to next expected frame index: {expect_total_frame_index} -> {}",
+                            expect_total_frame_index + 1
+                        );
+
+                        loop {
+                            expect_total_frame_index += 1;
+                            match frame_cache.remove(&expect_total_frame_index) {
+                                Some(frame) => {
+                                    Self::send_frame_to_encoder(
+                                        frame.1,
+                                        &sender,
+                                        &frame_sender_user,
+                                        expect_total_frame_index,
+                                        loss_frame_count.clone(),
+                                        fps,
+                                    );
                                 }
+                                _ => break,
                             }
                         }
                     }
-                    _ => {
-                        drop(sender);
-                        log::info!("precess collected thread exit");
-                        return;
-                    }
                 }
             }
+
+            log::info!("precess collected thread exit");
         })
     }
 
