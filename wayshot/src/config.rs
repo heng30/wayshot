@@ -7,11 +7,13 @@
 use crate::slint_generatedAppWindow::{
     Fps as UIFps, Resolution as UIResolution, SettingControl as UISettingControl,
     SettingCursorTracker as UISettingCursorTracker, SettingRecorder as UISettingRecorder,
+    TransitionType as UITransitionType,
 };
 use anyhow::{Context, Result, bail};
 use log::debug;
 use once_cell::sync::Lazy;
 use pmacro::SlintFromConvert;
+use recorder::TransitionType;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf, sync::Mutex};
 use uuid::Uuid;
@@ -173,18 +175,29 @@ pub struct CursorTracker {
     #[derivative(Default(value = "30"))]
     pub stable_radius: i32,
 
-    #[derivative(Default(value = "100"))]
+    #[derivative(Default(value = "300"))]
     pub fast_moving_duration: i32,
 
-    #[derivative(Default(value = "1000"))]
-    pub linear_transition_duration: i32,
+    #[derivative(Default(value = "800"))]
+    pub zoom_transition_duration: i32,
+
+    #[derivative(Default(value = "0.15"))]
+    pub reposition_edge_threshold: f32,
+
+    #[derivative(Default(value = "300"))]
+    pub reposition_transition_duration: i32,
 
     #[derivative(Default(value = "5"))]
     pub max_stable_region_duration: i32,
+
+    pub zoom_in_transition_type: UITransitionType,
+    pub zoom_out_transition_type: UITransitionType,
 }
 
 crate::impl_slint_enum_serde!(UIFps, Fps24, Fps25, Fps30, Fps60);
 crate::impl_slint_enum_serde!(UIResolution, Original, P720, P1080, P2K, P4K);
+crate::impl_slint_enum_serde!(UITransitionType, Linear, EaseIn, EaseOut);
+crate::impl_c_like_enum_convert!(UITransitionType, TransitionType, Linear, EaseIn, EaseOut);
 
 impl Config {
     /// Initializes the configuration

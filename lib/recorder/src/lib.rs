@@ -13,7 +13,7 @@ pub use audio_level::*;
 pub use audio_recorder::{AudioDeviceInfo, AudioRecorder, AudioRecorderError};
 pub use config::{FPS, RecorderConfig, SimpleFpsCounter};
 pub use crossbeam::channel::{Receiver, Sender, bounded};
-pub use cursor_tracker::{CursorTracker, CursorTrackerConfig};
+pub use cursor_tracker::{CursorTracker, CursorTrackerConfig, TransitionType};
 pub use denoise::*;
 pub use error::RecorderError;
 pub use recorder::{RecordingSession, ResizedImageBuffer};

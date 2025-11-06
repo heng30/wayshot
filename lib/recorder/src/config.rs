@@ -1,4 +1,4 @@
-use crate::resolution::Resolution;
+use crate::{cursor_tracker::TransitionType, resolution::Resolution};
 use chrono::Local;
 use derive_setters::Setters;
 use screen_capture::LogicalSize;
@@ -61,8 +61,12 @@ pub struct RecorderConfig {
     pub region_height: i32,
     pub stable_radius: u32,
     pub fast_moving_duration: u64,
-    pub linear_transition_duration: u64,
+    pub zoom_transition_duration: u64,
+    pub reposition_edge_threshold: f32,
+    pub reposition_transition_duration: u64,
     pub max_stable_region_duration: u64,
+    pub zoom_in_transition_type: TransitionType,
+    pub zoom_out_transition_type: TransitionType,
 }
 
 impl RecorderConfig {
@@ -91,8 +95,12 @@ impl RecorderConfig {
             region_height: 720,
             stable_radius: 15,
             fast_moving_duration: 100,
-            linear_transition_duration: 1000,
+            zoom_transition_duration: 1000,
+            reposition_edge_threshold: 0.15,
+            reposition_transition_duration: 100,
             max_stable_region_duration: 5,
+            zoom_in_transition_type: TransitionType::EaseIn,
+            zoom_out_transition_type: TransitionType::EaseOut,
         }
     }
 

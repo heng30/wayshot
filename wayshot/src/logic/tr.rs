@@ -255,13 +255,16 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Disabled cursor tracking", "禁用光标跟踪"),
             ("Enabled cursor tracking", "启用光标跟踪"),
             ("Fast moving interval(milliseconds)", "快速移动时间间隔（毫秒）"),
-            ("Linear transition duration(milliseconds)", "线性过渡持续时间（毫秒）"),
+            ("Zoom transition duration(milliseconds)", "缩放过渡持续时间（毫秒）"),
             ("Maximum duration of stay in the stable region(seconds)", "在稳定区域内的最大停留时间（秒）"),
             ("Region size(width x height)", "区域尺寸（宽 x 高）"),
             ("Stable radius(pixel)", "稳定半径（像素）"),
             ("After zooming in, moving the mouse does not trigger the movement within the radius range of the area.", "放大后，鼠标移动不会触发区域移动的半径范围"),
             ("When the mouse moves quickly, the time interval between two adjacent coordinates within this interval will not trigger zooming.", "鼠标快速移动时，相邻两个坐标的时间间隔在这个间隔内，不会触发放大"),
             ("After zooming in, if it exceeds this duration within the stable radius, it will revert to recording the entire screen.", "放大后，在稳定半径内超过这个持续时间，会退回到录制整个屏幕"),
+            ("After zooming in, the transition time of the cursor when moving across the area.","放大后，移动区域时光标的过度时间" ),
+            ("Reposition transition duration(milliseconds)", "重新定位时间间隔（毫秒）"),
+            ("After zooming in, when touching the boundary of the area, move the area.", "放大后，触碰到区域边界，移动区域"),
 
         ])
     })

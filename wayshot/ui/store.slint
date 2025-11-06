@@ -74,14 +74,24 @@ export enum Resolution {
     P4K,
 }
 
+export enum TransitionType {
+    Linear,
+    EaseIn,
+    EaseOut,
+}
+
 export struct SettingCursorTracker {
     enable-tracking: bool,
     region-width: int,
     region-height: int,
     stable-radius: int,
     fast-moving-duration: int,
-    linear-transition-duration: int,
+    zoom-transition-duration: int,
+    reposition-transition-duration: int,
+    reposition_edge_threshold: float,
     max-stable-region-duration: int,
+    zoom_in_transition_type: TransitionType,
+    zoom_out_transition_type: TransitionType,
 }
 
 export struct SettingRecorder {

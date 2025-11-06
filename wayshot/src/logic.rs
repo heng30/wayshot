@@ -163,6 +163,32 @@ macro_rules! impl_slint_enum_serde {
     };
 }
 
+// Example: impl_c_like_enum_convert!(Foo, Bar, A, B, C);
+#[macro_export]
+macro_rules! impl_c_like_enum_convert {
+    ($enum1:ident, $enum2:ident, $($variant:ident),*) => {
+        impl From<$enum1> for $enum2 {
+            fn from(value: $enum1) -> Self {
+                match value {
+                    $(
+                        $enum1::$variant => $enum2::$variant,
+                    )*
+                }
+            }
+        }
+
+        impl From<$enum2> for $enum1 {
+            fn from(value: $enum2) -> Self {
+                match value {
+                    $(
+                        $enum2::$variant => $enum1::$variant,
+                    )*
+                }
+            }
+        }
+    };
+}
+
 /// Initializes all UI logic modules
 ///
 /// Sets up callbacks and initializes platform-specific logic modules.

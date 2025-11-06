@@ -593,7 +593,13 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
     .with_region_height(all_config.cursor_tracker.region_height)
     .with_stable_radius(all_config.cursor_tracker.stable_radius as u32)
     .with_fast_moving_duration(all_config.cursor_tracker.fast_moving_duration as u64)
-    .with_linear_transition_duration(all_config.cursor_tracker.linear_transition_duration as u64)
+    .with_zoom_transition_duration(all_config.cursor_tracker.zoom_transition_duration as u64)
+    .with_reposition_edge_threshold(all_config.cursor_tracker.reposition_edge_threshold)
+    .with_reposition_transition_duration(
+        all_config.cursor_tracker.reposition_transition_duration as u64,
+    )
+    .with_zoom_in_transition_type(all_config.cursor_tracker.zoom_in_transition_type.into())
+    .with_zoom_out_transition_type(all_config.cursor_tracker.zoom_out_transition_type.into())
     .with_max_stable_region_duration(all_config.cursor_tracker.max_stable_region_duration as u64);
 
     log::info!("Recording configuration: {:#?}", config);

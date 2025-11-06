@@ -308,10 +308,15 @@ impl RecordingSession {
             cursor_receiver,
             stop_sig.clone(),
         )?
+        .with_fps(self.config.fps.to_u32())
         .with_stable_radius(self.config.stable_radius)
+        .with_zoom_in_transition_type(self.config.zoom_in_transition_type)
+        .with_zoom_out_transition_type(self.config.zoom_out_transition_type)
         .with_fast_moving_duration(Duration::from_millis(self.config.fast_moving_duration))
-        .with_linear_transition_duration(Duration::from_millis(
-            self.config.linear_transition_duration,
+        .with_zoom_transition_duration(Duration::from_millis(self.config.zoom_transition_duration))
+        .with_reposition_edge_threshold(self.config.reposition_edge_threshold)
+        .with_reposition_transition_duration(Duration::from_millis(
+            self.config.reposition_transition_duration,
         ))
         .with_max_stable_region_duration(Duration::from_secs(
             self.config.max_stable_region_duration,

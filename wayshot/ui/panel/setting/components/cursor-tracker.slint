@@ -5,6 +5,7 @@ import {
     DeviceType,
     Icons,
     SettingRecorder,
+    TransitionType,
     SettingCursorTracker,
 } from "../../def.slint";
 import {
@@ -35,8 +36,13 @@ export component CursorTracker inherits SettingDetail {
         root.setting.region-width = region-width-li.text.to-float();
         root.setting.region-height = region-height-li.text.to-float();
         root.setting.fast-moving-duration = fast-moving-duration-li.text.to-float();
-        root.setting.linear-transition-duration = linear-transition-duration-li.text.to-float();
+        root.setting.zoom-transition-duration = zoom-transition-duration-li.text.to-float();
+        root.setting.reposition-edge_threshold = reposition-edge-threshold-li.text.to-float();
+        root.setting.reposition-transition-duration = reposition-transition-duration-li.text.to-float();
         root.setting.max-stable-region-duration = max-stable-region-duration-li.text.to-float();
+        root.setting.zoom-in-transition-type = zoom-transition-effect-select.current-index == 0 ? TransitionType.Linear : TransitionType.EaseIn;
+        root.setting.zoom-out-transition-type = zoom-transition-effect-select.current-index == 0 ? TransitionType.Linear : TransitionType.EaseOut;
+
         return root.setting;
     }
 
@@ -138,13 +144,50 @@ export component CursorTracker inherits SettingDetail {
 
             SettingDetailInnerVbox {
                 SettingDetailLabel {
-                    text: Logic.tr("Linear transition duration(milliseconds)");
+                    text: Logic.tr("Zoom transition effect");
                 }
 
-                linear-transition-duration-li := LineInput {
+                zoom-transition-effect-select := Select {
+                    values: ["Linear", "Ease-InOut"];
+                    current-value: root.setting.zoom_in_transition_type == TransitionType.Linear || root.setting.zoom-out-transition-type == TransitionType.Linear ? self.values[0] : self.values[1];
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Zoom transition duration(milliseconds)");
+                }
+
+                zoom-transition-duration-li := LineInput {
                     input-type: InputType.number;
                     placeholder-text: "1000ms";
-                    text: root.setting.linear-transition-duration;
+                    text: root.setting.zoom-transition-duration;
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Reposition edge threshold(0-0.5)");
+                    tip: Logic.tr("After zooming in, when touching the boundary of the area, move the area.");
+                }
+
+                reposition-edge-threshold-li := LineInput {
+                    input-type: InputType.decimal;
+                    placeholder-text: 0.15;
+                    text: root.setting.reposition-edge-threshold;
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Reposition transition duration(milliseconds)");
+                    tip: Logic.tr("After zooming in, the transition time of the cursor when moving across the area.");
+                }
+
+                reposition-transition-duration-li := LineInput {
+                    input-type: InputType.number;
+                    placeholder-text: "100ms";
+                    text: root.setting.reposition-transition-duration;
                 }
             }
 
