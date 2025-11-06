@@ -263,7 +263,8 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("After zooming in, the transition time of the cursor when moving across the area.","放大后，移动区域时光标的过度时间" ),
             ("Reposition transition duration(milliseconds)", "重新定位时间间隔（毫秒）"),
             ("After zooming in, when touching the boundary of the area, move the area.", "放大后，触碰到区域边界，移动区域"),
-
+            ("Zoom transition effect", "缩放效果"),
+            ("Reposition edge threshold(0-0.5)", "重新定位边界阈值（0-0.5）"),
         ])
     })
 }

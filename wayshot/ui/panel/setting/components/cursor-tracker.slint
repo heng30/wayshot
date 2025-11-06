@@ -148,7 +148,7 @@ export component CursorTracker inherits SettingDetail {
                 }
 
                 zoom-transition-effect-select := Select {
-                    values: ["Linear", "Ease-InOut"];
+                    values: ["Linear", "Ease InOut"];
                     current-value: root.setting.zoom_in_transition_type == TransitionType.Linear || root.setting.zoom-out-transition-type == TransitionType.Linear ? self.values[0] : self.values[1];
                 }
             }

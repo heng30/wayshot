@@ -358,18 +358,24 @@ impl CursorTracker {
             (EdgeState::Left, EdgeTouch::Right) => true,
             (EdgeState::Left, EdgeTouch::Top) => true,
             (EdgeState::Left, EdgeTouch::Bottom) => true,
+            (EdgeState::Left, EdgeTouch::TopLeft) => true,
             (EdgeState::Left, EdgeTouch::TopRight) => true,
+            (EdgeState::Left, EdgeTouch::BottomLeft) => true,
             (EdgeState::Left, EdgeTouch::BottomRight) => true,
 
             (EdgeState::Right, EdgeTouch::Left) => true,
             (EdgeState::Right, EdgeTouch::Top) => true,
             (EdgeState::Right, EdgeTouch::Bottom) => true,
             (EdgeState::Right, EdgeTouch::TopLeft) => true,
+            (EdgeState::Right, EdgeTouch::TopRight) => true,
             (EdgeState::Right, EdgeTouch::BottomLeft) => true,
+            (EdgeState::Right, EdgeTouch::BottomRight) => true,
 
             (EdgeState::Top, EdgeTouch::Left) => true,
             (EdgeState::Top, EdgeTouch::Right) => true,
             (EdgeState::Top, EdgeTouch::Bottom) => true,
+            (EdgeState::Top, EdgeTouch::TopLeft) => true,
+            (EdgeState::Top, EdgeTouch::TopRight) => true,
             (EdgeState::Top, EdgeTouch::BottomLeft) => true,
             (EdgeState::Top, EdgeTouch::BottomRight) => true,
 
@@ -378,6 +384,8 @@ impl CursorTracker {
             (EdgeState::Bottom, EdgeTouch::Top) => true,
             (EdgeState::Bottom, EdgeTouch::TopLeft) => true,
             (EdgeState::Bottom, EdgeTouch::TopRight) => true,
+            (EdgeState::Bottom, EdgeTouch::BottomLeft) => true,
+            (EdgeState::Bottom, EdgeTouch::BottomRight) => true,
 
             _ => false,
         }

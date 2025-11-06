@@ -175,10 +175,10 @@ pub struct CursorTracker {
     #[derivative(Default(value = "30"))]
     pub stable_radius: i32,
 
-    #[derivative(Default(value = "300"))]
+    #[derivative(Default(value = "200"))]
     pub fast_moving_duration: i32,
 
-    #[derivative(Default(value = "800"))]
+    #[derivative(Default(value = "1000"))]
     pub zoom_transition_duration: i32,
 
     #[derivative(Default(value = "0.15"))]
