@@ -1,0 +1,146 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    DeviceType,
+    Icons,
+    SettingRecorder,
+} from "../../def.slint";
+import { Fps, Resolution } from "../../../store.slint";
+import {
+    SettingDetail,
+    SettingDetailInner,
+    RadioBtn,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+    ConfirmBtn,
+    Label,
+    SettingDetailSwitch,
+    Select,
+} from "../../../base/widgets.slint";
+
+export component Recorder inherits SettingDetail {
+    callback confirmed();
+
+    private property <string> save-dir <=> Store.save-dir;
+    private property <bool> include-cursor;
+    private property <bool> enable-denoise;
+    private property <bool> convert-to-mono;
+    private property <Fps> fps;
+    private property <Resolution> resolution;
+
+    init => {
+        root.set(Logic.get-setting-recorder());
+    }
+
+    public function get() -> SettingRecorder {
+        return {
+            save-dir: root.save-dir,
+            include-cursor: root.include-cursor,
+            enable-denoise: root.enable-denoise,
+            convert-to-mono: root.convert-to-mono,
+            fps: root.fps,
+            resolution: root.resolution,
+        };
+    }
+
+    public function set(setting: SettingRecorder) {
+        root.save-dir = setting.save-dir;
+        root.include-cursor = setting.include-cursor;
+        root.enable-denoise = setting.enable-denoise;
+        root.convert-to-mono = setting.convert-to-mono;
+        root.fps = setting.fps;
+        root.resolution = setting.resolution;
+    }
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Save directory");
+            }
+
+            save-dir-lineedit := LineInput {
+                read-only: true;
+                is-show-icon: true;
+                icon: Icons.file-open-light;
+                text: root.save-dir;
+
+                clicked => {
+                    Logic.choose-save-dir();
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("fps");
+            }
+
+            fps-select := Select {
+                values: [24, 25, 30, 60];
+                current-value: Logic.fps-to-int(root.fps);
+
+                selected(_, value) => {
+                    root.fps = Logic.fps-from-int(value.to-float());
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Resolution");
+            }
+
+            resolution-select := Select {
+                values: ["Original", "720P", "1080P", "2K", "4K"];
+                current-value: Logic.resolution-to-string(root.resolution);
+                selected(_, value) => {
+                    root.resolution = Logic.resolution-from-string(value);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            include-cursor-swicth := SettingDetailSwitch {
+                icon: Icons.cursor-light;
+                icon-size: Theme.icon-size * 0.8;
+                text: self.checked ? Logic.tr("Enabled cursor capturing") : Logic.tr("Disabled cursor capturing");
+                checked: root.include-cursor;
+
+                toggled => {
+                    root.include-cursor = self.checked;
+                    Logic.set-setting-recorder(root.get());
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            spacing: Theme.spacing * 2;
+
+            SettingDetailSwitch {
+                icon: Icons.denoise-light;
+                text: self.checked ? Logic.tr("Enabled noise reduction") : Logic.tr("Disabled noise reduction");
+                checked: root.enable-denoise;
+
+                toggled => {
+                    root.enable-denoise = self.checked;
+                    Logic.set-setting-recorder(root.get());
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailSwitch {
+                icon: Icons.audio-light;
+                text: self.checked ? Logic.tr("Convert audio to mono") : Logic.tr("Don't convert audio to mono");
+                checked: root.convert-to-mono;
+
+                toggled => {
+                    root.convert-to-mono = self.checked;
+                    Logic.set-setting-recorder(root.get());
+                }
+            }
+        }
+    }
+}

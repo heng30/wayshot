@@ -1,0 +1,30 @@
+[package]
+name = "mp4m"
+readme.workspace = true
+license.workspace = true
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+
+[dependencies]
+log.workspace = true
+mp4.workspace = true
+hound.workspace = true
+rubato.workspace = true
+fdk-aac.workspace = true
+thiserror.workspace = true
+crossbeam.workspace = true
+derive_builder.workspace = true
+
+[dev-dependencies]
+rand.workspace = true
+image.workspace = true
+env_logger.workspace = true
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+recorder = { workspace = true, features = ["wayland-wlr"] }

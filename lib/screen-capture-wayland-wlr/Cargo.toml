@@ -1,0 +1,32 @@
+[package]
+name = "screen-capture-wayland-wlr"
+license.workspace = true
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[dependencies]
+log.workspace = true
+which.workspace = true
+image.workspace = true
+memmap2.workspace = true
+thiserror.workspace = true
+serde_json.workspace = true
+spin_sleep.workspace = true
+derive_setters.workspace = true
+wayland-client.workspace = true
+nix = { workspace = true, features = ["fs"] }
+serde = { workspace = true, features = ["derive"] }
+screen-capture = { workspace = true, features = ["wayland"] }
+wayland-protocols-wlr = { workspace = true, features = ["client"] }
+wayland-protocols = { workspace = true, features = ["client", "unstable"] }
+
+[dev-dependencies]
+ctrlc.workspace = true
+env_logger.workspace = true
+tempfile.workspace = true

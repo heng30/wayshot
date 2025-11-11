@@ -1,0 +1,80 @@
+import { Theme, Icons, Util, Logic, Store, PopupIndex } from "../def.slint";
+import { VideoPlayer } from "../../base/widgets.slint";
+
+export component PlayerPanel inherits VideoPlayer {
+    height: Theme.default-height - (Store.setting-preference.no-frame ? Theme.header-height : 0);
+    show-speed-btn: false;
+    show-subtitle-btn: false;
+    show-full-screen-btn: false;
+    is-playing: Store.player-is-playing;
+    player-image: Store.player-image;
+    playlist-items: Store.playlist-entries;
+    current-playlist-index: Logic.get-current-playlist-index();
+    playlist-max-viewport-items: 5;
+    current-sound: Store.setting-player.sound;
+    progress: Store.player-progress;
+    current-time: Store.setting-player.current-time;
+    end-time: Store.setting-player.end-time;
+
+    private property <bool> store-is-playing: Store.player-is-playing;
+    private property <float> store-progress: Store.player-progress;
+
+    changed is-playing => {
+        Store.player-is-playing = self.is-playing;
+    }
+
+    changed store-is-playing => {
+        self.is-playing = Store.player-is-playing;
+    }
+
+    changed store-progress => {
+        self.progress = Store.player-progress;
+    }
+
+    init => {
+        Logic.init-playlist();
+    }
+
+    prev() => {
+        Logic.player-stop();
+        Logic.player-play-prev(self.current-playlist-index);
+    }
+
+    next() => {
+        Logic.player-stop();
+        Logic.player-play-next(self.current-playlist-index);
+    }
+
+    play() => {
+        Logic.player-play(self.current-playlist-index);
+    }
+
+    stop() => {
+        Logic.player-stop();
+    }
+
+    forward() => {
+        Logic.player-stop();
+        Logic.player-forward(self.current-playlist-index);
+    }
+
+    backward => {
+        Logic.player-stop();
+        Logic.player-backward(self.current-playlist-index);
+    }
+
+    sound-changed(sound) => {
+        Store.setting-player.sound = sound;
+        Logic.player-sound-changed(sound);
+    }
+
+    progress-changed(progress) => {
+        Logic.player-stop();
+        Logic.player-progress-changed(self.current-playlist-index, progress);
+    }
+
+    playlist-item-selected(index) => {
+        Logic.player-stop();
+        Logic.player-play(self.current-playlist-index);
+    }
+}

@@ -1,0 +1,470 @@
+import { ListView } from "std-widgets.slint";
+import { Theme, Icons, Util, Logic, Store, PopupIndex } from "../def.slint";
+import { RecordStatus, SourceType } from "../../store.slint";
+import {
+    Link,
+    Slider,
+    SettingDetailInnerVbox,
+    Select,
+    IconBtn,
+    ElevatedBtn,
+    ProgressBar,
+    Label,
+    BlankWelcome,
+    Banner,
+    RecordIndicator,
+    AudioLevel,
+    ComponentPosition,
+    Divider,
+} from "../../base/widgets.slint";
+
+component PreviewPanel inherits Rectangle {
+    background: Theme.dark-text-color;
+    border-radius: Theme.border-radius;
+    clip: true;
+
+    private property <float> width-height-rate: self.width / self.height;
+
+    Image {
+        private property <float> img-width-height-rate: self.source.width / self.source.height;
+
+        function update-size() {
+            if (parent.width-height-rate > img-width-height-rate) {
+                self.height = min(parent.height, self.source.height * 1px);
+                self.width = self.height * img-width-height-rate;
+            } else {
+                self.width = min(parent.width, self.source.width * 1px);
+                self.height = self.width / img-width-height-rate;
+            }
+        }
+
+        source: Store.preview-image;
+        image-fit: ImageFit.contain;
+
+        changed source => {
+            update-size();
+        }
+
+        init => {
+            update-size();
+        }
+    }
+
+    if Store.never-recording-once: BlankWelcome {
+        width: Theme.default-width * 0.8;
+        height: root.height * 0.8;
+        title: Logic.tr("Welcome to use wayshot");
+        sub-title: Logic.tr("screen recording tool for wayland");
+        text-color: Theme.light-text-color;
+        title-opacity: Theme.golden-ratio;
+        sub-title-opacity: Theme.golden-ratio * 0.8;
+        img-opacity: Theme.golden-ratio * Theme.golden-ratio;
+    }
+
+    if !Store.never-recording-once: Rectangle {
+        x: Theme.padding;
+        y: Theme.padding;
+        width: stats-vbox.preferred-width;
+        height: stats-vbox.preferred-height;
+        background: black;
+        border-radius: Theme.border-radius;
+        opacity: 0.8;
+
+        stats-vbox := VerticalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+
+            Label {
+                text: Logic.tr("fps") + ": " + Store.stats-info.fps.to-fixed(2);
+                color: Theme.light-text-color;
+            }
+
+            Label {
+                text: Logic.tr("loss") + ": " + (Store.stats-info.loss * 100).to-fixed(2) + "%";
+                color: Theme.light-text-color;
+            }
+
+            Label {
+                text: Logic.tr("frames") + ": " + Store.stats-info.total;
+                color: Theme.light-text-color;
+            }
+        }
+    }
+
+    if Store.record-status == RecordStatus.Recording: Rectangle {
+        x: root.width - self.width - Theme.padding * 2;
+        y: Theme.padding * 2;
+        width: rec-hbox.preferred-width;
+        height: rec-hbox.preferred-height;
+        background: red.darker(20%);
+        border-radius: Theme.border-radius * 2;
+
+        rec-hbox := HorizontalLayout {
+            padding: Theme.padding * 2;
+            spacing: Theme.spacing * 2;
+
+            VerticalLayout {
+                alignment: center;
+                RecordIndicator {
+                    is-start: true;
+                    size: Theme.default-font-size;
+                    living-color: Theme.light-text-color;
+                }
+            }
+
+            Label {
+                text: "REC";
+                color: Theme.light-text-color;
+            }
+        }
+    }
+}
+
+component ControlPanel inherits HorizontalLayout {
+    padding: Theme.padding;
+
+    private property <int> record-duration: 0;
+    property <length> slider-width: Theme.default-height * 0.25;
+
+    Timer {
+        interval: 1s;
+        running: Store.record-status == RecordStatus.Recording;
+
+        triggered() => {
+            record-duration += 1;
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.spacing * 4;
+
+        SettingDetailInnerVbox {
+            horizontal-stretch: 1;
+            alignment: start;
+
+            HorizontalLayout {
+                alignment: space-between;
+
+                Label {
+                    text: Logic.tr("Source");
+                }
+
+                IconBtn {
+                    icon: Icons.edit-rect-light;
+                    icon-size: Theme.icon-size;
+
+                    clicked => {
+                        Store.current-popup-index = PopupIndex.Source;
+                    }
+                }
+            }
+
+            ListView {
+                vertical-scrollbar-policy: always-off;
+
+                for item[index] in Store.sources: Rectangle {
+                    background: ta.has-hover ? Theme.checked-background : (Math.mod(index, 2) != 0 ? Theme.table-item-first : Theme.table-item-second);
+
+                    ta := TouchArea { }
+
+                    HorizontalLayout {
+                        padding: Theme.padding;
+                        spacing: Theme.spacing * 2;
+                        alignment: start;
+
+                        IconBtn {
+                            enabled-toucharea: false;
+                            icon: item.ty == SourceType.Audio ? Icons.audio-fill : Icons.screen-fill;
+                            show-icon-hover-background: false;
+                        }
+
+                        Label {
+                            text: item.name;
+                            overflow: elide;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            alignment: start;
+            spacing: Theme.spacing;
+
+            Label {
+                text: Logic.tr("Microphone");
+                color: audio-slider.enabled ? Theme.primary-text-color : Theme.disabled-color;
+            }
+
+            VerticalLayout {
+                spacing: Theme.spacing * 4;
+
+                AudioLevel {
+                    width: is-hbox.preferred-width;
+                    db: Store.audio-db;
+                    enable: Store.setting-control.enable-audio;
+                }
+
+                is-hbox := HorizontalLayout {
+                    spacing: Theme.spacing;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        IconBtn {
+                            icon: Store.setting-control.enable-audio ? Icons.sound-on-fill : Icons.sound-off-fill;
+                            icon-size: Theme.icon-size * 3 / 4;
+                            show-icon-hover-background: false;
+                            enabled-toucharea: Store.record-status == RecordStatus.Stopped;
+                            colorize: Store.setting-control.enable-audio && Store.record-status == RecordStatus.Stopped ? Theme.icon-color : Theme.disabled-color;
+
+                            clicked => {
+                                Store.setting-control.enable-audio = !Store.setting-control.enable-audio;
+                                Logic.set-setting-control(Store.setting-control);
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        VerticalLayout {
+                            alignment: center;
+
+                            audio-slider := Slider {
+                                value: Store.setting-control.audio-gain;
+                                minimum: -20;
+                                maximum: 20;
+                                indicator-size: self.has-hover ? Theme.icon-size * 2 / 3 : 0;
+                                height: Theme.icon-size / 3;
+                                width: root.slider-width;
+                                enabled: Store.setting-control.enable-audio && Store.record-status == RecordStatus.Stopped;
+
+                                changed(value) => {
+                                    Store.setting-control.audio-gain = self.value;
+                                    Logic.set-setting-control(Store.setting-control);
+                                    Logic.audio-gain-changed(self.value);
+                                }
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+
+                            Label {
+                                horizontal-alignment: right;
+                                width: self.font-size * 3;
+                                text: audio-slider.value.to-fixed(0) + "db";
+                                color: audio-slider.enabled ? Theme.primary-text-color : Theme.disabled-color;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            alignment: start;
+
+            HorizontalLayout {
+                alignment: space-between;
+
+                Label {
+                    text: Logic.tr("Desktop");
+                    color: speaker-slider.enabled ? Theme.primary-text-color : Theme.disabled-color;
+                }
+
+                IconBtn {
+                    icon: Icons.refresh-fill;
+                    icon-size: Theme.icon-size;
+                    colorize: speaker-slider.enabled ? Theme.icon-color : Theme.disabled-color;
+
+                    clicked => {
+                        Logic.refresh-speaker(true);
+                    }
+                }
+            }
+
+            VerticalLayout {
+                spacing: Theme.spacing * 4;
+
+                AudioLevel {
+                    width: ds-hbox.preferred-width;
+                    db: Store.speaker-audio-db;
+                    enable: Store.setting-control.enable-speaker;
+                }
+
+                ds-hbox := HorizontalLayout {
+                    spacing: Theme.spacing;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        IconBtn {
+                            icon: Store.setting-control.enable-speaker ? Icons.sound-on-fill : Icons.sound-off-fill;
+                            icon-size: Theme.icon-size * 3 / 4;
+                            show-icon-hover-background: false;
+                            enabled-toucharea: Store.record-status == RecordStatus.Stopped;
+                            colorize: Store.setting-control.enable-speaker && Store.record-status == RecordStatus.Stopped ? Theme.icon-color : Theme.disabled-color;
+
+                            clicked => {
+                                Store.setting-control.enable-speaker = !Store.setting-control.enable-speaker;
+                                Logic.set-setting-control(Store.setting-control);
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        VerticalLayout {
+                            alignment: center;
+                            speaker-slider := Slider {
+                                value: Store.setting-control.speaker-gain;
+                                minimum: -20;
+                                maximum: 20;
+                                indicator-size: self.has-hover ? Theme.icon-size * 2 / 3 : 0;
+                                width: root.slider-width;
+
+                                height: Theme.icon-size / 3;
+                                enabled: Store.setting-control.enable-speaker && Store.record-status == RecordStatus.Stopped;
+
+                                changed(value) => {
+                                    Store.setting-control.speaker-gain = self.value;
+                                    Logic.set-setting-control(Store.setting-control);
+                                    Logic.speaker-gain-changed(self.value);
+                                }
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+
+                            Label {
+                                horizontal-alignment: right;
+                                width: self.font-size * 3;
+                                text: speaker-slider.value.to-fixed(0) + "db";
+                                color: speaker-slider.enabled ? Theme.primary-text-color : Theme.disabled-color;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            padding: Theme.padding * 4;
+            padding-left: Theme.padding * 2;
+
+            SettingDetailInnerVbox {
+                alignment: center;
+
+                if Store.record-status == RecordStatus.Recording: HorizontalLayout {
+                    alignment: center;
+                    spacing: Theme.spacing * 2;
+
+                    init => {
+                        record-duration = 0;
+                    }
+
+                    Label {
+                        text: Util.seconds-to-media-timestamp(root.record-duration);
+                    }
+
+                    ElevatedBtn {
+                        background: self.has-hover ? Theme.danger-color.darker(30%) : Theme.danger-color;
+                        icon: Icons.stop-light;
+                        colorize: Theme.light-text-color;
+
+                        clicked => {
+                            Logic.stop-recording();
+                        }
+                    }
+                }
+
+                if Store.record-status == RecordStatus.Stopped:  ElevatedBtn {
+                    background: self.has-hover ? Theme.thirdly-brand-color.darker(30%) : Theme.thirdly-brand-color;
+                    icon: Icons.control-start-light;
+                    colorize: Theme.light-text-color;
+
+                    clicked => {
+                        Store.never-recording-once = false;
+                        Logic.start-recording();
+                    }
+                }
+            }
+        }
+    }
+}
+
+component Banners inherits VerticalLayout {
+    spacing: Theme.spacing;
+
+    if !Store.final-video-path.is-empty: Banner {
+        background: Theme.success-color;
+
+        HorizontalLayout {
+            spacing: Theme.spacing;
+
+            VerticalLayout {
+                alignment: start;
+
+                lb := Label {
+                    color: Theme.light-text-color;
+                    text: Store.final-video-path;
+                    font-weight: Theme.bold-font-weight;
+
+                    lb-ta := TouchArea {
+                        mouse-cursor: MouseCursor.pointer;
+
+                        clicked => {
+                            Logic.open-file(Store.final-video-path);
+                        }
+                    }
+                }
+
+                Divider {
+                    visible: lb-ta.has-hover;
+                    background: lb.color;
+                    height: Theme.default-border-width;
+                    width: lb.preferred-width;
+                }
+            }
+
+            IconBtn {
+                icon: Icons.copy-light;
+                colorize: Theme.light-text-color;
+                show-icon-hover-background: false;
+
+                clicked => {
+                    Logic.copy-to-clipboard(Store.final-video-path);
+                }
+            }
+        }
+
+        close => {
+            Store.final-video-path = "";
+        }
+    }
+}
+
+export component MainPanel inherits VerticalLayout {
+    padding: Theme.padding;
+    spacing: Theme.spacing;
+
+    private property <length> banner-height;
+    private property <bool> is-show-banners:  !Store.final-video-path.is-empty;
+
+    if is-show-banners: Banners {
+        init => {
+            root.banner-height = self.preferred-height;
+        }
+
+        changed preferred-height => {
+            root.banner-height = self.preferred-height;
+        }
+    }
+
+    PreviewPanel {
+        height: Theme.default-height - cp.preferred-height - cp.padding * 2 - parent.padding * 2 - parent.spacing - (Store.setting-preference.no-frame ? Theme.header-height : 0) - (root.is-show-banners ? root.banner-height : 0);
+    }
+
+    cp := ControlPanel { }
+}

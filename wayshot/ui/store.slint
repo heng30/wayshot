@@ -1,0 +1,265 @@
+export enum DeviceType {
+    Desktop,
+    Mobile,
+    Web,
+}
+
+export enum TabIndex {
+    Home,
+    History,
+    Player,
+}
+
+export enum PopupIndex {
+    None,
+    Help,
+    About,
+    Donate,
+    Backup,
+    Recover,
+    Setting,
+
+    Source,
+}
+
+export enum SettingDetailIndex {
+    Preference,
+    Recorder,
+    CursorTracking,
+}
+
+export enum MobileTabIndex {
+    Home,
+    Setting,
+}
+
+export enum MobileSettingDetailIndex {
+    Home,
+    Preference,
+    Proxy,
+    Donate,
+    About,
+    Help,
+}
+
+export struct SettingPreference {
+    win-width: string,
+    win-height: string,
+    font-size: string,
+    font-family: string,
+    language: string,
+    always-on-top: bool,
+    no-frame: bool,
+    is-dark: bool,
+}
+
+export struct SettingBackup {
+   configuration: bool,
+   data: bool,
+   cache: bool,
+}
+
+//////////////////////////////// Logic Struct Start ////////////////////////////////
+
+export enum Fps {
+    Fps24,
+    Fps25,
+    Fps30,
+    Fps60,
+}
+
+export enum Resolution {
+    Original,
+    P720,
+    P1080,
+    P2K,
+    P4K,
+}
+
+export enum TransitionType {
+    Linear,
+    EaseIn,
+    EaseOut,
+}
+
+export struct SettingCursorTracker {
+    enable-tracking: bool,
+    region-width: int,
+    region-height: int,
+    stable-radius: int,
+    fast-moving-duration: int,
+    zoom-transition-duration: int,
+    reposition-transition-duration: int,
+    reposition_edge_threshold: float,
+    max-stable-region-duration: int,
+    zoom_in_transition_type: TransitionType,
+    zoom_out_transition_type: TransitionType,
+}
+
+export struct SettingRecorder {
+    save-dir: string,
+    include-cursor: bool,
+    enable-denoise: bool,
+    convert-to-mono: bool,
+    fps: Fps,
+    resolution: Resolution,
+}
+
+export struct SettingControl {
+    screen: string,
+
+    audio: string,
+    audio-gain: float,
+    enable-audio: bool,
+
+    speaker-gain: float,
+    enable-speaker: bool,
+ }
+
+export struct SettingPlayer {
+    id: string,
+    current-time: string,
+    end-time: string,
+    sound: int,
+ }
+
+
+export struct StatsInfo {
+    fps: float,
+    loss: float,
+    total: int,
+}
+
+export enum RecordStatus{
+    Stopped,
+    Recording,
+}
+
+export enum SourceType {
+    Audio,
+    Video,
+}
+
+export struct Source{
+    ty: SourceType,
+    name: string,
+}
+
+export struct HistoryEntry {
+    id: string,
+    file: string,
+    size: string,
+    duration: string,
+    status: string,
+}
+
+//////////////////////////////// Logic Struct End  ////////////////////////////////
+
+import { PlaylistItem } from "base/def.slint";
+
+export global Store {
+    in-out property <DeviceType> device-type: DeviceType.Desktop;
+    in-out property <bool> is-first-run;
+    in-out property <bool> is-show-landing-page;
+    in-out property <bool> is-show-help-btn;
+    in-out property <bool> is-show-remove-caches-btn;
+
+    // desktop
+    in-out property <TabIndex> previous-tab-index: TabIndex.Home;
+    in-out property <TabIndex> current-tab-index: TabIndex.Home;
+    in-out property <PopupIndex> current-popup-index: PopupIndex.None;
+    in-out property <SettingDetailIndex> current-setting-detail-index: SettingDetailIndex.Preference;
+
+    // android
+    in-out property <MobileTabIndex> previous-mobile-tab-index: MobileTabIndex.Home;
+    in-out property <MobileTabIndex> current-mobile-tab-index: MobileTabIndex.Home;
+    in-out property <MobileSettingDetailIndex> current-mobile-setting-detail-index: MobileSettingDetailIndex.Preference;
+
+    in-out property <SettingPreference> setting-preference: {
+        win-width: 800,
+        win-height: 640,
+        font-size: "16",
+        font-family: "Source Han Sans CN",
+        language: "en",
+        always-on-top: false,
+        no-frame: true,
+        is-dark: false,
+    };
+
+    //////////////////////////////// Logic Start ////////////////////////////////
+    in-out property <bool> is-cn: setting-preference.language == "cn";
+    in-out property <RecordStatus> record-status: RecordStatus.Stopped;
+    in-out property <string> save-dir;
+    in-out property <bool> never-recording-once: true;
+
+    in-out property <string> final-video-path;
+    in-out property <image> preview-image;
+    in-out property <int> audio-db: -60;
+    in-out property <int> speaker-audio-db: -60;
+
+    in-out property <[string]> audio-sources: [
+        "sound-card-1",
+        "sound-card-2",
+    ];
+
+    in-out property <[string]> video-sources: [
+        "eDP-1",
+        "eDP-2",
+    ];
+
+    in-out property <[Source]> sources: [
+        { ty: SourceType.Audio, name: "sound-card-2" },
+        { ty: SourceType.Video, name: "eDP-1" },
+    ];
+
+    in-out property <StatsInfo> stats-info: {
+        fps: 0.0,
+        loss: 0.0,
+        total: 0,
+    };
+
+    in-out property <SettingControl> setting-control:  {
+        screen: sources[1].name,
+        audio: sources[0].name,
+        audio-gain: -2,
+        enable-audio: true,
+        speaker-gain: 2,
+        enable-speaker: true,
+    };
+
+    in-out property <[HistoryEntry]> history-entries: [
+        {
+            file: "file-1",
+            size: "10M",
+            duration: "4:00",
+        },
+        {
+            file: "file-1",
+            size: "100M",
+        },
+    ];
+
+    in-out property <image> player-image;
+    in-out property <float> player-progress;
+    in-out property <bool> player-is-playing;
+    in-out property <SettingPlayer> setting-player: {
+        current-time: "00:00",
+        end-time: "4:00",
+        sound: 50,
+    };
+
+    in-out property <[PlaylistItem]> playlist-entries: [
+        { title: "Video 1 - Short Title", duration: "3:45" },
+        { title: "Video 2 - Medium Length Title", duration: "2:30" },
+        {
+            title: "Video 3 - This is a very long video title that should be truncated with ellipsis",
+            duration: "5:12"
+        },
+        { title: "Video 4 - Test Item", duration: "1:15" },
+        { title: "Video 5 - Another Test", duration: "4:20" },
+        { title: "Video 6 - Sample Video", duration: "2:45" },
+        { title: "Video 7 - Demo Content", duration: "3:30" },
+        { title: "Video 8 - Example Video", duration: "1:50" },
+    ];
+    //////////////////////////////// Logic End  ////////////////////////////////
+}

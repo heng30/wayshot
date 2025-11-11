@@ -1,0 +1,114 @@
+import { Palette } from "std-widgets.slint";
+import { Store } from "../store.slint";
+import { Icons } from "icon.slint";
+
+export { Icons }
+
+export global Theme {
+    out property <bool> is-dark: Store.setting-preference.is-dark;
+    out property <length> padding: Math.max(4px, Math.round(default-font-size / 4px) * 1px);
+    out property <length> spacing: padding;
+    out property <length> scrollbar-size: padding * 2;
+    out property <length> border-radius: padding;
+    out property <length> header-height: Math.max(32px, icon-size + padding * 2);
+    out property <length> footer-height: Math.max(40px, icon-size + default-font-size);
+
+    in-out property <length> default-width: Store.setting-preference.win-width.to-float() * 1px;
+    in-out property <length> default-height: Store.setting-preference.win-height.to-float() * 1px;
+
+    in-out property <string> default-font-family: Store.setting-preference.font-family;
+    in-out property <length> default-font-size: Store.setting-preference.font-size.to-float() * 1px;
+    in-out property <length> title6-font-size: default-font-size + 0px;
+    in-out property <length> title5-font-size: default-font-size + 1px;
+    in-out property <length> title4-font-size: default-font-size + 2px;
+    in-out property <length> title3-font-size: default-font-size + 4px;
+    in-out property <length> title2-font-size: default-font-size + 6px;
+    in-out property <length> title1-font-size: default-font-size + 8px;
+
+    in-out property <int> normal-font-weight: 400;
+    in-out property <int> bold-font-weight: 700;
+
+    out property <length> icon-size: Math.max(24px, default-font-size + 8px);
+    out property <length> avatar-size: icon-size + Theme.padding * 2;
+    out property <duration> default-animate-duration: 200ms;
+    out property <length> default-border-width: 1px;
+    out property <length> default-text-cursor-width: 2px;
+
+    out property <color> brand-color: is-dark ? #3F51B5 : #0000B8;
+    out property <color> secondary-brand-color: is-dark ? #324090 : #3F51B5;
+    out property <color> thirdly-brand-color: is-dark ? #4B60D8 : #5E79ff;
+    out property <color> success-color: is-dark ? #336633 : #67C23A;
+    out property <color> warning-color: is-dark ? #996600 : #E6A23C;
+    out property <color> danger-color: is-dark ? #AA3333 : #F56C6C;
+    out property <color> info-color:is-dark ? #6F6F6F : #909090;
+    out property <color> mark-color: is-dark ? #996600 : #E6A23C;
+    out property <color> unmark-color: is-dark ? #646464 : #E8F2FD;
+    out property <color> disabled-color: is-dark ? #555555 : #AAAAAA;
+    out property <color> focus-color: is-dark ? #4B60D8 : #5E79FF;
+
+    out property <color> base-color: is-dark ? #000000 : #FFFFFF;
+    out property <color> invert-base-color: is-dark ? #FFFFFF : #000000;
+    out property <color> base-background: is-dark ? #16161A : #FFFFFF;
+    out property <color> secondary-background: is-dark ? #232429 : #F5F5F5;
+    out property <color> thirdly-background: is-dark ? #011627 : #E0E0E0;
+    out property <color> hover-background: is-dark ? #262626 : #EFEFEF;
+    out property <color> checked-background: is-dark ? #2D3F54 : #EAF5FF.darker(5%);
+    out property <color> base-background-drop-shadow: is-dark ? #2D2D2D : #DBDBDB;
+    out property <color> secondary-background-drop-shadow: is-dark ? #2C2C2C : #DADADA;
+
+    out property <color> light-text-color: is-dark ? #EEEEEE : #FFFFFF;
+    out property <color> dark-text-color: is-dark ? #000000 : #000000;
+    out property <color> dark-bg-color: #16161A;
+    out property <color> primary-text-color: is-dark ? #969696 : #222222;
+    out property <color> secondary-text-color: is-dark ? #555555 : #333333;
+    out property <color> regular-text-color: is-dark ? #666666 : #282828;
+    out property <color> placeholder-text-color: is-dark ? #4B4B4B : #A8ABAB;
+
+    out property <color> avatar-color: is-dark ? #ADADAD : #333333;
+    out property <color> icon-color: is-dark ? #AAAAAA : #515151;
+    out property <color> base-border-color: is-dark ? #2A2A2A : #DCDCDC;
+
+    out property <color> have-read-text-color: is-dark ? #555555 : #606060;
+    out property <color> link-text-color: is-dark ? #4B60D8 : #3F51FF;
+
+    out property <color> table-header-color: is-dark ? thirdly-background.darker(50%) : thirdly-background.brighter(2%);
+    out property <color> table-item-first: is-dark ? #161616 : #FFFFFF;
+    out property <color> table-item-second: is-dark ? #262626 : #EFEFEF.brighter(2%);
+
+    out property <color> divider-color: is-dark ? #3B3B3B : #DCDCDC;
+
+    out property <[color]> tag-colors: is-dark ? [#A3B3CC, #94C2AF, #9AC0C4, #B2ACCA, #CCA8A3, #CAA6BC, #A8C085, #B0B2B6] : [#CCE0FF, #BAF3DB, #C1F0F5, #DFD8FD, #FFD2CC, #FDD0EC, #D3F1A7, #DCDFE4];
+
+    out property <float> golden-ratio: 0.618;
+    out property <float> blank-welcome-opacity: is-dark ? 0.618 : 0.8;
+
+    out property <length> dialog-max-width: 1300px;
+    out property <length> dialog-normal-width: 600px;
+    out property <length> dialog-inner-height: 650px;
+
+    public function set-dark(flag: bool) {
+        Store.setting-preference.is-dark = flag;
+        Palette.color-scheme = is-dark ? ColorScheme.dark : ColorScheme.light;
+    }
+
+    public function toggle() {
+        Store.setting-preference.is-dark = !Store.setting-preference.is-dark;
+        Palette.color-scheme = is-dark ? ColorScheme.dark : ColorScheme.light;
+    }
+
+    public pure function title-font-size(level: int) -> length {
+        if (level == 1) {
+            return title1-font-size;
+        } else if (level == 2) {
+            return title2-font-size;
+        } else if (level == 3) {
+            return title3-font-size;
+        } else if (level == 4) {
+            return title4-font-size;
+        } else if (level == 5) {
+            return title5-font-size;
+        } else {
+            return title6-font-size;
+        }
+    }
+}

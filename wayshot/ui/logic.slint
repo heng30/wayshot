@@ -1,0 +1,196 @@
+import {
+    Store,
+    SettingPreference,
+    TabIndex,
+    SettingDetailIndex,
+    MobileSettingDetailIndex,
+    PopupIndex,
+    MobileTabIndex,
+    SettingBackup,
+    SettingRecorder,
+    SettingControl,
+    SettingPlayer,
+    SettingCursorTracker,
+    Fps,
+    Resolution,
+    HistoryEntry,
+} from "store.slint";
+
+import { PlaylistItem } from "base/def.slint";
+
+export global Logic {
+    callback caches-size() -> string;
+    callback remove-caches();
+
+    callback copy-to-clipboard(text: string);
+    callback paste-from-clipboard() -> string;
+
+    callback get-setting-preference() -> SettingPreference;
+    callback set-setting-preference(setting: SettingPreference);
+
+    callback increase-font-size();
+    callback decrease-font-size();
+
+    callback backup(setting: SettingBackup);
+    callback recover();
+    callback uninstall();
+
+    pure callback inner-tr(text: string, lang: string) -> string;
+    inner-tr(text, lang) => {
+        return text;
+    }
+
+    pure public function tr(text: string) -> string {
+        return inner-tr(text, Store.setting-preference.language);
+    }
+
+    // desktop
+    public function switch-tab(index: TabIndex) {
+        if (Store.current-tab-index == TabIndex.Player) {
+            Logic.player-stop();
+        }
+        if (Store.current-tab-index != index) {
+            Store.previous-tab-index = Store.current-tab-index;
+            Store.current-tab-index = index;
+        }
+    }
+
+    //desktop
+    public function switch-popup(index: PopupIndex) {
+        if (Store.current-popup-index != index) {
+            Store.current-popup-index = index;
+        }
+    }
+
+    // desktop
+    public function switch-setting-detail(index: SettingDetailIndex) {
+        if (Store.current-setting-detail-index == index) {
+            return;
+        }
+        Store.current-setting-detail-index = index;
+    }
+
+    // android
+    public function switch-mobile-tab(index: MobileTabIndex) {
+        if (Store.current-mobile-tab-index != index) {
+            Store.previous-mobile-tab-index = Store.current-mobile-tab-index;
+            Store.current-mobile-tab-index = index;
+        }
+    }
+
+    // android
+    public function switch-mobile-setting-detail(index: MobileSettingDetailIndex) {
+        if (Store.current-mobile-setting-detail-index == index) {
+            return;
+        }
+        Store.current-mobile-setting-detail-index = index;
+    }
+
+    //////////////////////////////// Logic Start  ////////////////////////////////
+    callback get-setting-recorder() -> SettingRecorder;
+    callback set-setting-recorder(setting: SettingRecorder);
+
+    callback get-setting-control() -> SettingControl;
+    callback set-setting-control(setting: SettingControl);
+
+    callback get-setting-cursor-tracker() -> SettingCursorTracker;
+    callback set-setting-cursor-tracker(setting: SettingCursorTracker);
+
+    callback init-sources-dialog();
+    callback choose-save-dir();
+    callback update-sources(setting: SettingControl);
+
+    callback audio-changed(name: string, show-toast: bool);
+    callback audio-gain-changed(value: float);
+
+    callback refresh-speaker(show-toast: bool);
+    callback speaker-gain-changed(value: float);
+
+    callback start-recording();
+    callback stop-recording();
+
+    callback open-file(file: string);
+
+    callback cal-region-width(height: float) -> int;
+    callback cal-region-height(width: float) -> int;
+
+    pure callback history-statistics(etries: [HistoryEntry], _flag: int) -> [int];
+    callback toggle-sort-history();
+    callback refresh-histories();
+    callback add-history(file-path: string);
+    callback remove-history(index: int);
+    callback remove-no-found-histories();
+    callback remove-all-histories();
+
+    callback init-playlist();
+    pure callback get-current-playlist-index() -> int;
+    callback player-play-prev(index: int);
+    callback player-play-next(index: int);
+    callback player-play(index: int);
+    callback player-stop();
+    callback player-forward(index: int);
+    callback player-backward(index: int);
+    callback player-sound-changed(sound: int);
+    callback player-progress-changed(index: int, progress: float);
+
+    pure public function fps-to-int(fps: Fps) -> int {
+        if (fps == Fps.Fps24) {
+            return 24;
+        } else if (fps == Fps.Fps25) {
+            return 25;
+        } else if (fps == Fps.Fps30) {
+            return 30;
+        } else if (fps == Fps.Fps60) {
+            return 60;
+        } else {
+            return 25;
+        }
+    }
+
+    pure public function fps-from-int(fps: int) -> Fps {
+        if (fps == 24) {
+            return Fps.Fps24;
+        } else if (fps == 25) {
+            return Fps.Fps25;
+        } else if (fps == 30) {
+            return Fps.Fps30;
+        } else if (fps == 60) {
+            return Fps.Fps60;
+        } else {
+            return Fps.Fps25;
+        }
+    }
+
+    pure public function resolution-to-string(res: Resolution) -> string {
+        if (res == Resolution.Original) {
+            return "Original";
+        } else if (res == Resolution.P720) {
+            return "720P";
+        } else if (res == Resolution.P1080) {
+            return "1080P";
+        } else if (res == Resolution.P2K) {
+            return "2K";
+        } else if (res == Resolution.P4K) {
+            return "4K";
+        } else {
+            return "Original";
+        }
+    }
+
+    pure public function resolution-from-string(res: string) -> Resolution {
+        if (res == "Original") {
+            return Resolution.Original;
+        } else if (res == "720P") {
+            return Resolution.P720;
+        } else if (res == "1080P") {
+            return Resolution.P1080;
+        } else if (res == "2K") {
+            return Resolution.P2K;
+        } else if (res == "4K") {
+            return Resolution.P4K;
+        } else {
+            return Resolution.Original;
+        }
+    }
+    //////////////////////////////// Logic End  ////////////////////////////////
+}

@@ -1,0 +1,208 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    DeviceType,
+    Icons,
+    SettingRecorder,
+    TransitionType,
+    SettingCursorTracker,
+} from "../../def.slint";
+import {
+    SettingDetail,
+    SettingDetailInner,
+    RadioBtn,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+    ConfirmBtn,
+    Label,
+    SettingDetailSwitch,
+    Select,
+    IconBtn,
+} from "../../../base/widgets.slint";
+
+export component CursorTracker inherits SettingDetail {
+    callback confirmed();
+
+    private property <SettingCursorTracker> setting;
+
+    init => {
+        root.set(Logic.get-setting-cursor-tracker());
+    }
+
+    public function get() -> SettingCursorTracker {
+        root.setting.stable-radius = stable-radius-li.text.to-float();
+        root.setting.region-width = region-width-li.text.to-float();
+        root.setting.region-height = region-height-li.text.to-float();
+        root.setting.fast-moving-duration = fast-moving-duration-li.text.to-float();
+        root.setting.zoom-transition-duration = zoom-transition-duration-li.text.to-float();
+        root.setting.reposition-edge_threshold = reposition-edge-threshold-li.text.to-float();
+        root.setting.reposition-transition-duration = reposition-transition-duration-li.text.to-float();
+        root.setting.max-stable-region-duration = max-stable-region-duration-li.text.to-float();
+        root.setting.zoom-in-transition-type = zoom-transition-effect-select.current-index == 0 ? TransitionType.Linear : TransitionType.EaseIn;
+        root.setting.zoom-out-transition-type = zoom-transition-effect-select.current-index == 0 ? TransitionType.Linear : TransitionType.EaseOut;
+
+        return root.setting;
+    }
+
+    public function set(setting: SettingCursorTracker) {
+        root.setting = setting;
+    }
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailSwitch {
+                icon: Icons.tracker-light;
+                text: self.checked ? Logic.tr("Enabled cursor tracking") : Logic.tr("Disabled cursor tracking");
+                checked: root.setting.enable-tracking;
+
+                toggled => {
+                    root.setting.enable-tracking = self.checked;
+                }
+            }
+        }
+
+        VerticalLayout {
+            visible: root.setting.enable-tracking;
+            spacing: Theme.spacing * 4;
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Region size(width x height)");
+                }
+
+                HorizontalLayout {
+                    private property <bool> is-broken;
+
+                    spacing: Theme.spacing * 2;
+
+                    region-width-li := LineInput {
+                        horizontal-stretch: 1;
+                        input-type: number;
+                        placeholder-text: "1280px";
+                        text: root.setting.region-width;
+
+                        accepted => {
+                            if (is-broken) {
+                                return;
+                            }
+                            region-height-li.text = Logic.cal-region-height(region-width-li.text.to-float());
+                        }
+                    }
+
+                    IconBtn {
+                        icon: is-broken ? Icons.broken-link-light : Icons.link-light;
+
+                        clicked => {
+                            is-broken = !is-broken;
+                        }
+                    }
+
+                    region-height-li := LineInput {
+                        horizontal-stretch: 1;
+                        input-type: number;
+                        placeholder-text: "720px";
+                        text: root.setting.region-height;
+
+                        accepted => {
+                            if (is-broken) {
+                                return;
+                            }
+                            region-width-li.text = Logic.cal-region-width(region-height-li.text.to-float());
+                        }
+                    }
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Stable radius(pixel)");
+                    tip: Logic.tr("After zooming in, moving the cursor within this radius will not trigger the countdown to return to full-screen recording.");
+                }
+
+                stable-radius-li := LineInput {
+                    input-type: InputType.number;
+                    placeholder-text: "15px";
+                    icon: Icons.file-open-light;
+                    text: root.setting.stable-radius;
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Maximum duration of stay in the stable region(seconds)");
+                    tip: Logic.tr("The cursor remains within the stable area; if it exceeds this time interval, it will revert to recording the full screen.");
+                }
+
+                max-stable-region-duration-li := LineInput {
+                    input-type: InputType.number;
+                    placeholder-text: "5s";
+                    text: root.setting.max-stable-region-duration;
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Fast moving interval(milliseconds)");
+                    tip: Logic.tr("When the mouse moves quickly, the time interval between two adjacent coordinates within this interval will not trigger zooming.");
+                }
+
+                fast-moving-duration-li := LineInput {
+                    input-type: InputType.number;
+                    placeholder-text: "100ms";
+                    text: root.setting.fast-moving-duration;
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Zoom transition effect");
+                }
+
+                zoom-transition-effect-select := Select {
+                    values: ["Linear", "Ease InOut"];
+                    current-value: root.setting.zoom_in_transition_type == TransitionType.Linear || root.setting.zoom-out-transition-type == TransitionType.Linear ? self.values[0] : self.values[1];
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Zoom transition duration(milliseconds)");
+                }
+
+                zoom-transition-duration-li := LineInput {
+                    input-type: InputType.number;
+                    placeholder-text: "1000ms";
+                    text: root.setting.zoom-transition-duration;
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Reposition edge threshold(0-0.5)");
+                    tip: Logic.tr("After zooming in, when touching the boundary of the area, move the area.");
+                }
+
+                reposition-edge-threshold-li := LineInput {
+                    input-type: InputType.decimal;
+                    placeholder-text: 0.15;
+                    text: root.setting.reposition-edge-threshold;
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Reposition transition duration(milliseconds)");
+                    tip: Logic.tr("After zooming in, the transition time of moving across the area.");
+                }
+
+                reposition-transition-duration-li := LineInput {
+                    input-type: InputType.number;
+                    placeholder-text: "100ms";
+                    text: root.setting.reposition-transition-duration;
+                }
+            }
+        }
+    }
+}

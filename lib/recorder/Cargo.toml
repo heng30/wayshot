@@ -1,0 +1,41 @@
+[package]
+name = "recorder"
+readme.workspace = true
+license.workspace = true
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[dependencies]
+log.workspace = true
+x264.workspace = true
+cpal.workspace = true
+mp4m.workspace = true
+hound.workspace = true
+image.workspace = true
+chrono.workspace = true
+crossbeam.workspace = true
+thiserror.workspace = true
+once_cell.workspace = true
+spin_sleep.workspace = true
+nnnoiseless.workspace = true
+derive_setters.workspace = true
+screen-capture.workspace = true
+yuv = { workspace = true, features = ["rayon"] }
+fast_image_resize = { workspace = true, features = ["rayon"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+pipewire.workspace = true
+screen-capture-wayland-wlr = { workspace = true, optional = true }
+
+[dev-dependencies]
+ctrlc.workspace = true
+env_logger.workspace = true
+
+[features]
+default = ["wayland-wlr"]
+wayland-wlr = ["dep:screen-capture-wayland-wlr"]

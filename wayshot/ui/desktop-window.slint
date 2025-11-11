@@ -1,0 +1,84 @@
+import "fonts/SourceHanSerifCN.ttf";
+import "fonts/SourceHanSansCN.otf";
+
+import { Util, Logic, Theme, Icons, Store, DeviceType } from "panel/def.slint";
+import {
+    Toast,
+    IconsDialogSetting,
+    IconsDialog,
+    ConfirmDialog,
+    ConfirmDialogSetting,
+    Blanket,
+    LandingPage,
+    AboutSetting,
+    ToastSetting,
+    PopupActionSetting,
+    ConfirmDialogSetting,
+} from "base/widgets.slint";
+import { DesktopPanel } from "panel/desktop/desktop.slint";
+
+export component AppWindow inherits Window {
+    width: Theme.default-width;
+    height: Theme.default-height;
+    default-font-size: Theme.default-font-size;
+    default-font-weight: Theme.normal-font-weight;
+    default-font-family: Theme.default-font-family;
+    background: Theme.base-background;
+    icon: Icons.brand;
+    title: AboutSetting.app-name;
+    no-frame: Store.setting-preference.no-frame;
+    always-on-top: Store.setting-preference.always-on-top;
+
+    DesktopPanel { }
+
+    if IconsDialogSetting.show || ConfirmDialogSetting.show: Blanket {
+        clicked => {
+            IconsDialogSetting.show = false;
+            ConfirmDialogSetting.show = false;
+        }
+    }
+
+    if IconsDialogSetting.show: IconsDialog {
+        is-prevent-event-forward: true;
+        column-count: Store.device-type == DeviceType.Desktop ? 6 : 5;
+        icon-size: Store.device-type == DeviceType.Desktop ? Theme.icon-size * 3 : Theme.icon-size;
+        select-index(handle-type, index, user-data) => {
+        }
+    }
+
+    if ConfirmDialogSetting.show: ConfirmDialog {
+        is-prevent-event-forward: true;
+        width: Math.min(root.width * 0.9, self.vbox-preferred-width * 2);
+    }
+
+    if !ToastSetting.is-timeout || ToastSetting.is-hover: Toast {
+        x: root.width / 2 - self.width / 2;
+        y: 50px;
+        width: Math.min(root.width * 80%, self.preferred-width);
+        clicked => {
+            Logic.copy-to-clipboard(ToastSetting.text);
+        }
+    }
+
+    if Store.is-show-landing-page: LandingPage {
+        details: [
+            {
+                picture: Icons.landing-account,
+                description: Store.is-cn ? "这是一个针对Linux Wayland桌面环境的录屏软件" : "This is a screen recording software designed for the Linux Wayland desktop environment",
+            },
+            {
+                picture: Icons.landing-send,
+                description: Store.is-cn ? "支持录制屏幕、麦克风、桌面音频和跟随光标" : "Supports recording of screen, microphone, desktop audio and cursor tracking",
+            },
+            {
+                picture: Icons.landing-welcome,
+                description: Store.is-cn ? "欢迎使用" : "Welcome to use",
+            }
+        ];
+        skipped => {
+            Store.is-show-landing-page = false;
+        }
+    }
+}
+
+export { Util, Logic, Store, Theme, Icons, AboutSetting, PopupActionSetting, ToastSetting, ConfirmDialogSetting }

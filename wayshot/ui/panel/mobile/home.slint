@@ -1,0 +1,62 @@
+import { Util, Theme, Icons, Store, SettingDetailIndex, Logic } from "../def.slint";
+import {  Label, Head, CircleProgress, ConfirmBtn, Label } from "../../base/widgets.slint";
+
+component TopHead inherits Head {
+    icon: Icons.home-fill;
+    title: Logic.tr("Home");
+    hbox-alignment: LayoutAlignment.start;
+}
+
+component Body inherits Rectangle {
+    VerticalLayout {
+        alignment: center;
+        spacing: Theme.spacing * 4;
+
+        HorizontalLayout {
+            alignment: center;
+            CircleProgress {
+                ring-width: 15px;
+                progress: Util.progress-value(5s);
+            }
+        }
+
+        VerticalLayout {
+            spacing: Theme.spacing * 4;
+            lb := Label {
+                horizontal-alignment: center;
+                text: "Hello world!";
+                font-size: Theme.title1-font-size;
+            }
+
+            ConfirmBtn {
+                text: "Copy text to clipboard";
+
+                clicked => {
+                    Logic.copy-to-clipboard(lb.text);
+                }
+            }
+
+            ConfirmBtn {
+                text: "Paste text from clipboard";
+                clicked => {
+                    lb.text = Logic.paste-from-clipboard();
+                }
+            }
+
+            ConfirmBtn {
+                text: "show test dialog";
+                clicked => {
+                    Logic.show-mobile-test-dialog();
+                }
+            }
+        }
+    }
+}
+
+export component Home inherits Rectangle {
+    VerticalLayout {
+        TopHead { }
+
+        Body { }
+    }
+}

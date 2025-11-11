@@ -1,0 +1,293 @@
+import { ListView } from "std-widgets.slint";
+import { Util } from "../../base/util.slint";
+import { HistoryEntry } from "../../store.slint";
+import { Theme, Icons, Store, Logic, TabIndex } from "../def.slint";
+import {
+    Label,
+    IconBtn,
+    CenterLayout,
+    NoMessageImg,
+    ConfirmDialogSetting,
+} from "../../base/widgets.slint";
+
+component HeadBar inherits HorizontalLayout {
+    private property <[int]> statistics: Logic.history-statistics(Store.history-entries, Store.history-entries.length);
+
+    alignment: space-between;
+
+    HorizontalLayout {
+        spacing: Theme.spacing * 10;
+
+        Label {
+            font-size: Theme.title3-font-size;
+            font-weight: Theme.bold-font-weight;
+            color: Theme.thirdly-brand-color;
+            text: Logic.tr("Total") + ": " + statistics[0];
+        }
+
+        Label {
+            font-size: Theme.title3-font-size;
+            font-weight: Theme.bold-font-weight;
+            color: Theme.success-color;
+            text: Logic.tr("Found") + ": " + statistics[1];
+        }
+
+        Label {
+            font-size: Theme.title3-font-size;
+            font-weight: Theme.bold-font-weight;
+            color: Theme.warning-color;
+            text: Logic.tr("No Found") + ": " + statistics[2];
+        }
+    }
+
+    HorizontalLayout {
+        alignment: end;
+        spacing: Theme.spacing * 8;
+
+        Rectangle {
+            height: hbox.preferred-height;
+            border-radius: self.height / 2;
+            background: Theme.secondary-background;
+            border-width: Theme.default-border-width;
+            border-color: Theme.base-border-color;
+
+            hbox := HorizontalLayout {
+                spacing: Theme.spacing * 2;
+                padding: Theme.padding * 2;
+                padding-left: Theme.padding * 4;
+                padding-right: Theme.padding * 4;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("refresh");
+                        icon: Icons.refresh-light;
+                        icon-size: Theme.icon-size * 0.8;
+                        tip-position: Bottom;
+                        hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                        clicked => {
+                            Logic.refresh-histories();
+                        }
+                    }
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("sort");
+                        icon: Icons.sort-line-light;
+                        tip-position: Bottom;
+                        hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                        clicked => {
+                            Logic.toggle-sort-history();
+                        }
+                    }
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("remove no found histories");
+                        icon: Icons.delete-light;
+                        tip-position: Bottom;
+                        hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                        clicked => {
+                            ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Remove no found histories or not?"), "remove-no-found-histories", "");
+                        }
+                    }
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("remove all");
+                        icon: Icons.delete-all-light;
+                        tip-position: Bottom;
+                        hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                        clicked => {
+                            ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Remove all histories or not?"), "remove-all-histories", "");
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component TableBody inherits ListView {
+    private property <length> index-width;
+    private property <length> file-width;
+    private property <length> status-width;
+    private property <length> size-width;
+    private property <length> duration-width;
+
+    for entry[index] in Store.history-entries: vbox := VerticalLayout {
+        Rectangle {
+            background: ta.has-hover ? Theme.checked-background : (Math.mod(index, 2) == 0 ? Theme.table-item-first : Theme.table-item-second);
+
+            ta := TouchArea {
+                mouse-cursor: MouseCursor.pointer;
+
+                clicked => {
+                    if (entry.status.is-empty) {
+                        Logic.switch-tab(TabIndex.Player);
+                        Logic.player-play(index);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 8;
+                padding-left: Theme.padding * 4;
+                padding-right: Theme.padding * 4;
+                padding-top: Theme.padding * 3;
+                padding-bottom: Theme.padding * 3;
+
+                Label {
+                    init => {
+                        index-width = Math.max(self.preferred-width, index-width);
+                    }
+
+                    width: index-width;
+                    text: index + 1;
+                }
+
+                Label {
+                    init => {
+                        file-width = Math.max(self.preferred-width, file-width);
+                    }
+
+                    width: file-width;
+                    text: entry.file;
+                }
+
+                if !entry.size.is-empty: VerticalLayout {
+                    alignment: center;
+
+                    Rectangle {
+                        background: Theme.thirdly-brand-color;
+                        width: file-size-lb.width + Theme.padding * 4;
+                        height: file-size-lb.height + Theme.padding * 2;
+                        border-radius: self.height / 2;
+
+                        file-size-lb := Label {
+                            init => {
+                                size-width = Math.max(self.preferred-width, size-width);
+                            }
+
+                            width: size-width;
+                            vertical-alignment: center;
+                            horizontal-alignment: center;
+                            text: entry.size;
+                            color: Theme.light-text-color;
+                        }
+                    }
+                }
+
+                if !entry.duration.is-empty: VerticalLayout {
+                    alignment: center;
+
+                    Rectangle {
+                        background: Theme.success-color;
+                        width: file-duration-lb.width + Theme.padding * 4;
+                        height: file-duration-lb.height + Theme.padding * 2;
+                        border-radius: self.height / 2;
+
+                        file-duration-lb := Label {
+                            init => {
+                                duration-width = Math.max(self.preferred-width, duration-width);
+                            }
+
+                            width: duration-width;
+                            vertical-alignment: center;
+                            horizontal-alignment: center;
+                            text: entry.duration;
+                            color: Theme.light-text-color;
+                        }
+                    }
+                }
+
+                if !entry.status.is-empty: VerticalLayout {
+                    alignment: center;
+
+                    Rectangle {
+                        background: Theme.warning-color;
+                        width: state-lb.width + Theme.padding * 4;
+                        height: state-lb.height + Theme.padding * 2;
+                        border-radius: self.height / 2;
+
+                        state-lb := Label {
+                            init => {
+                                status-width = Math.max(self.preferred-width, status-width);
+                            }
+
+                            changed text => {
+                                status-width = Math.max(self.preferred-width, status-width);
+                            }
+
+                            width: status-width;
+                            vertical-alignment: center;
+                            horizontal-alignment: center;
+                            color: Theme.light-text-color;
+                            text: entry.status;
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: Theme.spacing * 6;
+
+                    if entry.status.is-empty: IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("play");
+                        icon: Icons.arrow-right-fill;
+                        tip-position: Top;
+
+                        clicked => {
+                            Logic.switch-tab(TabIndex.Player);
+                            Logic.player-play(index);
+                        }
+                    }
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("remove");
+                        icon: Icons.delete-fill;
+                        tip-position: Top;
+
+                        clicked => {
+                            ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Remove history or not?"), "remove-history", index);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component HistoryPanel inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+    padding: Theme.spacing * 2;
+
+    HeadBar { }
+
+    Rectangle {
+        border-width: Store.history_entries.length > 0 ? Theme.default-border-width : 0;
+        border-color: Theme.base-border-color;
+        border-radius: Theme.border-radius;
+
+        if Store.history-entries.length == 0: CenterLayout {
+            NoMessageImg {
+                width: root.width * Theme.golden-ratio;
+                text: Logic.tr("No History");
+            }
+        }
+
+        VerticalLayout {
+            padding: parent.border-width;
+
+            TableBody { }
+        }
+    }
+}
