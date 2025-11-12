@@ -21,8 +21,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-const FRAME_CACHE_SIZE: usize = 128;
-const VIDEO_FRAME_CHANNEL_SIZE: usize = 128;
+const FRAME_CACHE_SIZE: usize = 32;
+const VIDEO_FRAME_CHANNEL_SIZE: usize = FRAME_CACHE_SIZE;
 
 pub enum DecodedVideoFrame {
     Empty,
@@ -473,7 +473,7 @@ impl Mp4Player {
             log::warn!("frame_response_sender send `DecodedVideoFrame::None` failed: {e}");
         }
 
-        log::info!(
+        log::debug!(
             "Decoded {decoded_frame_count} frames, empty {empty_frame_count} frames of {}",
             end_frame - start_frame
         );

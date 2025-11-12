@@ -59,6 +59,10 @@ export component VideoPlayer inherits Rectangle {
     callback playlist-item-selected(index: int);
     callback key-pressed(key-event: KeyEvent);
 
+    function valid-playlist-index() -> bool {
+        return current-playlist-index >= 0 && current-playlist-index < playlist-items.length;
+    }
+
     background: black;
     forward-focus: fs;
 
@@ -82,21 +86,21 @@ export component VideoPlayer inherits Rectangle {
                     root.exit-full-screen();
                 }
             } else if (event.text == Key.Space) {
-                root.is-playing = !root.is-playing;
-                if (root.is-playing) {
-                    root.play();
-                } else {
-                    root.stop();
+                if (valid-playlist-index()) {
+                    root.is-playing = !root.is-playing;
+                    if (root.is-playing) {
+                        root.play();
+                    } else {
+                        root.stop();
+                    }
                 }
             } else if (event.text == "p") {
-                if (root.current-playlist-index > 0) {
-
+                if (root.current-playlist-index > 0 && valid-playlist-index()) {
                     root.current-playlist-index = max(0, root.current-playlist-index - 1);
-                    root.next();
+                    root.prev();
                 }
             } else if (event.text == "n") {
-                if (root.current-playlist-index < root.playlist-items.length - 1) {
-
+                if (root.current-playlist-index < root.playlist-items.length - 1 && valid-playlist-index()) {
                     root.current-playlist-index = min(root.current-playlist-index + 1, root.playlist-items.length - 1);
                     root.next();
                 }
@@ -113,9 +117,13 @@ export component VideoPlayer inherits Rectangle {
                 root.show-volume-indicator = true;
                 volume-timer.restart();
             } else if (event.text == "h" || event.text == Key.LeftArrow) {
-                root.backward();
+                if (valid-playlist-index()) {
+                    root.backward();
+                }
             } else if (event.text == "l" || event.text == Key.RightArrow) {
-                root.forward()
+                if (valid-playlist-index()) {
+                    root.forward()
+                }
             } else {
                 root.key-pressed(event);
             }
@@ -155,11 +163,13 @@ export component VideoPlayer inherits Rectangle {
                 clicked => {
                     root.focus();
 
-                    root.is-playing = !root.is-playing;
-                    if (root.is-playing) {
-                        root.play();
-                    } else {
-                        root.stop();
+                    if (valid-playlist-index()) {
+                        root.is-playing = !root.is-playing;
+                        if (root.is-playing) {
+                            root.play();
+                        } else {
+                            root.stop();
+                        }
                     }
                 }
 
@@ -307,8 +317,10 @@ export component VideoPlayer inherits Rectangle {
                 }
 
                 released(v) => {
-                    root.progress = v;
-                    root.progress-changed(v);
+                    if (valid-playlist-index()) {
+                        root.progress = v;
+                        root.progress-changed(v);
+                    }
                 }
             }
 
@@ -341,9 +353,12 @@ export component VideoPlayer inherits Rectangle {
                             }
 
                             clicked => {
-                                root.current-playlist-index = max(0, root.current-playlist-index - 1);
                                 root.show-sound-slider = false;
-                                root.prev();
+
+                                if (root.current-playlist-index > 0 && valid-playlist-index()) {
+                                    root.current-playlist-index = max(0, root.current-playlist-index - 1);
+                                    root.prev();
+                                }
                             }
                         }
 
@@ -359,13 +374,15 @@ export component VideoPlayer inherits Rectangle {
                             }
 
                             clicked => {
-                                root.is-playing = !root.is-playing;
                                 root.show-sound-slider = false;
 
-                                if (root.is-playing) {
-                                    root.play();
-                                } else {
-                                    root.stop();
+                                if (valid-playlist-index()) {
+                                    root.is-playing = !root.is-playing;
+                                    if (root.is-playing) {
+                                        root.play();
+                                    } else {
+                                        root.stop();
+                                    }
                                 }
                             }
                         }
@@ -383,8 +400,11 @@ export component VideoPlayer inherits Rectangle {
 
                             clicked => {
                                 root.show-sound-slider = false;
-                                root.current-playlist-index = min(root.current-playlist-index + 1, root.playlist-items.length - 1);
-                                root.next();
+
+                                if (root.current-playlist-index < root.playlist-items.length - 1 && valid-playlist-index()) {
+                                    root.current-playlist-index = min(root.current-playlist-index + 1, root.playlist-items.length - 1);
+                                    root.next();
+                                }
                             }
                         }
                     }

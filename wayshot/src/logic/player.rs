@@ -294,9 +294,8 @@ fn player_backward(ui: &AppWindow, index: i32) {
 fn player_current_offset(ui: &AppWindow, index: i32, offset: i64) {
     let mut setting = global_store!(ui).get_setting_player();
     let current_time = CURRENT_PLAYER.lock().unwrap().current_time.as_secs();
-    let end_time = cutil::time::media_timestamp_to_second(&setting.end_time);
 
-    match end_time {
+    match cutil::time::media_timestamp_to_second(&setting.end_time) {
         Some(end_time) => {
             let current_time = if offset < 0 && (current_time as i64) < offset.abs() {
                 0u64
@@ -304,18 +303,28 @@ fn player_current_offset(ui: &AppWindow, index: i32, offset: i64) {
                 (current_time as i64 + offset) as u64
             };
 
-            let current_time = current_time.clamp(0, end_time);
+            if current_time >= end_time {
+                setting.current_time = setting.end_time.clone();
+                global_store!(ui).set_setting_player(setting);
+                global_store!(ui).set_player_progress(100.0);
 
-            setting.current_time =
-                cutil::time::seconds_to_media_timestamp(current_time as f64).into();
-            global_store!(ui).set_setting_player(setting);
+                CURRENT_PLAYER.lock().as_mut().unwrap().current_time =
+                    Duration::from_secs(end_time);
 
-            CURRENT_PLAYER.lock().as_mut().unwrap().current_time =
-                Duration::from_secs(current_time);
+                player_stop(ui);
+            } else {
+                let current_time = current_time.clamp(0, end_time);
+                setting.current_time =
+                    cutil::time::seconds_to_media_timestamp(current_time as f64).into();
+                global_store!(ui).set_setting_player(setting);
 
-            player_play(ui, index);
+                CURRENT_PLAYER.lock().as_mut().unwrap().current_time =
+                    Duration::from_secs(current_time);
+
+                player_play(ui, index);
+            }
         }
-        _ => log::warn!("current_time: {current_time:?}, end_time: {end_time:?}"),
+        _ => log::warn!("invalid end time: {}", setting.end_time),
     }
 }
 

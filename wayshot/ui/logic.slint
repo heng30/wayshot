@@ -123,7 +123,6 @@ export global Logic {
     callback remove-all-histories();
 
     callback init-playlist();
-    pure callback get-current-playlist-index() -> int;
     callback player-play-prev(index: int);
     callback player-play-next(index: int);
     callback player-play(index: int);
@@ -132,6 +131,11 @@ export global Logic {
     callback player-backward(index: int);
     callback player-sound-changed(sound: int);
     callback player-progress-changed(index: int, progress: float);
+
+    pure callback get-current-playlist-index() -> int;
+    get-current-playlist-index => {
+        return -1;
+    }
 
     pure public function fps-to-int(fps: Fps) -> int {
         if (fps == Fps.Fps24) {
