@@ -1,43 +1,28 @@
+use ashpd::zvariant::Str;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("Portal request failed: {0}")]
-    PortalRequest(String),
+    #[error("Stream not found: {0}")]
+    NoStream(String),
 
-    #[error("Screenshot failed: {0}")]
-    Screenshot(String),
-
-    #[error("ScreenCast failed: {0}")]
-    ScreenCast(String),
+    #[error("Screen cast error.")]
+    ScreencastError(#[from] ashpd::Error),
 
     #[error("PipeWire error: {0}")]
-    PipeWire(String),
+    PipeWire(#[from] pipewire::Error),
 
-    #[error("Image processing error: {0}")]
-    ImageProcessing(#[from] image::ImageError),
+    #[error("Screen info error: {0}")]
+    ScreenInfoError(String),
 
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
+    #[error("No output error: {0}")]
+    NoOutput(String),
 
-    #[error("Thread join error: {0}")]
-    ThreadJoin(String),
+    #[error("Unimplemented: {0}")]
+    Unimplemented(String),
 
-    #[error("No available screens")]
-    NoScreens,
-
-    #[error("Screen not found: {0}")]
-    ScreenNotFound(String),
-
-    #[error("Permission denied")]
-    PermissionDenied,
-
-    #[error("Operation cancelled")]
-    Cancelled,
-
-    #[error("Other: {0}")]
+    #[error("Other error: {0}")]
     Other(String),
 }
-

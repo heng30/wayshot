@@ -1,5 +1,4 @@
-use screen_capture::ScreenCapture;
-use screen_capture_wayland_portal::ScreenCaptureWaylandPortal;
+use screen_capture_wayland_portal::available_screens;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
@@ -7,11 +6,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("XDG Portal Screen Info Demo");
     println!("==========================");
 
-    let mut capture = ScreenCaptureWaylandPortal::default();
-
     // Get available screens
     println!("Querying available screens...");
-    match capture.available_screens() {
+    match available_screens() {
         Ok(screens) => {
             println!("Found {} screen(s):", screens.len());
 

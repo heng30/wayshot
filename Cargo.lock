@@ -6226,17 +6226,18 @@ name = "screen-capture-wayland-portal"
 version = "0.1.0"
 dependencies = [
  "ashpd",
+ "derive_setters",
  "display-info",
  "env_logger",
  "image",
  "log",
  "pipewire",
  "screen-capture",
+ "serde",
+ "serde_json",
  "spin_sleep",
  "thiserror 2.0.17",
  "tokio",
- "wayland-client",
- "wayland-protocols",
  "which 8.0.0",
 ]
 

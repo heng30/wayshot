@@ -17,10 +17,13 @@ image.workspace = true
 ashpd.workspace = true
 pipewire.workspace = true
 thiserror.workspace = true
+serde_json.workspace = true
 spin_sleep.workspace = true
 display-info.workspace = true
 screen-capture.workspace = true
+derive_setters.workspace = true
 tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 env_logger.workspace = true
