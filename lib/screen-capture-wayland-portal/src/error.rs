@@ -22,8 +22,8 @@ pub enum Error {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("Async task error: {0}")]
-    Async(#[from] tokio::task::JoinError),
+    #[error("Thread join error: {0}")]
+    ThreadJoin(String),
 
     #[error("No available screens")]
     NoScreens,
