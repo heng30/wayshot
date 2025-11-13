@@ -90,6 +90,7 @@ cpal = "0.16"
 hound = "3.5"
 which = "8.0"
 ctrlc = "3.5"
+ashpd = "0.12"
 rubato = "0.16"
 fdk-aac = "0.8"
 memmap2 = "0.9"
@@ -115,3 +116,4 @@ mp4-player = { path = "lib/mp4-player" }
 screen-capture = { path = "lib/screen-capture" }
 recorder = { path = "lib/recorder", default-features = false }
 screen-capture-wayland-wlr = { path = "lib/screen-capture-wayland-wlr" }
+screen-capture-wayland-portal = { path = "lib/screen-capture-wayland-portal" }

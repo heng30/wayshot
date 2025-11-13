@@ -1,0 +1,28 @@
+[package]
+name = "screen-capture-wayland-portal"
+license.workspace = true
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[dependencies]
+log.workspace = true
+which.workspace = true
+ashpd.workspace = true
+image.workspace = true
+pipewire.workspace = true
+thiserror.workspace = true
+spin_sleep.workspace = true
+display-info.workspace = true
+screen-capture.workspace = true
+wayland-client.workspace = true
+wayland-protocols = { workspace = true, features = ["client", "unstable"] }
+tokio.workspace = true
+
+[dev-dependencies]
+env_logger.workspace = true

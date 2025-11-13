@@ -386,6 +386,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d92bec98840b8f03a5ff5413de5293bfcd8bf96467cf5452609f939ec6f5de16"
 
 [[package]]
+name = "ashpd"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da0986d5b4f0802160191ad75f8d33ada000558757db3defb70299ca95d9fcbd"
+dependencies = [
+ "enumflags2",
+ "futures-channel",
+ "futures-util",
+ "rand 0.9.2",
+ "serde",
+ "serde_repr",
+ "tokio",
+ "url",
+ "zbus",
+]
+
+[[package]]
 name = "async-broadcast"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5763,6 +5780,7 @@ dependencies = [
  "once_cell",
  "pipewire",
  "screen-capture",
+ "screen-capture-wayland-portal",
  "screen-capture-wayland-wlr",
  "spin_sleep",
  "thiserror 2.0.17",
@@ -6201,6 +6219,25 @@ dependencies = [
  "serde",
  "thiserror 2.0.17",
  "wayland-client",
+]
+
+[[package]]
+name = "screen-capture-wayland-portal"
+version = "0.1.0"
+dependencies = [
+ "ashpd",
+ "display-info",
+ "env_logger",
+ "image",
+ "log",
+ "pipewire",
+ "screen-capture",
+ "spin_sleep",
+ "thiserror 2.0.17",
+ "tokio",
+ "wayland-client",
+ "wayland-protocols",
+ "which 8.0.0",
 ]
 
 [[package]]
@@ -7413,6 +7450,7 @@ dependencies = [
  "signal-hook-registry",
  "socket2",
  "tokio-macros",
+ "tracing",
  "windows-sys 0.61.2",
 ]
 
@@ -9296,6 +9334,7 @@ dependencies = [
  "ordered-stream",
  "serde",
  "serde_repr",
+ "tokio",
  "tracing",
  "uds_windows",
  "uuid",
@@ -9489,6 +9528,7 @@ dependencies = [
  "endi",
  "enumflags2",
  "serde",
+ "url",
  "winnow",
  "zvariant_derive",
  "zvariant_utils",
