@@ -4,10 +4,23 @@ use ashpd::desktop::{
     screencast::{CursorMode, Screencast, SourceType, Stream as ScreencastStream},
 };
 use derive_setters::Setters;
-use pipewire as pw;
+use pipewire::{self as pw, spa::param::format};
 use pw::{properties::properties, spa};
 use screen_capture::{LogicalSize, Position, ScreenInfo};
-use std::os::fd::OwnedFd;
+use std::{
+    os::fd::OwnedFd,
+    sync::{Arc, Mutex},
+    sync::atomic::{AtomicU64, Ordering},
+    time::SystemTime,
+};
+
+struct UserData {
+    format: spa::param::video::VideoInfoRaw,
+    frame_count: AtomicU64,
+    total_frames: AtomicU64,
+    last_time_ns: AtomicU64,
+    last_fps_print_ns: AtomicU64,
+}
 
 #[derive(Debug, Clone, Setters)]
 #[setters(prefix = "with_")]
@@ -55,24 +68,27 @@ impl PortalCapturer {
 
         let fd = proxy.open_pipe_wire_remote(&session).await?;
 
-        log::warn!("======== {:?}", stream.source_type());
-
         Ok((stream, fd))
     }
 
     pub async fn start_streaming(&mut self, node_id: u32, fd: OwnedFd) -> Result<()> {
-        struct UserData {
-            format: spa::param::video::VideoInfoRaw,
-        }
-
         pw::init();
 
         let mainloop = pw::main_loop::MainLoopBox::new(None)?;
         let context = pw::context::ContextBox::new(mainloop.loop_(), None)?;
         let core = context.connect_fd(fd, None)?;
 
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos() as u64;
+        
         let data = UserData {
             format: Default::default(),
+            frame_count: AtomicU64::new(0),
+            total_frames: AtomicU64::new(0),
+            last_time_ns: AtomicU64::new(now),
+            last_fps_print_ns: AtomicU64::new(now),
         };
 
         let stream = pw::stream::StreamBox::new(
@@ -80,17 +96,21 @@ impl PortalCapturer {
             "wayshot-portal",
             properties! {
                 *pw::keys::MEDIA_TYPE => "Video",
-                *pw::keys::MEDIA_CATEGORY => "Capture",
                 *pw::keys::MEDIA_ROLE => "Screen",
+                *pw::keys::MEDIA_CATEGORY => "Capture",
             },
         )?;
+
+        let err_msg = Arc::new(Mutex::new(None));
+        let err_msg_clone = err_msg.clone();
+        let screen_size = self.screen_info.logical_size;
 
         let _listener = stream
             .add_local_listener_with_user_data(data)
             .state_changed(|_, _, old, new| {
                 log::info!("State changed: {:?} -> {:?}", old, new);
             })
-            .param_changed(|_, user_data, id, param| {
+            .param_changed(move |_, user_data, id, param| {
                 let Some(param) = param else {
                     return;
                 };
@@ -115,6 +135,24 @@ impl PortalCapturer {
                     return;
                 }
 
+                if screen_size
+                    != LogicalSize::new(
+                        user_data.format.size().width as i32,
+                        user_data.format.size().height as i32,
+                    )
+                {
+                    let msg = format!(
+                        "selected screen size: {}x{}. Found {}x{}",
+                        screen_size.width,
+                        screen_size.height,
+                        user_data.format.size().width,
+                        user_data.format.size().height
+                    );
+
+                    *err_msg.lock().unwrap() = Some(msg);
+                    return;
+                }
+
                 log::info!("got video format:");
                 log::info!(
                     "\tformat: {} ({:?})",
@@ -132,7 +170,7 @@ impl PortalCapturer {
                     user_data.format.framerate().denom
                 );
             })
-            .process(|stream, _| {
+            .process(|stream, user_data| {
                 match stream.dequeue_buffer() {
                     None => log::warn!("out of buffers"),
                     Some(mut buffer) => {
@@ -143,13 +181,50 @@ impl PortalCapturer {
 
                         // copy frame data to screen
                         let data = &mut datas[0];
-                        println!("got a frame of size {}", data.chunk().size());
+                        
+                        // 帧率检测代码
+                        let frame_count = user_data.frame_count.fetch_add(1, Ordering::Relaxed) + 1;
+                        let total_frames = user_data.total_frames.fetch_add(1, Ordering::Relaxed) + 1;
+                        let now_ns = SystemTime::now()
+                            .duration_since(SystemTime::UNIX_EPOCH)
+                            .unwrap()
+                            .as_nanos() as u64;
+                        
+                        let last_fps_print_ns = user_data.last_fps_print_ns.load(Ordering::Relaxed);
+                        
+                        // 每秒打印一次FPS
+                        if now_ns - last_fps_print_ns >= 1_000_000_000 {
+                            let last_time_ns = user_data.last_time_ns.load(Ordering::Relaxed);
+                            let duration_s = (now_ns - last_time_ns) as f32 / 1_000_000_000.0;
+                            
+                            if duration_s > 0.0 {
+                                let fps = frame_count as f32 / duration_s;
+                                println!("=== FPS STATISTICS ===");
+                                println!("Current FPS: {:.1}", fps);
+                                println!("Total frames received: {}", total_frames);
+                                println!("Frame size: {} bytes", data.chunk().size());
+                            }
+                            
+                            // 重置计数器
+                            user_data.frame_count.store(0, Ordering::Relaxed);
+                            user_data.last_time_ns.store(now_ns, Ordering::Relaxed);
+                            user_data.last_fps_print_ns.store(now_ns, Ordering::Relaxed);
+                        }
+                        
+                        // 每50帧打印一次帧信息
+                        if frame_count % 50 == 0 {
+                            println!("Frame #{} (size: {} bytes)", total_frames, data.chunk().size());
+                        }
                     }
                 }
             })
             .register()?;
 
         log::debug!("Created stream {:#?}", stream);
+
+        if let Some(ref msg) = *err_msg_clone.lock().unwrap() {
+            return Err(Error::ScreenInfoError(msg.clone()));
+        }
 
         let obj = pw::spa::pod::object!(
             pw::spa::utils::SpaTypes::ObjectParamFormat,
@@ -198,11 +273,11 @@ impl PortalCapturer {
                 Choice,
                 Range,
                 Fraction,
-                // Default framerate (30 FPS)
-                pw::spa::utils::Fraction { num: 30, denom: 1 },
-                // Minimum framerate (1 FPS)
+                // Default framerate
+                pw::spa::utils::Fraction { num: 25, denom: 1 },
+                // Minimum framerate
                 pw::spa::utils::Fraction { num: 0, denom: 1 },
-                // Maximum framerate (60 FPS)
+                // Maximum framerate
                 pw::spa::utils::Fraction { num: 60, denom: 1 }
             ),
         );
