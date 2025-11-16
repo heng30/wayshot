@@ -34,7 +34,7 @@ pub struct PortalCapturer {
     pub fps: u32,
     pub include_cursor: bool,
     pub stop_sig: Arc<AtomicBool>,
-    pub sender: Option<Sender<Vec<u8>>>,
+    pub sender: Option<Sender<(Duration, Vec<u8>)>>,
 }
 
 impl PortalCapturer {
@@ -189,7 +189,8 @@ impl PortalCapturer {
                         let index = user_data.total_frames.fetch_add(1, Ordering::Relaxed);
 
                         if let Some(ref sender) = sender
-                            && let Err(e) = sender.try_send(data.to_vec())
+                            && let Err(e) =
+                                sender.try_send((user_data.start_time.elapsed(), data.to_vec()))
                         {
                             log::warn!("portal try send frame failed: {e:?}");
                         }
@@ -287,7 +288,7 @@ impl PortalCapturer {
                 pw::spa::utils::Fraction { num: 0, denom: 1 },
                 // Maximum framerate
                 pw::spa::utils::Fraction {
-                    num: self.fps * 2,
+                    num: self.fps,
                     denom: 1
                 }
             ),

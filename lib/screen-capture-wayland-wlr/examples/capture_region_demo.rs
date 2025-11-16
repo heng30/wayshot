@@ -1,6 +1,6 @@
 use screen_capture::{LogicalSize, Position};
+use screen_capture_wayland_wlr as capture;
 use std::time::Instant;
-use wayland_wlr_screen_capture as capture;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let screen_infos = capture::available_screens()?;

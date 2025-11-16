@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let stop_sig = config.cancel_sig.clone();
 
     capturer.capture_output_stream(config, move |data| {
-        // log::debug!("{:?}", data.frame_index);
+        // log::debug!("{:?} - {:.2?}", data.frame_index, data.elapse);
         *total_frames_mut = data.frame_index;
 
         if data.elapse > Duration::from_secs(5) {

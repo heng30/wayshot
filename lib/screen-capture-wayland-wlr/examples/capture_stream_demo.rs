@@ -1,5 +1,5 @@
 use screen_capture::CaptureStreamConfig;
-use wayland_wlr_screen_capture as capture;
+use screen_capture_wayland_wlr as capture;
 
 use std::{
     sync::{
