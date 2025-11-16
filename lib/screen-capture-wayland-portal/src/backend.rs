@@ -3,32 +3,35 @@ use ashpd::desktop::{
     PersistMode,
     screencast::{CursorMode, Screencast, SourceType, Stream as ScreencastStream},
 };
+use crossbeam::channel::Sender;
 use derive_setters::Setters;
-use pipewire::{self as pw, spa::param::format};
+use pipewire as pw;
 use pw::{properties::properties, spa};
-use screen_capture::{LogicalSize, Position, ScreenInfo};
+use screen_capture::{LogicalSize, ScreenInfo};
 use std::{
     os::fd::OwnedFd,
-    sync::{Arc, Mutex},
-    sync::atomic::{AtomicU64, Ordering},
-    time::SystemTime,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
+    time::Duration,
 };
 
 struct UserData {
     format: spa::param::video::VideoInfoRaw,
-    frame_count: AtomicU64,
     total_frames: AtomicU64,
-    last_time_ns: AtomicU64,
-    last_fps_print_ns: AtomicU64,
 }
 
 #[derive(Debug, Clone, Setters)]
 #[setters(prefix = "with_")]
 pub struct PortalCapturer {
-    #[setters(prefix = "with_")]
+    #[setters(skip)]
     pub screen_info: ScreenInfo,
 
     pub include_cursor: bool,
+    pub fps: u32,
+    pub stop_sig: Arc<AtomicBool>,
+    pub sender: Option<Sender<Vec<u8>>>,
 }
 
 impl PortalCapturer {
@@ -36,6 +39,9 @@ impl PortalCapturer {
         Self {
             screen_info,
             include_cursor: true,
+            fps: 25,
+            stop_sig: Arc::new(AtomicBool::new(false)),
+            sender: None,
         }
     }
 
@@ -78,17 +84,9 @@ impl PortalCapturer {
         let context = pw::context::ContextBox::new(mainloop.loop_(), None)?;
         let core = context.connect_fd(fd, None)?;
 
-        let now = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos() as u64;
-        
         let data = UserData {
             format: Default::default(),
-            frame_count: AtomicU64::new(0),
             total_frames: AtomicU64::new(0),
-            last_time_ns: AtomicU64::new(now),
-            last_fps_print_ns: AtomicU64::new(now),
         };
 
         let stream = pw::stream::StreamBox::new(
@@ -104,6 +102,7 @@ impl PortalCapturer {
         let err_msg = Arc::new(Mutex::new(None));
         let err_msg_clone = err_msg.clone();
         let screen_size = self.screen_info.logical_size;
+        let sender = self.sender.clone();
 
         let _listener = stream
             .add_local_listener_with_user_data(data)
@@ -170,52 +169,27 @@ impl PortalCapturer {
                     user_data.format.framerate().denom
                 );
             })
-            .process(|stream, user_data| {
-                match stream.dequeue_buffer() {
-                    None => log::warn!("out of buffers"),
-                    Some(mut buffer) => {
-                        let datas = buffer.datas_mut();
-                        if datas.is_empty() {
-                            return;
-                        }
+            .process(move |stream, user_data| match stream.dequeue_buffer() {
+                None => log::warn!("out of buffers"),
+                Some(mut buffer) => {
+                    let datas = buffer.datas_mut();
+                    if datas.is_empty() {
+                        return;
+                    }
 
-                        // copy frame data to screen
-                        let data = &mut datas[0];
-                        
-                        // 帧率检测代码
-                        let frame_count = user_data.frame_count.fetch_add(1, Ordering::Relaxed) + 1;
-                        let total_frames = user_data.total_frames.fetch_add(1, Ordering::Relaxed) + 1;
-                        let now_ns = SystemTime::now()
-                            .duration_since(SystemTime::UNIX_EPOCH)
-                            .unwrap()
-                            .as_nanos() as u64;
-                        
-                        let last_fps_print_ns = user_data.last_fps_print_ns.load(Ordering::Relaxed);
-                        
-                        // 每秒打印一次FPS
-                        if now_ns - last_fps_print_ns >= 1_000_000_000 {
-                            let last_time_ns = user_data.last_time_ns.load(Ordering::Relaxed);
-                            let duration_s = (now_ns - last_time_ns) as f32 / 1_000_000_000.0;
-                            
-                            if duration_s > 0.0 {
-                                let fps = frame_count as f32 / duration_s;
-                                println!("=== FPS STATISTICS ===");
-                                println!("Current FPS: {:.1}", fps);
-                                println!("Total frames received: {}", total_frames);
-                                println!("Frame size: {} bytes", data.chunk().size());
-                            }
-                            
-                            // 重置计数器
-                            user_data.frame_count.store(0, Ordering::Relaxed);
-                            user_data.last_time_ns.store(now_ns, Ordering::Relaxed);
-                            user_data.last_fps_print_ns.store(now_ns, Ordering::Relaxed);
-                        }
-                        
-                        // 每50帧打印一次帧信息
-                        if frame_count % 50 == 0 {
-                            println!("Frame #{} (size: {} bytes)", total_frames, data.chunk().size());
+                    let data = &mut datas[0].data().unwrap_or_default();
+
+                    if !data.is_empty() {
+                        user_data.total_frames.fetch_add(1, Ordering::Relaxed);
+
+                        if let Some(ref sender) = sender
+                            && let Err(e) = sender.try_send(data.to_vec())
+                        {
+                            log::warn!("portal try send frame failed: {e:?}");
                         }
                     }
+
+                    log::debug!("frame size: {}", data.len());
                 }
             })
             .register()?;
@@ -226,6 +200,27 @@ impl PortalCapturer {
             return Err(Error::ScreenInfoError(msg.clone()));
         }
 
+        stream.connect(
+            spa::utils::Direction::Input,
+            Some(node_id),
+            pw::stream::StreamFlags::AUTOCONNECT | pw::stream::StreamFlags::MAP_BUFFERS,
+            &mut [spa::pod::Pod::from_bytes(&self.init_pipewire_pod()).unwrap()],
+        )?;
+
+        log::info!("Portal connected stream sucessfully");
+
+        while !self.stop_sig.load(Ordering::Relaxed) {
+            let _fd_counts = mainloop.loop_().iterate(Duration::from_millis(10));
+            // log::debug!("mainloop processed fd counts: {_fd_counts}");
+        }
+
+        mainloop.quit();
+        log::info!("exist Portal mainloop");
+
+        Ok(())
+    }
+
+    fn init_pipewire_pod(&self) -> Vec<u8> {
         let obj = pw::spa::pod::object!(
             pw::spa::utils::SpaTypes::ObjectParamFormat,
             pw::spa::param::ParamType::EnumFormat,
@@ -254,8 +249,8 @@ impl PortalCapturer {
                 Rectangle,
                 // Default/resolution
                 pw::spa::utils::Rectangle {
-                    width: 1920,
-                    height: 1080
+                    width: self.screen_info.logical_size.width as u32,
+                    height: self.screen_info.logical_size.height as u32
                 },
                 // Minimum supported resolution
                 pw::spa::utils::Rectangle {
@@ -264,8 +259,8 @@ impl PortalCapturer {
                 },
                 // Maximum supported resolution
                 pw::spa::utils::Rectangle {
-                    width: 4096,
-                    height: 4096
+                    width: self.screen_info.logical_size.width as u32,
+                    height: self.screen_info.logical_size.height as u32
                 }
             ),
             pw::spa::pod::property!(
@@ -274,13 +269,20 @@ impl PortalCapturer {
                 Range,
                 Fraction,
                 // Default framerate
-                pw::spa::utils::Fraction { num: 25, denom: 1 },
+                pw::spa::utils::Fraction {
+                    num: self.fps,
+                    denom: 1
+                },
                 // Minimum framerate
                 pw::spa::utils::Fraction { num: 0, denom: 1 },
                 // Maximum framerate
-                pw::spa::utils::Fraction { num: 60, denom: 1 }
+                pw::spa::utils::Fraction {
+                    num: self.fps,
+                    denom: 1
+                }
             ),
         );
+
         let values: Vec<u8> = pw::spa::pod::serialize::PodSerializer::serialize(
             std::io::Cursor::new(Vec::new()),
             &pw::spa::pod::Value::Object(obj),
@@ -289,19 +291,6 @@ impl PortalCapturer {
         .0
         .into_inner();
 
-        let mut params = [spa::pod::Pod::from_bytes(&values).unwrap()];
-
-        stream.connect(
-            spa::utils::Direction::Input,
-            Some(node_id),
-            pw::stream::StreamFlags::AUTOCONNECT | pw::stream::StreamFlags::MAP_BUFFERS,
-            &mut params,
-        )?;
-
-        log::info!("Portal connected stream sucessfully");
-
-        mainloop.run();
-
-        Ok(())
+        values
     }
 }

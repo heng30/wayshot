@@ -15,11 +15,12 @@ pub enum ScreenCaptureError {
 pub trait ScreenCapture {
     fn available_screens(&mut self) -> Result<Vec<ScreenInfo>, ScreenInfoError>;
 
+    // reture Ok(None) if use only thread for capturing
     fn capture_mean_time(
         &mut self,
         screen_name: &str,
         counts: u32,
-    ) -> Result<std::time::Duration, ScreenCaptureError>;
+    ) -> Result<Option<std::time::Duration>, ScreenCaptureError>;
 
     fn capture_output_stream(
         self,

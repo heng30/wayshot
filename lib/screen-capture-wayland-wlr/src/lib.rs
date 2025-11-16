@@ -23,7 +23,7 @@ impl screen_capture::ScreenCapture for ScreenCaptureWaylandWlr {
         &mut self,
         screen_name: &str,
         counts: u32,
-    ) -> Result<std::time::Duration, screen_capture::ScreenCaptureError> {
+    ) -> Result<Option<std::time::Duration>, screen_capture::ScreenCaptureError> {
         capture::capture_mean_time(screen_name, counts)
             .map_err(|e| screen_capture::ScreenCaptureError::Capture(e.to_string()))
     }

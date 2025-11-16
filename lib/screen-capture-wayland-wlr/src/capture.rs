@@ -290,7 +290,7 @@ fn captures_to_buffer(output_infos: &[backend::OutputInfo]) -> Result<Capture, E
     })
 }
 
-pub fn capture_mean_time(screen_name: &str, counts: u32) -> Result<Duration, Error> {
+pub fn capture_mean_time(screen_name: &str, counts: u32) -> Result<Option<Duration>, Error> {
     assert!(counts > 0);
 
     let screen_infos = available_screens()?;
@@ -310,5 +310,5 @@ pub fn capture_mean_time(screen_name: &str, counts: u32) -> Result<Duration, Err
     for _ in 0..counts {
         _ = capture_output(screen_name, true);
     }
-    Ok(start.elapsed() / counts)
+    Ok(Some(start.elapsed() / counts))
 }

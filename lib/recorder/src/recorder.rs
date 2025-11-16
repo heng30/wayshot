@@ -1100,9 +1100,10 @@ impl RecordingSession {
         &self,
         screen_capturer: &mut impl ScreenCapture,
     ) -> Result<u32, RecorderError> {
-        let mean_ms = screen_capturer
-            .capture_mean_time(&self.config.screen_name, 3)?
-            .as_millis() as f64;
+        let mean_ms = match screen_capturer.capture_mean_time(&self.config.screen_name, 3)? {
+            None => return Ok(1),
+            Some(ms) => ms.as_millis() as f64,
+        };
 
         log::info!("capture mean time: {mean_ms:.2?}ms");
 

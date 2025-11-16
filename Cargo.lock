@@ -6226,6 +6226,7 @@ name = "screen-capture-wayland-portal"
 version = "0.1.0"
 dependencies = [
  "ashpd",
+ "crossbeam",
  "derive_setters",
  "display-info",
  "env_logger",
