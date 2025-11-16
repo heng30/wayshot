@@ -84,43 +84,4 @@ pub fn capture_output_stream(
 
 pub fn capture_mean_time(_screen_name: &str, _counts: u32) -> Result<Option<Duration>> {
     Ok(None)
-
-    // use std::sync::{
-    //     Arc, atomic::{AtomicBool, Ordering},
-    // },
-    // let capturer = crate::ScreenCaptureWaylandPortal::default();
-    // let try_seconds = counts.clamp(1, 5) as u64;
-    //
-    // let config = CaptureStreamConfig {
-    //     name: screen_name.to_string(),
-    //     include_cursor: true,
-    //     fps: Some(60.0),
-    //     cancel_sig: Arc::new(AtomicBool::new(false)),
-    // };
-    //
-    // let mut total_frames = 0;
-    // let total_frames_mut = &mut total_frames;
-    // let stop_sig = config.cancel_sig.clone();
-    //
-    // capturer
-    //     .capture_output_stream(config, move |data| {
-    //         *total_frames_mut = data.frame_index;
-    //
-    //         log::debug!("yyyyyyyyyyyyy {:?}", data.elapse);
-    //         if data.elapse > Duration::from_secs(try_seconds) {
-    //             stop_sig.store(true, Ordering::Relaxed);
-    //         }
-    //     })
-    //     .map_err(|e| Error::Other(e.to_string()))?;
-    //
-    // log::info!("average fps: {}", total_frames / try_seconds);
-    //
-    // if total_frames == 0 {
-    //     return Err(Error::NoOutput("Can not capture frame".to_string()));
-    // }
-    //
-    // Ok(Some(Duration::from_millis(
-    //     1000 * try_seconds / total_frames,
-    // )))
-    //
 }

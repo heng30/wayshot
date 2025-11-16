@@ -10,6 +10,7 @@ use pw::{properties::properties, spa};
 use screen_capture::{LogicalSize, ScreenInfo};
 use spin_sleep::SpinSleeper;
 use std::{
+    io::Write,
     os::fd::OwnedFd,
     sync::{
         Arc, Mutex,
@@ -113,7 +114,7 @@ impl PortalCapturer {
         let _listener = stream
             .add_local_listener_with_user_data(data)
             .state_changed(|_, _, old, new| {
-                log::info!("State changed: {:?} -> {:?}", old, new);
+                log::debug!("State changed: {:?} -> {:?}", old, new);
             })
             .param_changed(move |_, user_data, id, param| {
                 let Some(param) = param else {
@@ -175,32 +176,37 @@ impl PortalCapturer {
                     user_data.format.framerate().denom
                 );
             })
-            .process(move |stream, user_data| match stream.dequeue_buffer() {
-                None => log::warn!("out of buffers"),
-                Some(mut buffer) => {
-                    let datas = buffer.datas_mut();
-                    if datas.is_empty() {
-                        return;
-                    }
-
-                    let data = &mut datas[0].data().unwrap_or_default();
-
-                    if !data.is_empty() {
-                        let index = user_data.total_frames.fetch_add(1, Ordering::Relaxed);
-
-                        if let Some(ref sender) = sender
-                            && let Err(e) =
-                                sender.try_send((user_data.start_time.elapsed(), data.to_vec()))
-                        {
-                            log::warn!("portal try send frame failed: {e:?}");
+            .process(move |stream, user_data| {
+                match stream.dequeue_buffer() {
+                    None => log::warn!("out of buffers"),
+                    Some(mut buffer) => {
+                        let datas = buffer.datas_mut();
+                        if datas.is_empty() {
+                            return;
                         }
 
-                        let target_time = user_data.start_time
-                            + Duration::from_millis((interval_ms * (index + 1) as f64) as u64);
-                        user_data.sleeper.sleep_until(target_time);
-                    }
+                        let data = &mut datas[0].data().unwrap_or_default();
 
-                    // log::debug!("frame size: {}", data.len());
+                        if !data.is_empty() {
+                            let index = user_data.total_frames.fetch_add(1, Ordering::Relaxed);
+
+                            if let Some(ref sender) = sender
+                                && let Err(e) =
+                                    sender.try_send((user_data.start_time.elapsed(), data.to_vec()))
+                            {
+                                log::warn!("portal try send frame failed: {e:?}");
+                            }
+
+                            let target_time = user_data.start_time
+                                + Duration::from_millis((interval_ms * (index + 1) as f64) as u64);
+                            user_data.sleeper.sleep_until(target_time);
+                        }
+
+                        // NOTE: I don't why. Writing `\n` to stdout/stderr can keep fps as expected
+                        std::io::stderr().write(&[b'\n']).ok();
+
+                        // log::debug!("frame size: {}", data.len());
+                    }
                 }
             })
             .register()?;

@@ -11,7 +11,7 @@ web-build-env = SLINT_STYLE=fluent $(build-env) RUSTFLAGS='--cfg getrandom_backe
 
 run-env = RUST_LOG=debug
 proj-features = --features=${desktop-features},database,qrcode,center-window
-desktop-features = desktop-wayland-wlr
+desktop-features ?= desktop-wayland-wlr
 
 all: desktop-build-release
 

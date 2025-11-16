@@ -53,5 +53,8 @@ pub fn platform_screen_capture() -> impl screen_capture::ScreenCapture + Clone +
     #[cfg(all(target_os = "linux", feature = "wayland-wlr"))]
     let screen_capturer = screen_capture_wayland_wlr::ScreenCaptureWaylandWlr::default();
 
+    #[cfg(all(target_os = "linux", feature = "wayland-portal"))]
+    let screen_capturer = screen_capture_wayland_portal::ScreenCaptureWaylandPortal::default();
+
     screen_capturer
 }
