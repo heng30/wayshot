@@ -5,7 +5,6 @@ use std::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
-    thread,
     time::Duration,
 };
 
@@ -24,18 +23,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         cancel_sig: Arc::new(AtomicBool::new(false)),
     };
 
+    let mut total_frames = 0;
+    let total_frames_mut = &mut total_frames;
     let stop_sig = config.cancel_sig.clone();
 
-    thread::spawn(move || {
-        thread::sleep(Duration::from_secs(5));
-        log::info!("5 seconds elapsed, stopping recording...");
-        stop_sig.store(true, Ordering::Relaxed);
-    });
+    capturer.capture_output_stream(config, move |data| {
+        // log::debug!("{:?}", data.frame_index);
+        *total_frames_mut = data.frame_index;
 
-    let mut total_frames = 0;
-    capturer.capture_output_stream(config, |data| {
-        log::debug!("{:?}", data.frame_index);
-        total_frames = data.frame_index;
+        if data.elapse > Duration::from_secs(5) {
+            log::info!("5 seconds elapsed, stopping recording...");
+            stop_sig.store(true, Ordering::Relaxed);
+        }
     })?;
 
     println!("average fps: {}", total_frames / 5);

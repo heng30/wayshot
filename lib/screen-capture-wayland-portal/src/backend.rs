@@ -287,7 +287,7 @@ impl PortalCapturer {
                 pw::spa::utils::Fraction { num: 0, denom: 1 },
                 // Maximum framerate
                 pw::spa::utils::Fraction {
-                    num: self.fps,
+                    num: self.fps * 2,
                     denom: 1
                 }
             ),

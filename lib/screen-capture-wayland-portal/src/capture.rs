@@ -30,7 +30,7 @@ pub fn capture_output_stream(
         }
     };
 
-    let (sender, receiver) = bounded(32);
+    let (sender, receiver) = bounded(128);
     let screen_size = screen_info.logical_size.clone();
     let rt = tokio::runtime::Runtime::new()
         .map_err(|e| Error::Other(format!("New tokio runtime for screencast failed: {e}")))?;
