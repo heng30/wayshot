@@ -8,7 +8,6 @@ use std::{
     os::fd::IntoRawFd,
     time::{Duration, Instant},
 };
-// use spin_sleep::SpinSleeper;
 
 pub fn capture_output_stream(
     config: CaptureStreamConfig,

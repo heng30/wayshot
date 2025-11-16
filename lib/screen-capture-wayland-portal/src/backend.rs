@@ -8,18 +8,21 @@ use derive_setters::Setters;
 use pipewire as pw;
 use pw::{properties::properties, spa};
 use screen_capture::{LogicalSize, ScreenInfo};
+use spin_sleep::SpinSleeper;
 use std::{
     os::fd::OwnedFd,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 struct UserData {
     format: spa::param::video::VideoInfoRaw,
     total_frames: AtomicU64,
+    sleeper: SpinSleeper,
+    start_time: Instant,
 }
 
 #[derive(Debug, Clone, Setters)]
@@ -28,8 +31,8 @@ pub struct PortalCapturer {
     #[setters(skip)]
     pub screen_info: ScreenInfo,
 
-    pub include_cursor: bool,
     pub fps: u32,
+    pub include_cursor: bool,
     pub stop_sig: Arc<AtomicBool>,
     pub sender: Option<Sender<Vec<u8>>>,
 }
@@ -38,8 +41,8 @@ impl PortalCapturer {
     pub fn new(screen_info: ScreenInfo) -> Self {
         Self {
             screen_info,
-            include_cursor: true,
             fps: 25,
+            include_cursor: true,
             stop_sig: Arc::new(AtomicBool::new(false)),
             sender: None,
         }
@@ -87,6 +90,8 @@ impl PortalCapturer {
         let data = UserData {
             format: Default::default(),
             total_frames: AtomicU64::new(0),
+            sleeper: SpinSleeper::default(),
+            start_time: Instant::now(),
         };
 
         let stream = pw::stream::StreamBox::new(
@@ -103,6 +108,7 @@ impl PortalCapturer {
         let err_msg_clone = err_msg.clone();
         let screen_size = self.screen_info.logical_size;
         let sender = self.sender.clone();
+        let interval_ms = 1000.0 / self.fps as f64;
 
         let _listener = stream
             .add_local_listener_with_user_data(data)
@@ -180,16 +186,20 @@ impl PortalCapturer {
                     let data = &mut datas[0].data().unwrap_or_default();
 
                     if !data.is_empty() {
-                        user_data.total_frames.fetch_add(1, Ordering::Relaxed);
+                        let index = user_data.total_frames.fetch_add(1, Ordering::Relaxed);
 
                         if let Some(ref sender) = sender
                             && let Err(e) = sender.try_send(data.to_vec())
                         {
                             log::warn!("portal try send frame failed: {e:?}");
                         }
+
+                        let target_time = user_data.start_time
+                            + Duration::from_millis((interval_ms * (index + 1) as f64) as u64);
+                        user_data.sleeper.sleep_until(target_time);
                     }
 
-                    log::debug!("frame size: {}", data.len());
+                    // log::debug!("frame size: {}", data.len());
                 }
             })
             .register()?;
@@ -215,7 +225,7 @@ impl PortalCapturer {
         }
 
         mainloop.quit();
-        log::info!("exist Portal mainloop");
+        log::info!("exit Portal mainloop");
 
         Ok(())
     }
