@@ -5,6 +5,7 @@ use ashpd::desktop::{
 };
 use crossbeam::channel::Sender;
 use derive_setters::Setters;
+use image::{ImageBuffer, Rgba, buffer::ConvertBuffer};
 use pipewire as pw;
 use pw::{properties::properties, spa};
 use screen_capture::{LogicalSize, ScreenInfo};
@@ -185,16 +186,46 @@ impl PortalCapturer {
                             return;
                         }
 
-                        let data = &mut datas[0].data().unwrap_or_default();
+                        let data = datas[0].data().unwrap_or_default();
 
                         if !data.is_empty() {
                             let index = user_data.total_frames.fetch_add(1, Ordering::Relaxed);
 
-                            if let Some(ref sender) = sender
-                                && let Err(e) =
-                                    sender.try_send((user_data.start_time.elapsed(), data.to_vec()))
-                            {
-                                log::warn!("portal try send frame failed: {e:?}");
+                            if let Some(ref sender) = sender {
+                                let data = match user_data.format.format() {
+                                    pw::spa::param::video::VideoFormat::RGB => {
+                                        match ImageBuffer::<image::Rgb<u8>, _>::from_raw(
+                                            user_data.format.size().width,
+                                            user_data.format.size().height,
+                                            data,
+                                        ) {
+                                            Some(img) => {
+                                                let rgba_img: ImageBuffer<Rgba<u8>, Vec<u8>> =
+                                                    img.convert();
+
+                                                rgba_img.to_vec()
+                                            }
+                                            _ => {
+                                                log::warn!("Invalid RGB data");
+                                                return;
+                                            }
+                                        }
+                                    }
+                                    pw::spa::param::video::VideoFormat::BGRx => {
+                                        let mut rgbx = data.to_vec();
+                                        for chunk in rgbx.chunks_exact_mut(4) {
+                                            chunk.swap(0, 2); // BGRX -> RGBX
+                                        }
+                                        data.to_vec()
+                                    }
+                                    _ => data.to_vec(),
+                                };
+
+                                if let Err(e) =
+                                    sender.try_send((user_data.start_time.elapsed(), data))
+                                {
+                                    log::warn!("portal try send frame failed: {e:?}");
+                                }
                             }
 
                             let target_time = user_data.start_time
@@ -256,8 +287,10 @@ impl PortalCapturer {
                 Choice,
                 Enum,
                 Id,
+                pw::spa::param::video::VideoFormat::RGB,
                 pw::spa::param::video::VideoFormat::RGBA,
                 pw::spa::param::video::VideoFormat::RGBx,
+                pw::spa::param::video::VideoFormat::BGRx,
             ),
             pw::spa::pod::property!(
                 pw::spa::param::format::FormatProperties::VideoSize,

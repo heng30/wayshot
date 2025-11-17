@@ -26,7 +26,6 @@ derive_setters.workspace = true
 tokio = { workspace = true, features = ["full"] }
 serde = { workspace = true, features = ["derive"] }
 
-
 [dev-dependencies]
 env_logger.workspace = true
 tokio = { workspace = true, features = ["full"] }
