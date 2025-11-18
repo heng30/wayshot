@@ -21,12 +21,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         include_cursor: true,
         fps: Some(25.0),
         cancel_sig: Arc::new(AtomicBool::new(false)),
+        sync_sig: Arc::new(AtomicBool::new(false)),
     };
 
     let mut total_frames = 0;
     let total_frames_mut = &mut total_frames;
     let stop_sig = config.cancel_sig.clone();
-    let wait_seconds = 3;
+    let wait_seconds = 5;
 
     capturer.capture_output_stream(config, move |data| {
         // log::debug!("{:?} - {:.2?}", data.frame_index, data.elapse);

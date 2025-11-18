@@ -128,7 +128,7 @@ component ControlPanel inherits HorizontalLayout {
 
     Timer {
         interval: 1s;
-        running: Store.record-status == RecordStatus.Recording;
+        running: Store.record-status == RecordStatus.Recording && Store.start-recording-timer;
 
         triggered() => {
             record-duration += 1;

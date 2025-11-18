@@ -609,6 +609,7 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
     session.start(platform_screen_capture())?;
 
     _ = ui_weak.upgrade_in_event_loop(move |ui| {
+        global_store!(ui).set_start_recording_timer(false);
         global_store!(ui).set_final_video_path(SharedString::default());
         global_store!(ui).set_record_status(UIRecordStatus::Recording);
     });
@@ -635,6 +636,7 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
                 );
                 let img = slint::Image::from_rgb8(buffer);
                 global_store!(ui).set_preview_image(img);
+                global_store!(ui).set_start_recording_timer(true);
 
                 let mut sinfo = global_store!(ui).get_stats_info();
                 sinfo.fps = frame.stats.fps;
@@ -652,6 +654,7 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
     session.wait()?;
 
     _ = ui_weak.upgrade_in_event_loop(move |ui| {
+        global_store!(ui).set_start_recording_timer(false);
         global_store!(ui).set_record_status(UIRecordStatus::Stopped);
         global_store!(ui).set_final_video_path(final_video_path.display().to_shared_string());
         global_logic!(ui).invoke_add_history(final_video_path.display().to_shared_string());

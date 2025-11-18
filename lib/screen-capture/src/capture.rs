@@ -31,6 +31,10 @@ pub struct CaptureStreamConfig {
 
     /// Cancellation signal - when set to true, the capture loop will exit
     pub cancel_sig: Arc<AtomicBool>,
+
+    /// synchronization signal - when set to true,
+    /// the audio, desktop speaker and mouse tracking threads will start running
+    pub sync_sig: Arc<AtomicBool>,
 }
 
 #[derive(Debug, Clone)]

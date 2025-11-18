@@ -3,11 +3,21 @@ use crate::{
     error::{Error, Result},
 };
 use crossbeam::channel::bounded;
+use once_cell::sync::Lazy;
 use screen_capture::{Capture, CaptureStatus, CaptureStreamCallbackData, CaptureStreamConfig};
 use std::{
     os::fd::IntoRawFd,
+    sync::atomic::Ordering,
     time::{Duration, Instant},
 };
+use tokio::runtime::Runtime;
+
+static TOKIO_RT: Lazy<Runtime> = Lazy::new(|| {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build global tokio runtime")
+});
 
 pub fn capture_output_stream(
     config: CaptureStreamConfig,
@@ -32,10 +42,8 @@ pub fn capture_output_stream(
 
     let (sender, receiver) = bounded(128);
     let screen_size = screen_info.logical_size.clone();
-    let rt = tokio::runtime::Runtime::new()
-        .map_err(|e| Error::Other(format!("New tokio runtime for screencast failed: {e}")))?;
 
-    rt.spawn(async move {
+    TOKIO_RT.spawn(async move {
         let mut backend = PortalCapturer::new(screen_info)
             .with_include_cursor(config.include_cursor)
             .with_fps(config.fps.unwrap_or(25.0) as u32)
@@ -50,6 +58,8 @@ pub fn capture_output_stream(
             pipewire_node_id,
             &fd.try_clone().unwrap().into_raw_fd()
         );
+
+        config.sync_sig.store(true, Ordering::Relaxed);
 
         if let Err(e) = backend.start_streaming(pipewire_node_id, fd).await {
             log::warn!("Error: {e}");

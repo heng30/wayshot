@@ -50,7 +50,7 @@ impl PortalCapturer {
         }
     }
 
-    pub async fn open_portal(&self) -> Result<(ScreencastStream, OwnedFd)> {
+    pub async fn open_portal<'a>(&self) -> Result<(ScreencastStream, OwnedFd)> {
         let proxy = Screencast::new().await?;
         let session = proxy.create_session().await?;
         proxy

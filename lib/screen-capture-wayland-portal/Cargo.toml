@@ -27,6 +27,8 @@ tokio = { workspace = true, features = ["full"] }
 serde = { workspace = true, features = ["derive"] }
 rdev = { workspace = true, features = ["unstable_grab"] }
 
+once_cell.workspace = true
+
 [dev-dependencies]
 ctrlc.workspace = true
 env_logger.workspace = true

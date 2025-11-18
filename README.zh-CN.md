@@ -15,7 +15,7 @@
 - 光标跟随
 
 ### 如何构建?
-- 安装 `Rust`, `Cargo`, `libpipewire` 和 `libalsa`
+- 安装 `Rust`, `Cargo`, `libpipewire`, `libalsa`和`libx264`
 - 运行 `make desktop-debug` 调试桌面平台程序
 - 运行 `make desktop-build-release` 编译桌面平台程序
 - 参考 [Makefile](./Makefile) 了解更多信息

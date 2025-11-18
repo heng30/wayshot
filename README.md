@@ -15,7 +15,7 @@ This is a screen recording tool for `Linux` `Wayland`, which uses the `wlroots` 
 - Cursor tracking
 
 ### How to build?
-- Install`Rust`, `Cargo`, `libpipewire` and `libalsa`
+- Install`Rust`, `Cargo`, `libpipewire`, `libalsa`, `libx264`
 - Run `make desktop-debug` to run it on desktop platform
 - Run `make desktop-build-release` to build a release version desktop application
 - Refer to [Makefile](./Makefile) for more information

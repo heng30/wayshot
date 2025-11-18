@@ -128,6 +128,8 @@ pub fn capture_output_stream(
     let mut last_cleanup = std::time::Instant::now();
     const CLEANUP_INTERVAL: Duration = Duration::from_secs(5); // Clean every 5 seconds
 
+    config.sync_sig.store(true, Ordering::Relaxed);
+
     // Main capture loop
     loop {
         // Check for cancellation signal

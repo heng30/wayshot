@@ -46,6 +46,7 @@ static LAST_CROP_REGION: Lazy<Mutex<Option<Rectangle>>> = Lazy::new(|| Mutex::ne
 pub struct RecordingSession {
     config: RecorderConfig,
     stop_sig: Arc<AtomicBool>,
+    sync_sig: Arc<AtomicBool>,
 
     frame_sender: Option<Sender<Frame>>,
     frame_receiver: Receiver<Frame>,
@@ -82,6 +83,7 @@ impl RecordingSession {
         Self {
             config,
             stop_sig: Arc::new(AtomicBool::new(false)),
+            sync_sig: Arc::new(AtomicBool::new(false)),
 
             frame_sender: Some(frame_sender),
             frame_receiver,
@@ -157,22 +159,6 @@ impl RecordingSession {
             }
         }
 
-        if self.config.enable_cursor_tracking {
-            let (crop_region_sender, crop_region_receiver) = bounded(CURSOR_CHANNEL_SIZE);
-            self.cursor_thread(screen_capturer.clone(), crop_region_sender)?;
-            self.crop_region_receiver = Some(crop_region_receiver);
-        }
-
-        if let Some(device_name) = self.config.audio_device_name.clone() {
-            self.enable_audio(device_name.as_str(), audio_sender)?;
-            log::info!("Enable audio recording successfully");
-        }
-
-        if self.config.enable_recording_speaker {
-            self.enable_speaker_audio(speaker_sender)?;
-            log::info!("Enable speaker recording successfully");
-        };
-
         let frame_iterval_ms = self.config.frame_interval_ms();
         let fps_per_thread = self.config.fps.to_u32() as f64 / thread_counts as f64;
         let config = CaptureStreamConfig {
@@ -180,6 +166,7 @@ impl RecordingSession {
             include_cursor: self.config.include_cursor,
             fps: Some(fps_per_thread),
             cancel_sig: self.stop_sig.clone(),
+            sync_sig: self.sync_sig.clone(),
         };
 
         for i in 0..thread_counts {
@@ -210,6 +197,45 @@ impl RecordingSession {
             });
 
             self.capture_workers.push(handle);
+
+            if i == 0 {
+                let (mut try_counts, mut now) = (0, Instant::now());
+                while !self.sync_sig.load(Ordering::Relaxed) {
+                    if now.elapsed() > Duration::from_secs(5) {
+                        log::warn!("Waiting 5 seconds for `sync_sig`");
+                        now = Instant::now();
+                        try_counts += 1;
+
+                        if try_counts == 3 {
+                            return Err(RecorderError::Other(
+                                "waiting synchronization signal for a long time".to_string(),
+                            ));
+                        }
+                    }
+
+                    thread::sleep(Duration::from_millis(10));
+                }
+
+                log::info!(
+                    "`sync_sig` is true. start to run audio, speaker and cursor tracker threads"
+                );
+
+                if self.config.enable_cursor_tracking {
+                    let (crop_region_sender, crop_region_receiver) = bounded(CURSOR_CHANNEL_SIZE);
+                    self.cursor_thread(screen_capturer.clone(), crop_region_sender)?;
+                    self.crop_region_receiver = Some(crop_region_receiver);
+                }
+
+                if let Some(device_name) = self.config.audio_device_name.clone() {
+                    self.enable_audio(device_name.as_str(), audio_sender.clone())?;
+                    log::info!("Enable audio recording successfully");
+                }
+
+                if self.config.enable_recording_speaker {
+                    self.enable_speaker_audio(speaker_sender.clone())?;
+                    log::info!("Enable speaker recording successfully");
+                };
+            }
         }
 
         self.frame_sender.take();
@@ -1025,18 +1051,6 @@ impl RecordingSession {
                 e
             ))
         })?;
-
-        // let resize_options =
-        //     fast_image_resize::ResizeOptions::new().resize_alg(if region.is_some() {
-        //         // fast_image_resize::ResizeAlg::Nearest
-        //         // fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Hamming)
-        //         fast_image_resize::ResizeAlg::Interpolation(fast_image_resize::FilterType::Mitchell)
-        //     } else {
-        //         fast_image_resize::ResizeAlg::SuperSampling(
-        //             fast_image_resize::FilterType::Lanczos3,
-        //             2,
-        //         )
-        //     });
 
         let resize_options = fast_image_resize::ResizeOptions::new().resize_alg(
             fast_image_resize::ResizeAlg::SuperSampling(fast_image_resize::FilterType::Lanczos3, 2),
