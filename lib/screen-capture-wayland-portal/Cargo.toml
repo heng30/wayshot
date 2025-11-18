@@ -25,7 +25,9 @@ screen-capture.workspace = true
 derive_setters.workspace = true
 tokio = { workspace = true, features = ["full"] }
 serde = { workspace = true, features = ["derive"] }
+rdev = { workspace = true, features = ["unstable_grab"] }
 
 [dev-dependencies]
+ctrlc.workspace = true
 env_logger.workspace = true
 tokio = { workspace = true, features = ["full"] }

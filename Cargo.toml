@@ -84,7 +84,9 @@ platform-dirs = "0.3"
 
 yuv = "0.8"
 mp4 = "0.14"
+nix = "0.30"
 x264 = "0.5"
+rdev = "0.5"
 open = "5.3"
 cpal = "0.16"
 hound = "3.5"
@@ -103,10 +105,9 @@ nnnoiseless = "0.5"
 derive_builder = "0.20"
 wayland-client = "0.31"
 fast_image_resize = "5.3"
-nix = { version = "0.30", features = ["fs"] }
+wayland-protocols = "0.32"
+wayland-protocols-wlr = "0.3"
 rodio = { version = "0.21", default-features = false }
-wayland-protocols-wlr = { version = "0.3", features = ["client"] }
-wayland-protocols = { version = "0.32", features = ["client", "unstable"] }
 
 mp4m = { path = "lib/mp4m" }
 cutil = { path = "lib/cutil" }

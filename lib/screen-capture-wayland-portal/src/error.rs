@@ -16,6 +16,9 @@ pub enum Error {
     #[error("Screen info error: {0}")]
     ScreenInfoError(String),
 
+    #[error("cursor error: {0}")]
+    CursorError(String),
+
     #[error("No output error: {0}")]
     NoOutput(String),
 
