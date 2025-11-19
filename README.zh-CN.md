@@ -28,6 +28,9 @@
 - `Wayland xdg portal`版本使用光标追踪功能，需要将当前用户添加到`input`和`plugdev`组或者使用管理员权限运行程序。
     - `sudo usermod -aG input $USER` or `sudo usermod -aG plugdev $USER`
     - `sudo -E wayshot`
+- 程序版本选择版本:
+    -`portal`版本：`Ubuntu` 和 `KDE` 等
+    - 'wlr'版本：`Sway` 和 `Hyprland` 等
 
 ### 参考
 - [Slint Language Documentation](https://slint-ui.com/releases/1.0.0/docs/slint/)

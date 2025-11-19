@@ -1,4 +1,4 @@
-name: linux
+name: linux-portal
 on: [push]
 
 permissions:

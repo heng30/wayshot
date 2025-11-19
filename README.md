@@ -28,6 +28,9 @@ This is a screen recording tool for `Linux` `Wayland`, which uses the `wlroots` 
 - When using the cursor tracking feature with the `Wayland xdg portal` version, you need to either add the current user to the `input` and `plugdev` groups or run the program with administrator privileges.
     - `sudo usermod -aG input $USER` or `sudo usermod -aG plugdev $USER`
     - `sudo -E wayshot`
+- Program version selection:
+    - `portal` version: `Ubuntu` and `KDE`, etc.
+    - `wlr` version: `Sway` and `Hyprland`, etc.
 
 ### Reference
 - [Slint Language Documentation](https://slint-ui.com/releases/1.0.0/docs/slint/)
