@@ -25,10 +25,10 @@ android-debug:
 	$(android-build-env) $(run-env) cargo apk run --lib -p ${app-name} --no-default-features --features=mobile,android
 
 desktop-build:
-	$(desktop-build-env) cargo build --no-default-features --features=${desktop-features}
+	$(desktop-build-env) cargo build --bin ${app-name} --no-default-features --features=${desktop-features}
 
 desktop-build-release:
-	$(desktop-build-env) cargo build --release --no-default-features --features=${desktop-features}
+	$(desktop-build-env) cargo build --release --bin ${app-name} --no-default-features --features=${desktop-features}
 
 desktop-debug:
 	$(desktop-build-env) $(run-env) cargo run --bin ${app-name} --no-default-features --features=${desktop-features}
