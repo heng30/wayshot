@@ -13,16 +13,21 @@ This is a screen recording tool for `Linux` `Wayland`, which uses the `wlroots` 
 - Desktop audio recording
 - Microphone noise reduction
 - Cursor tracking
+- Manage recorded video history
+- Play recorded historical videos
 
 ### How to build?
 - Install`Rust`, `Cargo`, `libpipewire`, `libalsa`, `libx264`
 - Run `make desktop-debug` to run it on desktop platform
-- Run `make desktop-build-release` to build a release version desktop application
+- Run `make desktop-build-release` to build a release version desktop application for wayland wlr. Likes: `Sway` and `Hyprland`.
+- Run `make desktop-build-release desktop-features=desktop-wayland-portal` to build a release version desktop application for wayland xdg-desktop-portal. Likes: `Ubuntu` and `kde`
 - Refer to [Makefile](./Makefile) for more information
 
 ### Troubleshooting
 - Using the `Qt backend` can resolve the issue of fuzzy fonts on the Windows platform. It is also recommended to prioritize the `Qt backend` to maintain a consistent build environment with the developers.
-- `ffmpeg` needs to be installed. It is used to combine the recorded video and audio into the final `MP4` file.
+- When using the cursor tracking feature with the `Wayland xdg portal` version, you need to either add the current user to the `input` and `plugdev` groups or run the program with administrator privileges.
+    - `sudo usermod -aG input $USER` or `sudo usermod -aG plugdev $USER`
+    - `sudo -E wayshot`
 
 ### Reference
 - [Slint Language Documentation](https://slint-ui.com/releases/1.0.0/docs/slint/)

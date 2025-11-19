@@ -286,6 +286,9 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("remove no found histories", "移除未找到的历史记录"),
             ("sort", "排序"),
             ("video file duration is 0", "视频文件时长为0"),
+            ("To enable cursor tracking, you need to run the following command", "启用光标跟踪功能需要运行以下命令"),
+            ("If the above attempts fail, you need to run the program with administrator privileges", "如果上述尝试后，依然失败。需要使用管理员权限运行程序"),
+            ("Note", "注意")
         ])
     })
 }

@@ -8,12 +8,13 @@ import {
     IconsDialog,
     ConfirmDialog,
     ConfirmDialogSetting,
+    MessageDialog,
+    MessageDialogSetting,
     Blanket,
     LandingPage,
     AboutSetting,
     ToastSetting,
     PopupActionSetting,
-    ConfirmDialogSetting,
 } from "base/widgets.slint";
 import { DesktopPanel } from "panel/desktop/desktop.slint";
 
@@ -31,10 +32,11 @@ export component AppWindow inherits Window {
 
     DesktopPanel { }
 
-    if IconsDialogSetting.show || ConfirmDialogSetting.show: Blanket {
+    if IconsDialogSetting.show || ConfirmDialogSetting.show || MessageDialogSetting.show:  Blanket {
         clicked => {
             IconsDialogSetting.show = false;
             ConfirmDialogSetting.show = false;
+            MessageDialogSetting.show = false;
         }
     }
 
@@ -47,6 +49,11 @@ export component AppWindow inherits Window {
     }
 
     if ConfirmDialogSetting.show: ConfirmDialog {
+        is-prevent-event-forward: true;
+        width: Math.min(root.width * 0.9, self.vbox-preferred-width * 2);
+    }
+
+    if MessageDialogSetting.show: MessageDialog {
         is-prevent-event-forward: true;
         width: Math.min(root.width * 0.9, self.vbox-preferred-width * 2);
     }

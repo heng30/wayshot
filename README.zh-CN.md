@@ -13,16 +13,21 @@
 - 桌面音频录制
 - 麦克风降噪
 - 光标跟随
+- 管理录制视频历史
+- 播放录制的历史视频
 
 ### 如何构建?
 - 安装 `Rust`, `Cargo`, `libpipewire`, `libalsa`和`libx264`
 - 运行 `make desktop-debug` 调试桌面平台程序
-- 运行 `make desktop-build-release` 编译桌面平台程序
+- 运行 `make desktop-build-release` 可构建适用于 `Wayland wlr` 的桌面应用程序发布版本。例如：`Sway` 和 `Hyprland`。
+- 运行 `make desktop-build-release desktop-features=desktop-wayland-portal` 可构建适用于 `Wayland XDG` 桌面门户的桌面应用程序发布版本。例如：`Ubuntu` 和 `KDE`。
 - 参考 [Makefile](./Makefile) 了解更多信息
 
 ### 问题排查
 - 使用`Qt后端`能解决windows平台字体发虚的问题。也推荐优先使用`Qt后端`保持和开发者相同的构建环境
-- 需要安装`ffmpeg`。用于将录制的视频和音频合成最后的`MP4`文件
+- `Wayland xdg portal`版本使用光标追踪功能，需要将当前用户添加到`input`和`plugdev`组或者使用管理员权限运行程序。
+    - `sudo usermod -aG input $USER` or `sudo usermod -aG plugdev $USER`
+    - `sudo -E wayshot`
 
 ### 参考
 - [Slint Language Documentation](https://slint-ui.com/releases/1.0.0/docs/slint/)

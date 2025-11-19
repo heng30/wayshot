@@ -5,6 +5,7 @@ use crate::{
 use crossbeam::channel::bounded;
 use once_cell::sync::Lazy;
 use screen_capture::{Capture, CaptureStatus, CaptureStreamCallbackData, CaptureStreamConfig};
+use spin_sleep::SpinSleeper;
 use std::{
     os::fd::IntoRawFd,
     sync::atomic::Ordering,
@@ -13,7 +14,7 @@ use std::{
 use tokio::runtime::Runtime;
 
 static TOKIO_RT: Lazy<Runtime> = Lazy::new(|| {
-    tokio::runtime::Builder::new_multi_thread()
+    tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("failed to build global tokio runtime")
@@ -42,49 +43,72 @@ pub fn capture_output_stream(
 
     let (sender, receiver) = bounded(128);
     let screen_size = screen_info.logical_size.clone();
+    let fps = config.fps.unwrap_or(25.0);
+    let stop_sig = config.cancel_sig.clone();
 
-    TOKIO_RT.spawn(async move {
-        let mut backend = PortalCapturer::new(screen_info)
-            .with_include_cursor(config.include_cursor)
-            .with_fps(config.fps.unwrap_or(25.0) as u32)
-            .with_stop_sig(config.cancel_sig)
-            .with_sender(Some(sender));
+    // Use a blocking task to run the non-Send PipeWire operations
+    std::thread::spawn(move || {
+        TOKIO_RT.block_on(async move {
+            let mut backend = PortalCapturer::new(screen_info)
+                .with_include_cursor(config.include_cursor)
+                .with_fps(config.fps.unwrap_or(25.0) as u32)
+                .with_stop_sig(config.cancel_sig)
+                .with_sender(Some(sender));
 
-        let (stream, fd) = backend.open_portal().await.expect("failed to open portal");
-        let pipewire_node_id = stream.pipe_wire_node_id();
+            let (stream, fd) = backend.open_portal().await.expect("failed to open portal");
+            let pipewire_node_id = stream.pipe_wire_node_id();
 
-        log::info!(
-            "node id {}, fd {}",
-            pipewire_node_id,
-            &fd.try_clone().unwrap().into_raw_fd()
-        );
+            log::info!(
+                "node id {}, fd {}",
+                pipewire_node_id,
+                &fd.try_clone().unwrap().into_raw_fd()
+            );
 
-        config.sync_sig.store(true, Ordering::Relaxed);
+            config.sync_sig.store(true, Ordering::Relaxed);
 
-        if let Err(e) = backend.start_streaming(pipewire_node_id, fd).await {
-            log::warn!("Error: {e}");
-        };
+            if let Err(e) = backend.start_streaming(pipewire_node_id, fd).await {
+                log::warn!("Error: {e}");
+            }
+        });
     });
 
     let mut index = 0;
-    let mut capture_start = Instant::now();
+    let mut last_frame = None;
+    let mut start_time = Instant::now();
+    let spin_sleeper = SpinSleeper::default();
+    let frame_interval = Duration::from_secs_f64(1.0 / fps);
 
-    while let Ok((elapse, frame)) = receiver.recv() {
+    while !stop_sig.load(Ordering::Relaxed) {
+        while let Ok((_, frame)) = receiver.try_recv() {
+            if last_frame.is_none() {
+                start_time = Instant::now();
+            }
+
+            last_frame = Some(frame);
+        }
+
+        if last_frame.is_none() {
+            std::thread::sleep(Duration::from_millis(5));
+            continue;
+        }
+
         let capture = Capture {
             width: screen_size.width as u32,
             height: screen_size.height as u32,
-            pixel_data: frame,
+            pixel_data: last_frame.clone().unwrap(),
         };
 
         cb(CaptureStreamCallbackData {
             frame_index: index,
-            capture_time: capture_start.elapsed(),
-            elapse: elapse,
+            capture_time: Duration::ZERO,
+            elapse: start_time.elapsed(),
             data: capture,
         });
 
-        capture_start = Instant::now();
         index += 1;
+
+        let next_frame_time = start_time + frame_interval * index as u32;
+        spin_sleeper.sleep_until(next_frame_time);
     }
 
     log::info!("exit capture receiver thread...");

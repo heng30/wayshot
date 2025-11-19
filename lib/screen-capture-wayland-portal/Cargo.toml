@@ -16,6 +16,7 @@ which.workspace = true
 image.workspace = true
 ashpd.workspace = true
 pipewire.workspace = true
+once_cell.workspace = true
 thiserror.workspace = true
 crossbeam.workspace = true
 serde_json.workspace = true
@@ -26,8 +27,6 @@ derive_setters.workspace = true
 tokio = { workspace = true, features = ["full"] }
 serde = { workspace = true, features = ["derive"] }
 rdev = { workspace = true, features = ["unstable_grab"] }
-
-once_cell.workspace = true
 
 [dev-dependencies]
 ctrlc.workspace = true

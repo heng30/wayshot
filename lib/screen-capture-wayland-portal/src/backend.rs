@@ -9,9 +9,7 @@ use image::{ImageBuffer, Rgba, buffer::ConvertBuffer};
 use pipewire as pw;
 use pw::{properties::properties, spa};
 use screen_capture::{LogicalSize, ScreenInfo};
-use spin_sleep::SpinSleeper;
 use std::{
-    io::Write,
     os::fd::OwnedFd,
     sync::{
         Arc, Mutex,
@@ -23,8 +21,9 @@ use std::{
 struct UserData {
     format: spa::param::video::VideoInfoRaw,
     total_frames: AtomicU64,
-    sleeper: SpinSleeper,
     start_time: Instant,
+    last_frame_time: Option<Instant>,
+    frame_interval: Duration,
 }
 
 #[derive(Debug, Clone, Setters)]
@@ -85,15 +84,19 @@ impl PortalCapturer {
     pub async fn start_streaming(&mut self, node_id: u32, fd: OwnedFd) -> Result<()> {
         pw::init();
 
-        let mainloop = pw::main_loop::MainLoopBox::new(None)?;
-        let context = pw::context::ContextBox::new(mainloop.loop_(), None)?;
+        let pw_loop = unsafe {
+            pw::thread_loop::ThreadLoopBox::new(Some("wayshot-portal-pwthread"), None)
+                .expect("failed to create pipewire thread loop")
+        };
+        let context = pw::context::ContextBox::new(pw_loop.loop_(), None)?;
         let core = context.connect_fd(fd, None)?;
 
         let data = UserData {
             format: Default::default(),
             total_frames: AtomicU64::new(0),
-            sleeper: SpinSleeper::default(),
             start_time: Instant::now(),
+            last_frame_time: None,
+            frame_interval: Duration::from_secs_f64(1.0 / self.fps as f64),
         };
 
         let stream = pw::stream::StreamBox::new(
@@ -110,7 +113,6 @@ impl PortalCapturer {
         let err_msg_clone = err_msg.clone();
         let screen_size = self.screen_info.logical_size;
         let sender = self.sender.clone();
-        let interval_ms = 1000.0 / self.fps as f64;
 
         let _listener = stream
             .add_local_listener_with_user_data(data)
@@ -187,56 +189,59 @@ impl PortalCapturer {
                         }
 
                         let data = datas[0].data().unwrap_or_default();
-
-                        if !data.is_empty() {
-                            let index = user_data.total_frames.fetch_add(1, Ordering::Relaxed);
-
-                            if let Some(ref sender) = sender {
-                                let data = match user_data.format.format() {
-                                    pw::spa::param::video::VideoFormat::RGB => {
-                                        match ImageBuffer::<image::Rgb<u8>, _>::from_raw(
-                                            user_data.format.size().width,
-                                            user_data.format.size().height,
-                                            data,
-                                        ) {
-                                            Some(img) => {
-                                                let rgba_img: ImageBuffer<Rgba<u8>, Vec<u8>> =
-                                                    img.convert();
-
-                                                rgba_img.to_vec()
-                                            }
-                                            _ => {
-                                                log::warn!("Invalid RGB data");
-                                                return;
-                                            }
-                                        }
-                                    }
-                                    pw::spa::param::video::VideoFormat::BGRx => {
-                                        let mut rgbx = data.to_vec();
-                                        for chunk in rgbx.chunks_exact_mut(4) {
-                                            chunk.swap(0, 2); // BGRX -> RGBX
-                                        }
-                                        data.to_vec()
-                                    }
-                                    _ => data.to_vec(),
-                                };
-
-                                if let Err(e) =
-                                    sender.try_send((user_data.start_time.elapsed(), data))
-                                {
-                                    log::warn!("portal try send frame failed: {e:?}");
-                                }
-                            }
-
-                            let target_time = user_data.start_time
-                                + Duration::from_millis((interval_ms * (index + 1) as f64) as u64);
-                            user_data.sleeper.sleep_until(target_time);
+                        if data.is_empty() {
+                            return;
                         }
 
-                        // NOTE: I don't why. Writing `\n` to stdout/stderr can keep fps as expected
-                        std::io::stderr().write(&[b'\n']).ok();
+                        user_data.total_frames.fetch_add(1, Ordering::Relaxed);
 
-                        // log::debug!("frame size: {}", data.len());
+                        let now = Instant::now();
+                        if !match user_data.last_frame_time {
+                            None => true,
+                            Some(last) => {
+                                now.duration_since(last).as_secs_f64()
+                                    >= user_data.frame_interval.as_secs_f64() * 0.8
+                            }
+                        } {
+                            return;
+                        }
+                        user_data.last_frame_time = Some(now);
+
+                        if let Some(ref sender) = sender {
+                            let data = match user_data.format.format() {
+                                pw::spa::param::video::VideoFormat::RGB => {
+                                    match ImageBuffer::<image::Rgb<u8>, _>::from_raw(
+                                        user_data.format.size().width,
+                                        user_data.format.size().height,
+                                        data,
+                                    ) {
+                                        Some(img) => {
+                                            let rgba_img: ImageBuffer<Rgba<u8>, Vec<u8>> =
+                                                img.convert();
+
+                                            rgba_img.to_vec()
+                                        }
+                                        _ => {
+                                            log::warn!("Invalid RGB data");
+                                            return;
+                                        }
+                                    }
+                                }
+                                pw::spa::param::video::VideoFormat::BGRx => {
+                                    let mut rgbx = data.to_vec();
+                                    for chunk in rgbx.chunks_exact_mut(4) {
+                                        chunk.swap(0, 2); // BGRX -> RGBX
+                                    }
+                                    data.to_vec()
+                                }
+                                _ => data.to_vec(),
+                            };
+
+                            if let Err(e) = sender.try_send((user_data.start_time.elapsed(), data))
+                            {
+                                log::warn!("portal try send frame failed: {e:?}");
+                            }
+                        }
                     }
                 }
             })
@@ -257,13 +262,13 @@ impl PortalCapturer {
 
         log::info!("Portal connected stream sucessfully");
 
+        pw_loop.start();
         while !self.stop_sig.load(Ordering::Relaxed) {
-            let _fd_counts = mainloop.loop_().iterate(Duration::from_millis(10));
-            // log::debug!("mainloop processed fd counts: {_fd_counts}");
+            tokio::time::sleep(Duration::from_millis(10)).await;
         }
+        pw_loop.stop();
 
-        mainloop.quit();
-        log::info!("exit Portal mainloop");
+        log::info!("exit Portal pipewire loop thread");
 
         Ok(())
     }

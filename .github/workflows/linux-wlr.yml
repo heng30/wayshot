@@ -42,13 +42,13 @@ jobs:
           cd target
 
           binary_name=`cat app-name`
-          output="$binary_name-${{ env.VERSION }}-x86_64-linux.tar.gz"
+          output="$binary_name-wlr-${{ env.VERSION }}-x86_64-linux.tar.gz"
           cp -rf release/$binary_name $binary_name
           tar -zcf $output $binary_name
           cp $output ..
           echo "ASSET=$output" >> $GITHUB_ENV
 
-          output="$binary_name-${{ env.VERSION }}-x86_64-linux.deb"
+          output="$binary_name-wlr-${{ env.VERSION }}-x86_64-linux.deb"
           cp -rf $binary_name.deb $output
           cp $output ..
           echo "DEB_ASSET=$output" >> $GITHUB_ENV
