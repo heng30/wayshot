@@ -101,7 +101,7 @@ clippy:
 	cargo clippy $(proj-features)
 
 check:
-	cargo check $(proj-features)
+	cargo check --no-default-features $(proj-features)
 
 clean:
 	cargo clean

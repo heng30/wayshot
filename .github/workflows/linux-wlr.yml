@@ -17,7 +17,7 @@ jobs:
       - run: echo "The ${{ github.workspace }} is now ready to test your code on the runner."
       - run: ls ${{ github.workspace }}
       - run: sudo apt update
-      - run: sudo apt install libxcb-composite0-dev upx imagemagick libasound2-dev libpipewire-0.3-dev libx264-dev
+      - run: sudo apt install libxcb-composite0-dev upx imagemagick libasound2-dev libpipewire-0.3-dev libx264-dev libx11-dev libxi-dev libxtst-dev libevdev-dev
 
       - run: echo "start install Rust..."
       - name: Install Rust
