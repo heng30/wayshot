@@ -63,7 +63,7 @@ export component CursorTracker inherits SettingDetail {
 
                     if (root.setting.enable-tracking) {
                         MessageDialogSetting.set(true, Logic.tr("Note"),
-                                Logic.tr("To enable cursor tracking, you need to run the following command") + ": " + "\n" + "  sudo usermod -aG input $USER" + "\n" + "  sudo usermod -aG plugdev $USER" + "\n\n" + Logic.tr("If the above attempts fail, you need to run the program with administrator privileges") + "：" + "sudo -E wayshot");
+                                Logic.tr("To enable cursor tracking, you need to run the following commands") + ": " + "\n" + "  sudo usermod -aG input $USER" + "\n" + "  sudo usermod -aG plugdev $USER" + "\n\n" + "Logout and then Login.");
                     }
                 }
             }

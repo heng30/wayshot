@@ -232,7 +232,7 @@ impl PortalCapturer {
                                     for chunk in rgbx.chunks_exact_mut(4) {
                                         chunk.swap(0, 2); // BGRX -> RGBX
                                     }
-                                    data.to_vec()
+                                    rgbx
                                 }
                                 _ => data.to_vec(),
                             };

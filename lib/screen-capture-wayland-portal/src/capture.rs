@@ -55,7 +55,11 @@ pub fn capture_output_stream(
                 .with_stop_sig(config.cancel_sig)
                 .with_sender(Some(sender));
 
-            let (stream, fd) = backend.open_portal().await.expect("failed to open portal");
+            let Ok((stream, fd)) = backend.open_portal().await else {
+                log::warn!("failed to open portal");
+                return;
+            };
+
             let pipewire_node_id = stream.pipe_wire_node_id();
 
             log::info!(

@@ -17,7 +17,7 @@ This is a screen recording tool for `Linux` `Wayland`, which uses the `wlroots` 
 - Play recorded historical videos
 
 ### How to build?
-- Install`Rust`, `Cargo`, `libpipewire`, `libalsa`, `libx264`
+- Install `Rust`, `Cargo`, `libpipewire`, `libalsa`, `libx264` and `QT6`
 - Run `make desktop-debug` to run it on desktop platform
 - Run `make desktop-build-release` to build a release version desktop application for wayland wlr. Likes: `Sway` and `Hyprland`.
 - Run `make desktop-build-release desktop-features=desktop-wayland-portal` to build a release version desktop application for wayland xdg-desktop-portal. Likes: `Ubuntu` and `kde`
@@ -25,12 +25,22 @@ This is a screen recording tool for `Linux` `Wayland`, which uses the `wlroots` 
 
 ### Troubleshooting
 - Using the `Qt backend` can resolve the issue of fuzzy fonts on the Windows platform. It is also recommended to prioritize the `Qt backend` to maintain a consistent build environment with the developers.
-- When using the cursor tracking feature with the `Wayland xdg portal` version, you need to either add the current user to the `input` and `plugdev` groups or run the program with administrator privileges.
+
+- Check program output log information: `RUST_LOG=debug wayshot`。Available log level：`debug`, `info`, `warn`, `error`
+
+- When using the cursor tracking feature with the `Wayland xdg portal` version, you need to either add the current user to the `input` and `plugdev` groups.
     - `sudo usermod -aG input $USER` or `sudo usermod -aG plugdev $USER`
-    - `sudo -E wayshot`
+
 - Program version selection:
     - `portal` version: `Ubuntu` and `KDE`, etc.
     - `wlr` version: `Sway` and `Hyprland`, etc.
+
+- Install build dependences on `ubuntu` ：
+    ```bash
+    sudo apt install libxcb-composite0-dev libasound2-dev libpipewire-0.3-dev \
+                     libx264-dev libx11-dev libxi-dev libxtst-dev libevdev-dev \
+                     qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
+    ```
 
 ### Reference
 - [Slint Language Documentation](https://slint-ui.com/releases/1.0.0/docs/slint/)
