@@ -53,6 +53,12 @@ web-build-release:
 web-debug: web-build
 	cd $(app-name) && python3 -m http.server -d web 8000
 
+cursor-debug:
+	$(run-env) cargo run --bin wayshot-cursor
+
+cursor-release:
+	cargo build --release --bin wayshot-cursor
+
 tr:
 	cargo run --bin tr-helper
 

@@ -103,3 +103,4 @@ The recorder library provides the core screen recording functionality:
 2. For GUI changes: `make slint-viewer-desktop` for live preview
 3. For integration testing: `make test` to run all workspace tests
 4. Examples are in `lib/recorder/examples/` for testing specific functionality
+- 不要使用模拟数据

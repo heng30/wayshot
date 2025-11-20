@@ -49,7 +49,7 @@ impl PortalCapturer {
         }
     }
 
-    pub async fn open_portal<'a>(&self) -> Result<(ScreencastStream, OwnedFd)> {
+    pub async fn open_portal(&self) -> Result<(ScreencastStream, OwnedFd)> {
         let proxy = Screencast::new().await?;
         let session = proxy.create_session().await?;
         proxy
@@ -257,7 +257,8 @@ impl PortalCapturer {
             spa::utils::Direction::Input,
             Some(node_id),
             pw::stream::StreamFlags::AUTOCONNECT | pw::stream::StreamFlags::MAP_BUFFERS,
-            &mut [spa::pod::Pod::from_bytes(&self.init_pipewire_pod()).unwrap()],
+            &mut [spa::pod::Pod::from_bytes(&self.init_pipewire_pod()?)
+                .ok_or(Error::Other(format!("pod from_bytes failed")))?],
         )?;
 
         log::info!("Portal connected stream sucessfully");
@@ -273,7 +274,7 @@ impl PortalCapturer {
         Ok(())
     }
 
-    fn init_pipewire_pod(&self) -> Vec<u8> {
+    fn init_pipewire_pod(&self) -> Result<Vec<u8>> {
         let obj = pw::spa::pod::object!(
             pw::spa::utils::SpaTypes::ObjectParamFormat,
             pw::spa::param::ParamType::EnumFormat,
@@ -342,10 +343,10 @@ impl PortalCapturer {
             std::io::Cursor::new(Vec::new()),
             &pw::spa::pod::Value::Object(obj),
         )
-        .unwrap()
+        .map_err(|e| Error::Other(format!("PodSerializer failed: {e}")))?
         .0
         .into_inner();
 
-        values
+        Ok(values)
     }
 }

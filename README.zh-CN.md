@@ -28,8 +28,7 @@
 
 - 查看程序输出日志信息：`RUST_LOG=debug wayshot`。可选日志级别：`debug`, `info`, `warn`, `error`
 
-- `Wayland xdg portal`版本使用光标追踪功能，需要将当前用户添加到`input`和`plugdev`组。
-    - `sudo usermod -aG input $USER` or `sudo usermod -aG plugdev $USER`
+- `Wayland xdg portal`版本使用光标追踪功能，需要配合 `wayshot-curosr` 程序一起使用。程序可以到Github页面去下载。运行程序需要使用管理员权限：`sudo -E wayshot-cursor`。 如果需要查看日志可以使用：`RUST_LOG=debug sudo -E wayshot-cursor`。可选日志级别：`debug`, `info`, `warn`, `error`
 
 - 程序版本选择版本:
     - `portal` 版本：`Ubuntu` 和 `KDE` 等
@@ -40,7 +39,6 @@
     sudo apt install libxcb-composite0-dev libasound2-dev libpipewire-0.3-dev \
                      libx264-dev libx11-dev libxi-dev libxtst-dev libevdev-dev \
                      qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
-    ```
 
 ### 参考
 - [Slint Language Documentation](https://slint-ui.com/releases/1.0.0/docs/slint/)

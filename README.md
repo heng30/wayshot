@@ -28,8 +28,7 @@ This is a screen recording tool for `Linux` `Wayland`, which uses the `wlroots` 
 
 - Check program output log information: `RUST_LOG=debug wayshot`。Available log level：`debug`, `info`, `warn`, `error`
 
-- When using the cursor tracking feature with the `Wayland xdg portal` version, you need to either add the current user to the `input` and `plugdev` groups.
-    - `sudo usermod -aG input $USER` or `sudo usermod -aG plugdev $USER`
+- To use the cursor tracking feature with the `Wayland xdg portal` version, it needs to be used together with the `wayshot-cursor` program. The program can be downloaded from the Github page. The program must be run with administrator privileges: `sudo -E wayshot-cursor`. If you need to view logs, you can use: `RUST_LOG=debug sudo -E wayshot-cursor`. Available log levels: `debug`, `info`, `warn`, `error`
 
 - Program version selection:
     - `portal` version: `Ubuntu` and `KDE`, etc.

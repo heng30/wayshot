@@ -6,8 +6,9 @@ use crate::{
     },
     logic_cb,
     slint_generatedAppWindow::{
-        AppWindow, Fps as UIFps, RecordStatus as UIRecordStatus, Resolution as UIResolution,
-        SettingControl as UISettingControl, Source as UISource, SourceType,
+        AppWindow, FeatureType, Fps as UIFps, RecordStatus as UIRecordStatus,
+        Resolution as UIResolution, SettingControl as UISettingControl, Source as UISource,
+        SourceType,
     },
     toast_success, toast_warn,
 };
@@ -100,6 +101,12 @@ pub fn init(ui: &AppWindow) {
 }
 
 fn inner_init(ui: &AppWindow) {
+    #[cfg(feature = "desktop-wayland-wlr")]
+    global_store!(ui).set_feature_type(FeatureType::WaylandWlr);
+
+    #[cfg(feature = "desktop-wayland-portal")]
+    global_store!(ui).set_feature_type(FeatureType::WaylandPortal);
+
     global_store!(ui).set_preview_image(Default::default());
     store_sources!(ui).set_vec(vec![]);
     store_audio_sources!(ui).set_vec(vec![]);

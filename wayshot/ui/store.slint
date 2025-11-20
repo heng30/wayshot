@@ -4,6 +4,12 @@ export enum DeviceType {
     Web,
 }
 
+export enum FeatureType {
+    Other,
+    WaylandWlr,
+    WaylandPortal,
+}
+
 export enum TabIndex {
     Home,
     History,
@@ -189,6 +195,7 @@ export global Store {
     //////////////////////////////// Logic Start ////////////////////////////////
     in-out property <bool> is-cn: setting-preference.language == "cn";
     in-out property <RecordStatus> record-status: RecordStatus.Stopped;
+    in-out property <FeatureType> feature-type: FeatureType.Other;
     in-out property <string> save-dir;
     in-out property <bool> never-recording-once: true;
 

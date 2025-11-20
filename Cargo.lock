@@ -6362,7 +6362,6 @@ dependencies = [
  "log",
  "once_cell",
  "pipewire",
- "rdev",
  "screen-capture",
  "serde",
  "serde_json",
@@ -8405,6 +8404,17 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "webbrowser",
+]
+
+[[package]]
+name = "wayshot-cursor"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ctrlc",
+ "env_logger",
+ "log",
+ "rdev",
 ]
 
 [[package]]

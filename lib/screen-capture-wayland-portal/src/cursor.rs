@@ -1,67 +1,54 @@
-use crate::Error;
-use rdev::{Event, EventType, grab};
+use crate::Result;
 use screen_capture::{CursorPosition, MonitorCursorPositionConfig};
 use std::{
-    sync::atomic::{AtomicBool, AtomicU64, Ordering},
-    time::Duration,
+    sync::atomic::Ordering,
+    {io::Read, os::unix::net::UnixStream, time::Duration},
 };
-
-static CURSOR_GRAP_THREAD_RUNNING: AtomicBool = AtomicBool::new(false);
-static CURSOR_POSITION: AtomicU64 = AtomicU64::new(u64::MAX);
 
 pub fn monitor_cursor_position(
     config: MonitorCursorPositionConfig,
     mut callback: impl FnMut(CursorPosition) + Send + 'static,
-) -> Result<(), Error> {
-    if !CURSOR_GRAP_THREAD_RUNNING.load(Ordering::Relaxed) {
-        std::thread::spawn(move || {
-            CURSOR_GRAP_THREAD_RUNNING.store(true, Ordering::Relaxed);
-            log::info!("start long run cursor grap thread...");
+) -> Result<()> {
+    let socket_path = "/tmp/wayshot-cursor.sock";
 
-            let callback = move |event: Event| -> Option<Event> {
-                if let EventType::MouseMove { x, y } = event.event_type {
-                    // log::debug!("cursor position: (x, y) = ({x}, {y})");
-                    let cur_pos = (((x as u64) << 32) & 0xffff_ffff_0000_0000) | (y as u64);
-                    CURSOR_POSITION.store(cur_pos, Ordering::Relaxed);
-                }
-
-                Some(event)
-            };
-
-            // The grab function use the evdev library to intercept events,
-            // so they will work with both X11 and Wayland In order for this to work,
-            // the process running the listen or grab loop needs to either run as root (not recommended),
-            // or run as a user who's a member of the input group (recommended) Note: on some distros,
-            // the group name for evdev access is called plugdev, and on some systems, both groups can exist.
-            // When in doubt, add your user to both groups if they exist.
-            // commands: `sudo usermod -aG input $USER` or `sudo usermod -aG plugdev $USER`
-            if let Err(e) = grab(callback) {
-                log::warn!("cursor monitor failed: {e:?}");
-            }
-
-            CURSOR_GRAP_THREAD_RUNNING.store(false, Ordering::Relaxed);
-            log::info!("exit long run cursor grap thread...");
-        });
-    }
-
-    let mut last_pos = CURSOR_POSITION.load(Ordering::Relaxed);
     loop {
         if config.stop_sig.load(Ordering::Relaxed) {
             log::info!("exit monitor cursor thread...");
             break;
         }
 
-        let cur_pos = CURSOR_POSITION.load(Ordering::Relaxed);
-        if last_pos == cur_pos || cur_pos == u64::MAX {
-            std::thread::sleep(Duration::from_millis(5));
-            continue;
-        };
+        match UnixStream::connect(socket_path) {
+            Ok(mut stream) => {
+                log::info!("Connected to server process");
 
-        last_pos = cur_pos;
+                if let Err(e) = process_mouse_positions(&mut stream, &config, &mut callback) {
+                    log::warn!("process mouse positions failed: {e}");
+                }
+            }
+            Err(e) => log::warn!("UnixStream connect `{socket_path}` failed: {e}"),
+        }
+
+        std::thread::sleep(Duration::from_secs(3));
+    }
+
+    Ok(())
+}
+
+fn process_mouse_positions(
+    stream: &mut UnixStream,
+    config: &MonitorCursorPositionConfig,
+    callback: &mut (impl FnMut(CursorPosition) + Send + 'static),
+) -> Result<()> {
+    loop {
+        let pos = receive_position(stream)?;
+        let x = ((pos >> 32) & 0x0000_0000_ffff_ffff) as i32;
+        let y = (pos & 0x0000_0000_ffff_ffff) as i32;
+
+        log::debug!("Received mouse position: ({}, {})", x, y);
 
         let position = CursorPosition {
-            x: ((cur_pos >> 32) & 0x0000_0000_ffff_ffff) as i32,
-            y: (cur_pos & 0x0000_0000_ffff_ffff) as i32,
+            x,
+            y,
             output_x: config.screen_info.position.x,
             output_y: config.screen_info.position.y,
             output_width: config.screen_info.logical_size.width,
@@ -69,8 +56,14 @@ pub fn monitor_cursor_position(
         };
 
         callback(position);
-    }
 
-    Ok(())
+        std::thread::sleep(Duration::from_millis(5));
+    }
 }
 
+fn receive_position(stream: &mut UnixStream) -> Result<u64> {
+    let mut buffer = [0u8; 8];
+    stream.read_exact(&mut buffer)?;
+    let value = u64::from_ne_bytes(buffer);
+    Ok(value)
+}

@@ -10,6 +10,9 @@ pub enum Error {
     #[error("Screen cast error.")]
     ScreencastError(#[from] ashpd::Error),
 
+    #[error("Io error.")]
+    IoError(#[from] std::io::Error),
+
     #[error("PipeWire error: {0}")]
     PipeWire(#[from] pipewire::Error),
 

@@ -27,6 +27,7 @@ jobs:
 
       - run: echo "start build..."
       - run: make desktop-build-release desktop-features=desktop-wayland-portal
+      - run: make cursor-release
       - run: echo "end build..."
 
       - name: Get the release version from the tag
@@ -46,6 +47,12 @@ jobs:
           output="$binary_name-portal-${{ env.VERSION }}-x86_64-linux.tar.gz"
           cp -rf release/$binary_name $binary_name
           tar -zcf $output $binary_name
+          cp $output ..
+          echo "ASSET=$output" >> $GITHUB_ENV
+
+          output="$binary_name-cursor-${{ env.VERSION }}-x86_64-linux.tar.gz"
+          cp -rf release/$binary_name-cursor $binary_name-cursor
+          tar -zcf $output $binary_name-cursor
           cp $output ..
           echo "ASSET=$output" >> $GITHUB_ENV
 
