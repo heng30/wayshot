@@ -5,7 +5,7 @@
 [English Documentation](./README.md)
 
 ### 简介
-这是一个针对`Linux` `wayland`的录屏工具，使用`wlroots`扩展协议获取屏幕截图。常用的桌面环境：`sway`和`Hyprland`等。基于`Rust`和`Slint` GUI框架。
+这是一个针对`Linux` `wayland`的录屏工具。基于`Rust`和`Slint` GUI框架。适用的桌面环境：`sway`, `Hyprland`, `Ubuntu` 和 `KDE`等。
 
 ### 功能
 - 单个屏幕录制

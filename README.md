@@ -5,7 +5,7 @@
 [中文文档](./README.zh-CN.md)
 
 ### Introduction
-This is a screen recording tool for `Linux` `Wayland`, which uses the `wlroots` extension protocol to capture screenshots. Commonly used desktop environments include `Sway` and `Hyprland`. It is based on `Rust` and the `Slint` GUI framework.
+This is a screen recording tool for `Linux` `Wayland`. It is based on `Rust` and the `Slint` GUI framework. Compatible desktop environments include `Sway`, `Hyprland`, `Ubuntu`, `KDE`, and others.
 
 ### Features
 - Single screen recording
