@@ -21,6 +21,7 @@ This is a screen recording tool for `Linux` `Wayland`, which uses the `wlroots` 
 - Run `make desktop-debug` to run it on desktop platform
 - Run `make desktop-build-release` to build a release version desktop application for wayland wlr. Likes: `Sway` and `Hyprland`.
 - Run `make desktop-build-release desktop-features=desktop-wayland-portal` to build a release version desktop application for wayland xdg-desktop-portal. Likes: `Ubuntu` and `kde`
+- Run `make cursor-release` to build the program for fetching the cursor position. This program needs to be used together with the `portal` version of `wayshot`.
 - Refer to [Makefile](./Makefile) for more information
 
 ### Troubleshooting
