@@ -28,6 +28,7 @@ pub trait ScreenCapture {
         cb: impl FnMut(CaptureStreamCallbackData),
     ) -> Result<CaptureStatus, ScreenCaptureError>;
 
+    // don't same the same cursor position twice
     fn monitor_cursor_position(
         &mut self,
         config: MonitorCursorPositionConfig,

@@ -72,6 +72,8 @@ fn server() -> Result<()> {
                                 log::warn!("send position failed: {e}");
                                 break;
                             }
+
+                            LAST_SENT_POSITION.store(pos, Ordering::Relaxed);
                         }
 
                         std::thread::sleep(std::time::Duration::from_millis(5));

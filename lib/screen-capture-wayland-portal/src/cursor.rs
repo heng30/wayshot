@@ -40,6 +40,10 @@ fn process_mouse_positions(
     callback: &mut (impl FnMut(CursorPosition) + Send + 'static),
 ) -> Result<()> {
     loop {
+        if config.stop_sig.load(Ordering::Relaxed) {
+            break;
+        }
+
         let pos = receive_position(stream)?;
         let x = ((pos >> 32) & 0x0000_0000_ffff_ffff) as i32;
         let y = (pos & 0x0000_0000_ffff_ffff) as i32;
@@ -59,6 +63,8 @@ fn process_mouse_positions(
 
         std::thread::sleep(Duration::from_millis(5));
     }
+
+    Ok(())
 }
 
 fn receive_position(stream: &mut UnixStream) -> Result<u64> {

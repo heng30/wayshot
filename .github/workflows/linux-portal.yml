@@ -54,7 +54,7 @@ jobs:
           cp -rf release/$binary_name-cursor $binary_name-cursor
           tar -zcf $output $binary_name-cursor
           cp $output ..
-          echo "ASSET=$output" >> $GITHUB_ENV
+          echo "CURSOR_ASSET=$output" >> $GITHUB_ENV
 
           output="$binary_name-portal-${{ env.VERSION }}-x86_64-linux.deb"
           cp -rf $binary_name.deb $output
@@ -68,6 +68,7 @@ jobs:
         with:
           files: |
             ${{ env.ASSET }}
+            ${{ env.CURSOR_ASSET }}
             ${{ env.DEB_ASSET }}
 
       - run: echo "🍏 This job's status is ${{ job.status }}."
