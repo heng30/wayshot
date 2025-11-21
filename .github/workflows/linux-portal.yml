@@ -50,7 +50,7 @@ jobs:
           cp $output ..
           echo "ASSET=$output" >> $GITHUB_ENV
 
-          output="$binary_name-cursor-${{ env.VERSION }}-x86_64-linux.tar.gz"
+          output="$binary_name-cursor-portal-${{ env.VERSION }}-x86_64-linux.tar.gz"
           cp -rf release/$binary_name-cursor $binary_name-cursor
           tar -zcf $output $binary_name-cursor
           cp $output ..
