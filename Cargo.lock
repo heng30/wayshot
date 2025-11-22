@@ -6401,6 +6401,7 @@ version = "0.1.0"
 dependencies = [
  "crossbeam",
  "ctrlc",
+ "derive_setters",
  "display-info",
  "env_logger",
  "image",

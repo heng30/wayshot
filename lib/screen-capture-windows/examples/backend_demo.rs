@@ -1,9 +1,14 @@
 use image::{ImageBuffer, Rgba};
-use screen_capture_windows::DXGIManager;
+use screen_capture_windows::{DXGIManager, available_screens};
 use std::time::Instant;
 
 fn main() {
-    let mut manager = DXGIManager::new(300).unwrap();
+    let screen_infos = available_screens().unwrap();
+    if screen_infos.is_empty() {
+        panic!("available screen no found");
+    }
+
+    let mut manager = DXGIManager::new(screen_infos[0].name.to_string()).unwrap();
 
     println!("Starting screen capture benchmark...");
     println!();

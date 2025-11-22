@@ -20,6 +20,7 @@ crossbeam.workspace = true
 spin_sleep.workspace = true
 display-info.workspace = true
 screen-capture.workspace = true
+derive_setters.workspace = true
 winapi = { workspace = true, features = [
   "d3d11",
   "d3dcommon",

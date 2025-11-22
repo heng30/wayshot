@@ -1,41 +1,54 @@
+use derive_setters::Setters;
 use std::{
     mem::{self, zeroed},
     ptr,
 };
-use winapi::shared::dxgi::{
-    CreateDXGIFactory1, DXGI_MAP_READ, DXGI_OUTPUT_DESC, DXGI_RESOURCE_PRIORITY_MAXIMUM,
-    IDXGIAdapter, IDXGIAdapter1, IDXGIFactory1, IDXGIOutput, IDXGISurface1, IID_IDXGIFactory1,
-};
-use winapi::shared::{
-    dxgi1_2::{IDXGIOutput1, IDXGIOutputDuplication},
-    dxgitype::{
-        DXGI_MODE_ROTATION_IDENTITY, DXGI_MODE_ROTATION_ROTATE90, DXGI_MODE_ROTATION_ROTATE270,
-        DXGI_MODE_ROTATION_UNSPECIFIED,
+use winapi::{
+    shared::{
+        dxgi::{
+            CreateDXGIFactory1, DXGI_MAP_READ, DXGI_OUTPUT_DESC, DXGI_RESOURCE_PRIORITY_MAXIMUM,
+            IDXGIAdapter, IDXGIAdapter1, IDXGIFactory1, IDXGIOutput, IDXGISurface1,
+            IID_IDXGIFactory1,
+        },
+        dxgi1_2::{IDXGIOutput1, IDXGIOutputDuplication},
+        dxgitype::{
+            DXGI_MODE_ROTATION_IDENTITY, DXGI_MODE_ROTATION_ROTATE90, DXGI_MODE_ROTATION_ROTATE180,
+            DXGI_MODE_ROTATION_ROTATE270, DXGI_MODE_ROTATION_UNSPECIFIED,
+        },
+        windef::RECT,
+        winerror::{
+            DXGI_ERROR_ACCESS_LOST, DXGI_ERROR_NOT_FOUND, DXGI_ERROR_WAIT_TIMEOUT, E_ACCESSDENIED,
+            HRESULT,
+        },
     },
-    windef::RECT,
-    winerror::{
-        DXGI_ERROR_ACCESS_LOST, DXGI_ERROR_NOT_FOUND, DXGI_ERROR_WAIT_TIMEOUT, E_ACCESSDENIED,
-        HRESULT,
+    um::{
+        d3d11::{
+            D3D11_CPU_ACCESS_READ, D3D11_SDK_VERSION, D3D11_USAGE_STAGING, D3D11CreateDevice,
+            ID3D11Device, ID3D11DeviceContext, ID3D11Resource, ID3D11Texture2D,
+        },
+        d3dcommon::{D3D_DRIVER_TYPE_UNKNOWN, D3D_FEATURE_LEVEL_9_1},
+        unknwnbase::IUnknown,
+        winuser::{GetMonitorInfoW, MONITORINFO},
     },
-};
-use winapi::um::{
-    d3d11::{
-        D3D11_CPU_ACCESS_READ, D3D11_SDK_VERSION, D3D11_USAGE_STAGING, D3D11CreateDevice,
-        ID3D11Device, ID3D11DeviceContext, ID3D11Resource, ID3D11Texture2D,
-    },
-    d3dcommon::{D3D_DRIVER_TYPE_UNKNOWN, D3D_FEATURE_LEVEL_9_1},
-    unknwnbase::IUnknown,
-    winuser::{GetMonitorInfoW, MONITORINFO},
 };
 use wio::com::ComPtr;
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum CaptureError {
+    #[error("AccessDenied")]
     AccessDenied,
+
+    #[error("AccessLost")]
     AccessLost,
+
+    #[error("RefreshFailure")]
     RefreshFailure,
-    Timeout,
-    Fail(&'static str),
+
+    #[error("Timeout {0}ms")]
+    Timeout(u32),
+
+    #[error("Fail {0}")]
+    Fail(String),
 }
 
 pub fn hr_failed(hr: HRESULT) -> bool {
@@ -104,31 +117,33 @@ fn get_adapter_outputs(adapter: &IDXGIAdapter1) -> Vec<ComPtr<IDXGIOutput>> {
     outputs
 }
 
-fn output_is_primary(output: &ComPtr<IDXGIOutput1>) -> bool {
-    unsafe {
-        let mut output_desc = zeroed();
-        output.GetDesc(&mut output_desc);
-        let mut monitor_info: MONITORINFO = zeroed();
-        monitor_info.cbSize = mem::size_of::<MONITORINFO>() as u32;
-        GetMonitorInfoW(output_desc.Monitor, &mut monitor_info);
-        (monitor_info.dwFlags & 1) != 0
-    }
-}
-
 fn get_capture_source(
     output_dups: Vec<(ComPtr<IDXGIOutputDuplication>, ComPtr<IDXGIOutput1>)>,
-    cs_index: usize,
+    screen_name: &str,
 ) -> Option<(ComPtr<IDXGIOutputDuplication>, ComPtr<IDXGIOutput1>)> {
-    if cs_index == 0 {
-        output_dups
-            .into_iter()
-            .find(|(_, out)| output_is_primary(out))
-    } else {
-        output_dups
-            .into_iter()
-            .filter(|(_, out)| !output_is_primary(out))
-            .nth(cs_index - 1)
+    for (dup, output) in &output_dups {
+        unsafe {
+            let mut output_desc = zeroed();
+            output.GetDesc(&mut output_desc);
+
+            let device_name = String::from_utf16_lossy(std::slice::from_raw_parts(
+                output_desc.DeviceName.as_ptr(),
+                output_desc
+                    .DeviceName
+                    .iter()
+                    .position(|&c| c == 0)
+                    .unwrap_or(32),
+            ))
+            .trim_end_matches('\0')
+            .to_string();
+
+            if device_name == screen_name || device_name.contains(screen_name) {
+                return Some((dup.clone(), output.clone()));
+            }
+        }
     }
+
+    None
 }
 
 #[allow(clippy::type_complexity)]
@@ -232,24 +247,95 @@ impl DuplicatedOutput {
     }
 }
 
+#[derive(Setters)]
+#[setters(prefix = "with_")]
 pub struct DXGIManager {
+    #[setters(skip)]
+    screen_name: String,
+
+    #[setters(skip)]
     duplicated_output: Option<DuplicatedOutput>,
-    capture_source_index: usize,
+
+    include_cursor: bool,
     timeout_ms: u32,
 }
 
 impl DXGIManager {
-    pub fn new(timeout_ms: u32) -> Result<DXGIManager, &'static str> {
+    pub fn new(screen_name: String) -> Result<DXGIManager, CaptureError> {
         let mut manager = DXGIManager {
+            screen_name,
+            include_cursor: true,
             duplicated_output: None,
-            capture_source_index: 0,
-            timeout_ms,
+            timeout_ms: 300,
         };
 
         match manager.acquire_output_duplication() {
             Ok(_) => Ok(manager),
-            Err(_) => Err("Failed to acquire output duplication"),
+            Err(_) => Err(CaptureError::Fail(
+                "Failed to acquire output duplication".to_string(),
+            )),
         }
+    }
+
+    pub fn list_available_screens() -> Result<Vec<String>, CaptureError> {
+        let factory = create_dxgi_factory_1();
+        let mut screen_names = Vec::new();
+
+        for (outputs, _adapter) in (0..)
+            .map(|i| {
+                let mut adapter = ptr::null_mut();
+                unsafe {
+                    if factory.EnumAdapters1(i, &mut adapter) != DXGI_ERROR_NOT_FOUND {
+                        Some(ComPtr::from_raw(adapter))
+                    } else {
+                        None
+                    }
+                }
+            })
+            .take_while(Option::is_some)
+            .map(Option::unwrap)
+            .map(|adapter| (get_adapter_outputs(&adapter), adapter))
+            .filter(|(outs, _)| !outs.is_empty())
+        {
+            for output in outputs
+                .into_iter()
+                .map(|out| out.cast::<IDXGIOutput1>().unwrap())
+            {
+                unsafe {
+                    let mut output_desc = zeroed();
+                    output.GetDesc(&mut output_desc);
+
+                    // Convert device name to string
+                    let device_name = String::from_utf16_lossy(std::slice::from_raw_parts(
+                        output_desc.DeviceName.as_ptr(),
+                        output_desc
+                            .DeviceName
+                            .iter()
+                            .position(|&c| c == 0)
+                            .unwrap_or(32),
+                    ))
+                    .trim_end_matches('\0')
+                    .to_string();
+
+                    let is_primary = {
+                        let mut monitor_info: MONITORINFO = zeroed();
+                        monitor_info.cbSize = mem::size_of::<MONITORINFO>() as u32;
+                        GetMonitorInfoW(output_desc.Monitor, &mut monitor_info);
+                        (monitor_info.dwFlags & 1) != 0
+                    };
+
+                    let display_name = if is_primary {
+                        format!("{} (Primary)", device_name)
+                    } else {
+                        device_name
+                    };
+
+                    screen_names.push(display_name);
+                }
+            }
+        }
+
+        Ok(screen_names)
     }
 
     pub fn geometry(&self) -> (usize, usize) {
@@ -263,20 +349,7 @@ impl DXGIManager {
         ((right - left) as usize, (bottom - top) as usize)
     }
 
-    pub fn set_capture_source_index(&mut self, cs: usize) {
-        self.capture_source_index = cs;
-        self.acquire_output_duplication().unwrap()
-    }
-
-    pub fn get_capture_source_index(&self) -> usize {
-        self.capture_source_index
-    }
-
-    pub fn set_timeout_ms(&mut self, timeout_ms: u32) {
-        self.timeout_ms = timeout_ms
-    }
-
-    pub fn acquire_output_duplication(&mut self) -> Result<(), &'static str> {
+    fn acquire_output_duplication(&mut self) -> Result<(), CaptureError> {
         self.duplicated_output = None;
         let factory = create_dxgi_factory_1();
         for (outputs, adapter) in (0..)
@@ -298,9 +371,9 @@ impl DXGIManager {
             // Creating device for each adapter that has the output
             let (d3d11_device, device_context) = d3d11_create_device(adapter.up().as_raw());
             let (d3d11_device, output_duplications) = duplicate_outputs(d3d11_device, outputs)
-                .map_err(|_| "Unable to duplicate output")?;
+                .map_err(|_| CaptureError::Fail("Unable to duplicate output".to_string()))?;
             if let Some((output_duplication, output)) =
-                get_capture_source(output_duplications, self.capture_source_index)
+                get_capture_source(output_duplications, &self.screen_name)
             {
                 self.duplicated_output = Some(DuplicatedOutput {
                     device: d3d11_device,
@@ -311,23 +384,26 @@ impl DXGIManager {
                 return Ok(());
             }
         }
-        Err("No output could be acquired")
+        Err(CaptureError::Fail(format!(
+            "No output could be acquired for screen: {}",
+            self.screen_name
+        )))
     }
 
     fn capture_frame_to_surface(&mut self) -> Result<ComPtr<IDXGISurface1>, CaptureError> {
         if self.duplicated_output.is_none() {
             if self.acquire_output_duplication().is_ok() {
-                return Err(CaptureError::Fail("No valid duplicated output"));
+                return Err(CaptureError::Fail("No valid duplicated output".to_string()));
             } else {
                 return Err(CaptureError::RefreshFailure);
             }
         }
-        let timeout_ms = self.timeout_ms;
+
         match self
             .duplicated_output
             .as_mut()
             .unwrap()
-            .capture_frame_to_surface(timeout_ms)
+            .capture_frame_to_surface(self.timeout_ms)
         {
             Ok(surface) => Ok(surface),
             Err(DXGI_ERROR_ACCESS_LOST) => {
@@ -338,10 +414,12 @@ impl DXGIManager {
                 }
             }
             Err(E_ACCESSDENIED) => Err(CaptureError::AccessDenied),
-            Err(DXGI_ERROR_WAIT_TIMEOUT) => Err(CaptureError::Timeout),
+            Err(DXGI_ERROR_WAIT_TIMEOUT) => Err(CaptureError::Timeout(self.timeout_ms)),
             Err(_) => {
                 if self.acquire_output_duplication().is_ok() {
-                    Err(CaptureError::Fail("Failure when acquiring frame"))
+                    Err(CaptureError::Fail(
+                        "Failure when acquiring frame".to_string(),
+                    ))
                 } else {
                     Err(CaptureError::RefreshFailure)
                 }
@@ -359,14 +437,16 @@ impl DXGIManager {
             let mut mapped_surface = zeroed();
             if hr_failed(frame_surface.Map(&mut mapped_surface, DXGI_MAP_READ)) {
                 frame_surface.Release();
-                return Err(CaptureError::Fail("Failed to map surface"));
+                return Err(CaptureError::Fail("Failed to map surface".to_string()));
             }
             mapped_surface
         };
 
         if mapped_surface.pBits.is_null() {
             unsafe { frame_surface.Unmap() };
-            return Err(CaptureError::Fail("Surface mapping returned null pointer"));
+            return Err(CaptureError::Fail(
+                "Surface mapping returned null pointer".to_string(),
+            ));
         }
 
         let output_desc = self.duplicated_output.as_mut().unwrap().get_desc();
@@ -405,6 +485,66 @@ impl DXGIManager {
                                 rgba_buffer[dst_offset + 1] = *src_data.add(src_offset + 1); // G
                                 rgba_buffer[dst_offset + 2] = *src_data.add(src_offset); // B
                                 rgba_buffer[dst_offset + 3] = *src_data.add(src_offset + 3); // A
+                            }
+                        }
+                    }
+                }
+                DXGI_MODE_ROTATION_ROTATE90 => {
+                    // Rotate 90 degrees clockwise
+                    for y in 0..output_height {
+                        for x in 0..output_width {
+                            let src_x = output_width - 1 - y;
+                            let src_y = x;
+                            if src_x < output_width && src_y < scan_lines {
+                                let src_offset = src_y * stride + src_x * 4;
+                                let dst_offset = y * output_width * 4 + x * 4;
+
+                                if src_offset + 3 < stride * scan_lines {
+                                    rgba_buffer[dst_offset] = *src_data.add(src_offset + 2); // R
+                                    rgba_buffer[dst_offset + 1] = *src_data.add(src_offset + 1); // G
+                                    rgba_buffer[dst_offset + 2] = *src_data.add(src_offset); // B
+                                    rgba_buffer[dst_offset + 3] = *src_data.add(src_offset + 3); // A
+                                }
+                            }
+                        }
+                    }
+                }
+                DXGI_MODE_ROTATION_ROTATE180 => {
+                    // Rotate 180 degrees
+                    for y in 0..output_height {
+                        for x in 0..output_width {
+                            let src_x = output_width - 1 - x;
+                            let src_y = output_height - 1 - y;
+                            if src_x < output_width && src_y < scan_lines {
+                                let src_offset = src_y * stride + src_x * 4;
+                                let dst_offset = y * output_width * 4 + x * 4;
+
+                                if src_offset + 3 < stride * scan_lines {
+                                    rgba_buffer[dst_offset] = *src_data.add(src_offset + 2); // R
+                                    rgba_buffer[dst_offset + 1] = *src_data.add(src_offset + 1); // G
+                                    rgba_buffer[dst_offset + 2] = *src_data.add(src_offset); // B
+                                    rgba_buffer[dst_offset + 3] = *src_data.add(src_offset + 3); // A
+                                }
+                            }
+                        }
+                    }
+                }
+                DXGI_MODE_ROTATION_ROTATE270 => {
+                    // Rotate 270 degrees clockwise (90 degrees counter-clockwise)
+                    for y in 0..output_height {
+                        for x in 0..output_width {
+                            let src_x = y;
+                            let src_y = output_height - 1 - x;
+                            if src_x < output_width && src_y < scan_lines {
+                                let src_offset = src_y * stride + src_x * 4;
+                                let dst_offset = y * output_width * 4 + x * 4;
+
+                                if src_offset + 3 < stride * scan_lines {
+                                    rgba_buffer[dst_offset] = *src_data.add(src_offset + 2); // R
+                                    rgba_buffer[dst_offset + 1] = *src_data.add(src_offset + 1); // G
+                                    rgba_buffer[dst_offset + 2] = *src_data.add(src_offset); // B
+                                    rgba_buffer[dst_offset + 3] = *src_data.add(src_offset + 3); // A
+                                }
                             }
                         }
                     }
