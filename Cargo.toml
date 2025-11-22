@@ -82,6 +82,8 @@ console_log = "1.0"
 crypto-hash = "0.3"
 platform-dirs = "0.3"
 
+
+wio = "0.2"
 yuv = "0.8"
 mp4 = "0.14"
 nix = "0.30"
@@ -93,6 +95,7 @@ hound = "3.5"
 which = "8.0"
 ctrlc = "3.5"
 ashpd = "0.12"
+winapi = "0.3"
 rubato = "0.16"
 fdk-aac = "0.8"
 memmap2 = "0.9"
@@ -116,5 +119,6 @@ pmacro = { path = "lib/pmacro" }
 mp4-player = { path = "lib/mp4-player" }
 screen-capture = { path = "lib/screen-capture" }
 recorder = { path = "lib/recorder", default-features = false }
+screen-capture-windows = { path = "lib/screen-capture-windows" }
 screen-capture-wayland-wlr = { path = "lib/screen-capture-wayland-wlr" }
 screen-capture-wayland-portal = { path = "lib/screen-capture-wayland-portal" }

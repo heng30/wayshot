@@ -17,5 +17,5 @@ serde = { workspace = true, features = ["derive"] }
 wayland-client = { workspace = true, optional = true }
 
 [features]
-default = ["wayland"]
+default = []
 wayland = ["dep:wayland-client"]

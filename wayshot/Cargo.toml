@@ -67,8 +67,8 @@ embed-resource.workspace = true
 
 [features]
 default = ["desktop-wayland-wlr"]
-
 desktop = ["cutil/backup-recover", "database"]
+desktop-windows = ["desktop", "recorder/windows"]
 desktop-wayland-wlr = ["desktop", "recorder/wayland-wlr"]
 desktop-wayland-portal = ["desktop", "recorder/wayland-portal"]
 

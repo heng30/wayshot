@@ -5909,6 +5909,7 @@ dependencies = [
  "screen-capture",
  "screen-capture-wayland-portal",
  "screen-capture-wayland-wlr",
+ "screen-capture-windows",
  "spin_sleep",
  "thiserror 2.0.17",
  "x264",
@@ -6392,6 +6393,24 @@ dependencies = [
  "wayland-protocols",
  "wayland-protocols-wlr",
  "which 8.0.0",
+]
+
+[[package]]
+name = "screen-capture-windows"
+version = "0.1.0"
+dependencies = [
+ "crossbeam",
+ "ctrlc",
+ "display-info",
+ "env_logger",
+ "image",
+ "log",
+ "once_cell",
+ "screen-capture",
+ "spin_sleep",
+ "thiserror 2.0.17",
+ "winapi",
+ "wio",
 ]
 
 [[package]]
@@ -9225,6 +9244,15 @@ name = "winsafe"
 version = "0.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d135d17ab770252ad95e9a872d365cf3090e3be864a34ab46f48555993efc904"
+
+[[package]]
+name = "wio"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d129932f4644ac2396cb456385cbf9e63b5b30c6e8dc4820bdca4eb082037a5"
+dependencies = [
+ "winapi",
+]
 
 [[package]]
 name = "wit-bindgen"

@@ -16,6 +16,7 @@ pub enum CursorError {
     #[error("Failed to get configurations from Wayland server: {0}")]
     ConfigurationFailed(String),
 
+    #[cfg(feature = "wayland")]
     #[error("Dispatch Failed: {0}")]
     DispatchFailed(#[from] wayland_client::DispatchError),
 }

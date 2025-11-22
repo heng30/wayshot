@@ -33,11 +33,15 @@ pipewire.workspace = true
 screen-capture-wayland-wlr = { workspace = true, optional = true }
 screen-capture-wayland-portal = { workspace = true, optional = true }
 
+[target.'cfg(target_os = "windows")'.dependencies]
+screen-capture-windows = { workspace = true, optional = true }
+
 [dev-dependencies]
 ctrlc.workspace = true
 env_logger.workspace = true
 
 [features]
 default = ["wayland-wlr"]
+windows = ["dep:screen-capture-windows"]
 wayland-wlr = ["dep:screen-capture-wayland-wlr"]
 wayland-portal = ["dep:screen-capture-wayland-portal"]

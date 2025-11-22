@@ -1,5 +1,5 @@
 [package]
-name = "screen-capture-wayland-portal"
+name = "screen-capture-windows"
 license.workspace = true
 edition.workspace = true
 version.workspace = true
@@ -12,22 +12,27 @@ description.workspace = true
 
 [dependencies]
 log.workspace = true
-which.workspace = true
+wio.workspace = true
 image.workspace = true
-ashpd.workspace = true
-pipewire.workspace = true
 once_cell.workspace = true
 thiserror.workspace = true
 crossbeam.workspace = true
-serde_json.workspace = true
 spin_sleep.workspace = true
 display-info.workspace = true
-derive_setters.workspace = true
-tokio = { workspace = true, features = ["full"] }
-serde = { workspace = true, features = ["derive"] }
-screen-capture = { workspace = true, features = ["wayland"] }
+screen-capture.workspace = true
+winapi = { workspace = true, features = [
+  "d3d11",
+  "d3dcommon",
+  "dxgi",
+  "dxgi1_2",
+  "dxgitype",
+  "ntdef",
+  "unknwnbase",
+  "windef",
+  "winerror",
+  "winuser",
+] }
 
 [dev-dependencies]
 ctrlc.workspace = true
 env_logger.workspace = true
-tokio = { workspace = true, features = ["full"] }
