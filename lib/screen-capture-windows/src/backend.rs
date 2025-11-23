@@ -10,15 +10,19 @@ use winapi::{
             IDXGIAdapter, IDXGIAdapter1, IDXGIFactory1, IDXGIOutput, IDXGISurface1,
             IID_IDXGIFactory1,
         },
-        dxgi1_2::{IDXGIOutput1, IDXGIOutputDuplication},
+        dxgi1_2::{
+            DXGI_OUTDUPL_FRAME_INFO, DXGI_OUTDUPL_POINTER_SHAPE_INFO,
+            DXGI_OUTDUPL_POINTER_SHAPE_TYPE_COLOR, DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MASKED_COLOR,
+            DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MONOCHROME, IDXGIOutput1, IDXGIOutputDuplication,
+        },
         dxgitype::{
             DXGI_MODE_ROTATION_IDENTITY, DXGI_MODE_ROTATION_ROTATE90, DXGI_MODE_ROTATION_ROTATE180,
             DXGI_MODE_ROTATION_ROTATE270, DXGI_MODE_ROTATION_UNSPECIFIED,
         },
         windef::RECT,
         winerror::{
-            DXGI_ERROR_ACCESS_LOST, DXGI_ERROR_NOT_FOUND, DXGI_ERROR_WAIT_TIMEOUT, E_ACCESSDENIED,
-            HRESULT,
+            DXGI_ERROR_ACCESS_LOST, DXGI_ERROR_MORE_DATA, DXGI_ERROR_NOT_FOUND,
+            DXGI_ERROR_WAIT_TIMEOUT, E_ACCESSDENIED, HRESULT,
         },
     },
     um::{
@@ -53,6 +57,170 @@ pub enum CaptureError {
 
 pub fn hr_failed(hr: HRESULT) -> bool {
     hr < 0
+}
+
+struct MouseCursor {
+    visible: bool,
+    x: i32,
+    y: i32,
+    shape_info: DXGI_OUTDUPL_POINTER_SHAPE_INFO,
+    buffer: Vec<u8>,
+}
+
+impl MouseCursor {
+    fn new() -> Self {
+        Self {
+            visible: false,
+            x: 0,
+            y: 0,
+            shape_info: unsafe { zeroed() },
+            buffer: Vec::new(),
+        }
+    }
+
+    fn update(
+        &mut self,
+        dup: &ComPtr<IDXGIOutputDuplication>,
+        frame_info: &DXGI_OUTDUPL_FRAME_INFO,
+    ) -> Result<(), HRESULT> {
+        if unsafe { *frame_info.LastMouseUpdateTime.QuadPart() } > 0 {
+            self.x = frame_info.PointerPosition.Position.x;
+            self.y = frame_info.PointerPosition.Position.y;
+            self.visible = frame_info.PointerPosition.Visible != 0;
+        }
+
+        if frame_info.PointerShapeBufferSize > 0 {
+            let required_size = frame_info.PointerShapeBufferSize as usize;
+            if self.buffer.len() < required_size {
+                self.buffer.resize(required_size, 0);
+            }
+
+            unsafe {
+                let mut size_required = 0;
+                let hr = dup.GetFramePointerShape(
+                    frame_info.PointerShapeBufferSize,
+                    self.buffer.as_mut_ptr() as *mut _,
+                    &mut size_required,
+                    &mut self.shape_info,
+                );
+
+                if hr_failed(hr) && hr != DXGI_ERROR_MORE_DATA {
+                    return Err(hr);
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+fn draw_cursor_on_buffer(
+    buffer: &mut [u8],
+    width: usize,
+    height: usize,
+    cursor: &MouseCursor,
+    _rotation: u32,
+) {
+    if !cursor.visible || cursor.buffer.is_empty() {
+        return;
+    }
+
+    let cx = cursor.x;
+    let cy = cursor.y;
+    let shape_w = cursor.shape_info.Width as i32;
+    let shape_h = cursor.shape_info.Height as i32;
+    let pitch = cursor.shape_info.Pitch as usize;
+    let shape_type = cursor.shape_info.Type;
+
+    match shape_type {
+        DXGI_OUTDUPL_POINTER_SHAPE_TYPE_COLOR | DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MASKED_COLOR => unsafe {
+            let cursor_data = cursor.buffer.as_ptr();
+            for row in 0..shape_h {
+                let screen_y = cy + row;
+                if screen_y < 0 || screen_y >= height as i32 {
+                    continue;
+                }
+
+                for col in 0..shape_w {
+                    let screen_x = cx + col;
+                    if screen_x < 0 || screen_x >= width as i32 {
+                        continue;
+                    }
+
+                    let src_idx = (row as usize * pitch) + (col as usize * 4);
+                    let b = *cursor_data.add(src_idx);
+                    let g = *cursor_data.add(src_idx + 1);
+                    let r = *cursor_data.add(src_idx + 2);
+                    let a = *cursor_data.add(src_idx + 3);
+
+                    if a > 0 {
+                        let dest_idx = (screen_y as usize * width * 4) + (screen_x as usize * 4);
+
+                        if shape_type == DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MASKED_COLOR && a == 0 {
+                            buffer[dest_idx] ^= b;
+                            buffer[dest_idx + 1] ^= g;
+                            buffer[dest_idx + 2] ^= r;
+                        } else {
+                            let alpha_norm = a as f32 / 255.0;
+                            let inv_alpha = 1.0 - alpha_norm;
+
+                            buffer[dest_idx] =
+                                (buffer[dest_idx] as f32 * inv_alpha + r as f32 * alpha_norm) as u8;
+                            buffer[dest_idx + 1] = (buffer[dest_idx + 1] as f32 * inv_alpha
+                                + g as f32 * alpha_norm)
+                                as u8;
+                            buffer[dest_idx + 2] = (buffer[dest_idx + 2] as f32 * inv_alpha
+                                + b as f32 * alpha_norm)
+                                as u8;
+                        }
+                    }
+                }
+            }
+        },
+        DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MONOCHROME => {
+            let actual_h = shape_h / 2;
+            unsafe {
+                let cursor_data = cursor.buffer.as_ptr();
+                for row in 0..actual_h {
+                    let screen_y = cy + row;
+                    if screen_y < 0 || screen_y >= height as i32 {
+                        continue;
+                    }
+
+                    for col in 0..shape_w {
+                        let screen_x = cx + col;
+                        if screen_x < 0 || screen_x >= width as i32 {
+                            continue;
+                        }
+
+                        let mask_bit_idx = col;
+                        let mask_byte_idx = (row as usize * pitch) + (mask_bit_idx as usize / 8);
+                        let mask_bit = 0x80 >> (mask_bit_idx % 8);
+
+                        let and_mask = (*cursor_data.add(mask_byte_idx) & mask_bit) != 0;
+
+                        let xor_byte_idx =
+                            ((row + actual_h) as usize * pitch) + (mask_bit_idx as usize / 8);
+                        let xor_mask = (*cursor_data.add(xor_byte_idx) & mask_bit) != 0;
+
+                        let dest_idx = (screen_y as usize * width * 4) + (screen_x as usize * 4);
+
+                        if !and_mask {
+                            buffer[dest_idx] = 0;
+                            buffer[dest_idx + 1] = 0;
+                            buffer[dest_idx + 2] = 0;
+                        }
+                        if xor_mask {
+                            buffer[dest_idx] = !buffer[dest_idx];
+                            buffer[dest_idx + 1] = !buffer[dest_idx + 1];
+                            buffer[dest_idx + 2] = !buffer[dest_idx + 2];
+                        }
+                        buffer[dest_idx + 3] = 255;
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
 }
 
 fn create_dxgi_factory_1() -> ComPtr<IDXGIFactory1> {
@@ -182,6 +350,7 @@ struct DuplicatedOutput {
     device_context: ComPtr<ID3D11DeviceContext>,
     output: ComPtr<IDXGIOutput1>,
     output_duplication: ComPtr<IDXGIOutputDuplication>,
+    cursor: MouseCursor,
 }
 impl DuplicatedOutput {
     fn get_desc(&self) -> DXGI_OUTPUT_DESC {
@@ -198,15 +367,23 @@ impl DuplicatedOutput {
     ) -> Result<ComPtr<IDXGISurface1>, HRESULT> {
         let frame_resource = unsafe {
             let mut frame_resource = ptr::null_mut();
-            let mut frame_info = zeroed();
+            let mut frame_info: DXGI_OUTDUPL_FRAME_INFO = zeroed();
             let hr = self.output_duplication.AcquireNextFrame(
                 timeout_ms,
                 &mut frame_info,
                 &mut frame_resource,
             );
+
             if hr_failed(hr) {
                 return Err(hr);
             }
+
+            // Update cursor data before releasing the frame
+            if let Err(e) = self.cursor.update(&self.output_duplication, &frame_info) {
+                self.output_duplication.ReleaseFrame();
+                return Err(e);
+            }
+
             ComPtr::from_raw(frame_resource)
         };
         let frame_texture = frame_resource.cast::<ID3D11Texture2D>().unwrap();
@@ -226,9 +403,12 @@ impl DuplicatedOutput {
             let hr = self
                 .device
                 .CreateTexture2D(&texture_desc, ptr::null(), &mut readable_texture);
+
             if hr_failed(hr) {
+                self.output_duplication.ReleaseFrame();
                 return Err(hr);
             }
+
             ComPtr::from_raw(readable_texture)
         };
 
@@ -380,6 +560,7 @@ impl DXGIManager {
                     device_context,
                     output,
                     output_duplication,
+                    cursor: MouseCursor::new(),
                 });
                 return Ok(());
             }
@@ -562,6 +743,19 @@ impl DXGIManager {
         };
 
         unsafe { frame_surface.Unmap() };
+
+        if self.include_cursor
+            && let Some(dup_out) = &self.duplicated_output
+        {
+            draw_cursor_on_buffer(
+                &mut rgba_buffer,
+                output_width,
+                output_height,
+                &dup_out.cursor,
+                output_desc.Rotation,
+            );
+        }
+
         Ok((rgba_buffer, (output_width, output_height)))
     }
 }

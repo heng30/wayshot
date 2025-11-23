@@ -73,7 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?
     .with_stable_radius(30)
     .with_fast_moving_duration(Duration::from_millis(200))
-    .with_linear_transition_duration(Duration::from_millis(800))
+    .with_zoom_transition_duration(Duration::from_millis(800))
     .with_max_stable_region_duration(Duration::from_secs(3));
 
     let cursor_tracker = CursorTracker::new(cursor_tracker_config)?;

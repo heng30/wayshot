@@ -1,9 +1,48 @@
 mod backend;
 mod capture;
+mod cursor;
 mod error;
 mod screen_info;
 
 pub use backend::*;
 pub use capture::*;
+pub use cursor::*;
 pub use error::*;
 pub use screen_info::*;
+
+#[derive(Clone, Default)]
+pub struct ScreenCaptureWindows;
+
+impl screen_capture::ScreenCapture for ScreenCaptureWindows {
+    fn available_screens(
+        &mut self,
+    ) -> Result<Vec<screen_capture::ScreenInfo>, screen_capture::ScreenInfoError> {
+        screen_info::available_screens()
+    }
+
+    fn capture_mean_time(
+        &mut self,
+        screen_name: &str,
+        counts: u32,
+    ) -> Result<Option<std::time::Duration>, screen_capture::ScreenCaptureError> {
+        capture::capture_mean_time(screen_name, counts)
+            .map_err(|e| screen_capture::ScreenCaptureError::Capture(e.to_string()))
+    }
+
+    fn capture_output_stream(
+        self,
+        config: screen_capture::CaptureStreamConfig,
+        cb: impl FnMut(screen_capture::CaptureStreamCallbackData),
+    ) -> Result<screen_capture::CaptureStatus, screen_capture::ScreenCaptureError> {
+        capture::capture_output_stream(config, cb)
+            .map_err(|e| screen_capture::ScreenCaptureError::Capture(e.to_string()))
+    }
+
+    fn monitor_cursor_position(
+        &mut self,
+        config: screen_capture::MonitorCursorPositionConfig,
+        callback: impl FnMut(screen_capture::CursorPosition) + Send + 'static,
+    ) -> Result<(), screen_capture::CursorError> {
+        cursor::monitor_cursor_position(config, callback)
+    }
+}

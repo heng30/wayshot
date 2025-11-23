@@ -1,8 +1,7 @@
 use hound::WavReader;
 use image::{ImageBuffer, Rgb};
 use mp4m::mp4_processor::{
-    AudioConfig, AudioFrameType, Mp4Processor, Mp4ProcessorConfigBuilder, VideoConfig,
-    VideoFrameType,
+    AudioConfig, Mp4Processor, Mp4ProcessorConfigBuilder, VideoConfig, VideoFrameType,
 };
 use recorder::{EncodedFrame, FPS, VideoEncoder};
 use std::{path::PathBuf, thread, time::Duration};
@@ -88,7 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Start processing in a separate thread
     let processor_thread = thread::spawn(move || {
-        if let Err(e) = processor.run_processing_loop() {
+        if let Err(e) = processor.run_processing_loop(None) {
             log::warn!("MP4 processing error: {}", e);
         }
     });
@@ -120,7 +119,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Use f32 samples directly for AAC encoding
                 let f32_chunk: Vec<f32> = chunk.to_vec();
 
-                if let Err(e) = audio_sender1.send(AudioFrameType::Frame(f32_chunk)) {
+                if let Err(e) = audio_sender1.send(f32_chunk) {
                     log::warn!("audio sender 1 failed: {e}");
                     break;
                 }
@@ -162,7 +161,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Use f32 samples directly for AAC encoding
                 let f32_chunk: Vec<f32> = chunk.to_vec();
 
-                if let Err(e) = audio_sender2.send(AudioFrameType::Frame(f32_chunk)) {
+                if let Err(e) = audio_sender2.send(f32_chunk) {
                     log::warn!("audio sender 2 failed: {e}");
                     break;
                 }
@@ -178,7 +177,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Generate and send video frames
-    let mut h264_encoder = VideoEncoder::new(width, height, fps)?;
+    let mut h264_encoder = VideoEncoder::new(width, height, fps, false)?;
     let headers_data = h264_encoder.headers()?.entirety().to_vec();
     if let Err(e) = video_sender.send(VideoFrameType::Frame(headers_data)) {
         panic!("video sender h264 header failed: {e}");
@@ -228,8 +227,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     thread::sleep(Duration::from_secs(1));
 
     _ = video_sender.send(VideoFrameType::End);
-    _ = audio_sender1.send(AudioFrameType::End);
-    _ = audio_sender2.send(AudioFrameType::End);
 
     drop(video_sender);
     drop(audio_sender1);

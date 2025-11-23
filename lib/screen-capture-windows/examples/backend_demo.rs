@@ -13,7 +13,7 @@ fn main() {
     println!("Starting screen capture benchmark...");
     println!();
 
-    for i in 0..1000 {
+    for i in 0..100 {
         let start_time = Instant::now();
 
         match manager.capture_frame_rgba() {
@@ -21,7 +21,7 @@ fn main() {
                 let capture_time = start_time.elapsed();
 
                 if i < 10 {
-                    let filename = format!("capture_{}.png", i);
+                    let filename = format!("capture-{width}x{height}{i}.png");
                     let save_start = Instant::now();
 
                     if let Err(e) = save_rgba_as_png(&data, width, height, &filename) {

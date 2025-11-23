@@ -1,5 +1,5 @@
 use screen_capture::CaptureStreamConfig;
-use screen_capture_wayland_wlr as capture;
+use screen_capture_windows as capture;
 
 use std::{
     sync::{
@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     while let Ok((index, output)) = rx.recv() {
-        let temp_file = format!("/tmp/screenshot-one-{index}.png");
+        let temp_file = format!("screenshot-{}x{}-{index}.png", output.width, output.height);
         let img = image::RgbaImage::from_raw(
             output.width as u32,
             output.height as u32,

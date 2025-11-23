@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let now = std::time::Instant::now();
-    let resized_img = RecordingSession::resize_image(data, (1920, 1080))?;
+    let resized_img = RecordingSession::resize_image(data, (1920, 1080), None)?;
     log::debug!("resize image time: {:.2?}", now.elapsed());
 
     let path = "target/resize-test.png";
