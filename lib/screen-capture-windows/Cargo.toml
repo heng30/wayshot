@@ -32,6 +32,10 @@ winapi = { workspace = true, features = [
   "windef",
   "winerror",
   "winuser",
+  "libloaderapi",
+  "processthreadsapi",
+  "synchapi",
+  "winbase",
 ] }
 
 [dev-dependencies]
