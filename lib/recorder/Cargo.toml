@@ -24,11 +24,12 @@ spin_sleep.workspace = true
 nnnoiseless.workspace = true
 derive_setters.workspace = true
 screen-capture.workspace = true
+openh264 = { workspace = true, optional = true }
 yuv = { workspace = true, features = ["rayon"] }
 fast_image_resize = { workspace = true, features = ["rayon"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-x264.workspace = true
+x264 = { workspace = true, optional = true }
 pipewire.workspace = true
 screen-capture-wayland-wlr = { workspace = true, optional = true }
 screen-capture-wayland-portal = { workspace = true, optional = true }
@@ -50,6 +51,10 @@ env_logger.workspace = true
 
 [features]
 default = ["wayland-wlr"]
-windows = []
-wayland-wlr = ["dep:screen-capture-wayland-wlr"]
-wayland-portal = ["dep:screen-capture-wayland-portal"]
+# default = ["wayland-wlr", "openh264-video-encoder"]    # TODO:
+windows = ["openh264-video-encoder"]
+wayland-wlr = ["dep:screen-capture-wayland-wlr", "x264-video-encoder"]
+wayland-portal = ["dep:screen-capture-wayland-portal", "x264-video-encoder"]
+
+x264-video-encoder = ["dep:x264"]
+openh264-video-encoder = ["dep:openh264"]

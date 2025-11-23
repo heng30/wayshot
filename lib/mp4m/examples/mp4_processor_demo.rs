@@ -3,7 +3,7 @@ use image::{ImageBuffer, Rgb};
 use mp4m::mp4_processor::{
     AudioConfig, Mp4Processor, Mp4ProcessorConfigBuilder, VideoConfig, VideoFrameType,
 };
-use recorder::{EncodedFrame, FPS, VideoEncoder};
+use recorder::{self, EncodedFrame, FPS, VideoEncoderConfig};
 use std::{path::PathBuf, thread, time::Duration};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -98,12 +98,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         log::debug!("Sent {} audio samples in total", total_sent);
     }
 
-    // Generate and send video frames
-    let mut h264_encoder = VideoEncoder::new(width, height, fps, false)?;
-    let headers_data = Some(h264_encoder.headers()?.entirety().to_vec());
+    let config = VideoEncoderConfig::new(width, height).with_fps(fps);
+    let mut h264_encoder = recorder::video_encoder_new(config)?;
+    let headers_data = h264_encoder.headers()?;
 
     let processor_thread = thread::spawn(move || {
-        if let Err(e) = processor.run_processing_loop(headers_data) {
+        if let Err(e) = processor.run_processing_loop(Some(headers_data)) {
             log::warn!("MP4 processing error: {}", e);
         }
     });
@@ -128,25 +128,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    match h264_encoder.flush() {
-        Ok(mut flush) => {
-            while let Some(result) = flush.next() {
-                match result {
-                    Ok((data, _)) => {
-                        let data = data.entirety().to_vec();
-                        if let Err(e) = video_sender.send(VideoFrameType::Frame(data)) {
-                            log::warn!("video sender send flushed data failed: {e}");
-                        }
-                    }
-                    Err(e) => {
-                        log::warn!("Failed to flush encoder frame: {:?}", e);
-                    }
-                }
-            }
+    let video_sender_clone = video_sender.clone();
+    if let Err(e) = h264_encoder.flush(Box::new(move |data| {
+        if let Err(e) = video_sender_clone.send(VideoFrameType::Frame(data)) {
+            log::warn!("video sender send flushed data failed: {e}");
         }
-        Err(e) => {
-            log::warn!("Failed to flush encoder: {}", e);
-        }
+    })) {
+        log::warn!("Failed to flush encoder frame: {:?}", e);
     }
 
     thread::sleep(Duration::from_secs(1));

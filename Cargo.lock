@@ -5905,6 +5905,7 @@ dependencies = [
  "mp4m",
  "nnnoiseless",
  "once_cell",
+ "openh264",
  "pipewire",
  "screen-capture",
  "screen-capture-wayland-portal",

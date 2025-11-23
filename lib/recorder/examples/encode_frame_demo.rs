@@ -1,4 +1,4 @@
-use recorder::{FPS, VideoEncoder};
+use recorder::{FPS, VideoEncoderConfig};
 use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -14,7 +14,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img = image::open(&img_path)?;
     log::debug!("Loaded image {}x{}", img.width(), img.height());
 
-    let mut encoder = VideoEncoder::new(img.width(), img.height(), FPS::Fps30, false)?;
+    let config = VideoEncoderConfig::new(img.width(), img.height()).with_fps(FPS::Fps30);
+    let mut encoder = recorder::video_encoder_new(config)?;
     let now = std::time::Instant::now();
     encoder.encode_frame(img.into())?;
     log::info!("MP4 encoding time: {:.2?}", now.elapsed());

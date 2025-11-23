@@ -1,7 +1,8 @@
 use crate::{
     AudioRecorder, CursorTracker, CursorTrackerConfig, EncodedFrame, FPS, Frame, FrameUser,
     ProgressState, RecorderConfig, RecorderError, Resolution, SimpleFpsCounter, SpeakerRecorder,
-    StatsUser, VideoEncoder, platform_speaker_recoder, speaker_recorder::SpeakerRecorderConfig,
+    StatsUser, VideoEncoder, VideoEncoderConfig, platform_speaker_recoder,
+    speaker_recorder::SpeakerRecorderConfig,
 };
 use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_setters::Setters;
@@ -68,7 +69,7 @@ pub struct RecordingSession {
     h264_frame_sender: Option<Sender<VideoFrameType>>,
 
     crop_region_receiver: Option<Receiver<Rectangle>>,
-    video_encoder: Option<VideoEncoder>,
+    video_encoder: Option<Box<dyn VideoEncoder>>,
 
     // statistic
     start_time: Instant,
@@ -146,9 +147,11 @@ impl RecordingSession {
             self.config.screen_size.width as u32,
             self.config.screen_size.height as u32,
         );
-        let mut video_encoder =
-            VideoEncoder::new(encoder_width, encoder_height, self.config.fps, false)?;
-        let headers_data = video_encoder.headers()?.entirety().to_vec();
+
+        let video_encoder_config =
+            VideoEncoderConfig::new(encoder_width, encoder_height).with_fps(self.config.fps);
+        let mut video_encoder = crate::video_encoder::new(video_encoder_config)?;
+        let headers_data = video_encoder.headers()?;
         let (audio_sender, speaker_sender) = self.mp4_worker(Some(headers_data.clone()))?;
 
         self.video_encoder = Some(video_encoder);
@@ -853,28 +856,15 @@ impl RecordingSession {
             }
         }
 
-        match self.video_encoder.take().unwrap().flush() {
-            Ok(mut flush) => {
-                while let Some(result) = flush.next() {
-                    match result {
-                        Ok((data, _)) => {
-                            if let Some(ref sender) = self.h264_frame_sender {
-                                if let Err(e) =
-                                    sender.try_send(VideoFrameType::Frame(data.entirety().to_vec()))
-                                {
-                                    log::warn!("Try send h264 flushed frame faield: {e}");
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            log::warn!("Failed to flush encoder frame: {e:?}");
-                        }
-                    }
+        if let Some(sender) = self.h264_frame_sender.clone()
+            && let Some(ve) = self.video_encoder.take()
+            && let Err(e) = ve.flush(Box::new(move |data| {
+                if let Err(e) = sender.try_send(VideoFrameType::Frame(data)) {
+                    log::warn!("Try send h264 flushed frame faield: {e}");
                 }
-            }
-            Err(e) => {
-                log::warn!("Failed to flush encoder: {e}");
-            }
+            }))
+        {
+            log::warn!("Failed to flush encoder frame: {e:?}");
         }
 
         if let Some(stop_sig) = self.audio_mixer_stop_sig {
@@ -1104,7 +1094,10 @@ impl RecordingSession {
     pub fn warmup_video_encoder(screen_size: LogicalSize, resolution: Resolution, fps: FPS) {
         let (encoder_width, encoder_height) =
             resolution.dimensions(screen_size.width as u32, screen_size.height as u32);
-        match VideoEncoder::new(encoder_width, encoder_height, fps, false) {
+
+        let video_encoder_config =
+            VideoEncoderConfig::new(encoder_width, encoder_height).with_fps(fps);
+        match crate::video_encoder::new(video_encoder_config) {
             Ok(_) => log::info!("Warmup video encoder successfully"),
             Err(e) => log::warn!("Warmup video encoder failed: {e}"),
         }
