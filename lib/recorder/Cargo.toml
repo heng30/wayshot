@@ -12,7 +12,6 @@ description.workspace = true
 
 [dependencies]
 log.workspace = true
-x264.workspace = true
 cpal.workspace = true
 mp4m.workspace = true
 hound.workspace = true
@@ -29,12 +28,21 @@ yuv = { workspace = true, features = ["rayon"] }
 fast_image_resize = { workspace = true, features = ["rayon"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+x264.workspace = true
 pipewire.workspace = true
 screen-capture-wayland-wlr = { workspace = true, optional = true }
 screen-capture-wayland-portal = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-screen-capture-windows = { workspace = true, optional = true }
+screen-capture-windows.workspace = true
+windows = { workspace = true, features = [
+  "Win32_Media_Audio",
+  "Win32_Media_Audio_Endpoints",
+  "Win32_Media_Audio_Apo",
+  "Win32_Media_KernelStreaming",
+  "Win32_System_Com",
+  "Win32_System_Ole",
+] }
 
 [dev-dependencies]
 ctrlc.workspace = true
@@ -42,6 +50,6 @@ env_logger.workspace = true
 
 [features]
 default = ["wayland-wlr"]
-windows = ["dep:screen-capture-windows"]
+windows = []
 wayland-wlr = ["dep:screen-capture-wayland-wlr"]
 wayland-portal = ["dep:screen-capture-wayland-portal"]

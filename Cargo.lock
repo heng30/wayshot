@@ -5912,6 +5912,7 @@ dependencies = [
  "screen-capture-windows",
  "spin_sleep",
  "thiserror 2.0.17",
+ "windows 0.62.2",
  "x264",
  "yuv",
 ]

@@ -9,10 +9,24 @@ use std::sync::{
 #[cfg(target_os = "linux")]
 mod speaker_recorder_linux;
 
+#[cfg(target_os = "windows")]
+mod speaker_recorder_windows;
+
 #[derive(Debug, thiserror::Error)]
 pub enum SpeakerRecorderError {
+    #[cfg(target_os = "linux")]
     #[error("Pipewire error: {0}")]
     PipewireError(String),
+
+    #[cfg(target_os = "windows")]
+    #[error("WASAPI error: {0}")]
+    WasapiError(String),
+
+    #[error("Audio device error: {0}")]
+    DeviceError(String),
+
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
 }
 
 #[derive(Setters)]
@@ -55,6 +69,9 @@ pub fn platform_speaker_recoder(
 ) -> Result<impl SpeakerRecorder, SpeakerRecorderError> {
     #[cfg(target_os = "linux")]
     let recoder = speaker_recorder_linux::SpeakerRecorderLinux::new(config);
+
+    #[cfg(target_os = "windows")]
+    let recoder = speaker_recorder_windows::SpeakerRecorderWindows::new(config);
 
     recoder
 }

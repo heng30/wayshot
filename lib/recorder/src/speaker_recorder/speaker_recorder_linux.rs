@@ -54,10 +54,6 @@ impl SpeakerRecorderLinux {
         Ok(recoder)
     }
 
-    // pub fn stop(&self) {
-    //     self.config.stop_sig.store(true, Ordering::Relaxed);
-    // }
-
     fn create_stream<'a>(&'a self) -> Result<StreamBox<'a>, SpeakerRecorderError> {
         let stream_props = pipewire::properties::properties! {
             "node.name" => "wayshot-speaker-recorder",
