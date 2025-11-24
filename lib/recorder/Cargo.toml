@@ -52,8 +52,8 @@ env_logger.workspace = true
 [features]
 default = ["wayland-wlr"]
 windows = ["openh264-video-encoder"]
-wayland-wlr = ["dep:screen-capture-wayland-wlr", "x264-video-encoder"]
-# wayland-wlr = ["dep:screen-capture-wayland-wlr", "openh264-video-encoder"]
+# wayland-wlr = ["dep:screen-capture-wayland-wlr", "x264-video-encoder"]
+wayland-wlr = ["dep:screen-capture-wayland-wlr", "openh264-video-encoder"]
 wayland-portal = ["dep:screen-capture-wayland-portal", "x264-video-encoder"]
 
 x264-video-encoder = ["dep:x264"]
