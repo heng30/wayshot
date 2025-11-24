@@ -3,7 +3,10 @@ use crate::{RecorderError, VideoEncoder, VideoEncoderConfig, recorder::ResizedIm
 use image::{ImageBuffer, Rgb};
 use openh264::{
     OpenH264API,
-    encoder::{Complexity, Encoder, EncoderConfig, FrameRate, Profile, RateControlMode, UsageType},
+    encoder::{
+        Complexity, Encoder, EncoderConfig, FrameRate, IntraFramePeriod, Profile, RateControlMode,
+        UsageType,
+    },
     formats::{RgbSliceU8, YUVBuffer},
 };
 use std::time::Instant;
@@ -26,9 +29,12 @@ impl OpenH264VideoEncoder {
             .skip_frames(false)
             .profile(Profile::Baseline)
             .complexity(Complexity::Low)
-            .rate_control_mode(RateControlMode::Quality)
-            .usage_type(UsageType::CameraVideoRealTime)
-            .max_frame_rate(FrameRate::from_hz(config.fps.to_u32() as f32));
+            .background_detection(false)
+            .adaptive_quantization(false)
+            .rate_control_mode(RateControlMode::Timestamp)
+            .usage_type(UsageType::ScreenContentRealTime)
+            .max_frame_rate(FrameRate::from_hz(config.fps.to_u32() as f32))
+            .intra_frame_period(IntraFramePeriod::from_num_frames(config.fps.to_u32()));
 
         let encoder = Encoder::with_api_config(OpenH264API::from_source(), encoder_config)
             .map_err(|e| {
@@ -189,7 +195,6 @@ impl VideoEncoder for OpenH264VideoEncoder {
         let yuv_raw = rgb_to_i420_yuv(&img.as_raw(), self.width, self.height)?;
         let yuv_buffer = YUVBuffer::from_vec(yuv_raw, self.width as usize, self.height as usize);
 
-        // FIXME: low efficiency(~50ms)
         let now = Instant::now();
         let bitstream = self.encoder.encode(&yuv_buffer).map_err(|e| {
             RecorderError::VideoEncodingFailed(format!("OpenH264 encoding failed: {:?}", e))
