@@ -10,6 +10,7 @@ use openh264::{
 pub struct OpenH264VideoEncoder {
     width: u32,
     height: u32,
+    annexb: bool,
     frame_index: u64,
     encoder: Encoder,
     headers_cache: Option<Vec<u8>>,
@@ -40,6 +41,7 @@ impl OpenH264VideoEncoder {
         Ok(Self {
             width: config.width,
             height: config.height,
+            annexb: config.annexb,
             encoder,
             frame_index: 0,
             headers_cache: None,
@@ -112,7 +114,7 @@ impl OpenH264VideoEncoder {
         result
     }
 
-    fn extract_sps_pps_from_bitstream(&self, bitstream: &[u8]) -> Option<Vec<u8>> {
+    fn extract_length_prefixed_sps_pps_from_bitstream(&self, bitstream: &[u8]) -> Option<Vec<u8>> {
         let mut sps_data = None;
         let mut pps_data = None;
         let mut result = Vec::new();
@@ -193,27 +195,42 @@ impl VideoEncoder for OpenH264VideoEncoder {
             RecorderError::VideoEncodingFailed(format!("OpenH264 encoding failed: {:?}", e))
         })?;
 
-        // Convert OpenH264 Annex B output to length-prefixed format
-        let annex_b_data = bitstream.to_vec();
-        let converted_data = self.convert_annex_b_to_length_prefixed(&annex_b_data);
+        let bitstream_data = bitstream.to_vec();
+        let final_data = if self.annexb {
+            bitstream_data
+        } else {
+            self.convert_annex_b_to_length_prefixed(&bitstream_data)
+        };
 
         // If this is the first frame and we haven't cached headers yet, try to extract SPS/PPS
-        if !self.first_frame_encoded && self.headers_cache.is_none() {
-            if let Some(headers) = self.extract_sps_pps_from_bitstream(&converted_data) {
+        if !self.annexb && !self.first_frame_encoded && self.headers_cache.is_none() {
+            if let Some(headers) = self.extract_length_prefixed_sps_pps_from_bitstream(&final_data)
+            {
                 self.headers_cache = Some(headers);
-                log::info!("Successfully extracted SPS/PPS headers from first OpenH264 frame");
+                log::info!(
+                    "Successfully extracted SPS/PPS headers from first OpenH264 frame (annexb: {})",
+                    self.annexb
+                );
             } else {
-                log::warn!("Could not extract SPS/PPS from first frame");
+                log::warn!(
+                    "Could not extract SPS/PPS from first frame (annexb: {})",
+                    self.annexb
+                );
             }
             self.first_frame_encoded = true;
         }
 
-        let encoded_frame = EncodedFrame::Frame((self.frame_index, converted_data));
+        let encoded_frame = EncodedFrame::Frame((self.frame_index, final_data));
         self.frame_index += 1;
         Ok(encoded_frame)
     }
 
     fn headers(&mut self) -> Result<Vec<u8>, RecorderError> {
+        // TODO: maybe parse the annexb headers from the test_img
+        if self.annexb {
+            return Ok(vec![]);
+        }
+
         if let Some(ref headers) = self.headers_cache {
             return Ok(headers.clone());
         }
@@ -237,26 +254,30 @@ impl VideoEncoder for OpenH264VideoEncoder {
 
         match self.encoder.encode(&yuv_buffer) {
             Ok(bitstream) => {
-                // Convert Annex B format to length-prefixed format
-                let annex_b_data = bitstream.to_vec();
-                let converted_data = self.convert_annex_b_to_length_prefixed(&annex_b_data);
+                let bitstream_data = bitstream.to_vec();
+                let converted_data = self.convert_annex_b_to_length_prefixed(&bitstream_data);
+                log::debug!(
+                    "Test frame: Converted to length-prefixed for headers extraction (annexb: {})",
+                    self.annexb
+                );
 
-                if let Some(headers) = self.extract_sps_pps_from_bitstream(&converted_data) {
+                if let Some(headers) =
+                    self.extract_length_prefixed_sps_pps_from_bitstream(&converted_data)
+                {
                     self.headers_cache = Some(headers.clone());
-                    log::info!("Successfully extracted SPS/PPS headers from OpenH264 test frame");
+                    log::info!(
+                        "Successfully extracted SPS/PPS headers from OpenH264 test frame (annexb: {})",
+                        self.annexb
+                    );
                     return Ok(headers);
                 } else {
                     log::warn!(
-                        "Could not extract SPS/PPS from OpenH264 test frame, using empty headers"
+                        "Could not extract SPS/PPS from OpenH264 test frame, using empty headers (annexb: {})",
+                        self.annexb
                     );
                 }
             }
-            Err(e) => {
-                log::warn!(
-                    "Failed to encode test frame for SPS/PPS extraction: {:?}",
-                    e
-                );
-            }
+            Err(e) => log::warn!("Failed to encode test frame for SPS/PPS extraction: {e:?}"),
         }
 
         Ok(vec![])
