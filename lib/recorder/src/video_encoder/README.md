@@ -1,0 +1,2 @@
+- `Linux` platform uses `x264` (~12ms)
+- `Windows` platform uses `openh264` (~25ms)

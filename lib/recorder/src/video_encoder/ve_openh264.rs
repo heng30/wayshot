@@ -25,11 +25,9 @@ impl OpenH264VideoEncoder {
         let encoder_config = EncoderConfig::new()
             .skip_frames(false)
             .profile(Profile::Baseline)
-            .complexity(Complexity::High)
-            .background_detection(false)
-            .adaptive_quantization(false)
-            .rate_control_mode(RateControlMode::Bufferbased)
-            .usage_type(UsageType::ScreenContentRealTime)
+            .complexity(Complexity::Low)
+            .rate_control_mode(RateControlMode::Quality)
+            .usage_type(UsageType::CameraVideoRealTime)
             .max_frame_rate(FrameRate::from_hz(config.fps.to_u32() as f32));
 
         let encoder = Encoder::with_api_config(OpenH264API::from_source(), encoder_config)
