@@ -23,13 +23,12 @@ impl OpenH264VideoEncoder {
         assert!(config.width > 0 && config.height > 0);
 
         let encoder_config = EncoderConfig::new()
-            .num_threads(4)
             .skip_frames(false)
             .profile(Profile::Baseline)
-            .complexity(Complexity::Low)
+            .complexity(Complexity::High)
             .background_detection(false)
             .adaptive_quantization(false)
-            .rate_control_mode(RateControlMode::Off)
+            .rate_control_mode(RateControlMode::Bufferbased)
             .usage_type(UsageType::ScreenContentRealTime)
             .max_frame_rate(FrameRate::from_hz(config.fps.to_u32() as f32));
 
@@ -189,25 +188,22 @@ impl VideoEncoder for OpenH264VideoEncoder {
             )));
         }
 
-        let now = Instant::now();
         let yuv_raw = rgb_to_i420_yuv(&img.as_raw(), self.width, self.height)?;
         let yuv_buffer = YUVBuffer::from_vec(yuv_raw, self.width as usize, self.height as usize);
-        println!("=============== rgb -> yuv: {:.2?}", now.elapsed());
 
+        // FIXME: low efficiency(~50ms)
         let now = Instant::now();
         let bitstream = self.encoder.encode(&yuv_buffer).map_err(|e| {
             RecorderError::VideoEncodingFailed(format!("OpenH264 encoding failed: {:?}", e))
         })?;
-        println!("=============== encode: {:.2?}", now.elapsed());
+        log::debug!("openh264 encode yuv frame spent: {:.2?}", now.elapsed());
 
-        let now = Instant::now();
         let bitstream_data = bitstream.to_vec();
         let final_data = if self.annexb {
             bitstream_data
         } else {
             self.convert_annex_b_to_length_prefixed(&bitstream_data)
         };
-        println!("=== convert_to_length_prefixed: {:.2?}", now.elapsed());
 
         // If this is the first frame and we haven't cached headers yet, try to extract SPS/PPS
         if !self.annexb && !self.first_frame_encoded && self.headers_cache.is_none() {
