@@ -1,11 +1,7 @@
-use super::{EncodedFrame, VideoEncoder, VideoEncoderConfig};
+use super::{EncodedFrame, VideoEncoder, VideoEncoderConfig, rgb_to_i420_yuv};
 use crate::{FPS, RecorderError, recorder::ResizedImageBuffer};
 use mp4m::VIDEO_TIMESCALE;
 use x264::{Colorspace, Encoder, Image, Preset, Setup, Tune};
-use yuv::{
-    YuvChromaSubsampling, YuvConversionMode, YuvPlanarImageMut, YuvRange, YuvStandardMatrix,
-    rgb_to_yuv420,
-};
 
 pub struct X264VideoEncoder {
     width: u32,
@@ -137,40 +133,4 @@ impl VideoEncoder for X264VideoEncoder {
 
         Ok(())
     }
-}
-
-fn rgb_to_i420_yuv(rgb_data: &[u8], width: u32, height: u32) -> Result<Vec<u8>, RecorderError> {
-    let frame_size = (width * height) as usize;
-
-    // Allocate YUV planar image
-    let mut planar_image =
-        YuvPlanarImageMut::<u8>::alloc(width, height, YuvChromaSubsampling::Yuv420);
-
-    // Convert RGB to YUV420
-    rgb_to_yuv420(
-        &mut planar_image,
-        rgb_data,
-        width * 3, // RGB stride (3 bytes per pixel)
-        YuvRange::Limited,
-        YuvStandardMatrix::Bt601,
-        YuvConversionMode::Balanced,
-    )
-    .map_err(|e| {
-        RecorderError::ImageProcessingFailed(format!("RGB to YUV conversion failed: {:?}", e))
-    })?;
-
-    // Extract the YUV data from the planar image
-    let mut yuv_data = vec![0u8; frame_size * 3 / 2];
-
-    // Copy Y plane
-    yuv_data[0..frame_size].copy_from_slice(planar_image.y_plane.borrow());
-
-    // Copy U plane
-    let u_plane_end = frame_size + frame_size / 4;
-    yuv_data[frame_size..u_plane_end].copy_from_slice(planar_image.u_plane.borrow());
-
-    // Copy V plane
-    yuv_data[u_plane_end..].copy_from_slice(planar_image.v_plane.borrow());
-
-    Ok(yuv_data)
 }

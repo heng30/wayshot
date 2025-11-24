@@ -1,4 +1,4 @@
-use super::EncodedFrame;
+use super::{EncodedFrame, rgb_to_i420_yuv};
 use crate::{RecorderError, VideoEncoder, VideoEncoderConfig, recorder::ResizedImageBuffer};
 use image::{ImageBuffer, Rgb};
 use openh264::{
@@ -6,6 +6,7 @@ use openh264::{
     encoder::{Complexity, Encoder, EncoderConfig, FrameRate, Profile, RateControlMode, UsageType},
     formats::{RgbSliceU8, YUVBuffer},
 };
+use std::time::Instant;
 
 pub struct OpenH264VideoEncoder {
     width: u32,
@@ -22,14 +23,15 @@ impl OpenH264VideoEncoder {
         assert!(config.width > 0 && config.height > 0);
 
         let encoder_config = EncoderConfig::new()
-            .max_frame_rate(FrameRate::from_hz(config.fps.to_u32() as f32))
+            .num_threads(4)
             .skip_frames(false)
-            .complexity(Complexity::High)
+            .profile(Profile::Baseline)
+            .complexity(Complexity::Low)
             .background_detection(false)
             .adaptive_quantization(false)
-            .profile(Profile::Baseline)
             .rate_control_mode(RateControlMode::Off)
-            .usage_type(UsageType::ScreenContentRealTime);
+            .usage_type(UsageType::ScreenContentRealTime)
+            .max_frame_rate(FrameRate::from_hz(config.fps.to_u32() as f32));
 
         let encoder = Encoder::with_api_config(OpenH264API::from_source(), encoder_config)
             .map_err(|e| {
@@ -50,7 +52,7 @@ impl OpenH264VideoEncoder {
     }
 
     fn convert_annex_b_to_length_prefixed(&self, annex_b_data: &[u8]) -> Vec<u8> {
-        let mut result = Vec::new();
+        let mut result = Vec::with_capacity(annex_b_data.len());
         let mut i = 0;
 
         // Parse Annex B NAL units and convert to length-prefixed format
@@ -187,20 +189,25 @@ impl VideoEncoder for OpenH264VideoEncoder {
             )));
         }
 
-        // Convert RGB to YUV using OpenH264's RGB source
-        let rgb_source = RgbSliceU8::new(img.as_raw(), (self.width as usize, self.height as usize));
-        let yuv_buffer = YUVBuffer::from_rgb8_source(rgb_source);
+        let now = Instant::now();
+        let yuv_raw = rgb_to_i420_yuv(&img.as_raw(), self.width, self.height)?;
+        let yuv_buffer = YUVBuffer::from_vec(yuv_raw, self.width as usize, self.height as usize);
+        println!("=============== rgb -> yuv: {:.2?}", now.elapsed());
 
+        let now = Instant::now();
         let bitstream = self.encoder.encode(&yuv_buffer).map_err(|e| {
             RecorderError::VideoEncodingFailed(format!("OpenH264 encoding failed: {:?}", e))
         })?;
+        println!("=============== encode: {:.2?}", now.elapsed());
 
+        let now = Instant::now();
         let bitstream_data = bitstream.to_vec();
         let final_data = if self.annexb {
             bitstream_data
         } else {
             self.convert_annex_b_to_length_prefixed(&bitstream_data)
         };
+        println!("=== convert_to_length_prefixed: {:.2?}", now.elapsed());
 
         // If this is the first frame and we haven't cached headers yet, try to extract SPS/PPS
         if !self.annexb && !self.first_frame_encoded && self.headers_cache.is_none() {
