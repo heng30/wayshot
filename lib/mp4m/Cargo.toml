@@ -27,7 +27,4 @@ image.workspace = true
 env_logger.workspace = true
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
-recorder = { workspace = true, features = [
-  "wayland-wlr",
-  "x264-video-encoder",
-] }
+recorder = { workspace = true, features = ["wayland-wlr"] }
