@@ -51,7 +51,7 @@ ctrlc.workspace = true
 env_logger.workspace = true
 
 [features]
-default = ["wayland-wlr"]
+default = []
 windows = ["ffmpeg-video-encoder"]
 wayland-wlr = ["dep:screen-capture-wayland-wlr", "x264-video-encoder"]
 wayland-portal = ["dep:screen-capture-wayland-portal", "x264-video-encoder"]
