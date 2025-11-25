@@ -117,9 +117,9 @@ mp4m = { path = "lib/mp4m" }
 cutil = { path = "lib/cutil" }
 sqldb = { path = "lib/sqldb" }
 pmacro = { path = "lib/pmacro" }
+recorder = { path = "lib/recorder" }
 mp4-player = { path = "lib/mp4-player" }
 screen-capture = { path = "lib/screen-capture" }
-recorder = { path = "lib/recorder", default-features = false }
 screen-capture-windows = { path = "lib/screen-capture-windows" }
 screen-capture-wayland-wlr = { path = "lib/screen-capture-wayland-wlr" }
 screen-capture-wayland-portal = { path = "lib/screen-capture-wayland-portal" }

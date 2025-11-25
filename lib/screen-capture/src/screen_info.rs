@@ -81,7 +81,7 @@ impl Default for Transform {
     }
 }
 
-#[cfg(feature = "wayland")]
+#[cfg(all(target_os = "linux", feature = "wayland"))]
 impl From<wayland_client::protocol::wl_output::Transform> for Transform {
     fn from(value: wayland_client::protocol::wl_output::Transform) -> Self {
         use wayland_client::protocol::wl_output::Transform as WlTransform;
