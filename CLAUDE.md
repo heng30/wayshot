@@ -104,3 +104,4 @@ The recorder library provides the core screen recording functionality:
 3. For integration testing: `make test` to run all workspace tests
 4. Examples are in `lib/recorder/examples/` for testing specific functionality
 - 不要使用模拟数据
+- 不要使用 plachoder 或模拟数据

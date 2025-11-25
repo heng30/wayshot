@@ -1,2 +1,3 @@
-- `Linux` platform uses `x264` (~12ms)
-- `Windows` platform uses `openh264` (~25ms)
+- `Linux` platform uses `x264` (~10ms). Binding `C` lib.
+- `Windows` platform uses `openh264` (~50ms). Pure `Rust` crate.
+- `Linux` and `Windows` platform uses `ffmpeg-next` with `libx264` (~10ms). Binding `C` lib.

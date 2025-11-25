@@ -4,6 +4,9 @@ mod ve_x264;
 #[cfg(feature = "openh264-video-encoder")]
 mod ve_openh264;
 
+#[cfg(feature = "ffmpeg-video-encoder")]
+mod ve_ffmpeg;
+
 use crate::{FPS, RecorderError, recorder::ResizedImageBuffer};
 use derive_setters::Setters;
 
@@ -53,9 +56,13 @@ pub fn new(config: VideoEncoderConfig) -> Result<Box<dyn VideoEncoder>, Recorder
     #[cfg(feature = "openh264-video-encoder")]
     let ve = ve_openh264::OpenH264VideoEncoder::new(config)?;
 
+    #[cfg(feature = "ffmpeg-video-encoder")]
+    let ve = ve_ffmpeg::FfmpegVideoEncoder::new(config)?;
+
     Ok(Box::new(ve))
 }
 
+#[allow(unused)]
 pub fn rgb_to_i420_yuv(rgb_data: &[u8], width: u32, height: u32) -> Result<Vec<u8>, RecorderError> {
     use yuv::{
         YuvChromaSubsampling, YuvConversionMode, YuvPlanarImageMut, YuvRange, YuvStandardMatrix,

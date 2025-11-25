@@ -28,10 +28,11 @@
         alsa-lib.dev
         pipewire.dev
         x264.dev
+        ffmpeg.dev
       ];
 
       rustToolchain = pkgs.rust-bin.stable.latest.default.override {
-        targets = [ "aarch64-linux-android" "wasm32-unknown-unknown" ];
+        #   targets = [ "aarch64-linux-android" "wasm32-unknown-unknown" ];
       };
     in {
       devShells.${system}.default =
