@@ -21,6 +21,7 @@
 - 运行 `make desktop-debug` 调试桌面平台程序
 - 运行 `make desktop-build-release` 可构建适用于 `Wayland wlr` 的桌面应用程序发布版本。例如：`Sway` 和 `Hyprland`。
 - 运行 `make desktop-build-release desktop-features=desktop-wayland-portal` 可构建适用于 `Wayland XDG` 桌面门户的桌面应用程序发布版本。例如：`Ubuntu` 和 `KDE`。
+- 运行 `make desktop-build-release desktop-features=desktop-windows` 可构建适用于 `Windeos` 的桌面应用程序发布版本。
 - 运行 `make cursor-release` 可构建获取鼠标位置的程序。该程序需要和 `portal` 版本的 `wayshot`一起使用。
 - 参考 [Makefile](./Makefile) 了解更多信息
 
@@ -35,11 +36,25 @@
     - `portal` 版本：`Ubuntu` 和 `KDE` 等
     - `wlr` 版本：`Sway` 和 `Hyprland` 等
 
-- `ubuntu` 安装编译依赖：
+- `Ubuntu` 安装编译依赖：
     ```bash
     sudo apt install libxcb-composite0-dev libasound2-dev libpipewire-0.3-dev \
                      libx264-dev libx11-dev libxi-dev libxtst-dev libevdev-dev \
                      qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
+
+
+- `Windows` 编译 [`ffmpeg-next`](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building)
+    - 安装LLVM（可通过官方安装程序、Visual Studio、Chocolatey或任何其他方式），并将LLVM的bin路径添加到PATH环境变量中，或者将LIBCLANG_PATH设置为该路径（更多信息请参阅clang-sys文档）。
+    - 通过任意方式安装FFmpeg（需包含头文件），例如从 https://ffmpeg.org/download.html 下载预编译的["full_build-shared"](https://www.gyan.dev/ffmpeg/builds/)版本。将FFMPEG_DIR设置为包含include和lib的目录。
+    - 运行 cargo build 命令。
+    - 将FFmpeg的bin路径添加到PATH环境变量中。
+    - 参考示例：https://github.com/zmwangx/rust-ffmpeg/blob/master/.github/workflows/build.yml。
+    - `git bash` 示例：
+    ```bash
+        export FFMPEG_DIR=C:/ffmpeg-8.0.1-full_build-shared
+        export LIBCLANG_PATH="C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/Llvm/x64/bin"
+        make desktop-build-release desktop-features=desktop-windows
+    ```
 
 ### 参考
 - [Slint Language Documentation](https://slint-ui.com/releases/1.0.0/docs/slint/)

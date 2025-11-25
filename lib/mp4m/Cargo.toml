@@ -28,3 +28,6 @@ env_logger.workspace = true
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 recorder = { workspace = true, features = ["wayland-wlr"] }
+
+[target.'cfg(target_os = "windows")'.dev-dependencies]
+recorder = { workspace = true, features = ["windows"] }

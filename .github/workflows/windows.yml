@@ -1,0 +1,80 @@
+name: windows
+on: [push]
+
+permissions:
+  contents: write
+
+jobs:
+  action-run:
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        include:
+          - ffmpeg_version: latest
+            ffmpeg_download_url: https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z
+      fail-fast: false
+
+    env:
+      FFMPEG_DOWNLOAD_URL: ${{ matrix.ffmpeg_download_url }}
+
+    steps:
+      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - name: Check out repository code
+        uses: actions/checkout@v3
+      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
+      - run: echo "The ${{ github.workspace }} is now ready to test your code on the runner."
+      - run: ls ${{ github.workspace }}
+
+      - name: Install dependencies
+        run: |
+          $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
+          Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
+          Invoke-WebRequest "${env:FFMPEG_DOWNLOAD_URL}" -OutFile ffmpeg-release-full-shared.7z
+          7z x ffmpeg-release-full-shared.7z
+          mkdir ffmpeg
+          mv ffmpeg-*/* ffmpeg/
+          Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg`n"
+          Add-Content $env:GITHUB_PATH "${pwd}\ffmpeg\bin`n"
+
+      - run: echo "start install Rust..."
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+      - run: echo "end install Rust..."
+
+      - run: echo "start build..."
+      - run: make desktop-build-release desktop-features=desktop-windows
+      - run: echo "end build..."
+
+      - name: Get the release version from the tag
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - run: echo "start packing..."
+      - run: make app-name
+      - name: Export package
+        shell: bash
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cd target
+          binary_name=`cat app-name`
+          mkdir $binary_name
+          output="$binary_name-${{ env.VERSION }}-x86_64-windows.tar.gz"
+          cp -rf release/$binary_name.exe $binary_name/
+          cp -rf ../wayshot/windows/dll/x264.dll $binary_name/
+          cp -rf ${{ env:FFMPEG_DIR }}/bin/*.dll $binary_name/
+          tar -zcf $output $binary_name
+          cp $output ..
+          echo "ASSET=$output" >> $GITHUB_ENV
+      - run: echo "end packing..."
+
+      - name: Upload the package
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            ${{ env.ASSET }}
+
+      - run: echo "🍏 This job's status is ${{ job.status }}."

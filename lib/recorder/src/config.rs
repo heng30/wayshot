@@ -109,7 +109,8 @@ impl RecorderConfig {
     }
 
     pub fn make_filename(dir: impl AsRef<Path>) -> PathBuf {
-        let mut filename = Local::now().format("%Y-%m-%d_%H:%M:%S").to_string();
+        // let mut filename = Local::now().format("%Y-%m-%d_%H:%M:%S").to_string();
+        let mut filename = Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
         filename.push_str(".mp4");
         dir.as_ref().to_path_buf().join(filename)
     }
