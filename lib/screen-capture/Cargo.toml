@@ -14,6 +14,8 @@ description.workspace = true
 thiserror.workspace = true
 derive_setters.workspace = true
 serde = { workspace = true, features = ["derive"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
 wayland-client = { workspace = true, optional = true }
 
 [features]
