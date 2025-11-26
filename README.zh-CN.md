@@ -38,9 +38,10 @@
 
 - `Ubuntu` 安装编译依赖：
     ```bash
-    sudo apt install libxcb-composite0-dev libasound2-dev libpipewire-0.3-dev \
-                     libx264-dev libx11-dev libxi-dev libxtst-dev libevdev-dev \
-                     qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
+    sudo apt install \
+        libxcb-composite0-dev libasound2-dev libpipewire-0.3-dev \
+        libx264-dev libx11-dev libxi-dev libxtst-dev libevdev-dev \
+        qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
 
 
 - `Windows` 编译 [`ffmpeg-next`](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building)
@@ -49,6 +50,7 @@
     - 运行 cargo build 命令。
     - 将FFmpeg的bin路径添加到PATH环境变量中。
     - 参考示例：https://github.com/zmwangx/rust-ffmpeg/blob/master/.github/workflows/build.yml。
+    - 运行程序依赖：`ffmpeg` 相关库和 `libx264.dll`。可以到发布页面下载程序，里面包含了相关依赖。
     - `git bash` 示例：
     ```bash
         export FFMPEG_DIR=C:/ffmpeg-8.0.1-full_build-shared

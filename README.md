@@ -44,9 +44,10 @@ This is a screen recording tool for `Linux` and `Windows`. It is based on `Rust`
 
 - Install build dependences on `Ubuntu` ：
     ```bash
-    sudo apt install libxcb-composite0-dev libasound2-dev libpipewire-0.3-dev \
-                     libx264-dev libx11-dev libxi-dev libxtst-dev libevdev-dev \
-                     qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
+    sudo apt install \
+        libxcb-composite0-dev libasound2-dev libpipewire-0.3-dev \
+        libx264-dev libx11-dev libxi-dev libxtst-dev libevdev-dev \
+        qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
     ```
 
 - `Windows` compiles [`ffmpeg-next`](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building)
@@ -55,6 +56,7 @@ This is a screen recording tool for `Linux` and `Windows`. It is based on `Rust`
     - cargo build.
     - Add FFmpeg's bin path to PATH
     - You can find an example in https://github.com/zmwangx/rust-ffmpeg/blob/master/.github/workflows/build.yml.
+    - Program dependencies: `ffmpeg` related libraries and `libx264.dll`. You can download the program from the release page, which includes the necessary dependencies.
     - `git bash` examples：
     ```bash
         export FFMPEG_DIR=C:/ffmpeg-8.0.1-full_build-shared

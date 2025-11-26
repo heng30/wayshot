@@ -23,8 +23,10 @@ pub fn monitor_cursor_position(
         }
 
         let current_position = Position {
-            x: (point.x as f32 * config.screen_info.scale_factor) as i32,
-            y: (point.y as f32 * config.screen_info.scale_factor) as i32,
+            x: point.x as i32,
+            y: point.y as i32,
+            // x: (point.x as f32 * config.screen_info.scale_factor) as i32,
+            // y: (point.y as f32 * config.screen_info.scale_factor) as i32,
         };
 
         if current_position != last_position {

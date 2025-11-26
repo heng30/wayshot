@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::debug!("Audio specs - File 2: {:?}", spec2);
 
     let all_samples1: Vec<f32> = reader1.samples::<f32>().collect::<Result<Vec<f32>, _>>()?;
-    let all_samples2: Vec<f32> = reader2.samples::<f32>().collect::<Result<Vec<f32>, _>>()?;
+    let all_samples2: Vec<i16> = reader2.samples::<i16>().collect::<Result<Vec<i16>, _>>()?;
 
     log::debug!("Total samples - File 1: {}", all_samples1.len());
     log::debug!("Total samples - File 2: {}", all_samples2.len());
@@ -86,7 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             sender1.send(chunk1.to_vec())?;
         }
         if !chunk2.is_empty() {
-            sender2.send(chunk2.to_vec())?;
+            sender2.send(chunk2.iter().map(|i| *i as f32).collect())?;
         }
 
         processor.process_samples()?;

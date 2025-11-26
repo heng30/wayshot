@@ -73,6 +73,7 @@ pub struct AudioProcessor<T: SampleType = f32> {
     max_channels: u16,
     specs: Vec<WavSpec>,
     buffers: Vec<Vec<f32>>,
+    original_channels: Vec<u16>,
     sample_receiver: Vec<Receiver<Vec<f32>>>,
     writer: Option<WavWriter<BufWriter<File>>>,
     _marker: PhantomData<T>,
@@ -85,22 +86,26 @@ impl<T: SampleType> AudioProcessor<T> {
             max_channels: 1,
             specs: vec![],
             buffers: vec![],
+            original_channels: vec![],
             sample_receiver: vec![],
             writer: None,
             _marker: PhantomData,
         }
     }
 
-    pub fn add_track(&mut self, spec: WavSpec) -> Sender<Vec<f32>> {
-        assert!(spec.channels <= 2);
+    pub fn add_track(&mut self, mut spec: WavSpec) -> Sender<Vec<f32>> {
+        log::info!("add track: {spec:?}");
 
-        let (sender, receiver) = bounded(self.config.channel_size);
+        self.original_channels.push(spec.channels);
+        spec.channels = spec.channels.min(2); // max support channel size is 2
+        self.max_channels = self.max_channels.max(spec.channels);
 
         self.specs.push(spec);
         self.buffers
             .push(Vec::with_capacity(spec.sample_rate as usize * 3));
+
+        let (sender, receiver) = bounded(self.config.channel_size);
         self.sample_receiver.push(receiver);
-        self.max_channels = self.max_channels.max(spec.channels);
 
         sender
     }
@@ -175,6 +180,67 @@ impl<T: SampleType> AudioProcessor<T> {
             .collect()
     }
 
+    fn multi_to_stereo(samples: &[f32], input_channels: u16) -> Vec<f32> {
+        let (input_ch, output_ch) = (input_channels as usize, 2);
+        let frame_count = samples.len() / input_ch;
+        let mut output = Vec::with_capacity(frame_count * output_ch);
+
+        for frame in 0..frame_count {
+            let frame_start = frame * input_ch;
+            let frame_samples = &samples[frame_start..frame_start + input_ch];
+            let (left, right) = Self::downmix_frame(frame_samples, input_channels);
+            output.extend_from_slice(&[left, right]);
+        }
+
+        output
+    }
+
+    fn downmix_frame(frame_samples: &[f32], input_channels: u16) -> (f32, f32) {
+        match input_channels {
+            // 3 channels: lefe, right, middle
+            3 => (
+                frame_samples[0] + frame_samples[2] * 0.707,
+                frame_samples[1] + frame_samples[2] * 0.707,
+            ),
+            // 4 channels: front-left, front-right, back-left, back-right
+            4 => (
+                frame_samples[0] + frame_samples[2] * 0.7,
+                frame_samples[1] + frame_samples[3] * 0.7,
+            ),
+            // 5.1 channels: left, right, middle, LFE, left-surround, right-surround
+            6 => (
+                frame_samples[0]
+                    + frame_samples[2] * 0.707
+                    + frame_samples[4] * 0.5
+                    + frame_samples[3] * 0.1,
+                frame_samples[1]
+                    + frame_samples[2] * 0.707
+                    + frame_samples[5] * 0.5
+                    + frame_samples[3] * 0.1,
+            ),
+
+            _ => Self::generic_downmix(frame_samples, input_channels),
+        }
+    }
+
+    // FIXME: we don't know the channel layout, so it maybe output strange sounds
+    fn generic_downmix(frame_samples: &[f32], input_channels: u16) -> (f32, f32) {
+        let input_ch = input_channels as usize;
+        let (mut left, mut right) = (0.0, 0.0);
+
+        for (i, &sample) in frame_samples.iter().enumerate() {
+            // Calculating the weights of the left and right channels based on the channel positions.
+            let pan = i as f32 / (input_ch - 1) as f32; // 0.0 = Left, 1.0 = Right
+
+            // Using the square root curve for more natural panning effects.
+            left += sample * (1.0 - pan).sqrt();
+            right += sample * pan.sqrt();
+        }
+
+        let normalization = (input_ch as f32 / 2.0).sqrt();
+        (left / normalization, right / normalization)
+    }
+
     pub fn normalize_audio(samples: &[f32]) -> Vec<f32> {
         let max_amplitude = samples
             .iter()
@@ -195,7 +261,13 @@ impl<T: SampleType> AudioProcessor<T> {
 
         for i in 0..self.sample_receiver.len() {
             let receiver = &self.sample_receiver[i];
-            while let Ok(mut samples) = receiver.try_recv() {
+            while let Ok(samples) = receiver.try_recv() {
+                let mut samples = if self.original_channels[i] > 2 {
+                    Self::multi_to_stereo(&samples, self.original_channels[i])
+                } else {
+                    samples
+                };
+
                 self.convert_samples_to_f32(&mut samples, i);
                 self.buffers[i].extend(samples);
             }
