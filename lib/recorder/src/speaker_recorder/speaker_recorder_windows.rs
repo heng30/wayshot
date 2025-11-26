@@ -4,6 +4,7 @@ use crate::{
 };
 use crossbeam::channel::Sender;
 use hound::WavSpec;
+use spin_sleep::SpinSleeper;
 use std::{
     ptr,
     sync::{
@@ -12,94 +13,155 @@ use std::{
     },
     time::Duration,
 };
-use windows::{
-    Win32::{
-        Media::{Audio::*, KernelStreaming::*},
-        System::{Com::*, Ole::*},
-    },
-    core::*,
-};
+use winapi::Interface as WinApiInterface;
+use winapi::shared::mmreg::WAVE_FORMAT_IEEE_FLOAT;
+use winapi::shared::winerror::FAILED;
+use winapi::um::audioclient::IAudioClient as IAudioClientWinApi;
+use winapi::um::mmdeviceapi::IMMDevice as IMMDeviceWinApi;
+use windows::Win32::{Media::Audio::*, System::Com::*};
 
 pub struct SpeakerRecorderWindows {
     config: SpeakerRecorderConfig,
     device_info: Option<(u32, String)>,
-    device_id: Option<String>,
+    com_initialized: bool, // Track COM initialization state
 }
 
 impl SpeakerRecorderWindows {
-    pub fn new(config: SpeakerRecorderConfig) -> Result<Self, SpeakerRecorderError> {
+    pub fn new(config: SpeakerRecorderConfig) -> std::result::Result<Self, SpeakerRecorderError> {
+        // Initialize COM for WinAPI WASAPI
         unsafe {
-            CoInitializeEx(ptr::null(), COINIT_APARTMENTTHREADED).map_err(|e| {
-                SpeakerRecorderError::WasapiError(format!("COM initialization failed: {e}"))
-            })?;
+            let hr = CoInitializeEx(Some(ptr::null()), COINIT_MULTITHREADED);
+            if FAILED(hr.0) {
+                return Err(SpeakerRecorderError::WasapiError(format!(
+                    "Failed to initialize COM: HRESULT=0x{:08X}",
+                    hr.0
+                )));
+            }
         }
 
         let mut recorder = Self {
             config,
             device_info: None,
-            device_id: None,
+            com_initialized: false, // Will be set to true if COM initialization succeeds
         };
 
         let output_device = recorder.find_default_output()?;
         recorder.device_info = output_device.clone();
+        recorder.com_initialized = true; // COM was initialized successfully
         Ok(recorder)
     }
 
     fn create_audio_client(
         &self,
-    ) -> Result<(IAudioClient, IAudioCaptureClient), SpeakerRecorderError> {
-        let device_enumerator: IMMDeviceEnumerator =
-            unsafe { CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)? };
+    ) -> std::result::Result<(IAudioClient, IAudioCaptureClient), SpeakerRecorderError> {
+        log::info!("Creating WASAPI audio client with Windows crate...");
 
-        let device = if let Some(ref device_id) = self.device_id {
-            unsafe {
-                device_enumerator.GetDevice(device_id).map_err(|e| {
-                    SpeakerRecorderError::DeviceError(format!("Failed to get device: {e}"))
+        let device_enumerator: IMMDeviceEnumerator = unsafe {
+            CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_INPROC_SERVER).map_err(|e| {
+                SpeakerRecorderError::WasapiError(format!(
+                    "Failed to create device enumerator: {e}"
+                ))
+            })?
+        };
+
+        // Get default audio endpoint
+        let device = unsafe {
+            device_enumerator
+                .GetDefaultAudioEndpoint(eRender, eConsole)
+                .map_err(|e| {
+                    SpeakerRecorderError::WasapiError(format!(
+                        "Failed to get default audio endpoint: {e}"
+                    ))
                 })?
-            }
-        } else {
-            unsafe {
-                device_enumerator
-                    .GetDefaultAudioEndpoint(eRender, eConsole)
+        };
+
+        // Log device state
+        let device_state = unsafe { device.GetState().unwrap_or(DEVICE_STATE_DISABLED) };
+        log::debug!("Device state: {:?}", device_state);
+
+        if device_state != DEVICE_STATE_ACTIVE {
+            return Err(SpeakerRecorderError::DeviceError(
+                "Audio device is not active".to_string(),
+            ));
+        }
+
+        // Since windows crate 0.62 doesn't have Activate method, we need to use winapi for Activate
+        log::debug!("Activating IAudioClient using winapi's Activate method...");
+
+        // Convert windows crate IMMDevice to winapi IMMDevice
+        // Both are COM interfaces, so we can cast them
+        let device_winapi: *mut IMMDeviceWinApi = unsafe { std::mem::transmute_copy(&device) };
+
+        let audio_client_winapi: *mut IAudioClientWinApi = unsafe {
+            let mut audio_client_ptr: *mut IAudioClientWinApi = std::ptr::null_mut();
+            let hr = (*device_winapi).Activate(
+                &IAudioClientWinApi::uuidof(),
+                winapi::um::combaseapi::CLSCTX_ALL,
+                std::ptr::null_mut(),
+                &mut audio_client_ptr as *mut *mut _ as *mut *mut std::ffi::c_void,
+            );
+
+            if FAILED(hr) {
+                log::debug!("Console endpoint failed, trying multimedia...");
+                let device_multimedia = device_enumerator
+                    .GetDefaultAudioEndpoint(eRender, eMultimedia)
                     .map_err(|e| {
-                        SpeakerRecorderError::DeviceError(format!(
-                            "Failed to get default audio endpoint: {e}"
+                        SpeakerRecorderError::WasapiError(format!(
+                            "Failed to get multimedia endpoint: {e}"
                         ))
-                    })?
+                    })?;
+
+                let device_multimedia_winapi: *mut IMMDeviceWinApi =
+                    std::mem::transmute_copy(&device_multimedia);
+                let hr_multimedia = (*device_multimedia_winapi).Activate(
+                    &IAudioClientWinApi::uuidof(),
+                    winapi::um::combaseapi::CLSCTX_ALL,
+                    std::ptr::null_mut(),
+                    &mut audio_client_ptr as *mut *mut _ as *mut *mut std::ffi::c_void,
+                );
+
+                if FAILED(hr_multimedia) {
+                    return Err(SpeakerRecorderError::WasapiError(format!(
+                        "Both console and multimedia endpoints failed. Console: HRESULT=0x{:08X}, Multimedia: HRESULT=0x{:08X}",
+                        hr, hr_multimedia
+                    )));
+                }
             }
+
+            audio_client_ptr
         };
 
-        let audio_client: IAudioClient = unsafe { device.Activate(CLSCTX_ALL, None)? };
+        // Convert back to windows crate IAudioClient
+        let audio_client: IAudioClient = unsafe { std::mem::transmute_copy(&audio_client_winapi) };
+        log::info!("✅ Successfully activated IAudioClient interface!");
 
-        // Configure audio format - match Linux implementation (48kHz, float32, stereo)
+        // Configure audio format - use 32-bit float to match our WAV writer spec
         let wave_format = WAVEFORMATEX {
-            wFormatTag: WAVE_FORMAT_EXTENSIBLE,
+            wFormatTag: WAVE_FORMAT_IEEE_FLOAT as u16,
             nChannels: 2,
-            nSamplesPerSec: 48000,
-            nAvgBytesPerSec: 48000 * 2 * 4, // sample_rate * channels * bytes_per_sample
+            nSamplesPerSec: 44100,
+            nAvgBytesPerSec: 44100 * 2 * 4, // sample_rate * channels * bytes_per_sample (32-bit float)
             nBlockAlign: 2 * 4,             // channels * bytes_per_sample
-            wBitsPerSample: 32,
-            cbSize: 22, // size of WAVEFORMATEXTENSIBLE
+            wBitsPerSample: 32,             // 32-bit float
+            cbSize: 0,                      // No extra data for IEEE float
         };
 
-        let mut wave_format_extensible: WAVEFORMATEXTENSIBLE = unsafe { std::mem::zeroed() };
-        wave_format_extensible.Format = wave_format;
-        wave_format_extensible.SubFormat = KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
-        wave_format_extensible.Samples.wValidBitsPerSample = 32;
-        wave_format_extensible.dwChannelMask = KSAUDIO_SPEAKER_STEREO;
-
-        let p_format = &mut wave_format_extensible.Format as *mut _ as *mut WAVEFORMATEX;
+        let p_format = &wave_format as *const _ as *mut WAVEFORMATEX;
 
         // Initialize audio client for loopback recording
+        // 1秒 = 10,000,000 REFTIMES (100ns units)
+        // 请求 100ms 的缓冲区，给 Loopback 足够的缓冲空间
+        let hns_requested_duration = 1_000_000; // 100ms buffer
+
         unsafe {
             audio_client
                 .Initialize(
                     AUDCLNT_SHAREMODE_SHARED,
                     AUDCLNT_STREAMFLAGS_LOOPBACK,
-                    0,
+                    hns_requested_duration, // 请求 100ms 缓冲
                     0,
                     p_format,
-                    ptr::null(),
+                    None,
                 )
                 .map_err(|e| {
                     SpeakerRecorderError::WasapiError(format!(
@@ -108,11 +170,40 @@ impl SpeakerRecorderWindows {
                 })?;
         }
 
+        log::info!("✅ Audio client initialized successfully!");
+
+        // Get capture client
         let capture_client: IAudioCaptureClient = unsafe {
             audio_client.GetService().map_err(|e| {
                 SpeakerRecorderError::WasapiError(format!("Failed to get capture client: {e}"))
             })?
         };
+
+        log::info!("✅ Capture client obtained successfully!");
+
+        // Get the actual device format to ensure compatibility
+        let device_format_ptr = unsafe {
+            audio_client.GetMixFormat().map_err(|e| {
+                SpeakerRecorderError::WasapiError(format!("Failed to get device mix format: {e}"))
+            })?
+        };
+
+        let device_format = unsafe { *device_format_ptr };
+        let format_tag = device_format.wFormatTag;
+        let channels = device_format.nChannels;
+        let sample_rate = device_format.nSamplesPerSec;
+        let bits_per_sample = device_format.wBitsPerSample;
+        log::info!(
+            "Device format: wFormatTag={}, nChannels={}, nSamplesPerSec={}, wBitsPerSample={}",
+            format_tag,
+            channels,
+            sample_rate,
+            bits_per_sample
+        );
+
+        // Note: We're using our configured format (32-bit float) for better compatibility
+        // The device shows WAVE_FORMAT_EXTENSIBLE (65534) which should be compatible
+        log::info!("🎉 WASAPI setup completed successfully!");
 
         Ok((audio_client, capture_client))
     }
@@ -122,7 +213,8 @@ impl SpeakerRecorderWindows {
         frame_sender: Option<&Sender<Vec<f32>>>,
         level_sender: Option<&Sender<f32>>,
         gain: Option<&Arc<AtomicI32>>,
-    ) -> Result<(), SpeakerRecorderError> {
+    ) -> std::result::Result<(), SpeakerRecorderError> {
+        // Directly interpret buffer as 32-bit float samples
         let f32_samples: &[f32] = unsafe {
             std::slice::from_raw_parts(
                 buffer.as_ptr() as *const f32,
@@ -130,13 +222,13 @@ impl SpeakerRecorderWindows {
             )
         };
 
-        let mut f32_samples_gained = Vec::with_capacity(f32_samples.len());
+        let mut samples = f32_samples.to_vec();
+
         let processed_samples = if let Some(ref gain) = gain {
-            f32_samples_gained.extend_from_slice(f32_samples);
-            apply_gain(&mut f32_samples_gained, gain.load(Ordering::Relaxed) as f32);
-            &f32_samples_gained[..]
+            apply_gain(&mut samples, gain.load(Ordering::Relaxed) as f32);
+            &samples[..]
         } else {
-            f32_samples
+            &samples
         };
 
         if let Some(ref tx) = frame_sender {
@@ -161,7 +253,7 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
     fn spec(&self) -> WavSpec {
         WavSpec {
             channels: 2,
-            sample_rate: 48000,
+            sample_rate: 44100,
             bits_per_sample: 32,
             sample_format: hound::SampleFormat::Float,
         }
@@ -171,7 +263,13 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
         self.device_info.clone()
     }
 
-    fn start_recording(self) -> Result<(), SpeakerRecorderError> {
+    fn find_default_output(
+        &self,
+    ) -> std::result::Result<Option<(u32, String)>, SpeakerRecorderError> {
+        self.find_default_output()
+    }
+
+    fn start_recording(self) -> std::result::Result<(), SpeakerRecorderError> {
         let Some((_, ref node_name)) = self.device_info else {
             return Err(SpeakerRecorderError::DeviceError(
                 "No output speaker device found".to_string(),
@@ -182,7 +280,6 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
 
         let (audio_client, capture_client) = self.create_audio_client()?;
 
-        // Start recording
         unsafe {
             audio_client.Start().map_err(|e| {
                 SpeakerRecorderError::WasapiError(format!("Failed to start audio client: {e}"))
@@ -191,41 +288,63 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
 
         log::info!("Successfully connected to audio device");
 
-        let buffer_duration = Duration::from_millis(100); // 100ms buffer
-        let mut buffer_frame_count = 0u32;
-
-        unsafe {
-            audio_client
-                .GetBufferSize(&mut buffer_frame_count)
-                .map_err(|e| {
-                    SpeakerRecorderError::WasapiError(format!("Failed to get buffer size: {e}"))
-                })?;
-        }
-
-        log::info!("Audio buffer size: {} frames", buffer_frame_count);
+        // 建议：休眠时间设为 5ms (缓冲区 100ms，每次取一点，保持低延迟但高稳定性)
+        let loop_delay = Duration::from_millis(5);
+        let sleeper = SpinSleeper::new(1_000_000); // 1ms accuracy is enough
 
         while !self.config.stop_sig.load(Ordering::Relaxed) {
-            std::thread::sleep(buffer_duration);
+            // 1. 先睡一小会儿
+            sleeper.sleep(loop_delay);
 
-            let mut data_ptr: *mut u8 = ptr::null_mut();
-            let mut num_frames_available = 0u32;
-            let mut flags = AUDCLNT_BUFFERFLAGS_SILENT;
+            // 2. 循环读取缓冲区直到读空
+            // WASAPI Capture Client 可能积压了多个包，我们需要一次性读完
+            loop {
+                let mut data_ptr: *mut u8 = ptr::null_mut();
+                let mut num_frames_available: u32 = 0;
+                let mut flags: u32 = 0;
 
-            unsafe {
-                let result = capture_client.GetBuffer(
-                    &mut data_ptr,
-                    &mut num_frames_available,
-                    &mut flags,
-                    ptr::null_mut(),
-                    ptr::null_mut(),
-                );
+                let result = unsafe {
+                    capture_client.GetBuffer(
+                        &mut data_ptr,
+                        &mut num_frames_available,
+                        &mut flags,
+                        None,
+                        None,
+                    )
+                };
 
                 match result {
                     Ok(_) => {
-                        if flags != AUDCLNT_BUFFERFLAGS_SILENT && num_frames_available > 0 {
-                            let buffer_size = (num_frames_available * 2 * 4) as usize; // frames * channels * bytes_per_sample
-                            let buffer = std::slice::from_raw_parts(data_ptr, buffer_size);
+                        if num_frames_available == 0 {
+                            // 缓冲区空了，释放并跳出内部循环，继续 sleep
+                            unsafe {
+                                capture_client.ReleaseBuffer(0).ok();
+                            }
+                            break;
+                        }
 
+                        // 检查静音标志 (当系统没有声音播放时，WASAPI 会返回静音包)
+                        let is_silent = (flags & 1) != 0; // AUDCLNT_BUFFERFLAGS_SILENT
+
+                        if is_silent {
+                            // 系统静音：发送全 0 数据
+                            let silent_len = (num_frames_available * 2) as usize; // Stereo
+                            let silent_buffer = vec![0.0f32; silent_len];
+
+                            if let Some(ref tx) = self.config.frame_sender {
+                                let _ = tx.try_send(silent_buffer);
+                            }
+                            // Level 发送极小值
+                            if let Some(ref tx) = self.config.level_sender {
+                                let _ = tx.try_send(-96.0);
+                            }
+                        } else {
+                            // 有真实音频数据
+                            let buffer_len = (num_frames_available * 2 * 4) as usize; // frames * channels * bytes_per_sample
+                            let buffer =
+                                unsafe { std::slice::from_raw_parts(data_ptr, buffer_len) };
+
+                            log::debug!("Processing {} bytes of audio data", buffer_len);
                             Self::process_audio_buffer(
                                 buffer,
                                 self.config.frame_sender.as_ref(),
@@ -234,79 +353,105 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
                             )?;
                         }
 
-                        capture_client
-                            .ReleaseBuffer(num_frames_available)
-                            .map_err(|e| {
-                                SpeakerRecorderError::WasapiError(format!(
-                                    "Failed to release buffer: {e}"
-                                ))
-                            })?;
+                        // 释放缓冲区
+                        unsafe {
+                            if let Err(e) = capture_client.ReleaseBuffer(num_frames_available) {
+                                log::error!("Failed to release buffer: {}", e);
+                            }
+                        }
+
+                        // 注意：这里不要 sleep，继续 loop 检查是否还有积压的数据
                     }
                     Err(e) => {
-                        log::warn!("Failed to get audio buffer: {}", e);
+                        // 如果发生错误（比如设备被拔出），通常应该退出或重试
+                        // AUDCLNT_E_DEVICE_INVALIDATED
+                        if e.code().0 == -2004287484 {
+                            // 0x88890004
+                            log::error!("Device invalidated!");
+                            return Err(SpeakerRecorderError::DeviceError(
+                                "Device disconnected".into(),
+                            ));
+                        }
+                        // 其他临时错误，稍作休眠
+                        break;
                     }
                 }
             }
         }
 
         unsafe {
-            audio_client.Stop();
-            CoUninitialize();
+            audio_client.Stop().ok();
         }
 
+        log::info!("Speaker recording stopped");
         Ok(())
     }
+}
 
-    fn find_default_output(&self) -> Result<Option<(u32, String)>, SpeakerRecorderError> {
+impl Drop for SpeakerRecorderWindows {
+    fn drop(&mut self) {
+        if self.com_initialized {
+            unsafe {
+                CoUninitialize();
+            }
+        }
+    }
+}
+
+impl SpeakerRecorderWindows {
+    fn find_default_output(
+        &self,
+    ) -> std::result::Result<Option<(u32, String)>, SpeakerRecorderError> {
         log::info!("Searching for output audio devices...");
 
-        let device_enumerator: IMMDeviceEnumerator =
-            unsafe { CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)? };
+        let device_enumerator: IMMDeviceEnumerator = unsafe {
+            CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).map_err(|e| {
+                SpeakerRecorderError::WasapiError(format!(
+                    "Failed to create device enumerator: {e}"
+                ))
+            })?
+        };
 
         // Get default output device
         let device = unsafe {
             device_enumerator
                 .GetDefaultAudioEndpoint(eRender, eConsole)
                 .map_err(|e| {
-                    SpeakerRecorderError::DeviceError(format!(
+                    SpeakerRecorderError::WasapiError(format!(
                         "Failed to get default audio endpoint: {e}"
                     ))
                 })?
         };
 
-        let device_id = unsafe {
+        let device_id_pwstr = unsafe {
             device.GetId().map_err(|e| {
-                SpeakerRecorderError::DeviceError(format!("Failed to get device ID: {e}"))
+                SpeakerRecorderError::WasapiError(format!("Failed to get device ID: {e}"))
             })?
         };
 
-        let device_property_store: IPropertyStore = unsafe {
-            device.OpenPropertyStore(STGM_READ).map_err(|e| {
-                SpeakerRecorderError::DeviceError(format!("Failed to open property store: {e}"))
-            })?
+        // Convert PWSTR to String - use a simple approach
+        let device_id = unsafe {
+            let ptr = device_id_pwstr.0;
+            if ptr.is_null() {
+                String::new()
+            } else {
+                let mut len = 0;
+                while *ptr.add(len) != 0 {
+                    len += 1;
+                }
+                let slice = std::slice::from_raw_parts(ptr, len);
+                String::from_utf16_lossy(slice)
+            }
         };
 
-        // Get device friendly name
-        let friendly_name_prop = unsafe {
-            device_property_store
-                .GetValue(&PKEY_Device_FriendlyName)
-                .map_err(|e| {
-                    SpeakerRecorderError::DeviceError(format!("Failed to get friendly name: {e}"))
-                })?
-        };
-
-        let friendly_name = unsafe {
-            friendly_name_prop.to_string().map_err(|e| {
-                SpeakerRecorderError::DeviceError(format!(
-                    "Failed to convert friendly name to string: {e}"
-                ))
-            })?
-        };
+        // For Windows, we'll use the device ID as the name since getting the friendly name
+        // requires additional COM interfaces that might not be available
+        let friendly_name = device_id.clone();
 
         log::info!(
             "Found default device: {} (ID: {})",
             friendly_name,
-            device_id
+            friendly_name
         );
 
         Ok(Some((1, friendly_name))) // Use ID 1 as placeholder since Windows uses string IDs

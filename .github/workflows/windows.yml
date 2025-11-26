@@ -65,6 +65,7 @@ jobs:
           cp -rf release/$binary_name.exe $binary_name/
           cp -rf ${{ env.FFMPEG_DIR }}/bin/*.dll $binary_name/
           cp -rf ../wayshot/windows/dll/x264.dll $binary_name/
+          ls -al $binary_name
           tar -zcf $output $binary_name
           cp $output ..
           echo "ASSET=$output" >> $GITHUB_ENV

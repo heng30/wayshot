@@ -37,6 +37,18 @@ screen-capture-wayland-portal = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 screen-capture-windows.workspace = true
+winapi = { version = "0.3", features = [
+  "audioclient",
+  "mmdeviceapi",
+  "avrt",
+  "combaseapi",
+  "objbase",
+  "propidl",
+  "functiondiscoverykeys_devpkey",
+  "winuser",
+  "synchapi",
+  "winnt",
+] }
 windows = { workspace = true, features = [
   "Win32_Media_Audio",
   "Win32_Media_Audio_Endpoints",
