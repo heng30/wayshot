@@ -13,17 +13,19 @@ use std::{
     },
     time::Duration,
 };
-use winapi::Interface as WinApiInterface;
-use winapi::shared::mmreg::WAVE_FORMAT_IEEE_FLOAT;
-use winapi::shared::winerror::FAILED;
-use winapi::um::audioclient::IAudioClient as IAudioClientWinApi;
-use winapi::um::mmdeviceapi::IMMDevice as IMMDeviceWinApi;
-use windows::Win32::{Media::Audio::*, System::Com::*};
+use winapi::{
+    Interface as WinApiInterface,
+    Win32::{Media::Audio::*, System::Com::*},
+    shared::{mmreg::WAVE_FORMAT_IEEE_FLOAT, winerror::FAILED},
+    um::{
+        audioclient::IAudioClient as IAudioClientWinApi, mmdeviceapi::IMMDevice as IMMDeviceWinApi,
+    },
+};
 
 pub struct SpeakerRecorderWindows {
     config: SpeakerRecorderConfig,
     device_info: Option<(u32, String)>,
-    com_initialized: bool, // Track COM initialization state
+    com_initialized: bool,
 }
 
 impl SpeakerRecorderWindows {
@@ -288,16 +290,45 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
 
         log::info!("Successfully connected to audio device");
 
-        // 建议：休眠时间设为 5ms (缓冲区 100ms，每次取一点，保持低延迟但高稳定性)
         let loop_delay = Duration::from_millis(5);
-        let sleeper = SpinSleeper::new(1_000_000); // 1ms accuracy is enough
+        let sleeper = SpinSleeper::new(1_000_000);
+
+        // === 新增：时间同步变量 ===
+        let sample_rate = 44100;
+        let start_time = std::time::Instant::now();
+        let mut total_frames_written: u64 = 0;
+        // 允许的抖动阈值（例如 20ms），避免过于激进地填充导致和真实数据冲突
+        let latency_threshold_frames = (sample_rate as f64 * 0.020) as u64;
+        // ========================
 
         while !self.config.stop_sig.load(Ordering::Relaxed) {
-            // 1. 先睡一小会儿
             sleeper.sleep(loop_delay);
 
-            // 2. 循环读取缓冲区直到读空
-            // WASAPI Capture Client 可能积压了多个包，我们需要一次性读完
+            // === 核心修复逻辑：检查并补齐静音 ===
+            let elapsed = start_time.elapsed();
+            // 计算理论上到现在为止应该有多少帧数据
+            let expected_frames = (elapsed.as_secs_f64() * sample_rate as f64) as u64;
+
+            // 如果落后的帧数超过了阈值，说明系统停止发包了，需要补齐静音
+            if expected_frames > total_frames_written + latency_threshold_frames {
+                let missing_frames = expected_frames - total_frames_written;
+                let samples_to_fill = (missing_frames * 2) as usize; // Stereo
+                let silent_buffer = vec![0.0f32; samples_to_fill];
+
+                // 发送补齐的静音
+                if let Some(ref tx) = self.config.frame_sender {
+                    let _ = tx.try_send(silent_buffer);
+                }
+                // Level 发送极小值
+                if let Some(ref tx) = self.config.level_sender {
+                    let _ = tx.try_send(-96.0);
+                }
+
+                log::debug!("Filled silence gap: {} frames", missing_frames);
+                total_frames_written += missing_frames;
+            }
+            // =====================================
+
             loop {
                 let mut data_ptr: *mut u8 = ptr::null_mut();
                 let mut num_frames_available: u32 = 0;
@@ -316,31 +347,29 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
                 match result {
                     Ok(_) => {
                         if num_frames_available == 0 {
-                            // 缓冲区空了，释放并跳出内部循环，继续 sleep
                             unsafe {
                                 capture_client.ReleaseBuffer(0).ok();
                             }
                             break;
                         }
 
-                        // 检查静音标志 (当系统没有声音播放时，WASAPI 会返回静音包)
-                        let is_silent = (flags & 1) != 0; // AUDCLNT_BUFFERFLAGS_SILENT
+                        // 无论是否是 Silent 标志，这部分数据都算作有效时长，增加计数器
+                        total_frames_written += num_frames_available as u64;
+
+                        let is_silent = (flags & 1) != 0;
 
                         if is_silent {
-                            // 系统静音：发送全 0 数据
-                            let silent_len = (num_frames_available * 2) as usize; // Stereo
+                            let silent_len = (num_frames_available * 2) as usize;
                             let silent_buffer = vec![0.0f32; silent_len];
 
                             if let Some(ref tx) = self.config.frame_sender {
                                 let _ = tx.try_send(silent_buffer);
                             }
-                            // Level 发送极小值
                             if let Some(ref tx) = self.config.level_sender {
                                 let _ = tx.try_send(-96.0);
                             }
                         } else {
-                            // 有真实音频数据
-                            let buffer_len = (num_frames_available * 2 * 4) as usize; // frames * channels * bytes_per_sample
+                            let buffer_len = (num_frames_available * 2 * 4) as usize;
                             let buffer =
                                 unsafe { std::slice::from_raw_parts(data_ptr, buffer_len) };
 
@@ -352,27 +381,20 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
                                 self.config.gain.as_ref(),
                             )?;
                         }
-
-                        // 释放缓冲区
                         unsafe {
                             if let Err(e) = capture_client.ReleaseBuffer(num_frames_available) {
                                 log::error!("Failed to release buffer: {}", e);
                             }
                         }
-
-                        // 注意：这里不要 sleep，继续 loop 检查是否还有积压的数据
                     }
                     Err(e) => {
-                        // 如果发生错误（比如设备被拔出），通常应该退出或重试
-                        // AUDCLNT_E_DEVICE_INVALIDATED
+                        // 处理设备断开逻辑
                         if e.code().0 == -2004287484 {
-                            // 0x88890004
                             log::error!("Device invalidated!");
                             return Err(SpeakerRecorderError::DeviceError(
                                 "Device disconnected".into(),
                             ));
                         }
-                        // 其他临时错误，稍作休眠
                         break;
                     }
                 }
