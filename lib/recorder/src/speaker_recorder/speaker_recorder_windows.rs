@@ -15,12 +15,12 @@ use std::{
 };
 use winapi::{
     Interface as WinApiInterface,
-    Win32::{Media::Audio::*, System::Com::*},
     shared::{mmreg::WAVE_FORMAT_IEEE_FLOAT, winerror::FAILED},
     um::{
         audioclient::IAudioClient as IAudioClientWinApi, mmdeviceapi::IMMDevice as IMMDeviceWinApi,
     },
 };
+use windows::Win32::{Media::Audio::*, System::Com::*};
 
 pub struct SpeakerRecorderWindows {
     config: SpeakerRecorderConfig,

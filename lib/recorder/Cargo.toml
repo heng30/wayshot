@@ -49,6 +49,14 @@ winapi = { version = "0.3", features = [
   "synchapi",
   "winnt",
 ] }
+windows = { workspace = true, features = [
+  "Win32_Media_Audio",
+  "Win32_Media_Audio_Endpoints",
+  "Win32_Media_Audio_Apo",
+  "Win32_Media_KernelStreaming",
+  "Win32_System_Com",
+  "Win32_System_Ole",
+] }
 
 [dev-dependencies]
 ctrlc.workspace = true
