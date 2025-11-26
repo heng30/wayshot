@@ -21,7 +21,7 @@ pub fn capture_output_stream(
     std::thread::spawn(move || {
         let mut index = 0;
         let sleeper = SpinSleeper::default();
-        let start_time = std::time::Instant::now();
+        let start_time = Instant::now();
 
         let mut manager = match backend::DXGIManager::new(config.name.to_string()) {
             Ok(m) => m.with_include_cursor(config.include_cursor),
@@ -61,10 +61,9 @@ pub fn capture_output_stream(
     let mut last_frame = None;
     let sleeper = SpinSleeper::default();
     let mut start_time = std::time::Instant::now();
+    let mut capture_time = None;
 
     while !stop_sig.load(Ordering::Relaxed) {
-        let mut capture_time = None;
-
         while let Ok((time, frame)) = receiver.try_recv() {
             if last_frame.is_none() {
                 start_time = Instant::now();

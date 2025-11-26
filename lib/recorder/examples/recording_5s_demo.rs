@@ -29,7 +29,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = RecorderConfig::new(
         screen_infos[0].name.clone(),
         screen_infos[0].logical_size.clone(),
+        #[cfg(not(target_os = "windows"))]
         RecorderConfig::make_filename("/tmp"),
+        #[cfg(target_os = "windows")]
+        RecorderConfig::make_filename("C:/Users/blue/Desktop"),
     )
     // .with_enable_audio_channel_user(true)
     // .with_enable_speaker_channel_user(true)

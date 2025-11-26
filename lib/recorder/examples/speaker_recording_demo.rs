@@ -31,7 +31,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     });
 
     let handle = thread::spawn(move || {
+        #[cfg(target_os = "windows")]
+        let save_path = PathBuf::from("C:/Users/blue/Desktop/speaker_output.wav");
+
+        #[cfg(not(target_os = "windows"))]
         let save_path = PathBuf::from("/tmp/speaker_output.wav");
+
         let spec = platform_speaker_recoder(SpeakerRecorderConfig::default())
             .unwrap()
             .spec();

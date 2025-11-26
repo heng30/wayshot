@@ -30,33 +30,60 @@ pub struct SpeakerRecorderWindows {
 
 impl SpeakerRecorderWindows {
     pub fn new(config: SpeakerRecorderConfig) -> std::result::Result<Self, SpeakerRecorderError> {
-        // Initialize COM for WinAPI WASAPI
+        log::debug!(
+            "Initializing SpeakerRecorderWindows in thread: {:?}",
+            std::thread::current().id()
+        );
+
         unsafe {
             let hr = CoInitializeEx(Some(ptr::null()), COINIT_MULTITHREADED);
-            if FAILED(hr.0) {
-                return Err(SpeakerRecorderError::WasapiError(format!(
-                    "Failed to initialize COM: HRESULT=0x{:08X}",
-                    hr.0
-                )));
-            }
+            let com_initialized = match hr.0 {
+                0 => {
+                    // S_OK - COM initialized successfully
+                    log::debug!("COM initialized successfully in this thread");
+                    true
+                }
+                1 => {
+                    // S_FALSE - COM was already initialized
+                    log::debug!("COM was already initialized in this thread");
+                    false
+                }
+                -2147417850i32 => {
+                    // RPC_E_CHANGED_MODE = 0x80010106
+                    log::debug!(
+                        "COM was already initialized with different mode, trying to continue"
+                    );
+                    false
+                }
+                _ => {
+                    return Err(SpeakerRecorderError::WasapiError(format!(
+                        "Failed to initialize COM: HRESULT=0x{:08X}",
+                        hr.0
+                    )));
+                }
+            };
+
+            log::debug!(
+                "COM initialization result: HRESULT=0x{:08X}, com_initialized={}",
+                hr.0,
+                com_initialized
+            );
+
+            let mut recorder = Self {
+                config,
+                device_info: None,
+                com_initialized,
+            };
+
+            recorder.device_info = recorder.find_default_output()?;
+            Ok(recorder)
         }
-
-        let mut recorder = Self {
-            config,
-            device_info: None,
-            com_initialized: false, // Will be set to true if COM initialization succeeds
-        };
-
-        let output_device = recorder.find_default_output()?;
-        recorder.device_info = output_device.clone();
-        recorder.com_initialized = true; // COM was initialized successfully
-        Ok(recorder)
     }
 
     fn create_audio_client(
         &self,
     ) -> std::result::Result<(IAudioClient, IAudioCaptureClient), SpeakerRecorderError> {
-        log::info!("Creating WASAPI audio client with Windows crate...");
+        log::info!("Creating WASAPI audio client...");
 
         let device_enumerator: IMMDeviceEnumerator = unsafe {
             CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_INPROC_SERVER).map_err(|e| {
@@ -66,7 +93,6 @@ impl SpeakerRecorderWindows {
             })?
         };
 
-        // Get default audio endpoint
         let device = unsafe {
             device_enumerator
                 .GetDefaultAudioEndpoint(eRender, eConsole)
@@ -77,7 +103,6 @@ impl SpeakerRecorderWindows {
                 })?
         };
 
-        // Log device state
         let device_state = unsafe { device.GetState().unwrap_or(DEVICE_STATE_DISABLED) };
         log::debug!("Device state: {:?}", device_state);
 
@@ -151,8 +176,7 @@ impl SpeakerRecorderWindows {
         let p_format = &wave_format as *const _ as *mut WAVEFORMATEX;
 
         // Initialize audio client for loopback recording
-        // 1秒 = 10,000,000 REFTIMES (100ns units)
-        // 请求 100ms 的缓冲区，给 Loopback 足够的缓冲空间
+        // 1 second = 10,000,000 REFTIMES (100ns units)
         let hns_requested_duration = 1_000_000; // 100ms buffer
 
         unsafe {
@@ -160,7 +184,7 @@ impl SpeakerRecorderWindows {
                 .Initialize(
                     AUDCLNT_SHAREMODE_SHARED,
                     AUDCLNT_STREAMFLAGS_LOOPBACK,
-                    hns_requested_duration, // 请求 100ms 缓冲
+                    hns_requested_duration,
                     0,
                     p_format,
                     None,
@@ -174,7 +198,6 @@ impl SpeakerRecorderWindows {
 
         log::info!("✅ Audio client initialized successfully!");
 
-        // Get capture client
         let capture_client: IAudioCaptureClient = unsafe {
             audio_client.GetService().map_err(|e| {
                 SpeakerRecorderError::WasapiError(format!("Failed to get capture client: {e}"))
@@ -203,8 +226,6 @@ impl SpeakerRecorderWindows {
             bits_per_sample
         );
 
-        // Note: We're using our configured format (32-bit float) for better compatibility
-        // The device shows WAVE_FORMAT_EXTENSIBLE (65534) which should be compatible
         log::info!("🎉 WASAPI setup completed successfully!");
 
         Ok((audio_client, capture_client))
@@ -233,18 +254,17 @@ impl SpeakerRecorderWindows {
             &samples
         };
 
-        if let Some(ref tx) = frame_sender {
-            if let Err(e) = tx.try_send(processed_samples.to_vec()) {
-                log::warn!("try send speaker audio frame failed: {e}");
-            }
+        if let Some(ref tx) = frame_sender
+            && let Err(e) = tx.try_send(processed_samples.to_vec())
+        {
+            log::warn!("try send speaker audio frame failed: {e}");
         }
 
-        if let Some(ref tx) = level_sender {
-            if let Some(db) = calc_rms_level(processed_samples) {
-                if let Err(e) = tx.try_send(db) {
-                    log::warn!("try send speaker audio db level data failed: {e}");
-                }
-            }
+        if let Some(ref tx) = level_sender
+            && let Some(db) = calc_rms_level(processed_samples)
+            && let Err(e) = tx.try_send(db)
+        {
+            log::warn!("try send speaker audio db level data failed: {e}");
         }
 
         Ok(())
@@ -268,7 +288,7 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
     fn find_default_output(
         &self,
     ) -> std::result::Result<Option<(u32, String)>, SpeakerRecorderError> {
-        self.find_default_output()
+        self.find_default_output_inner()
     }
 
     fn start_recording(self) -> std::result::Result<(), SpeakerRecorderError> {
@@ -292,42 +312,36 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
 
         let loop_delay = Duration::from_millis(5);
         let sleeper = SpinSleeper::new(1_000_000);
-
-        // === 新增：时间同步变量 ===
         let sample_rate = 44100;
         let start_time = std::time::Instant::now();
         let mut total_frames_written: u64 = 0;
-        // 允许的抖动阈值（例如 20ms），避免过于激进地填充导致和真实数据冲突
-        let latency_threshold_frames = (sample_rate as f64 * 0.020) as u64;
-        // ========================
+        let latency_threshold_frames = (sample_rate as f64 * 0.020) as u64; // 20ms
 
         while !self.config.stop_sig.load(Ordering::Relaxed) {
             sleeper.sleep(loop_delay);
 
-            // === 核心修复逻辑：检查并补齐静音 ===
             let elapsed = start_time.elapsed();
-            // 计算理论上到现在为止应该有多少帧数据
             let expected_frames = (elapsed.as_secs_f64() * sample_rate as f64) as u64;
 
-            // 如果落后的帧数超过了阈值，说明系统停止发包了，需要补齐静音
+            // If the number of lagging frames exceeds the threshold,
+            // it indicates that the system has stopped sending packets,
+            // and silence needs to be filled in.
             if expected_frames > total_frames_written + latency_threshold_frames {
                 let missing_frames = expected_frames - total_frames_written;
                 let samples_to_fill = (missing_frames * 2) as usize; // Stereo
                 let silent_buffer = vec![0.0f32; samples_to_fill];
 
-                // 发送补齐的静音
                 if let Some(ref tx) = self.config.frame_sender {
-                    let _ = tx.try_send(silent_buffer);
-                }
-                // Level 发送极小值
-                if let Some(ref tx) = self.config.level_sender {
-                    let _ = tx.try_send(-96.0);
+                    _ = tx.try_send(silent_buffer);
                 }
 
-                log::debug!("Filled silence gap: {} frames", missing_frames);
+                if let Some(ref tx) = self.config.level_sender {
+                    let _ = tx.try_send(-200.0);
+                }
+
+                log::trace!("Filled silence gap: {} frames", missing_frames);
                 total_frames_written += missing_frames;
             }
-            // =====================================
 
             loop {
                 let mut data_ptr: *mut u8 = ptr::null_mut();
@@ -353,27 +367,27 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
                             break;
                         }
 
-                        // 无论是否是 Silent 标志，这部分数据都算作有效时长，增加计数器
                         total_frames_written += num_frames_available as u64;
 
                         let is_silent = (flags & 1) != 0;
-
                         if is_silent {
                             let silent_len = (num_frames_available * 2) as usize;
                             let silent_buffer = vec![0.0f32; silent_len];
 
                             if let Some(ref tx) = self.config.frame_sender {
-                                let _ = tx.try_send(silent_buffer);
+                                _ = tx.try_send(silent_buffer);
                             }
+
                             if let Some(ref tx) = self.config.level_sender {
-                                let _ = tx.try_send(-96.0);
+                                _ = tx.try_send(-200.0);
                             }
                         } else {
                             let buffer_len = (num_frames_available * 2 * 4) as usize;
                             let buffer =
                                 unsafe { std::slice::from_raw_parts(data_ptr, buffer_len) };
 
-                            log::debug!("Processing {} bytes of audio data", buffer_len);
+                            log::trace!("Processing {} bytes of audio data", buffer_len);
+
                             Self::process_audio_buffer(
                                 buffer,
                                 self.config.frame_sender.as_ref(),
@@ -381,6 +395,7 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
                                 self.config.gain.as_ref(),
                             )?;
                         }
+
                         unsafe {
                             if let Err(e) = capture_client.ReleaseBuffer(num_frames_available) {
                                 log::error!("Failed to release buffer: {}", e);
@@ -388,9 +403,8 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
                         }
                     }
                     Err(e) => {
-                        // 处理设备断开逻辑
                         if e.code().0 == -2004287484 {
-                            log::error!("Device invalidated!");
+                            log::warn!("Device invalidated!");
                             return Err(SpeakerRecorderError::DeviceError(
                                 "Device disconnected".into(),
                             ));
@@ -421,7 +435,7 @@ impl Drop for SpeakerRecorderWindows {
 }
 
 impl SpeakerRecorderWindows {
-    fn find_default_output(
+    fn find_default_output_inner(
         &self,
     ) -> std::result::Result<Option<(u32, String)>, SpeakerRecorderError> {
         log::info!("Searching for output audio devices...");
@@ -434,7 +448,6 @@ impl SpeakerRecorderWindows {
             })?
         };
 
-        // Get default output device
         let device = unsafe {
             device_enumerator
                 .GetDefaultAudioEndpoint(eRender, eConsole)
