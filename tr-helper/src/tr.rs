@@ -239,7 +239,7 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Denoising", "正在降噪"),
             ("Finished Denoising", "完成降噪"),
             ("Welcome to use wayshot", "欢迎使用Wayshot"),
-            ("screen recording tool for wayland", "Wayland录屏工具"),
+            ("screen recording tool", "桌面录屏工具"),
             ("Finished Mergeing Tracks", "完成合并轨道"),
             ("create desktop speaker recorder failed", "创建桌面扬声器录制器失败"),
             ("start desktop speaker recorder failed", "启动桌面扬声器录制器失败"),
