@@ -63,8 +63,11 @@ jobs:
           mkdir $binary_name
           output="$binary_name-${{ env.VERSION }}-x86_64-windows.tar.gz"
           cp -rf release/$binary_name.exe $binary_name/
-          cp -rf ${{ env.FFMPEG_DIR }}/bin/*.dll $binary_name/
           cp -rf ../wayshot/windows/dll/x264.dll $binary_name/
+
+          ffmpeg_dir=$(echo "${{ env.FFMPEG_DIR }}" | sed 's/\\/\//g')
+          cp -rf "${ffmpeg_dir}/bin/"*.dll $binary_name/
+
           ls -al $binary_name
           tar -zcf $output $binary_name
           cp $output ..
@@ -79,8 +82,11 @@ jobs:
           mkdir $binary_name
           output="$binary_name-${{ env.VERSION }}-x86_64-windows.tar.gz"
           cp -rf release/$binary_name.exe $binary_name/
-          cp -rf ${{ env.FFMPEG_DIR }}/bin/*.dll $binary_name/
           cp -rf ../wayshot/windows/dll/x264.dll $binary_name/
+
+          ffmpeg_dir=$(echo "${{ env.FFMPEG_DIR }}" | sed 's/\\/\//g')
+          cp -rf "${ffmpeg_dir}/bin/"*.dll $binary_name/
+
           ls -al $binary_name
           tar -zcf $output $binary_name
           cp $output ..

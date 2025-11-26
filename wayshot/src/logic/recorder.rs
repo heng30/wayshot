@@ -107,6 +107,9 @@ fn inner_init(ui: &AppWindow) {
     #[cfg(feature = "desktop-wayland-portal")]
     global_store!(ui).set_feature_type(FeatureType::WaylandPortal);
 
+    #[cfg(feature = "desktop-windows")]
+    global_store!(ui).set_feature_type(FeatureType::Windows);
+
     global_store!(ui).set_preview_image(Default::default());
     store_sources!(ui).set_vec(vec![]);
     store_audio_sources!(ui).set_vec(vec![]);
