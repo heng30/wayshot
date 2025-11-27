@@ -152,27 +152,34 @@ fn draw_cursor_on_buffer(
                     let r = *cursor_data.add(src_idx + 2);
                     let a = *cursor_data.add(src_idx + 3);
 
-                    if a > 0 {
-                        let dest_idx = (screen_y as usize * width * 4) + (screen_x as usize * 4);
-
-                        if shape_type == DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MASKED_COLOR && a == 0 {
-                            buffer[dest_idx] ^= b;
-                            buffer[dest_idx + 1] ^= g;
-                            buffer[dest_idx + 2] ^= r;
-                        } else {
-                            let alpha_norm = a as f32 / 255.0;
-                            let inv_alpha = 1.0 - alpha_norm;
-
-                            buffer[dest_idx] =
-                                (buffer[dest_idx] as f32 * inv_alpha + r as f32 * alpha_norm) as u8;
-                            buffer[dest_idx + 1] = (buffer[dest_idx + 1] as f32 * inv_alpha
-                                + g as f32 * alpha_norm)
-                                as u8;
-                            buffer[dest_idx + 2] = (buffer[dest_idx + 2] as f32 * inv_alpha
-                                + b as f32 * alpha_norm)
-                                as u8;
-                        }
+                    // Skip completely transparent pixels
+                    if a == 0 {
+                        continue;
                     }
+
+                    let dest_idx = (screen_y as usize * width * 4) + (screen_x as usize * 4);
+
+                    // For MASKED_COLOR type, handle XOR mask for special cursor effects
+                    if shape_type == DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MASKED_COLOR && a == 255 {
+                        // For opaque pixels in masked mode, use XOR for inverted cursor areas
+                        buffer[dest_idx] = buffer[dest_idx] ^ r;
+                        buffer[dest_idx + 1] = buffer[dest_idx + 1] ^ g;
+                        buffer[dest_idx + 2] = buffer[dest_idx + 2] ^ b;
+                    } else {
+                        // Alpha blending for transparent pixels
+                        let alpha_norm = a as f32 / 255.0;
+                        let inv_alpha = 1.0 - alpha_norm;
+
+                        // Correct alpha blending with proper color channel order (RGBA)
+                        buffer[dest_idx] =
+                            (buffer[dest_idx] as f32 * inv_alpha + r as f32 * alpha_norm) as u8;
+                        buffer[dest_idx + 1] =
+                            (buffer[dest_idx + 1] as f32 * inv_alpha + g as f32 * alpha_norm) as u8;
+                        buffer[dest_idx + 2] =
+                            (buffer[dest_idx + 2] as f32 * inv_alpha + b as f32 * alpha_norm) as u8;
+                    }
+                    // Ensure alpha channel is set to opaque for the final buffer
+                    buffer[dest_idx + 3] = 255;
                 }
             }
         },
@@ -204,17 +211,22 @@ fn draw_cursor_on_buffer(
 
                         let dest_idx = (screen_y as usize * width * 4) + (screen_x as usize * 4);
 
+                        // Monochrome cursor logic:
+                        // - AND mask determines whether to keep background (1) or clear to black (0)
+                        // - XOR mask determines whether to invert the pixel (1) or leave as is (0)
                         if !and_mask {
+                            // Clear to black (transparent background for cursor)
                             buffer[dest_idx] = 0;
                             buffer[dest_idx + 1] = 0;
                             buffer[dest_idx + 2] = 0;
                         }
                         if xor_mask {
+                            // Invert the pixel for cursor outline
                             buffer[dest_idx] = !buffer[dest_idx];
                             buffer[dest_idx + 1] = !buffer[dest_idx + 1];
                             buffer[dest_idx + 2] = !buffer[dest_idx + 2];
                         }
-                        buffer[dest_idx + 3] = 255;
+                        buffer[dest_idx + 3] = 255; // Fully opaque
                     }
                 }
             }
