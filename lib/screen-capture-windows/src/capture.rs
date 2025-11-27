@@ -53,7 +53,12 @@ pub fn capture_output_stream(
 
             index += 1;
             let next_frame_time = start_time + frame_interval * index as u32;
-            sleeper.sleep_until(next_frame_time);
+
+            if next_frame_time < Instant::now() {
+                sleeper.sleep(Duration::from_millis(10));
+            } else {
+                sleeper.sleep_until(next_frame_time);
+            }
         }
     });
 

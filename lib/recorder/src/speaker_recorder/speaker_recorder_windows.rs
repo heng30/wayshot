@@ -26,10 +26,12 @@ pub struct SpeakerRecorderWindows {
     config: SpeakerRecorderConfig,
     device_info: Option<(u32, String)>,
     com_initialized: bool,
+    device_format: Option<WAVEFORMATEX>,
+    cached_spec: Option<WavSpec>,
 }
 
 impl SpeakerRecorderWindows {
-    pub fn new(config: SpeakerRecorderConfig) -> std::result::Result<Self, SpeakerRecorderError> {
+    pub fn new(config: SpeakerRecorderConfig) -> Result<Self, SpeakerRecorderError> {
         log::debug!(
             "Initializing SpeakerRecorderWindows in thread: {:?}",
             std::thread::current().id()
@@ -73,9 +75,12 @@ impl SpeakerRecorderWindows {
                 config,
                 device_info: None,
                 com_initialized,
+                device_format: None,
+                cached_spec: None,
             };
 
-            recorder.device_info = recorder.find_default_output()?;
+            // Directly call the inner method to find and store device info and format
+            recorder.device_info = recorder.find_default_output_inner()?;
             Ok(recorder)
         }
     }
@@ -158,20 +163,24 @@ impl SpeakerRecorderWindows {
             audio_client_ptr
         };
 
-        // Convert back to windows crate IAudioClient
         let audio_client: IAudioClient = unsafe { std::mem::transmute_copy(&audio_client_winapi) };
         log::info!("✅ Successfully activated IAudioClient interface!");
 
-        // Configure audio format - use 32-bit float to match our WAV writer spec
-        let wave_format = WAVEFORMATEX {
-            wFormatTag: WAVE_FORMAT_IEEE_FLOAT as u16,
-            nChannels: 2,
-            nSamplesPerSec: 44100,
-            nAvgBytesPerSec: 44100 * 2 * 4, // sample_rate * channels * bytes_per_sample (32-bit float)
-            nBlockAlign: 2 * 4,             // channels * bytes_per_sample
-            wBitsPerSample: 32,             // 32-bit float
-            cbSize: 0,                      // No extra data for IEEE float
-        };
+        let wave_format = self.device_format.ok_or_else(|| {
+            SpeakerRecorderError::DeviceError("Device format not available".to_string())
+        })?;
+
+        let samples_per_sec = wave_format.nSamplesPerSec;
+        let channels = wave_format.nChannels;
+        let bits_per_sample = wave_format.wBitsPerSample;
+        let format_tag = wave_format.wFormatTag;
+        log::info!(
+            "Using device supported format: {}Hz, {} channels, {}-bit, tag={}",
+            samples_per_sec,
+            channels,
+            bits_per_sample,
+            format_tag
+        );
 
         let p_format = &wave_format as *const _ as *mut WAVEFORMATEX;
 
@@ -205,27 +214,6 @@ impl SpeakerRecorderWindows {
         };
 
         log::info!("✅ Capture client obtained successfully!");
-
-        // Get the actual device format to ensure compatibility
-        let device_format_ptr = unsafe {
-            audio_client.GetMixFormat().map_err(|e| {
-                SpeakerRecorderError::WasapiError(format!("Failed to get device mix format: {e}"))
-            })?
-        };
-
-        let device_format = unsafe { *device_format_ptr };
-        let format_tag = device_format.wFormatTag;
-        let channels = device_format.nChannels;
-        let sample_rate = device_format.nSamplesPerSec;
-        let bits_per_sample = device_format.wBitsPerSample;
-        log::info!(
-            "Device format: wFormatTag={}, nChannels={}, nSamplesPerSec={}, wBitsPerSample={}",
-            format_tag,
-            channels,
-            sample_rate,
-            bits_per_sample
-        );
-
         log::info!("🎉 WASAPI setup completed successfully!");
 
         Ok((audio_client, capture_client))
@@ -237,7 +225,8 @@ impl SpeakerRecorderWindows {
         level_sender: Option<&Sender<f32>>,
         gain: Option<&Arc<AtomicI32>>,
     ) -> std::result::Result<(), SpeakerRecorderError> {
-        // Directly interpret buffer as 32-bit float samples
+        // For Windows speaker recording, we're always working with 32-bit float format
+        // since we specifically requested WAVE_FORMAT_IEEE_FLOAT in get_device_supported_format
         let f32_samples: &[f32] = unsafe {
             std::slice::from_raw_parts(
                 buffer.as_ptr() as *const f32,
@@ -273,11 +262,23 @@ impl SpeakerRecorderWindows {
 
 impl SpeakerRecorder for SpeakerRecorderWindows {
     fn spec(&self) -> WavSpec {
-        WavSpec {
-            channels: 2,
-            sample_rate: 44100,
-            bits_per_sample: 32,
-            sample_format: hound::SampleFormat::Float,
+        if let Some(ref spec) = self.cached_spec {
+            spec.clone()
+        } else if let Some(ref format) = self.device_format {
+            WavSpec {
+                channels: format.nChannels as u16,
+                sample_rate: format.nSamplesPerSec,
+                bits_per_sample: format.wBitsPerSample as u16,
+                sample_format: hound::SampleFormat::Float,
+            }
+        } else {
+            log::warn!("No device format or cached spec available, using default format");
+            WavSpec {
+                channels: 2,
+                sample_rate: 44100,
+                bits_per_sample: 32,
+                sample_format: hound::SampleFormat::Float,
+            }
         }
     }
 
@@ -288,7 +289,7 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
     fn find_default_output(
         &self,
     ) -> std::result::Result<Option<(u32, String)>, SpeakerRecorderError> {
-        self.find_default_output_inner()
+        Ok(self.device_info.clone())
     }
 
     fn start_recording(self) -> std::result::Result<(), SpeakerRecorderError> {
@@ -311,8 +312,16 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
         log::info!("Successfully connected to audio device");
 
         let loop_delay = Duration::from_millis(5);
-        let sleeper = SpinSleeper::new(1_000_000);
-        let sample_rate = 44100;
+        let sleeper = SpinSleeper::new(1_000_000); // 1ms
+
+        let sample_rate = self
+            .device_format
+            .as_ref()
+            .map(|f| f.nSamplesPerSec as u32)
+            .unwrap_or(44100);
+
+        log::info!("Using sample rate: {}Hz", sample_rate);
+
         let start_time = std::time::Instant::now();
         let mut total_frames_written: u64 = 0;
         let latency_threshold_frames = (sample_rate as f64 * 0.020) as u64; // 20ms
@@ -323,12 +332,18 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
             let elapsed = start_time.elapsed();
             let expected_frames = (elapsed.as_secs_f64() * sample_rate as f64) as u64;
 
+            let channels = self
+                .device_format
+                .as_ref()
+                .map(|f| f.nChannels as usize)
+                .unwrap_or(2); // Fallback to stereo
+
             // If the number of lagging frames exceeds the threshold,
             // it indicates that the system has stopped sending packets,
             // and silence needs to be filled in.
             if expected_frames > total_frames_written + latency_threshold_frames {
                 let missing_frames = expected_frames - total_frames_written;
-                let samples_to_fill = (missing_frames * 2) as usize; // Stereo
+                let samples_to_fill = (missing_frames as usize * channels) as usize; // Use actual channel count
                 let silent_buffer = vec![0.0f32; samples_to_fill];
 
                 if let Some(ref tx) = self.config.frame_sender {
@@ -371,7 +386,7 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
 
                         let is_silent = (flags & 1) != 0;
                         if is_silent {
-                            let silent_len = (num_frames_available * 2) as usize;
+                            let silent_len = (num_frames_available as usize * channels) as usize;
                             let silent_buffer = vec![0.0f32; silent_len];
 
                             if let Some(ref tx) = self.config.frame_sender {
@@ -382,7 +397,15 @@ impl SpeakerRecorder for SpeakerRecorderWindows {
                                 _ = tx.try_send(-200.0);
                             }
                         } else {
-                            let buffer_len = (num_frames_available * 2 * 4) as usize;
+                            // Calculate buffer length based on actual format
+                            let bytes_per_sample = self
+                                .device_format
+                                .as_ref()
+                                .map(|f| f.wBitsPerSample as u32 / 8)
+                                .unwrap_or(4); // Default to 32-bit (4 bytes)
+                            let buffer_len =
+                                (num_frames_available * channels as u32 * bytes_per_sample)
+                                    as usize;
                             let buffer =
                                 unsafe { std::slice::from_raw_parts(data_ptr, buffer_len) };
 
@@ -435,9 +458,7 @@ impl Drop for SpeakerRecorderWindows {
 }
 
 impl SpeakerRecorderWindows {
-    fn find_default_output_inner(
-        &self,
-    ) -> std::result::Result<Option<(u32, String)>, SpeakerRecorderError> {
+    fn find_default_output_inner(&mut self) -> Result<Option<(u32, String)>, SpeakerRecorderError> {
         log::info!("Searching for output audio devices...");
 
         let device_enumerator: IMMDeviceEnumerator = unsafe {
@@ -489,6 +510,183 @@ impl SpeakerRecorderWindows {
             friendly_name
         );
 
+        // Get device supported format by creating a temporary audio client
+        self.get_device_supported_format(&device)?;
+        self.cached_spec = Some(self.spec());
+
         Ok(Some((1, friendly_name))) // Use ID 1 as placeholder since Windows uses string IDs
+    }
+
+    fn get_device_supported_format(
+        &mut self,
+        device: &IMMDevice,
+    ) -> std::result::Result<(), SpeakerRecorderError> {
+        log::info!("Getting device supported format...");
+
+        // Since windows crate 0.62 doesn't have Activate method, we need to use winapi for Activate
+        let device_winapi: *mut IMMDeviceWinApi = unsafe { std::mem::transmute_copy(device) };
+
+        let audio_client_winapi: *mut IAudioClientWinApi = unsafe {
+            let mut audio_client_ptr: *mut IAudioClientWinApi = std::ptr::null_mut();
+            let hr = (*device_winapi).Activate(
+                &IAudioClientWinApi::uuidof(),
+                winapi::um::combaseapi::CLSCTX_ALL,
+                std::ptr::null_mut(),
+                &mut audio_client_ptr as *mut *mut _ as *mut *mut std::ffi::c_void,
+            );
+
+            if FAILED(hr) {
+                // Try multimedia endpoint if console fails
+                let device_enumerator: IMMDeviceEnumerator =
+                    CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).map_err(|e| {
+                        SpeakerRecorderError::WasapiError(format!(
+                            "Failed to create device enumerator: {e}"
+                        ))
+                    })?;
+
+                let device_multimedia = device_enumerator
+                    .GetDefaultAudioEndpoint(eRender, eMultimedia)
+                    .map_err(|e| {
+                        SpeakerRecorderError::WasapiError(format!(
+                            "Failed to get multimedia endpoint: {e}"
+                        ))
+                    })?;
+
+                let device_multimedia_winapi: *mut IMMDeviceWinApi =
+                    std::mem::transmute_copy(&device_multimedia);
+                let hr_multimedia = (*device_multimedia_winapi).Activate(
+                    &IAudioClientWinApi::uuidof(),
+                    winapi::um::combaseapi::CLSCTX_ALL,
+                    std::ptr::null_mut(),
+                    &mut audio_client_ptr as *mut *mut _ as *mut *mut std::ffi::c_void,
+                );
+
+                if FAILED(hr_multimedia) {
+                    return Err(SpeakerRecorderError::WasapiError(format!(
+                        "Both console and multimedia endpoints failed for format check. Console: HRESULT=0x{:08X}, Multimedia: HRESULT=0x{:08X}",
+                        hr, hr_multimedia
+                    )));
+                }
+            }
+
+            audio_client_ptr
+        };
+
+        // Convert back to windows crate IAudioClient
+        let audio_client: IAudioClient = unsafe { std::mem::transmute_copy(&audio_client_winapi) };
+
+        // Try different formats to find one that's supported
+        let formats_to_try = vec![
+            // High quality format
+            WAVEFORMATEX {
+                wFormatTag: WAVE_FORMAT_IEEE_FLOAT as u16,
+                nChannels: 2,
+                nSamplesPerSec: 48000,
+                nAvgBytesPerSec: 48000 * 2 * 4,
+                nBlockAlign: 2 * 4,
+                wBitsPerSample: 32,
+                cbSize: 0,
+            },
+            // Standard CD quality format
+            WAVEFORMATEX {
+                wFormatTag: WAVE_FORMAT_IEEE_FLOAT as u16,
+                nChannels: 2,
+                nSamplesPerSec: 44100,
+                nAvgBytesPerSec: 44100 * 2 * 4,
+                nBlockAlign: 2 * 4,
+                wBitsPerSample: 32,
+                cbSize: 0,
+            },
+            // Lower quality format
+            WAVEFORMATEX {
+                wFormatTag: WAVE_FORMAT_IEEE_FLOAT as u16,
+                nChannels: 2,
+                nSamplesPerSec: 22050,
+                nAvgBytesPerSec: 22050 * 2 * 4,
+                nBlockAlign: 2 * 4,
+                wBitsPerSample: 32,
+                cbSize: 0,
+            },
+        ];
+
+        for (i, format) in formats_to_try.iter().enumerate() {
+            let samples_per_sec = format.nSamplesPerSec;
+            let channels = format.nChannels;
+            let bits_per_sample = format.wBitsPerSample;
+
+            log::debug!(
+                "Trying format {}: {}Hz, {} channels, {}-bit float",
+                i + 1,
+                samples_per_sec,
+                channels,
+                bits_per_sample,
+            );
+
+            let mut closest_format_ptr: *mut WAVEFORMATEX = std::ptr::null_mut();
+            let hr = unsafe {
+                audio_client.IsFormatSupported(
+                    AUDCLNT_SHAREMODE_SHARED,
+                    format,
+                    Some(&mut closest_format_ptr),
+                )
+            };
+
+            if hr.0 == 0 {
+                if !closest_format_ptr.is_null() {
+                    // Device returned a different format that it supports
+                    let supported_format = unsafe { *closest_format_ptr };
+                    let samples_per_sec = supported_format.nSamplesPerSec;
+                    let channels = supported_format.nChannels;
+                    let bits_per_sample = supported_format.wBitsPerSample;
+
+                    log::info!(
+                        "Device returned closest supported format: {}Hz, {} channels, {}-bit",
+                        samples_per_sec,
+                        channels,
+                        bits_per_sample,
+                    );
+                    self.device_format = Some(supported_format);
+                } else {
+                    // Device supports our requested format exactly
+                    log::info!(
+                        "Device supports requested format exactly: {}Hz, {} channels, {}-bit float",
+                        samples_per_sec,
+                        channels,
+                        bits_per_sample,
+                    );
+                    self.device_format = Some(*format);
+                }
+                break;
+            } else {
+                log::debug!("Format {} not supported: HRESULT=0x{:08X}", i + 1, hr.0);
+                if i == formats_to_try.len() - 1 {
+                    return Err(SpeakerRecorderError::WasapiError(format!(
+                        "No supported audio format found for device. Last HRESULT=0x{:08X}",
+                        hr.0
+                    )));
+                }
+            }
+        }
+
+        if let Some(format) = self.device_format {
+            let samples_per_sec = format.nSamplesPerSec;
+            let channels = format.nChannels;
+            let bits_per_sample = format.wBitsPerSample;
+            let format_tag = format.wFormatTag;
+
+            log::info!(
+                "✅ Selected device format: {}Hz, {} channels, {}-bit, tag={}",
+                samples_per_sec,
+                channels,
+                bits_per_sample,
+                format_tag,
+            );
+        } else {
+            return Err(SpeakerRecorderError::WasapiError(
+                "Failed to determine supported audio format".to_string(),
+            ));
+        }
+
+        Ok(())
     }
 }
