@@ -173,6 +173,9 @@ pub struct CursorTracker {
     pub region_height: i32,
 
     #[derivative(Default(value = "30"))]
+    pub debounce_radius: i32,
+
+    #[derivative(Default(value = "30"))]
     pub stable_radius: i32,
 
     #[derivative(Default(value = "200"))]

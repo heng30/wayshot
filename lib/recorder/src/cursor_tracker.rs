@@ -65,6 +65,10 @@ pub struct CursorTrackerConfig {
     cursor_position_receiver: Receiver<(Instant, CursorPosition)>,
 
     /// The maximum distance in pixels that the cursor can move while still being
+    /// considered "stable". Movement within this radius won't trigger zoom in
+    debounce_radius: u32,
+
+    /// The maximum distance in pixels that the cursor can move while still being
     /// considered "stable". Movement within this radius won't reset stability timers
     stable_radius: u32,
 
@@ -115,7 +119,8 @@ impl CursorTrackerConfig {
             target_size,
             cursor_position_receiver,
             crop_region_sender,
-            stable_radius: 100,
+            debounce_radius: 30,
+            stable_radius: 30,
             fast_moving_duration: Duration::from_millis(200),
             zoom_transition_duration: Duration::from_millis(1000),
             reposition_edge_threshold: 0.15,
@@ -149,6 +154,8 @@ pub struct CursorTracker {
     /// Records the edge state from the last reposition to prevent
     /// repeated repositioning due to the same edge
     last_edge_state: Option<EdgeState>,
+
+    debounce_reference_position: Option<CursorPosition>,
 }
 
 impl CursorTracker {
@@ -167,6 +174,8 @@ impl CursorTracker {
             stable_cursor_position: None,
             stable_start_time: None,
             last_edge_state: None,
+
+            debounce_reference_position: None,
         })
     }
 
@@ -196,6 +205,10 @@ impl CursorTracker {
             {
                 Ok((timestamp, cursor_pos)) => {
                     if self.verify_cursor_position(&cursor_pos) {
+                        if self.debounce_reference_position.is_none() {
+                            self.debounce_reference_position = Some(cursor_pos);
+                        }
+
                         self.last_cursor_position = Some(cursor_pos);
                         self.last_cursor_capture_timestamp = Some(timestamp);
                         self.current_region = self.handle_cursor_position();
@@ -221,6 +234,21 @@ impl CursorTracker {
             || cursor_pos.y < 0
             || cursor_pos.x >= self.config.screen_size.width
             || cursor_pos.y >= self.config.screen_size.height)
+    }
+
+    fn is_cursor_within_debounce_radius(&self) -> bool {
+        let Some(debounce_pos) = self.debounce_reference_position else {
+            return true;
+        };
+
+        let Some(current_pos) = self.last_cursor_position else {
+            return true;
+        };
+
+        let distance = (debounce_pos.x as f64 - current_pos.x as f64).powi(2)
+            + (debounce_pos.y as f64 - current_pos.y as f64).powi(2);
+
+        distance <= self.config.debounce_radius.pow(2) as f64
     }
 
     fn is_cursor_within_stable_radius(&self) -> bool {
@@ -259,7 +287,7 @@ impl CursorTracker {
         current_size == self.config.screen_size
             && self.last_process_timestamp.duration_since(last_timestamp)
                 >= self.config.fast_moving_duration
-            && !self.is_cursor_within_stable_radius()
+            && !self.is_cursor_within_debounce_radius()
     }
 
     fn should_reposition_target_region(&self) -> Option<EdgeTouch> {
@@ -424,6 +452,7 @@ impl CursorTracker {
             self.stable_cursor_position = None;
             self.last_cursor_capture_timestamp = None;
             self.last_edge_state = None;
+            self.debounce_reference_position = None;
             final_region = transition_regions.last().cloned();
 
             for region in &transition_regions {

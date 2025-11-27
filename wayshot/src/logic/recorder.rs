@@ -601,6 +601,7 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
     .with_enable_cursor_tracking(all_config.cursor_tracker.enable_tracking)
     .with_region_width(all_config.cursor_tracker.region_width)
     .with_region_height(all_config.cursor_tracker.region_height)
+    .with_debounce_radius(all_config.cursor_tracker.debounce_radius as u32)
     .with_stable_radius(all_config.cursor_tracker.stable_radius as u32)
     .with_fast_moving_duration(all_config.cursor_tracker.fast_moving_duration as u64)
     .with_zoom_transition_duration(all_config.cursor_tracker.zoom_transition_duration as u64)

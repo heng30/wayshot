@@ -68,7 +68,7 @@ windows = ["ffmpeg-video-encoder"]
 wayland-wlr = ["dep:screen-capture-wayland-wlr", "x264-video-encoder"]
 wayland-portal = ["dep:screen-capture-wayland-portal", "x264-video-encoder"]
 
-# For Debug on Linux
+# For debug on Linux
 # wayland-wlr = ["dep:screen-capture-wayland-wlr", "ffmpeg-video-encoder"]
 # wayland-wlr = ["dep:screen-capture-wayland-wlr", "openh264-video-encoder"]
 

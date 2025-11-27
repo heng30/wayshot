@@ -34,6 +34,7 @@ export component CursorTracker inherits SettingDetail {
     }
 
     public function get() -> SettingCursorTracker {
+        root.setting.debounce-radius = debounce-radius-li.text.to-float();
         root.setting.stable-radius = stable-radius-li.text.to-float();
         root.setting.region-width = region-width-li.text.to-float();
         root.setting.region-height = region-height-li.text.to-float();
@@ -124,14 +125,26 @@ export component CursorTracker inherits SettingDetail {
 
             SettingDetailInnerVbox {
                 SettingDetailLabel {
+                    text: Logic.tr("Debounce radius(pixel)");
+                    tip: Logic.tr("When recording in full screen, moving the cursor within this radius will not trigger magnification.");
+                }
+
+                debounce-radius-li := LineInput {
+                    input-type: InputType.number;
+                    placeholder-text: "30px";
+                    text: root.setting.debounce-radius;
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
                     text: Logic.tr("Stable radius(pixel)");
-                    tip: Logic.tr("After zooming in, moving the cursor within this radius will not trigger the countdown to return to full-screen recording.");
+                    tip: Logic.tr("After zooming in, move the cursor out of this radius to reset the full-screen recording countdown.");
                 }
 
                 stable-radius-li := LineInput {
                     input-type: InputType.number;
                     placeholder-text: "15px";
-                    icon: Icons.file-open-light;
                     text: root.setting.stable-radius;
                 }
             }

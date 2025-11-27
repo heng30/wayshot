@@ -338,6 +338,7 @@ impl RecordingSession {
             stop_sig.clone(),
         )?
         .with_fps(self.config.fps.to_u32())
+        .with_debounce_radius(self.config.debounce_radius)
         .with_stable_radius(self.config.stable_radius)
         .with_zoom_in_transition_type(self.config.zoom_in_transition_type)
         .with_zoom_out_transition_type(self.config.zoom_out_transition_type)
