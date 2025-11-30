@@ -16,6 +16,8 @@ import {
     AudioLevel,
     ComponentPosition,
     Divider,
+    PopupAction,
+    PopupActionSetting,
 } from "../../base/widgets.slint";
 
 component PreviewPanel inherits Rectangle {
@@ -61,7 +63,34 @@ component PreviewPanel inherits Rectangle {
         img-opacity: Theme.golden-ratio * Theme.golden-ratio;
     }
 
-    if !Store.never-recording-once: Rectangle {
+    TouchArea {
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.right && event.kind == PointerEventKind.down) {
+                PopupActionSetting.show(parent.absolute-position.x + self.mouse-x, parent.absolute-position.y + self.mouse-y, [
+                    Store.setting-control.enable-preview ? {
+                        icon: Icons.preview-light,
+                        text: Logic.tr("Hide Preview"),
+                        action: "toggle-control-enable-preview"
+                    } : {
+                        icon: Icons.preview-light,
+                        text: Logic.tr("Show Preview"),
+                        action: "toggle-control-enable-preview"
+                    },
+                    Store.setting-control.enable-stats ? {
+                        icon: Icons.statistic-light,
+                        text: Logic.tr("Hide Statistic"),
+                        action: "toggle-control-enable-stats"
+                    } : {
+                        icon: Icons.statistic-light,
+                        text: Logic.tr("Show Statistic"),
+                        action: "toggle-control-enable-stats"
+                    },
+                ]);
+            }
+        }
+    }
+
+    if !Store.never-recording-once && Store.setting-control.enable-stats: Rectangle {
         x: Theme.padding;
         y: Theme.padding;
         width: stats-vbox.preferred-width;

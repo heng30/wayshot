@@ -53,9 +53,9 @@
     - 运行程序依赖：`ffmpeg` 相关库和 `libx264.dll`。可以到发布页面下载程序，里面包含了相关依赖。
     - `git bash` 示例：
     ```bash
-        export FFMPEG_DIR=C:/ffmpeg-8.0.1-full_build-shared
-        export LIBCLANG_PATH="C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/Llvm/x64/bin"
-        make desktop-build-release desktop-features=desktop-windows
+    export FFMPEG_DIR=C:/ffmpeg-8.0.1-full_build-shared
+    export LIBCLANG_PATH="C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/Llvm/x64/bin"
+    make desktop-build-release desktop-features=desktop-windows
     ```
 
 ### 参考

@@ -59,9 +59,9 @@ This is a screen recording tool for `Linux` and `Windows`. It is based on `Rust`
     - Program dependencies: `ffmpeg` related libraries and `libx264.dll`. You can download the program from the release page, which includes the necessary dependencies.
     - `git bash` examples：
     ```bash
-        export FFMPEG_DIR=C:/ffmpeg-8.0.1-full_build-shared
-        export LIBCLANG_PATH="C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/Llvm/x64/bin"
-        make desktop-build-release desktop-features=desktop-windows
+    export FFMPEG_DIR=C:/ffmpeg-8.0.1-full_build-shared
+    export LIBCLANG_PATH="C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/Llvm/x64/bin"
+    make desktop-build-release desktop-features=desktop-windows
     ```
 
 ### Reference

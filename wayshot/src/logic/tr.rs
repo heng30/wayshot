@@ -292,6 +292,10 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("video file duration is 0", "视频文件时长为0"),
             ("Note", "注意"),
             ("To enable the mouse tracking feature, you need to download the wayshot-cursor program from the Github release page and run it with administrator privileges. This program is used to capture the mouse position. The command is as follows:", "启用鼠标跟随功能需要到Github发布页面下载wayshot-cursor程序。并且使用管理员权限运行。这个程序的作用是获取鼠标位置。命令如下: "),
+            ("Hide Statistic", "隐藏统计信息"),
+            ("Show Statistic", "显示统计信息"),
+            ("Hide Preview", "隐藏预览"),
+            ("Show Preview", "显示预览"),
         ])
     })
 }

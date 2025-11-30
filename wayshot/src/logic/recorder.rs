@@ -81,6 +81,9 @@ macro_rules! store_sources {
 pub fn init(ui: &AppWindow) {
     inner_init(&ui);
 
+    logic_cb!(toggle_control_enable_stats, ui);
+    logic_cb!(toggle_control_enable_preview, ui);
+
     logic_cb!(init_sources_dialog, ui);
     logic_cb!(choose_save_dir, ui);
     logic_cb!(update_sources, ui, setting);
@@ -327,6 +330,25 @@ fn init_video(ui: &AppWindow) -> Result<()> {
     });
 
     Ok(())
+}
+
+fn toggle_control_enable_stats(ui: &AppWindow) {
+    let mut setting = global_store!(ui).get_setting_control();
+    setting.enable_stats = !setting.enable_stats;
+    global_store!(ui).set_setting_control(setting.clone());
+    global_logic!(ui).invoke_set_setting_control(setting);
+}
+
+fn toggle_control_enable_preview(ui: &AppWindow) {
+    let mut setting = global_store!(ui).get_setting_control();
+    setting.enable_preview = !setting.enable_preview;
+
+    if !setting.enable_preview {
+        global_store!(ui).set_preview_image(Default::default());
+    }
+
+    global_store!(ui).set_setting_control(setting.clone());
+    global_logic!(ui).invoke_set_setting_control(setting);
 }
 
 fn init_sources_dialog(ui: &AppWindow) {
@@ -640,13 +662,18 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
             );
 
             _ = ui_weak_clone.upgrade_in_event_loop(move |ui| {
-                let buffer = SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(
-                    &frame.buffer.as_raw(),
-                    frame.buffer.width(),
-                    frame.buffer.height(),
-                );
-                let img = slint::Image::from_rgb8(buffer);
-                global_store!(ui).set_preview_image(img);
+                if global_store!(ui).get_setting_control().enable_preview {
+                    let buffer = SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(
+                        &frame.buffer.as_raw(),
+                        frame.buffer.width(),
+                        frame.buffer.height(),
+                    );
+                    let img = slint::Image::from_rgb8(buffer);
+                    global_store!(ui).set_preview_image(img);
+                } else {
+                    global_store!(ui).set_preview_image(Default::default());
+                }
+
                 global_store!(ui).set_start_recording_timer(true);
 
                 let mut sinfo = global_store!(ui).get_stats_info();

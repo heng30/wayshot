@@ -158,6 +158,14 @@ pub struct Control {
 
     #[derivative(Default(value = "true"))]
     pub enable_speaker: bool,
+
+    #[serde(default = "true_func")]
+    #[derivative(Default(value = "true"))]
+    pub enable_stats: bool,
+
+    #[serde(default = "true_func")]
+    #[derivative(Default(value = "true"))]
+    pub enable_preview: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
@@ -341,6 +349,10 @@ fn fps_default() -> UIFps {
 
 fn resolution_default() -> UIResolution {
     UIResolution::Original
+}
+
+fn true_func() -> bool {
+    true
 }
 
 /// Initializes the global configuration
