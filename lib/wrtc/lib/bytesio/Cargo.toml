@@ -1,0 +1,22 @@
+[package]
+name = "bytesio"
+version = "0.3.3"
+edition = "2018"
+description = "a network io library using tokio."
+license = "MIT"
+
+[dependencies]
+log = "0.4"
+rand = "0.9"
+bytes = "1.0"
+failure = "0.1"
+futures = "0.3"
+byteorder = "1.4"
+async-trait = "0.1"
+tokio-stream = { version = "0.1" }
+tokio-util = { version = "0.7", features = ["codec"] }
+
+[dependencies.tokio]
+version = "1.4.0"
+features = ["full"]
+default-features = false

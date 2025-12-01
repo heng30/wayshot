@@ -1,0 +1,24 @@
+[package]
+name = "wrtc"
+edition = "2024"
+license = "MIT"
+version = "0.1.0"
+description = "A whip/whep library."
+
+[dependencies]
+log = "0.4"
+http = "1.4"
+bytes = "1.11"
+tokio = "1.48"
+webrtc = "0.14"
+fdk-aac = "0.8"
+indexmap = "2.12"
+thiserror = "2.0"
+byteorder = "1.5"
+async-trait = "0.1"
+audiopus = "0.3.0-rc.0"
+
+xflv = { path = "lib/flv" }
+bytesio = { path = "lib/bytesio" }
+commonlib = { path = "lib/common" }
+streamhub = { path = "lib/streamhub" }

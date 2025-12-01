@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "rust-docs": {
+      "type": "stdio",
+      "command": "rust-docs-mcp",
+      "args": []
+    },
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp",
+        "--api-key",
+        "ctx7sk-f81b63da-c228-4d91-9107-a64bc3762f38"
+      ],
+      "env": {}
+    }
+  }
+}
