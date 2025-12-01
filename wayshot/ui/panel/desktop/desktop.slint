@@ -100,7 +100,6 @@ component HorizontalStatusBar inherits StatusBar {
     icon: Icons.brand;
     title: AboutSetting.app-name;
     is-show-tip: true;
-    disable-maximal: true;
 
     HorizontalLayout {
         padding-right: Theme.padding * 2;
@@ -231,6 +230,7 @@ export component DesktopPanel inherits Rectangle {
 
             Home {
                 vertical-stretch: 1;
+                height: root.height - (Store.setting-preference.no-frame ? Theme.header-height : 0);
             }
         }
     }

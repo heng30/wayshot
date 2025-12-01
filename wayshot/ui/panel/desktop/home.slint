@@ -5,9 +5,13 @@ import { PlayerPanel } from "player.slint";
 import { HistoryPanel } from "history.slint";
 
 export component Home inherits VerticalLayout {
-    if Store.current-tab-index == TabIndex.Home: MainPanel { }
+    if Store.current-tab-index == TabIndex.Home: MainPanel {
+        height: parent.height;
+    }
 
     if Store.current-tab-index == TabIndex.History: HistoryPanel { }
 
-    if Store.current-tab-index == TabIndex.Player: PlayerPanel { }
+    if Store.current-tab-index == TabIndex.Player: PlayerPanel {
+        height: parent.height;
+    }
 }

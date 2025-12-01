@@ -492,7 +492,7 @@ export component MainPanel inherits VerticalLayout {
     }
 
     PreviewPanel {
-        height: Theme.default-height - cp.preferred-height - cp.padding * 2 - parent.padding * 2 - parent.spacing - (Store.setting-preference.no-frame ? Theme.header-height : 0) - (root.is-show-banners ? root.banner-height : 0);
+        height: parent.height - cp.preferred-height - cp.padding * 2 - parent.padding * 2 - parent.spacing - (root.is-show-banners ? root.banner-height : 0);
     }
 
     cp := ControlPanel { }

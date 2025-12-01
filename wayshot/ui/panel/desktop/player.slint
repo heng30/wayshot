@@ -2,7 +2,7 @@ import { Theme, Icons, Util, Logic, Store, PopupIndex } from "../def.slint";
 import { VideoPlayer } from "../../base/widgets.slint";
 
 export component PlayerPanel inherits VideoPlayer {
-    height: Theme.default-height - (Store.setting-preference.no-frame ? Theme.header-height : 0);
+    height: 100%;
     show-speed-btn: false;
     show-subtitle-btn: false;
     show-full-screen-btn: false;
