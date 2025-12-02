@@ -3,10 +3,9 @@ name = "xflv"
 description = "flv library."
 version = "0.3.0"
 license = "MIT"
-readme = "README.md"
 categories = ["flv"]
 keywords = ["flv", "video", "streaming"]
-edition = "2018"
+edition = "2024"
 
 [dependencies]
 log = "0.4"

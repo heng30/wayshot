@@ -1,8 +1,6 @@
-use super::errors::WebRTCError;
-use super::errors::WebRTCErrorValue;
+use super::errors::{WebRTCError, WebRTCErrorValue};
 use std::sync::Arc;
-use streamhub::define::PacketData;
-use streamhub::define::PacketDataReceiver;
+use streamhub::define::{PacketData, PacketDataReceiver};
 use tokio::sync::broadcast;
 use webrtc::api::APIBuilder;
 use webrtc::api::interceptor_registry::register_default_interceptors;
@@ -26,11 +24,8 @@ pub async fn handle_whep(
     mut receiver: PacketDataReceiver,
     state_sender: broadcast::Sender<RTCPeerConnectionState>,
 ) -> Result<(RTCSessionDescription, Arc<RTCPeerConnection>)> {
-    // Everything below is the WebRTC-rs API! Thanks for using it ❤️.
-
     // Create a MediaEngine object to configure the supported codec
     let mut m = MediaEngine::default();
-
     m.register_default_codecs()?;
 
     // Create a InterceptorRegistry. This is the user configurable RTP/RTCP Pipeline.
@@ -38,17 +33,13 @@ pub async fn handle_whep(
     // this is enabled by default. If you are manually managing You MUST create a InterceptorRegistry
     // for each PeerConnection.
     let mut registry = Registry::new();
-
-    // Use the default set of Interceptors
     registry = register_default_interceptors(registry, &mut m)?;
 
-    // Create the API object with the MediaEngine
     let api = APIBuilder::new()
         .with_media_engine(m)
         .with_interceptor_registry(registry)
         .build();
 
-    // Prepare the configuration
     let config = RTCConfiguration {
         ice_servers: vec![RTCIceServer {
             urls: vec!["stun:stun.l.google.com:19302".to_owned()],
@@ -57,10 +48,8 @@ pub async fn handle_whep(
         ..Default::default()
     };
 
-    // Create a new RTCPeerConnection
     let peer_connection = Arc::new(api.new_peer_connection(config).await?);
 
-    // Create Track that we send video back to browser on
     let video_track = Arc::new(TrackLocalStaticRTP::new(
         RTCRtpCodecCapability {
             mime_type: MIME_TYPE_H264.to_owned(),
@@ -70,7 +59,6 @@ pub async fn handle_whep(
         "webrtc-rs".to_owned(),
     ));
 
-    // Create Track that we send video back to browser on
     let audio_track = Arc::new(TrackLocalStaticRTP::new(
         RTCRtpCodecCapability {
             mime_type: MIME_TYPE_OPUS.to_owned(),
@@ -80,12 +68,11 @@ pub async fn handle_whep(
         "webrtc-rs".to_owned(),
     ));
 
-    // Add this newly created track to the PeerConnection
     let rtp_sender = peer_connection
         .add_track(Arc::clone(&video_track) as Arc<dyn TrackLocal + Send + Sync>)
         .await?;
 
-    let _ = peer_connection
+    _ = peer_connection
         .add_track(Arc::clone(&audio_track) as Arc<dyn TrackLocal + Send + Sync>)
         .await?;
 
@@ -98,14 +85,9 @@ pub async fn handle_whep(
         Result::<()>::Ok(())
     });
 
-    // Set the handler for ICE connection state
-    // This will notify you when the peer has connected/disconnected
     peer_connection.on_ice_connection_state_change(Box::new(
         move |connection_state: RTCIceConnectionState| {
             log::info!("Connection State has changed {connection_state}");
-            if connection_state == RTCIceConnectionState::Failed {
-                // let _ = done_tx1.try_send(());
-            }
             Box::pin(async {})
         },
     ));
@@ -121,8 +103,8 @@ pub async fn handle_whep(
             // Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
             // Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
             log::info!("Peer Connection has gone to failed exiting: Done forwarding");
-            // let _ = done_tx2.try_send(());
         }
+
         if let Err(err) = state_sender.send(s) {
             log::error!("on_peer_connection_state_change send state err: {}", err);
         }
@@ -130,10 +112,7 @@ pub async fn handle_whep(
         Box::pin(async {})
     }));
 
-    // Set the remote SessionDescription
     peer_connection.set_remote_description(offer).await?;
-
-    // Create an answer
     let answer = peer_connection.create_answer(None).await?;
 
     // Create channel that is blocked until ICE Gathering is complete
@@ -145,7 +124,7 @@ pub async fn handle_whep(
     // Block until ICE Gathering is complete, disabling trickle ICE
     // we do this because we only can exchange one signaling message
     // in a production application you should exchange ICE Candidates via OnICECandidate
-    let _ = gather_complete.recv().await;
+    _ = gather_complete.recv().await;
 
     // Read RTP packets forever and send them to the WebRTC Client
     tokio::spawn(async move {
@@ -167,11 +146,10 @@ pub async fn handle_whep(
                         }
                     }
                 }
-                pc_state = state_receiver.recv() =>{
-                    if let Ok(state) = pc_state{
-                        if state == RTCPeerConnectionState::Closed {
+                pc_state = state_receiver.recv() => {
+                    if let Ok(state) = pc_state
+                         && state == RTCPeerConnectionState::Closed {
                             break;
-                        }
                     }
                 }
             }

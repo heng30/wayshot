@@ -1,5 +1,4 @@
-use super::errors::WebRTCError;
-use super::errors::WebRTCErrorValue;
+use super::errors::{WebRTCError, WebRTCErrorValue};
 use super::rtp_queue::RtpQueue;
 use crate::opus2aac::Opus2AacTranscoder;
 use bytes::BytesMut;
@@ -83,7 +82,6 @@ pub async fn handle_whip(
 ) -> Result<(RTCSessionDescription, Arc<RTCPeerConnection>)> {
     // Create a MediaEngine object to configure the supported codec
     let mut m = MediaEngine::default();
-
     m.register_default_codecs()?;
 
     // Create a InterceptorRegistry. This is the user configurable RTP/RTCP Pipeline.
@@ -91,17 +89,13 @@ pub async fn handle_whip(
     // this is enabled by default. If you are manually managing You MUST create a InterceptorRegistry
     // for each PeerConnection.
     let mut registry = Registry::new();
-
-    // Use the default set of Interceptors
     registry = register_default_interceptors(registry, &mut m)?;
 
-    // Create the API object with the MediaEngine
     let api = APIBuilder::new()
         .with_media_engine(m)
         .with_interceptor_registry(registry)
         .build();
 
-    // Prepare the configuration
     let config = RTCConfiguration {
         ice_servers: vec![RTCIceServer {
             urls: vec!["stun:stun.l.google.com:19302".to_owned()],
@@ -110,10 +104,7 @@ pub async fn handle_whip(
         ..Default::default()
     };
 
-    // Create a new RTCPeerConnection
     let peer_connection = Arc::new(api.new_peer_connection(config).await?);
-
-    // Allow us to receive 1 audio track, and 1 video track
     peer_connection
         .add_transceiver_from_kind(
             RTPCodecType::Audio,
@@ -123,6 +114,7 @@ pub async fn handle_whip(
             }),
         )
         .await?;
+
     peer_connection
         .add_transceiver_from_kind(
             RTPCodecType::Video,
@@ -134,6 +126,7 @@ pub async fn handle_whip(
         .await?;
 
     let offer_in = offer.clone();
+
     // Set a handler for when a new remote track starts, this handler will forward data to
     // our UDP listeners.
     // In your application this is where you would handle/process audio/video
@@ -142,8 +135,10 @@ pub async fn handle_whip(
         // Send a PLI on an interval so that the publisher is pushing a keyframe every rtcpPLIInterval
         let media_ssrc = track.ssrc();
         let pc2 = pc.clone();
+
         tokio::spawn(async move {
             let mut result = Result::<usize>::Ok(0);
+
             while result.is_ok() {
                 let timeout = tokio::time::sleep(Duration::from_secs(3));
                 tokio::pin!(timeout);
@@ -162,9 +157,11 @@ pub async fn handle_whip(
                 };
             }
         });
+
         let packet_sender_clone = packet_sender.clone().unwrap();
         let frame_sender_clone = frame_sender.clone().unwrap();
         let offer_clone = offer_in.clone();
+
         tokio::spawn(async move {
             let mut b = vec![0u8; 3000];
             let mut h264_packet = H264Packet::default();
@@ -187,37 +184,36 @@ pub async fn handle_whip(
                 for m in session_description.media_descriptions {
                     for a in &m.attributes {
                         let attr = a.to_string();
-                        if attr.starts_with("rtpmap:") {
-                            if let Ok(codec) = parse_rtpmap(&attr) {
-                                log::info!("codec: {}", codec);
-                                match codec.name.to_uppercase().as_str() {
-                                    "H264" => {
-                                        video_codec = codec;
-                                    }
-                                    "H265" => {
-                                        video_codec = codec;
-                                        vcodec = VideoCodecType::H265;
-                                    }
-                                    "OPUS" => {
-                                        audio_codec = codec;
-                                        let channels =
-                                            match audio_codec.encoding_parameters.as_str() {
-                                                "1" => audiopus::Channels::Mono,
-                                                "2" => audiopus::Channels::Stereo,
-                                                _ => audiopus::Channels::Stereo,
-                                            };
+                        if attr.starts_with("rtpmap:")
+                            && let Ok(codec) = parse_rtpmap(&attr)
+                        {
+                            log::info!("codec: {}", codec);
+                            match codec.name.to_uppercase().as_str() {
+                                "H264" => {
+                                    video_codec = codec;
+                                }
+                                "H265" => {
+                                    video_codec = codec;
+                                    vcodec = VideoCodecType::H265;
+                                }
+                                "OPUS" => {
+                                    audio_codec = codec;
+                                    let channels = match audio_codec.encoding_parameters.as_str() {
+                                        "1" => audiopus::Channels::Mono,
+                                        "2" => audiopus::Channels::Stereo,
+                                        _ => audiopus::Channels::Stereo,
+                                    };
 
-                                        opus2aac_transcoder = Opus2AacTranscoder::new(
-                                            audio_codec.clock_rate as i32,
-                                            channels,
-                                            audio_codec.clock_rate,
-                                            fdk_aac::enc::ChannelMode::Stereo,
-                                        )
-                                        .unwrap();
-                                    }
-                                    _ => {
-                                        log::warn!("not supported codec: {}", codec);
-                                    }
+                                    opus2aac_transcoder = Opus2AacTranscoder::new(
+                                        audio_codec.clock_rate as i32,
+                                        channels,
+                                        audio_codec.clock_rate,
+                                        fdk_aac::enc::ChannelMode::Stereo,
+                                    )
+                                    .unwrap();
+                                }
+                                _ => {
+                                    log::warn!("not supported codec: {}", codec);
                                 }
                             }
                         }
@@ -242,19 +238,18 @@ pub async fn handle_whip(
             let _sps_sent: bool = false;
             let _pps_sent: bool = false;
             let mut aac_asc_sent: bool = false;
-
             let mut rtp_queue = RtpQueue::new(100);
 
             while let Ok((rtp_packet, _)) = track.read(&mut b).await {
                 let n = rtp_packet.marshal_to(&mut b)?;
 
                 match rtp_packet.header.payload_type {
-                    //video h264
                     nal_payload_type::H264 => {
                         let video_packet = PacketData::Video {
                             timestamp: rtp_packet.header.timestamp,
                             data: BytesMut::from(&b[..n]),
                         };
+
                         if let Err(err) = packet_sender_clone.send(video_packet) {
                             log::error!("send video packet error: {}", err);
                         }
@@ -277,28 +272,23 @@ pub async fn handle_whip(
                                             if let Err(err) = frame_sender_clone.send(video_frame) {
                                                 log::error!("send video frame error: {}", err);
                                             } else {
-                                                // log::info!("send video frame suceess: {}", nal_type);
+                                                log::debug!("send video frame suceess: {nal_type}");
                                             }
                                         }
                                     }
                                 }
-                                Err(_err) => {
-                                    // log::error!("The h264 packet payload err:{}", err);
-                                    // let hex_string = hex::encode(b.to_vec());
-                                    // log::error!(
-                                    //     "The h264 packet payload err string :{}",
-                                    //     hex_string
-                                    // );
+                                Err(e) => {
+                                    log::error!("The h264 depacket payload failed: {e}");
                                 }
                             }
                         }
                     }
-                    //aac 111(opus)
                     nal_payload_type::OPUS => {
                         let audio_packet = PacketData::Audio {
                             timestamp: rtp_packet.header.timestamp,
                             data: BytesMut::from(&b[..n]),
                         };
+
                         if let Err(err) = packet_sender_clone.send(audio_packet) {
                             log::error!("send audio packet error: {}", err);
                         }
@@ -321,7 +311,6 @@ pub async fn handle_whip(
                         match opus_packet.depacketize(&rtp_packet.payload) {
                             Ok(rv) => {
                                 if !rv.is_empty() {
-                                    // log::info!("audio timestamp: {}", rtp_packet.header.timestamp);
                                     let byte_array = rv.to_vec();
                                     match opus2aac_transcoder.transcode(&byte_array) {
                                         Ok(data) => {
@@ -335,8 +324,6 @@ pub async fn handle_whip(
                                                     frame_sender_clone.send(audio_frame)
                                                 {
                                                     log::error!("send audio frame error: {}", err);
-                                                } else {
-                                                    // log::info!("send aidop frame suceess");
                                                 }
                                             }
                                         }
@@ -346,7 +333,9 @@ pub async fn handle_whip(
                                     }
                                 }
                             }
-                            Err(_err) => {}
+                            Err(e) => {
+                                log::error!("The opus depacket payload failed: {e}");
+                            }
                         }
                     }
                     _ => {}
@@ -359,8 +348,6 @@ pub async fn handle_whip(
         Box::pin(async {})
     }));
 
-    // Set the handler for ICE connection state
-    // This will notify you when the peer has connected/disconnected
     peer_connection.on_ice_connection_state_change(Box::new(
         move |connection_state: RTCIceConnectionState| {
             log::info!("Connection State has changed {connection_state}");
@@ -370,9 +357,6 @@ pub async fn handle_whip(
             Box::pin(async {})
         },
     ));
-
-    // Set the handler for Peer connection state
-    // This will notify you when the peer has connected/disconnected
 
     peer_connection.on_peer_connection_state_change(Box::new(move |s: RTCPeerConnectionState| {
         log::info!("Peer Connection State has changed: {s}");
@@ -387,10 +371,7 @@ pub async fn handle_whip(
         Box::pin(async {})
     }));
 
-    // Set the remote SessionDescription
     peer_connection.set_remote_description(offer).await?;
-
-    // Create an answer
     let answer = peer_connection.create_answer(None).await?;
 
     // Create channel that is blocked until ICE Gathering is complete
@@ -402,7 +383,7 @@ pub async fn handle_whip(
     // Block until ICE Gathering is complete, disabling trickle ICE
     // we do this because we only can exchange one signaling message
     // in a production application you should exchange ICE Candidates via OnICECandidate
-    let _ = gather_complete.recv().await;
+    _ = gather_complete.recv().await;
 
     // Output the answer in base64 so we can paste it in browser
     if let Some(local_desc) = peer_connection.local_description().await {

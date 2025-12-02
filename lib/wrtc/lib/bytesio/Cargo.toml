@@ -1,7 +1,7 @@
 [package]
 name = "bytesio"
-version = "0.3.3"
-edition = "2018"
+version = "0.1.0"
+edition = "2024"
 description = "a network io library using tokio."
 license = "MIT"
 
