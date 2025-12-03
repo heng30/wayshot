@@ -1,0 +1,18 @@
+[package]
+name = "bytesio"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "a network io library using tokio"
+
+[dependencies]
+log.workspace = true
+rand.workspace = true
+bytes.workspace = true
+futures.workspace = true
+thiserror.workspace = true
+byteorder.workspace = true
+async-trait.workspace = true
+tokio-stream.workspace = true
+tokio = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true, features = ["codec"] }

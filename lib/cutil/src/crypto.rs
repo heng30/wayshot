@@ -2,9 +2,9 @@
 //!
 //! This module provides AES-128-CBC encryption/decryption and hash functions.
 
-use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
-use anyhow::{anyhow, Context, Result};
-use crypto_hash::{hex_digest, Algorithm};
+use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit, block_padding::Pkcs7};
+use anyhow::{Context, Result, anyhow};
+use crypto_hash::{Algorithm, hex_digest};
 
 type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;
 type Aes128CbcDec = cbc::Decryptor<aes::Aes128>;
@@ -141,6 +141,10 @@ pub fn hash(text: &str) -> String {
         Algorithm::MD5,
         hex_digest(Algorithm::SHA256, text.as_bytes()).as_bytes(),
     )
+}
+
+pub fn md5(text: &str) -> String {
+    hex_digest(Algorithm::MD5, text.as_bytes())
 }
 
 #[cfg(test)]

@@ -2,6 +2,14 @@ use crate::scanf;
 use indexmap::IndexMap;
 use std::fmt;
 
+pub mod http_method_name {
+    pub const OPTIONS: &str = "OPTIONS";
+    pub const PATCH: &str = "PATCH";
+    pub const POST: &str = "POST";
+    pub const DELETE: &str = "DELETE";
+    pub const GET: &str = "GET";
+}
+
 pub trait Unmarshal {
     fn unmarshal(request_data: &str) -> Option<Self>
     where
@@ -14,9 +22,8 @@ pub trait Marshal {
 
 #[derive(Debug, Clone, Default)]
 pub enum Schema {
-    //used for webrtc(WHIP/WHEP)
     WEBRTC,
-    RTSP,
+
     #[default]
     UNKNOWN,
 }
@@ -24,10 +31,7 @@ pub enum Schema {
 impl fmt::Display for Schema {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Schema::RTSP => {
-                write!(f, "rtsp")
-            }
-            //Because webrtc request uri does not contain the schema name, so here write empty string.
+            // webrtc request uri does not contain the schema name
             Schema::WEBRTC => {
                 write!(f, "")
             }
@@ -48,25 +52,11 @@ pub struct Uri {
 }
 
 impl Unmarshal for Uri {
-    /*
-    RTSP HTTP header : "ANNOUNCE rtsp://127.0.0.1:5544/stream RTSP/1.0\r\n\
-    the uri rtsp://127.0.0.1:5544/stream is standard with schema://host:port/path?query.
-
-    WEBRTC is special:
-    "POST /whep?app=live&stream=test HTTP/1.1\r\n\
-     Host: localhost:3000\r\n\
-     Accept: \r\n\"
-    It only contains path?query after HTTP method, host:port is saved in the Host parameter.
-    In this function, for Webrtc we only parse path?query, host:port will be parsed in the HTTPRequest
-    unmarshal method.
-    */
+    // "POST /whep?app=live&stream=test HTTP/1.1\r\n\
     fn unmarshal(url: &str) -> Option<Self> {
         let mut uri = Uri::default();
 
-        /*first judge the correct schema */
-        if url.starts_with("rtsp://") {
-            uri.schema = Schema::RTSP;
-        } else if url.starts_with("/whip") || url.starts_with("/whep") {
+        if url.starts_with("/whip") || url.starts_with("/whep") {
             uri.schema = Schema::WEBRTC;
         } else {
             log::warn!("cannot judge the schema: {}", url);
@@ -74,34 +64,6 @@ impl Unmarshal for Uri {
         }
 
         let path_with_query = match uri.schema {
-            Schema::RTSP => {
-                let rtsp_path_with_query =
-                    if let Some(rtsp_url_without_prefix) = url.strip_prefix("rtsp://") {
-                        /*split host:port and path?query*/
-
-                        if let Some(index) = rtsp_url_without_prefix.find('/') {
-                            let path_with_query = &rtsp_url_without_prefix[index + 1..];
-                            /*parse host and port*/
-                            let host_with_port = &rtsp_url_without_prefix[..index];
-                            let (host_val, port_val) = scanf!(host_with_port, ':', String, u16);
-                            if let Some(host) = host_val {
-                                uri.host = host;
-                            }
-                            if let Some(port) = port_val {
-                                uri.port = Some(port);
-                            }
-
-                            path_with_query
-                        } else {
-                            log::error!("cannot find split '/' for host:port and path?query.");
-                            return None;
-                        }
-                    } else {
-                        log::error!("cannot find RTSP prefix.");
-                        return None;
-                    };
-                rtsp_path_with_query
-            }
             Schema::WEBRTC => url,
             Schema::UNKNOWN => url,
         };
@@ -119,7 +81,6 @@ impl Unmarshal for Uri {
 
 impl Marshal for Uri {
     fn marshal(&self) -> String {
-        /*first pice path and query together*/
         let path_with_query = if let Some(query) = &self.query {
             format!("{}?{}", self.path, query)
         } else {
@@ -127,14 +88,6 @@ impl Marshal for Uri {
         };
 
         match self.schema {
-            Schema::RTSP => {
-                let host_with_port = if let Some(port) = &self.port {
-                    format!("{}:{}", self.host, port)
-                } else {
-                    self.host.clone()
-                };
-                format!("{}://{}/{}", self.schema, host_with_port, path_with_query)
-            }
             Schema::WEBRTC => path_with_query,
             Schema::UNKNOWN => path_with_query,
         }
@@ -145,7 +98,6 @@ impl Marshal for Uri {
 pub struct HttpRequest {
     pub method: String,
     pub uri: Uri,
-    /*parse the query and save the results*/
     pub query_pairs: IndexMap<String, String>,
     pub version: String,
     pub headers: IndexMap<String, String>,
@@ -175,15 +127,14 @@ impl Unmarshal for HttpRequest {
         let header_end_idx = if let Some(idx) = request_data.find("\r\n\r\n") {
             let data_except_body = &request_data[..idx];
             let mut lines = data_except_body.lines();
-            /*parse the first line
-            POST /whip?app=live&stream=test HTTP/1.1*/
+
+            // POST /whip?app=live&stream=test HTTP/1.1
             if let Some(request_first_line) = lines.next() {
                 let mut fields = request_first_line.split_ascii_whitespace();
-                /* method */
                 if let Some(method) = fields.next() {
                     http_request.method = method.to_string();
                 }
-                /* url */
+
                 if let Some(url) = fields.next() {
                     if let Some(uri) = Uri::unmarshal(url) {
                         http_request.uri = uri;
@@ -204,22 +155,25 @@ impl Unmarshal for HttpRequest {
                         return None;
                     }
                 }
-                /* version */
+
                 if let Some(version) = fields.next() {
                     http_request.version = version.to_string();
                 }
             }
-            /*parse headers*/
+
+            // parse headers
             for line in lines {
                 if let Some(index) = line.find(": ") {
                     let name = line[..index].to_string();
                     let value = line[index + 2..].to_string();
-                    /*for schema: webrtc*/
+
+                    // for schema: webrtc
                     if name == "Host" {
                         let (address_val, port_val) = scanf!(value, ':', String, u16);
                         if let Some(address) = address_val {
                             http_request.uri.host = address;
                         }
+
                         if let Some(port) = port_val {
                             http_request.uri.port = Some(port);
                         }
@@ -231,6 +185,7 @@ impl Unmarshal for HttpRequest {
         } else {
             return None;
         };
+
         log::trace!(
             "header_end_idx is: {} {}",
             header_end_idx,
@@ -238,7 +193,6 @@ impl Unmarshal for HttpRequest {
         );
 
         if request_data.len() > header_end_idx {
-            /*parse body*/
             http_request.body = Some(request_data[header_end_idx..].to_string());
         }
 
@@ -254,8 +208,9 @@ impl Marshal for HttpRequest {
             self.uri.marshal(),
             self.version
         );
+
         for (header_name, header_value) in &self.headers {
-            if header_name == &"Content-Length".to_string() {
+            if header_name.as_str() == "Content-Length" {
                 if let Some(body) = &self.body {
                     request_str += &format!("Content-Length: {}\r\n", body.len());
                 }
@@ -293,7 +248,8 @@ impl Unmarshal for HttpResponse {
         let header_end_idx = if let Some(idx) = request_data.find("\r\n\r\n") {
             let data_except_body = &request_data[..idx];
             let mut lines = data_except_body.lines();
-            //parse the first line
+
+            // parse the first line
             if let Some(request_first_line) = lines.next() {
                 let mut fields = request_first_line.split_ascii_whitespace();
 
@@ -309,6 +265,7 @@ impl Unmarshal for HttpResponse {
                     http_response.reason_phrase = reason_phrase.to_string();
                 }
             }
+
             //parse headers
             for line in lines {
                 if let Some(index) = line.find(": ") {
@@ -323,7 +280,6 @@ impl Unmarshal for HttpResponse {
         };
 
         if request_data.len() > header_end_idx {
-            //parse body
             http_response.body = Some(request_data[header_end_idx..].to_string());
         }
 
@@ -339,7 +295,7 @@ impl Marshal for HttpResponse {
         );
 
         for (header_name, header_value) in &self.headers {
-            if header_name != &"Content-Length".to_string() {
+            if header_name.as_str() != "Content-Length" {
                 response_str += &format!("{header_name}: {header_value}\r\n");
             }
         }
@@ -358,35 +314,9 @@ impl Marshal for HttpResponse {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
-    use super::Marshal;
-    use super::Unmarshal;
-
-    use super::HttpRequest;
-    use super::HttpResponse;
-
-    use indexmap::IndexMap;
-    use std::io::BufRead;
-    #[allow(dead_code)]
-    fn read_headers(reader: &mut dyn BufRead) -> Option<IndexMap<String, String>> {
-        let mut headers = IndexMap::new();
-        loop {
-            let mut line = String::new();
-            match reader.read_line(&mut line) {
-                Ok(0) => break,
-                Ok(_) => {
-                    if let Some(index) = line.find(": ") {
-                        let name = line[..index].to_string();
-                        let value = line[index + 2..].trim().to_string();
-                        headers.insert(name, value);
-                    }
-                }
-                Err(_) => return None,
-            }
-        }
-        Some(headers)
-    }
-
+    // cargo test test_parse_http_request -- --nocapture
     #[test]
     fn test_parse_http_request() {
         let request = "POST /whip/endpoint?app=live&stream=test HTTP/1.1\r\n\
@@ -442,13 +372,14 @@ mod tests {
         a=fmtp:97 apt=96\r\n";
 
         if let Some(parser) = HttpRequest::unmarshal(request) {
-            println!(" parser: {parser:?}");
+            println!("parser: {parser:?}");
             let marshal_result = parser.marshal();
-            print!("marshal result: =={marshal_result}==");
+            print!("\n\n{marshal_result}\n");
             assert_eq!(request, marshal_result);
         }
     }
 
+    // cargo test test_whep_request -- --nocapture
     #[test]
     fn test_whep_request() {
         let request = "POST /whep?app=live&stream=test HTTP/1.1\r\n\
@@ -594,11 +525,12 @@ mod tests {
         if let Some(parser) = HttpRequest::unmarshal(request) {
             println!(" parser: {parser:?}");
             let marshal_result = parser.marshal();
-            print!("marshal result: =={marshal_result}==");
+            println!("\n\n{marshal_result}");
             assert_eq!(request, marshal_result);
         }
     }
 
+    // cargo test test_parse_http_response -- --nocapture
     #[test]
     fn test_parse_http_response() {
         let response = "HTTP/1.1 201 Created\r\n\
@@ -654,105 +586,10 @@ mod tests {
         a=fmtp:97 apt=96\r\n";
 
         if let Some(parser) = HttpResponse::unmarshal(response) {
-            println!(" parser: {parser:?}");
+            println!("parser: {parser:?}");
             let marshal_result = parser.marshal();
-            print!("marshal result: =={marshal_result}==");
+            println!("\n\n{marshal_result}\n");
             assert_eq!(response, marshal_result);
-        }
-    }
-
-    // #[test]
-    // fn test_parse_rtsp_request_chatgpt() {
-    //     let data1 = "ANNOUNCE rtsp://127.0.0.1:5544/stream RTSP/1.0\r\n\
-    //     Content-Type: application/sdp\r\n\
-    //     CSeq: 2\r\n\
-    //     User-Agent: Lavf58.76.100\r\n\
-    //     Content-Length: 500\r\n\
-    //     \r\n\
-    //     v=0\r\n\
-    //     o=- 0 0 IN IP4 127.0.0.1\r\n\
-    //     s=No Name\r\n\
-    //     c=IN IP4 127.0.0.1\r\n\
-    //     t=0 0\r\n\
-    //     a=tool:libavformat 58.76.100\r\n\
-    //     m=video 0 RTP/AVP 96\r\n\
-    //     b=AS:284\r\n\
-    //     a=rtpmap:96 H264/90000
-    //     a=fmtp:96 packetization-mode=1; sprop-parameter-sets=Z2QAHqzZQKAv+XARAAADAAEAAAMAMg8WLZY=,aOvjyyLA; profile-level-id=64001E\r\n\
-    //     a=control:streamid=0\r\n\
-    //     m=audio 0 RTP/AVP 97\r\n\
-    //     b=AS:128\r\n\
-    //     a=rtpmap:97 MPEG4-GENERIC/48000/2\r\n\
-    //     a=fmtp:97 profile-level-id=1;mode=AAC-hbr;sizelength=13;indexlength=3;indexdeltalength=3; config=119056E500\r\n\
-    //     a=control:streamid=1\r\n";
-
-    //     // v=0：SDP版本号，通常为0。
-    //     // o=- 0 0 IN IP4 127.0.0.1：会话的所有者和会话ID，以及会话开始时间和会话结束时间的信息。
-    //     // s=No Name：会话名称或标题。
-    //     // c=IN IP4 127.0.0.1：表示会话数据传输的地址类型(IPv4)和地址(127.0.0.1)。
-    //     // t=0 0：会话时间，包括会话开始时间和结束时间，这里的值都是0，表示会话没有预定义的结束时间。
-    //     // a=tool:libavformat 58.76.100：会话所使用的工具或软件名称和版本号。
-
-    //     // m=video 0 RTP/AVP 96：媒体类型(video或audio)、媒体格式(RTP/AVP)、媒体格式编号(96)和媒体流的传输地址。
-    //     // b=AS:284：视频流所使用的带宽大小。
-    //     // a=rtpmap:96 H264/90000：视频流所使用的编码方式(H.264)和时钟频率(90000)。
-    //     // a=fmtp:96 packetization-mode=1; sprop-parameter-sets=Z2QAHqzZQKAv+XARAAADAAEAAAMAMg8WLZY=,aOvjyyLA; profile-level-id=64001E：视频流的格式参数，如分片方式、SPS和PPS等。
-    //     // a=control:streamid=0：指定视频流的流ID。
-
-    //     // m=audio 0 RTP/AVP 97：媒体类型(audio)、媒体格式(RTP/AVP)、媒体格式编号(97)和媒体流的传输地址。
-    //     // b=AS:128：音频流所使用的带宽大小。
-    //     // a=rtpmap:97 MPEG4-GENERIC/48000/2：音频流所使用的编码方式(MPEG4-GENERIC)、采样率(48000Hz)、和通道数(2)。
-    //     // a=fmtp:97 profile-level-id=1;mode=AAC-hbr;sizelength=13;indexlength=3;indexdeltalength=3; config=119056E500：音频流的格式参数，如编码方式、采样长度、索引长度等。
-    //     // a=control:streamid=1：指定音频流的流ID。
-
-    //     if let Some(request) = parse_request_bytes(&data1.as_bytes()) {
-    //         println!(" parser: {:?}", request);
-    //     }
-    // }
-
-    #[test]
-    fn test_parse_rtsp_request() {
-        let data1 = "SETUP rtsp://127.0.0.1/stream/streamid=0 RTSP/1.0\r\n\
-        Transport: RTP/AVP/TCP;unicast;interleaved=0-1;mode=record\r\n\
-        CSeq: 3\r\n\
-        User-Agent: Lavf58.76.100\r\n\
-        \r\n";
-
-        if let Some(parser) = HttpRequest::unmarshal(data1) {
-            println!(" parser: {parser:?}");
-            let marshal_result = parser.marshal();
-            print!("marshal result: =={marshal_result}==");
-            assert_eq!(data1, marshal_result);
-        }
-
-        let data2 = "ANNOUNCE rtsp://127.0.0.1/stream RTSP/1.0\r\n\
-        Content-Type: application/sdp\r\n\
-        CSeq: 2\r\n\
-        User-Agent: Lavf58.76.100\r\n\
-        Content-Length: 500\r\n\
-        \r\n\
-        v=0\r\n\
-        o=- 0 0 IN IP4 127.0.0.1\r\n\
-        s=No Name\r\n\
-        c=IN IP4 127.0.0.1\r\n\
-        t=0 0\r\n\
-        a=tool:libavformat 58.76.100\r\n\
-        m=video 0 RTP/AVP 96\r\n\
-        b=AS:284\r\n\
-        a=rtpmap:96 H264/90000\r\n\
-        a=fmtp:96 packetization-mode=1; sprop-parameter-sets=Z2QAHqzZQKAv+XARAAADAAEAAAMAMg8WLZY=,aOvjyyLA; profile-level-id=64001E\r\n\
-        a=control:streamid=0\r\n\
-        m=audio 0 RTP/AVP 97\r\n\
-        b=AS:128\r\n\
-        a=rtpmap:97 MPEG4-GENERIC/48000/2\r\n\
-        a=fmtp:97 profile-level-id=1;mode=AAC-hbr;sizelength=13;indexlength=3;indexdeltalength=3; config=119056E500\r\n\
-        a=control:streamid=1\r\n";
-
-        if let Some(parser) = HttpRequest::unmarshal(data2) {
-            println!(" parser: {parser:?}");
-            let marshal_result = parser.marshal();
-            print!("marshal result: =={marshal_result}==");
-            assert_eq!(data2, marshal_result);
         }
     }
 }

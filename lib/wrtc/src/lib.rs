@@ -1,62 +1,92 @@
-pub mod errors;
-pub mod opus2aac;
-pub mod rtp_queue;
+pub mod common;
 pub mod session;
 pub mod webrtc;
 pub mod whep;
 
-use async_trait::async_trait;
-use bytes::BytesMut;
-use tokio::sync::mpsc;
-
 #[derive(Clone)]
 pub enum PacketData {
-    Video { timestamp: u32, data: BytesMut },
-    Audio { timestamp: u32, data: BytesMut },
-}
-
-#[derive(Clone)]
-pub enum FrameData {
-    Video { timestamp: u32, data: BytesMut },
-    Audio { timestamp: u32, data: BytesMut },
-    MetaData { timestamp: u32, data: BytesMut },
-    MediaInfo { media_info: MediaInfo },
-}
-
-#[derive(Clone)]
-pub struct MediaInfo {
-    pub audio_clock_rate: u32,
-    pub video_clock_rate: u32,
-    pub vcodec: VideoCodecType,
-}
-
-#[derive(Clone, PartialEq)]
-pub enum VideoCodecType {
-    H264,
-    H265,
+    Video {
+        timestamp: u32,
+        data: bytes::BytesMut,
+    },
+    Audio {
+        timestamp: u32,
+        data: bytes::BytesMut,
+    },
 }
 
 pub enum Event {
-    Subscribe,
-    UnSubscribe,
+    LocalClosed(String),
+    PeerClosed(String),
+    PeerConnected(String),
+    PeerConnecting(String),
 }
 
-#[derive(Debug, Clone)]
-pub enum DataSender {
-    Frame { sender: FrameDataSender },
-    Packet { sender: PacketDataSender },
+pub type PacketDataSender = tokio::sync::broadcast::Sender<PacketData>;
+pub type PacketDataReceiver = tokio::sync::broadcast::Receiver<PacketData>;
+
+pub type EventSender = tokio::sync::broadcast::Sender<Event>;
+pub type EventReceiver = tokio::sync::broadcast::Receiver<Event>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum WebRTCError {
+    #[error("webrtc error: {0}")]
+    RTCError(#[from] ::webrtc::error::Error),
+
+    #[error("webrtc util error: {0}")]
+    RTCUtilError(#[from] ::webrtc::util::Error),
+
+    #[error("parse int error: {0}")]
+    ParseIntError(#[from] std::num::ParseIntError),
+
+    #[error("cannot get local description")]
+    CanNotGetLocalDescription,
+
+    #[error("missing whitespace")]
+    MissingWhitespace,
+
+    #[error("missing colon")]
+    MissingColon,
 }
 
-pub type PacketDataSender = mpsc::UnboundedSender<PacketData>;
-pub type PacketDataReceiver = mpsc::UnboundedReceiver<PacketData>;
+#[derive(Debug, thiserror::Error)]
+pub enum SessionError {
+    #[error("net io error: {0:?}")]
+    BytesIOError(#[from] bytesio::errors::BytesIOError),
 
-pub type FrameDataSender = mpsc::UnboundedSender<FrameData>;
-pub type FrameDataReceiver = mpsc::UnboundedReceiver<FrameData>;
+    #[error("bytes read error: {0:?}")]
+    BytesReadError(#[from] bytesio::errors::BytesReadError),
 
-pub type EventSender = mpsc::UnboundedSender<Event>;
-pub type EventReceiver = mpsc::UnboundedReceiver<Event>;
+    #[error("bytes write error: {0:?}")]
+    BytesWriteError(#[from] bytesio::errors::BytesWriteError),
 
-#[async_trait]
-pub trait TStreamHandler: Send + Sync {
-    async fn send_prior_data(&self, sender: DataSender) -> Result<(), errors::StreamError>;
+    #[error("Utf8Error: {0}")]
+    Utf8Error(#[from] std::str::Utf8Error),
+
+    #[error("webrtc error: {0}")]
+    RTCError(#[from] ::webrtc::error::Error),
+
+    #[error("Auth err: {0:?}")]
+    AuthError(#[from] crate::common::auth::AuthError),
+
+    #[error("stream hub event send error")]
+    StreamHubEventSendErr,
+
+    #[error("cannot receive frame data from stream hub")]
+    CannotReceiveFrameData,
+
+    #[error("Http Request path error")]
+    HttpRequestPathError,
+
+    #[error("Not supported")]
+    HttpRequestNotSupported,
+
+    #[error("Empty sdp data")]
+    HttpRequestEmptySdp,
+
+    #[error("Cannot find Content-Length")]
+    HttpRequestNoContentLength,
+
+    #[error("Channel receive error")]
+    ChannelRecvError,
 }

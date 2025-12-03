@@ -1,15 +1,6 @@
 use rand::Rng;
 use serde::{Serialize, Serializer};
-use std::fmt;
-use std::time::SystemTime;
-
-#[macro_export]
-macro_rules! scanf {
-    ( $string:expr, $sep:expr, $( $x:ty ),+ ) => {{
-        let mut iter = $string.split($sep);
-        ($(iter.next().and_then(|word| word.parse::<$x>().ok()),)*)
-    }}
-}
+use std::{fmt, time::SystemTime};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Default, Copy)]
 pub struct Uuid {
@@ -69,6 +60,7 @@ impl Uuid {
             random_count,
         })
     }
+
     pub fn new(random_digit_count: RandomDigitCount) -> Self {
         let duration = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
         let seconds = match duration {
@@ -116,6 +108,7 @@ impl fmt::Display for Uuid {
 mod tests {
     use super::Uuid;
 
+    // cargo test test_uuid -- --nocapture
     #[test]
     fn test_uuid() {
         let id = Uuid::new(super::RandomDigitCount::Four);

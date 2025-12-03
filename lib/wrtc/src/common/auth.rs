@@ -1,9 +1,18 @@
-use indexmap::IndexMap;
-use md5;
-use serde_derive::Deserialize;
-
-use crate::errors::AuthError;
 use crate::scanf;
+use indexmap::IndexMap;
+use serde::Deserialize;
+
+#[derive(Debug, thiserror::Error)]
+pub enum AuthError {
+    #[error("token is not correct.")]
+    TokenIsNotCorrect,
+
+    #[error("no token found.")]
+    NoTokenFound,
+
+    #[error("invalid token format.")]
+    InvalidTokenFormat,
+}
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub enum AuthAlgorithm {
@@ -58,36 +67,19 @@ pub fn get_secret(carrier: &SecretCarrier) -> Result<String, AuthError> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum AuthType {
-    Pull,
-    Push,
-    Both,
-    None,
-}
 #[derive(Debug, Clone)]
 pub struct Auth {
-    algorithm: AuthAlgorithm,
     key: String,
+    algorithm: AuthAlgorithm,
     password: String,
-    push_password: Option<String>,
-    pub auth_type: AuthType,
 }
 
 impl Auth {
-    pub fn new(
-        key: String,
-        password: String,
-        push_password: Option<String>,
-        algorithm: AuthAlgorithm,
-        auth_type: AuthType,
-    ) -> Self {
+    pub fn new(key: String, password: String, algorithm: AuthAlgorithm) -> Self {
         Self {
-            algorithm,
             key,
+            algorithm,
             password,
-            push_password,
-            auth_type,
         }
     }
 
@@ -95,50 +87,29 @@ impl Auth {
         &self,
         stream_name: &String,
         secret: &Option<SecretCarrier>,
-        is_pull: bool,
     ) -> Result<(), AuthError> {
-        if self.auth_type == AuthType::Both
-            || is_pull && (self.auth_type == AuthType::Pull)
-            || !is_pull && (self.auth_type == AuthType::Push)
-        {
-            let mut auth_err_reason: String = String::from("there is no token str found.");
-            let mut err = AuthError::NoTokenFound;
+        let mut auth_err_reason: String = String::from("there is no token str found.");
+        let mut err = AuthError::NoTokenFound;
 
-            /*Here we should do auth and it must be successful. */
-            if let Some(secret_value) = secret {
-                let token = get_secret(secret_value)?;
-                if self.check(stream_name, token.as_str(), is_pull) {
-                    return Ok(());
-                }
-                auth_err_reason = format!("token is not correct: {}", token);
-                err = AuthError::TokenIsNotCorrect;
+        if let Some(secret_value) = secret {
+            let token = get_secret(secret_value)?;
+            if self.check(stream_name, token.as_str()) {
+                return Ok(());
             }
-
-            log::error!(
-                "Auth error stream_name: {} auth type: {:?} pull: {} reason: {}",
-                stream_name,
-                self.auth_type,
-                is_pull,
-                auth_err_reason,
-            );
-            return Err(err);
+            auth_err_reason = format!("token is not correct: {token}");
+            err = AuthError::TokenIsNotCorrect;
         }
-        Ok(())
+
+        log::error!("Auth error stream_name: {auth_err_reason}, reason: {auth_err_reason}",);
+        return Err(err);
     }
 
-    fn check(&self, stream_name: &String, auth_str: &str, is_pull: bool) -> bool {
-        let password = if is_pull {
-            &self.password
-        } else {
-            self.push_password.as_ref().unwrap_or(&self.password)
-        };
-
+    fn check(&self, stream_name: &String, auth_str: &str) -> bool {
         match self.algorithm {
-            AuthAlgorithm::Simple => password == auth_str,
+            AuthAlgorithm::Simple => self.password == auth_str,
             AuthAlgorithm::Md5 => {
                 let raw_data = format!("{}{}", self.key, stream_name);
-                let digest_str = format!("{:x}", md5::compute(raw_data));
-                auth_str == digest_str
+                auth_str == cutil::crypto::md5(&raw_data).to_lowercase()
             }
         }
     }
