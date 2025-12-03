@@ -1,8 +1,5 @@
-use {
-    super::bits_errors::{BitError, BitErrorValue},
-    super::bytes_reader::BytesReader,
-    bytes::BytesMut,
-};
+use super::{bytes_reader::BytesReader, errors::BitError};
+use bytes::BytesMut;
 
 pub struct BitsReader {
     reader: BytesReader,
@@ -33,9 +30,7 @@ impl BitsReader {
 
     pub fn read_byte(&mut self) -> Result<u8, BitError> {
         if self.cur_bit_left != 0 {
-            return Err(BitError {
-                value: BitErrorValue::CannotReadByte,
-            });
+            return Err(BitError::CannotReadByte);
         }
 
         let byte = self.reader.read_u8()?;

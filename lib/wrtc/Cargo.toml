@@ -18,7 +18,8 @@ byteorder = "1.5"
 async-trait = "0.1"
 audiopus = "0.3.0-rc.0"
 
-xflv = { path = "lib/flv" }
 bytesio = { path = "lib/bytesio" }
 commonlib = { path = "lib/common" }
-streamhub = { path = "lib/streamhub" }
+
+[dev-dependencies]
+env_logger = "0.11"

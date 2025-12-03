@@ -1,99 +1,128 @@
-use {
-    audiopus::error::Error as OpusError,
-    fdk_aac::enc::EncoderError as AacEncoderError,
-    std::num::ParseIntError,
-    webrtc::{error::Error as RTCError, util::Error as RTCUtilError},
-};
-
-#[derive(Debug)]
-pub struct WebRTCError {
-    pub value: WebRTCErrorValue,
-}
+use audiopus::error::Error as OpusError;
+use bytesio::errors::{BytesIOError, BytesReadError, BytesWriteError};
+use commonlib::errors::AuthError;
+use fdk_aac::enc::EncoderError as AacEncoderError;
+use std::num::ParseIntError;
+use std::str::Utf8Error;
+use tokio::sync::oneshot::error::RecvError;
+use webrtc::{error::Error as RTCError, util::Error as RTCUtilError};
 
 #[derive(Debug, thiserror::Error)]
-pub enum WebRTCErrorValue {
+pub enum WebRTCError {
     #[error("webrtc error: {0}")]
     RTCError(#[from] RTCError),
+
     #[error("webrtc util error: {0}")]
     RTCUtilError(#[from] RTCUtilError),
+
     #[error("parse int error: {0}")]
     ParseIntError(#[from] ParseIntError),
+
     #[error("cannot get local description")]
     CanNotGetLocalDescription,
+
     #[error("opus2aac error")]
     Opus2AacError,
+
     #[error("missing whitespace")]
     MissingWhitespace,
+
     #[error("missing colon")]
     MissingColon,
 }
 
-impl From<RTCError> for WebRTCError {
-    fn from(error: RTCError) -> Self {
-        WebRTCError {
-            value: WebRTCErrorValue::RTCError(error),
-        }
-    }
+#[derive(Debug, thiserror::Error)]
+pub enum SessionError {
+    #[error("net io error: {0:?}")]
+    BytesIOError(#[from] BytesIOError),
+
+    #[error("bytes read error: {0:?}")]
+    BytesReadError(#[from] BytesReadError),
+
+    #[error("bytes write error: {0:?}")]
+    BytesWriteError(#[from] BytesWriteError),
+
+    #[error("Utf8Error: {0}")]
+    Utf8Error(#[from] Utf8Error),
+
+    #[error("webrtc error: {0}")]
+    RTCError(#[from] RTCError),
+
+    #[error("tokio: oneshot receiver err: {0}")]
+    RecvError(#[from] RecvError),
+
+    #[error("Auth err: {0:?}")]
+    AuthError(#[from] AuthError),
+
+    #[error("stream hub event send error")]
+    StreamHubEventSendErr,
+
+    #[error("cannot receive frame data from stream hub")]
+    CannotReceiveFrameData,
+
+    #[error("Http Request path error")]
+    HttpRequestPathError,
+
+    #[error("Not supported")]
+    HttpRequestNotSupported,
+
+    #[error("Empty sdp data")]
+    HttpRequestEmptySdp,
+
+    #[error("Cannot find Content-Length")]
+    HttpRequestNoContentLength,
+
+    #[error("Channel receive error")]
+    ChannelRecvError,
 }
 
-impl From<RTCUtilError> for WebRTCError {
-    fn from(error: RTCUtilError) -> Self {
-        WebRTCError {
-            value: WebRTCErrorValue::RTCUtilError(error),
-        }
-    }
+#[derive(Debug, thiserror::Error)]
+pub enum StreamError {
+    #[error("no app name")]
+    NoAppName,
+
+    #[error("no stream name")]
+    NoStreamName,
+
+    #[error("no app or stream name")]
+    NoAppOrStreamName,
+
+    #[error("exists")]
+    Exists,
+
+    #[error("send error")]
+    SendError,
+
+    #[error("send video error")]
+    SendVideoError,
+
+    #[error("send audio error")]
+    SendAudioError,
+
+    #[error("bytes read error: {0}")]
+    BytesReadError(#[from] BytesReadError),
+
+    #[error("bytes write error: {0}")]
+    BytesWriteError(#[from] BytesWriteError),
+
+    #[error("not correct data sender type")]
+    NotCorrectDataSenderType,
+
+    #[error("the client session error: {0}")]
+    RtspClientSessionError(String),
 }
 
-impl From<ParseIntError> for WebRTCError {
-    fn from(error: ParseIntError) -> Self {
-        WebRTCError {
-            value: WebRTCErrorValue::ParseIntError(error),
-        }
-    }
-}
+#[derive(Debug, thiserror::Error)]
+pub enum Opus2AacError {
+    #[error("opus error: {0}")]
+    OpusError(#[from] OpusError),
 
-impl std::fmt::Display for WebRTCError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.value, f)
-    }
-}
-
-impl std::error::Error for WebRTCError {}
-
-#[derive(Debug)]
-pub struct Opus2AacError {
-    pub value: Opus2AacErrorValue,
-}
-
-impl std::fmt::Display for Opus2AacError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match &self.value {
-            Opus2AacErrorValue::OpusError(err) => write!(f, "opus error: {}", err),
-            Opus2AacErrorValue::AacEncoderError(err) => write!(f, "aac encoder error: {}", err),
-        }
-    }
-}
-
-impl std::error::Error for Opus2AacError {}
-
-#[derive(Debug)]
-pub enum Opus2AacErrorValue {
-    OpusError(OpusError),
+    #[error("aac encoder error: {0}")]
     AacEncoderError(AacEncoderError),
-}
-
-impl From<OpusError> for Opus2AacError {
-    fn from(error: OpusError) -> Self {
-        Opus2AacError {
-            value: Opus2AacErrorValue::OpusError(error),
-        }
-    }
 }
 
 impl From<AacEncoderError> for Opus2AacError {
     fn from(error: AacEncoderError) -> Self {
-        Opus2AacError {
-            value: Opus2AacErrorValue::AacEncoderError(error),
-        }
+        Opus2AacError::AacEncoderError(error)
     }
 }

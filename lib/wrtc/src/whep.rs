@@ -1,6 +1,5 @@
-use super::errors::{WebRTCError, WebRTCErrorValue};
+use super::{PacketData, PacketDataReceiver, errors::WebRTCError};
 use std::sync::Arc;
-use streamhub::define::{PacketData, PacketDataReceiver};
 use tokio::sync::broadcast;
 use webrtc::api::APIBuilder;
 use webrtc::api::interceptor_registry::register_default_interceptors;
@@ -160,8 +159,6 @@ pub async fn handle_whep(
     if let Some(local_desc) = peer_connection.local_description().await {
         Ok((local_desc, peer_connection))
     } else {
-        Err(WebRTCError {
-            value: WebRTCErrorValue::CanNotGetLocalDescription,
-        })
+        Err(WebRTCError::CanNotGetLocalDescription)
     }
 }

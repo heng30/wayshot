@@ -1,17 +1,13 @@
-use {
-    super::{
-        bytes_errors::{BytesReadError, BytesReadErrorValue},
-        bytesio::TNetIO,
-    },
-    byteorder::{ByteOrder, ReadBytesExt},
-    bytes::{BufMut, BytesMut},
-    std::{io::Cursor, sync::Arc},
-    tokio::sync::Mutex,
-};
+use super::{bytesio::TNetIO, errors::BytesReadError};
+use byteorder::{ByteOrder, ReadBytesExt};
+use bytes::{BufMut, BytesMut};
+use std::{io::Cursor, sync::Arc};
+use tokio::sync::Mutex;
 
 pub struct BytesReader {
     buffer: BytesMut,
 }
+
 impl BytesReader {
     pub fn new(input: BytesMut) -> Self {
         Self { buffer: input }
@@ -31,18 +27,14 @@ impl BytesReader {
 
     pub fn read_bytes(&mut self, bytes_num: usize) -> Result<BytesMut, BytesReadError> {
         if self.buffer.len() < bytes_num {
-            return Err(BytesReadError {
-                value: BytesReadErrorValue::NotEnoughBytes,
-            });
+            return Err(BytesReadError::NotEnoughBytes);
         }
         Ok(self.buffer.split_to(bytes_num))
     }
 
     pub fn advance_bytes(&mut self, bytes_num: usize) -> Result<BytesMut, BytesReadError> {
         if self.buffer.len() < bytes_num {
-            return Err(BytesReadError {
-                value: BytesReadErrorValue::NotEnoughBytes,
-            });
+            return Err(BytesReadError::NotEnoughBytes);
         }
 
         //here maybe optimised
@@ -125,9 +117,7 @@ impl BytesReader {
 
     pub fn get(&self, index: usize) -> Result<u8, BytesReadError> {
         if index >= self.len() {
-            return Err(BytesReadError {
-                value: BytesReadErrorValue::IndexOutofRange,
-            });
+            return Err(BytesReadError::IndexOutofRange);
         }
 
         Ok(*self.buffer.get(index).unwrap())
@@ -242,7 +232,6 @@ where
 
 #[cfg(test)]
 mod tests {
-
     use super::BytesReader;
     use bytes::BytesMut;
     use std::cell::RefCell;
@@ -272,10 +261,6 @@ mod tests {
         pub fn new(reader: Rc<RefCell<BytesReader>>) -> Self {
             Self { reader }
         }
-
-        // pub fn read_u8(&mut self) -> u8 {
-        //     return self.reader.borrow_mut().read_u8().unwrap();
-        // }
 
         pub fn extend_from_slice(&mut self, data: &[u8]) {
             self.reader.borrow_mut().extend_from_slice(data);

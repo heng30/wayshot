@@ -1,18 +1,10 @@
-use std::net::SocketAddr;
-use std::time::Duration;
-
+use super::errors::BytesIOError;
 use async_trait::async_trait;
-use bytes::BufMut;
-use bytes::Bytes;
-use bytes::BytesMut;
-use futures::SinkExt;
-use futures::StreamExt;
-use tokio::net::TcpStream;
-use tokio::net::UdpSocket;
-use tokio_util::codec::BytesCodec;
-use tokio_util::codec::Framed;
-
-use super::bytesio_errors::{BytesIOError, BytesIOErrorValue};
+use bytes::{BufMut, Bytes, BytesMut};
+use futures::{SinkExt, StreamExt};
+use std::{net::SocketAddr, time::Duration};
+use tokio::net::{TcpStream, UdpSocket};
+use tokio_util::codec::{BytesCodec, Framed};
 
 pub enum NetType {
     TCP,
@@ -146,9 +138,7 @@ impl TNetIO for UdpIO {
     async fn read_timeout(&mut self, duration: Duration) -> Result<BytesMut, BytesIOError> {
         match tokio::time::timeout(duration, self.read()).await {
             Ok(data) => data,
-            Err(err) => Err(BytesIOError {
-                value: BytesIOErrorValue::TimeoutError(err),
-            }),
+            Err(err) => Err(BytesIOError::TimeoutError(err)),
         }
     }
 
@@ -171,7 +161,6 @@ impl TcpIO {
     pub fn new(stream: TcpStream) -> Self {
         Self {
             stream: Framed::new(stream, BytesCodec::new()),
-            // timeout: ms,
         }
     }
 }
@@ -191,9 +180,7 @@ impl TNetIO for TcpIO {
     async fn read_timeout(&mut self, duration: Duration) -> Result<BytesMut, BytesIOError> {
         match tokio::time::timeout(duration, self.read()).await {
             Ok(data) => data,
-            Err(err) => Err(BytesIOError {
-                value: BytesIOErrorValue::TimeoutError(err),
-            }),
+            Err(err) => Err(BytesIOError::TimeoutError(err)),
         }
     }
 
@@ -203,23 +190,17 @@ impl TNetIO for TcpIO {
         match message {
             Some(data) => match data {
                 Ok(bytes) => Ok(bytes),
-                Err(err) => Err(BytesIOError {
-                    value: BytesIOErrorValue::IOError(err),
-                }),
+                Err(err) => Err(BytesIOError::IOError(err)),
             },
-            None => Err(BytesIOError {
-                value: BytesIOErrorValue::NoneReturn,
-            }),
+            None => Err(BytesIOError::NoneReturn),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-
-    use super::new_udpio_pair;
     use super::UdpIO;
-
+    use super::new_udpio_pair;
     use tokio;
 
     #[tokio::test]
@@ -240,14 +221,12 @@ mod tests {
 
         for i in 1..=65535 {
             println!("cur port:== {}", i);
-            //if i % 2 == 1 {
             println!("cur port: {}", i);
             if let Some(udpio) = UdpIO::new_with_local_port(i).await {
                 socket.push(udpio)
             } else {
                 println!("new local port fail: {}", i);
             }
-            //}
         }
 
         println!("socket size: {}", socket.len());
@@ -263,17 +242,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_new_udpio_pair3() {
-        // get the first available port
-
         let mut first_local_port = 0;
         if let Some(udpio_0) = UdpIO::new_with_local_port(0).await {
             if let Some(local_port_0) = udpio_0.get_local_port() {
                 first_local_port = local_port_0;
             }
-
-            // std::mem::drop(udpio_0);
         }
-        //The object udpio_0 is automatically cleared and released when it goes out of scope here.
+
         println!("first_local_port: {}", first_local_port);
 
         if (UdpIO::new_with_local_port(first_local_port).await).is_some() {

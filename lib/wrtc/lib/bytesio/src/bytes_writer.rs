@@ -1,15 +1,9 @@
-use {
-    super::{
-        bytes_errors::{BytesWriteError, BytesWriteErrorValue},
-        bytesio::TNetIO,
-    },
-    byteorder::{ByteOrder, WriteBytesExt},
-    bytes::BytesMut,
-    rand,
-    rand::Rng,
-    std::{io::Write, sync::Arc, time::Duration},
-    tokio::{sync::Mutex, time::timeout},
-};
+use super::{bytesio::TNetIO, errors::BytesWriteError};
+use byteorder::{ByteOrder, WriteBytesExt};
+use bytes::BytesMut;
+use rand::Rng;
+use std::{io::Write, sync::Arc, time::Duration};
+use tokio::{sync::Mutex, time::timeout};
 
 pub struct BytesWriter {
     pub bytes: Vec<u8>,
@@ -33,9 +27,7 @@ impl BytesWriter {
 
     pub fn or_u8_at(&mut self, position: usize, byte: u8) -> Result<(), BytesWriteError> {
         if position > self.bytes.len() {
-            return Err(BytesWriteError {
-                value: BytesWriteErrorValue::OutofIndex,
-            });
+            return Err(BytesWriteError::OutofIndex);
         }
         self.bytes[position] |= byte;
 
@@ -44,9 +36,7 @@ impl BytesWriter {
 
     pub fn add_u8_at(&mut self, position: usize, byte: u8) -> Result<(), BytesWriteError> {
         if position > self.bytes.len() {
-            return Err(BytesWriteError {
-                value: BytesWriteErrorValue::OutofIndex,
-            });
+            return Err(BytesWriteError::OutofIndex);
         }
         self.bytes[position] += byte;
 
@@ -55,9 +45,7 @@ impl BytesWriter {
 
     pub fn write_u8_at(&mut self, position: usize, byte: u8) -> Result<(), BytesWriteError> {
         if position > self.bytes.len() {
-            return Err(BytesWriteError {
-                value: BytesWriteErrorValue::OutofIndex,
-            });
+            return Err(BytesWriteError::OutofIndex);
         }
         self.bytes[position] = byte;
 
@@ -221,9 +209,7 @@ impl AsyncBytesWriter {
                 self.bytes_writer.bytes.clear();
             }
             Err(_) => {
-                return Err(BytesWriteError {
-                    value: BytesWriteErrorValue::Timeout,
-                });
+                return Err(BytesWriteError::Timeout);
             }
         }
 

@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 use md5;
 use serde_derive::Deserialize;
 
-use crate::errors::{AuthError, AuthErrorValue};
+use crate::errors::AuthError;
 use crate::scanf;
 
 #[derive(Debug, Deserialize, Clone, Default)]
@@ -10,6 +10,7 @@ pub enum AuthAlgorithm {
     #[default]
     #[serde(rename = "simple")]
     Simple,
+
     #[serde(rename = "md5")]
     Md5,
 }
@@ -32,27 +33,14 @@ pub fn get_secret(carrier: &SecretCarrier) -> Result<String, AuthError> {
                 query_pairs.insert(k.unwrap(), v.unwrap());
             }
 
-            query_pairs.get("token").map_or(
-                Err(AuthError {
-                    value: AuthErrorValue::NoTokenFound,
-                }),
-                |t| Ok(t.to_string()),
-            )
+            query_pairs
+                .get("token")
+                .map_or(Err(AuthError::NoTokenFound), |t| Ok(t.to_string()))
         }
         SecretCarrier::Bearer(header) => {
-            let invalid_format = Err(AuthError {
-                value: AuthErrorValue::InvalidTokenFormat,
-            });
+            let invalid_format = Err(AuthError::InvalidTokenFormat);
             let (prefix, token) = scanf!(header, " ", String, String);
 
-            //if prefix.is_none() || token.is_none() {
-            //    invalid_format
-            //} else if prefix.unwrap() != "Bearer" {
-            //    invalid_format
-            //} else {
-            //    Ok(token.unwrap())
-            //}
-            //fix cargo clippy --fix --allow-dirty --allow-no-vcs warnings
             match token {
                 Some(token_val) => match prefix {
                     Some(prefix_val) => {
@@ -114,7 +102,7 @@ impl Auth {
             || !is_pull && (self.auth_type == AuthType::Push)
         {
             let mut auth_err_reason: String = String::from("there is no token str found.");
-            let mut err: AuthErrorValue = AuthErrorValue::NoTokenFound;
+            let mut err = AuthError::NoTokenFound;
 
             /*Here we should do auth and it must be successful. */
             if let Some(secret_value) = secret {
@@ -123,7 +111,7 @@ impl Auth {
                     return Ok(());
                 }
                 auth_err_reason = format!("token is not correct: {}", token);
-                err = AuthErrorValue::TokenIsNotCorrect;
+                err = AuthError::TokenIsNotCorrect;
             }
 
             log::error!(
@@ -133,7 +121,7 @@ impl Auth {
                 is_pull,
                 auth_err_reason,
             );
-            return Err(AuthError { value: err });
+            return Err(err);
         }
         Ok(())
     }

@@ -1,24 +1,17 @@
-use super::session::WebRTCServerSession;
-use commonlib::auth::Auth;
-use commonlib::define::http_method_name;
-use std::collections::HashMap;
-use std::net::SocketAddr;
-use std::sync::Arc;
-use streamhub::define::StreamHubEventSender;
-use streamhub::utils::Uuid;
-use tokio::io::Error;
-use tokio::net::TcpListener;
-use tokio::sync::Mutex;
+use super::{EventSender, session::WebRTCServerSession};
+use commonlib::{auth::Auth, define::http_method_name, utils::Uuid};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use tokio::{io::Error, net::TcpListener, sync::Mutex};
 
 pub struct WebRTCServer {
     address: String,
-    event_producer: StreamHubEventSender,
+    event_producer: EventSender,
     uuid_2_sessions: Arc<Mutex<HashMap<Uuid, Arc<Mutex<WebRTCServerSession>>>>>,
     auth: Option<Auth>,
 }
 
 impl WebRTCServer {
-    pub fn new(address: String, event_producer: StreamHubEventSender, auth: Option<Auth>) -> Self {
+    pub fn new(address: String, event_producer: EventSender, auth: Option<Auth>) -> Self {
         Self {
             address,
             event_producer,
