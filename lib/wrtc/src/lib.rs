@@ -15,6 +15,7 @@ pub enum PacketData {
     },
 }
 
+#[derive(Clone, Debug)]
 pub enum Event {
     LocalClosed(String),
     PeerClosed(String),

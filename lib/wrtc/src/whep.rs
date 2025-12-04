@@ -1,6 +1,8 @@
-use super::{EventSender, PacketData, PacketDataReceiver, WebRTCError};
+use crate::{
+    EventSender, PacketData, PacketDataReceiver, WebRTCError, session::WebRTCServerSessionConfig,
+};
 use derive_setters::Setters;
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, str::FromStr, sync::Arc};
 use tokio::sync::broadcast;
 use webrtc::{
     api::{
@@ -29,8 +31,6 @@ pub struct WhepConfig {
     pub ice_servers: Vec<String>,
     pub video_mime_type: String,
     pub audio_mime_type: String,
-
-    #[setters(skip)]
     pub socket_addr: SocketAddr,
 }
 
@@ -41,6 +41,17 @@ impl WhepConfig {
             video_mime_type: MIME_TYPE_H264.to_owned(),
             audio_mime_type: MIME_TYPE_OPUS.to_owned(),
             socket_addr,
+        }
+    }
+}
+
+impl From<WebRTCServerSessionConfig> for WhepConfig {
+    fn from(value: WebRTCServerSessionConfig) -> Self {
+        Self {
+            ice_servers: value.ice_servers,
+            video_mime_type: value.video_mime_type,
+            audio_mime_type: value.audio_mime_type,
+            socket_addr: SocketAddr::from_str("0.0.0.0").unwrap(),
         }
     }
 }
