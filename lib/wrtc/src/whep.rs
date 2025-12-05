@@ -2,7 +2,7 @@ use crate::{
     EventSender, PacketData, PacketDataReceiver, WebRTCError, session::WebRTCServerSessionConfig,
 };
 use derive_setters::Setters;
-use std::{net::SocketAddr, str::FromStr, sync::Arc};
+use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
 use tokio::sync::broadcast;
 use webrtc::{
     api::{
@@ -12,16 +12,17 @@ use webrtc::{
     },
     ice_transport::{ice_connection_state::RTCIceConnectionState, ice_server::RTCIceServer},
     interceptor::registry::Registry,
+    media::Sample,
     peer_connection::{
         RTCPeerConnection, configuration::RTCConfiguration,
         peer_connection_state::RTCPeerConnectionState,
         sdp::session_description::RTCSessionDescription,
     },
     rtp_transceiver::rtp_codec::RTCRtpCodecCapability,
-    track::track_local::{
-        TrackLocal, TrackLocalWriter, track_local_static_rtp::TrackLocalStaticRTP,
-    },
+    track::track_local::{TrackLocal, track_local_static_sample::TrackLocalStaticSample},
 };
+
+const OPUS_SAMPLE_RATE: u64 = 48000;
 
 pub type Result<T> = std::result::Result<T, WebRTCError>;
 
@@ -29,8 +30,6 @@ pub type Result<T> = std::result::Result<T, WebRTCError>;
 #[setters[prefix = "with_"]]
 pub struct WhepConfig {
     pub ice_servers: Vec<String>,
-    pub video_mime_type: String,
-    pub audio_mime_type: String,
     pub socket_addr: SocketAddr,
 }
 
@@ -38,8 +37,6 @@ impl WhepConfig {
     pub fn new(socket_addr: SocketAddr) -> Self {
         Self {
             ice_servers: vec!["stun:stun.l.google.com:19302".to_owned()],
-            video_mime_type: MIME_TYPE_H264.to_owned(),
-            audio_mime_type: MIME_TYPE_OPUS.to_owned(),
             socket_addr,
         }
     }
@@ -49,9 +46,7 @@ impl From<WebRTCServerSessionConfig> for WhepConfig {
     fn from(value: WebRTCServerSessionConfig) -> Self {
         Self {
             ice_servers: value.ice_servers,
-            video_mime_type: value.video_mime_type,
-            audio_mime_type: value.audio_mime_type,
-            socket_addr: SocketAddr::from_str("0.0.0.0").unwrap(),
+            socket_addr: SocketAddr::from_str("0.0.0.0:9090").unwrap(),
         }
     }
 }
@@ -83,39 +78,43 @@ pub async fn handle_whep(
 
     let peer_connection = Arc::new(api.new_peer_connection(rtc_peer_config).await?);
 
-    let video_track = Arc::new(TrackLocalStaticRTP::new(
+    let video_track = Arc::new(TrackLocalStaticSample::new(
         RTCRtpCodecCapability {
-            mime_type: config.video_mime_type,
+            mime_type: MIME_TYPE_H264.to_string(),
             ..Default::default()
         },
         "video".to_owned(),
         "webrtc-rs".to_owned(),
     ));
 
-    let audio_track = Arc::new(TrackLocalStaticRTP::new(
+    let audio_track = Arc::new(TrackLocalStaticSample::new(
         RTCRtpCodecCapability {
-            mime_type: config.audio_mime_type,
+            mime_type: MIME_TYPE_OPUS.to_string(),
             ..Default::default()
         },
         "audio".to_owned(),
         "webrtc-rs".to_owned(),
     ));
 
-    let rtp_sender = peer_connection
+    let video_rtp_sender = peer_connection
         .add_track(Arc::clone(&video_track) as Arc<dyn TrackLocal + Send + Sync>)
         .await?;
 
-    _ = peer_connection
+    let audio_rtp_sender = peer_connection
         .add_track(Arc::clone(&audio_track) as Arc<dyn TrackLocal + Send + Sync>)
         .await?;
 
     tokio::spawn(async move {
         let mut rtcp_buf = vec![0u8; 1500];
-        while let Ok((_, _)) = rtp_sender.read(&mut rtcp_buf).await {}
+        while let Ok((_, _)) = video_rtp_sender.read(&mut rtcp_buf).await {}
         Result::<()>::Ok(())
     });
 
-    let (state_sender, mut state_receiver) = broadcast::channel(1);
+    tokio::spawn(async move {
+        let mut rtcp_buf = vec![0u8; 1500];
+        while let Ok((_, _)) = audio_rtp_sender.read(&mut rtcp_buf).await {}
+        Result::<()>::Ok(())
+    });
 
     peer_connection.on_ice_connection_state_change(Box::new(move |s: RTCIceConnectionState| {
         log::info!("Connection State has changed {s}");
@@ -123,15 +122,19 @@ pub async fn handle_whep(
         Box::pin(async {})
     }));
 
+    let (state_sender, mut state_receiver) = broadcast::channel(1);
     peer_connection.on_peer_connection_state_change(Box::new(move |s: RTCPeerConnectionState| {
         log::info!("Peer Connection State has changed: {s}");
 
+        // Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.
+        // Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
+        // Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
         if s == RTCPeerConnectionState::Failed {
             log::info!("Peer Connection has gone to failed exiting: Done forwarding");
         }
 
-        if let Err(err) = state_sender.send(s) {
-            log::warn!("on_peer_connection_state_change send state err: {}", err);
+        if let Err(e) = state_sender.send(s) {
+            log::warn!("on_peer_connection_state_change send state failed: {e}");
         }
 
         Box::pin(async {})
@@ -152,13 +155,27 @@ pub async fn handle_whep(
                     match av_data {
                         Ok(data) =>{
                             match data {
-                                PacketData::Video { timestamp: _, data } => {
-                                    if let Err(err) = video_track.write(&data[..]).await {
+                                PacketData::Video { timestamp: _timestamp, data } => {
+                                    log::trace!("{:?}: sending video data ({}) bytes", _timestamp.elapsed(), data.len());
+
+                                    if let Err(err) = video_track
+                                        .write_sample(&Sample {
+                                        data: data.into(),
+                                        duration: Duration::from_secs(1),
+                                        ..Default::default()
+                                    }).await {
                                         log::warn!("send video data error: {}", err);
                                     }
                                 }
-                                PacketData::Audio { timestamp: _, data } => {
-                                    if let Err(err) = audio_track.write(&data[..]).await {
+                                PacketData::Audio { timestamp: _timestamp, channels, data } => {
+                                    log::trace!("{:?}: sending audio data ({}) bytes with {channels} channels", _timestamp.elapsed(), data.len());
+
+                                    let sample_duration = Duration::from_millis(data.len() as u64 * 1000 / (OPUS_SAMPLE_RATE * channels.max(1 ) as u64)) ;
+                                    if let Err(err) = audio_track.write_sample(&Sample {
+                                        data: data.into(),
+                                        duration: sample_duration,
+                                        ..Default::default()
+                                    }).await {
                                         log::warn!("send audio data error: {}", err);
                                     }
                                 }
@@ -173,14 +190,26 @@ pub async fn handle_whep(
                     }
                 }
                 pc_state = state_receiver.recv() => {
-                    if pc_state == Ok(RTCPeerConnectionState::Closed) ||
-                       pc_state == Ok(RTCPeerConnectionState::Failed) ||
-                       pc_state == Ok(RTCPeerConnectionState::Disconnected) {
-                        if let Err(e) = event_sender.send(crate::Event::PeerClosed(socket_addr.clone())) {
-                            log::warn!("event_sender send PeerClosed {socket_addr} failed: {e}");
+                    match pc_state  {
+                        Ok(RTCPeerConnectionState::Failed) | Ok(RTCPeerConnectionState::Closed) => {
+                            if let Err(e) = event_sender.send(crate::Event::PeerClosed(socket_addr.clone())) {
+                                log::warn!("event_sender send PeerClosed {} failed: {e}", socket_addr.to_string());
+                            }
+                            break;
                         }
-                        break;
+                        Ok(RTCPeerConnectionState::Connected) => {
+                            if let Err(e) = event_sender
+                                .send(crate::Event::PeerConnected(socket_addr.clone())) {
+                                    log::warn!( "event_sender send PeerConnected {} failed: {e}", socket_addr.to_string());
+                            }
+                        }
+                        Err(e) => {
+                            log::warn!("state_receiver failed: {e}");
+                            break;
+                        }
+                        _ => (),
                     }
+
                 }
             }
         }

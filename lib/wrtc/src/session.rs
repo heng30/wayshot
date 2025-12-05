@@ -19,10 +19,7 @@ use derive_setters::Setters;
 use http::StatusCode;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::{net::TcpStream, sync::Mutex};
-use webrtc::{
-    api::media_engine::{MIME_TYPE_H264, MIME_TYPE_OPUS},
-    peer_connection::{RTCPeerConnection, sdp::session_description::RTCSessionDescription},
-};
+use webrtc::peer_connection::{RTCPeerConnection, sdp::session_description::RTCSessionDescription};
 
 static WEB_WHEP_JS: &str = include_str!("../web-whep-client/whep.js");
 static WEB_WHEP_INDEX: &str = include_str!("../web-whep-client/index.html");
@@ -31,16 +28,12 @@ static WEB_WHEP_INDEX: &str = include_str!("../web-whep-client/index.html");
 #[setters[prefix = "with_"]]
 pub struct WebRTCServerSessionConfig {
     pub ice_servers: Vec<String>,
-    pub video_mime_type: String,
-    pub audio_mime_type: String,
 }
 
 impl Default for WebRTCServerSessionConfig {
     fn default() -> Self {
         Self {
             ice_servers: vec!["stun:stun.l.google.com:19302".to_owned()],
-            video_mime_type: MIME_TYPE_H264.to_owned(),
-            audio_mime_type: MIME_TYPE_OPUS.to_owned(),
         }
     }
 }
@@ -309,16 +302,6 @@ impl WebRTCServerSession {
         .await
         {
             Ok((session_description, peer_connection)) => {
-                if let Err(e) = self
-                    .event_sender
-                    .send(crate::Event::PeerConnected(self.socket_addr.to_string()))
-                {
-                    log::warn!(
-                        "event_sender send PeerConnected {} failed: {e}",
-                        self.socket_addr.to_string()
-                    );
-                }
-
                 self.peer_connection = Some(peer_connection);
 
                 let mut response = Self::gen_response(http::StatusCode::CREATED);

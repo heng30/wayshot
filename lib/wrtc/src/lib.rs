@@ -6,11 +6,12 @@ pub mod whep;
 #[derive(Clone)]
 pub enum PacketData {
     Video {
-        timestamp: u32,
+        timestamp: std::time::Instant,
         data: bytes::BytesMut,
     },
     Audio {
-        timestamp: u32,
+        timestamp: std::time::Instant,
+        channels: u8,
         data: bytes::BytesMut,
     },
 }
