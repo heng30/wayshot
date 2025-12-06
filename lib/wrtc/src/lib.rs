@@ -3,16 +3,18 @@ pub mod session;
 pub mod webrtc;
 pub mod whep;
 
+pub const OPUS_SAMPLE_RATE: u64 = 48000;
+
 #[derive(Clone)]
 pub enum PacketData {
     Video {
         timestamp: std::time::Instant,
-        data: bytes::BytesMut,
+        data: bytes::Bytes,
     },
     Audio {
         timestamp: std::time::Instant,
-        channels: u8,
-        data: bytes::BytesMut,
+        duration: std::time::Duration,
+        data: bytes::Bytes,
     },
 }
 

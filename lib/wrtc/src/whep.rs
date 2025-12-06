@@ -22,8 +22,6 @@ use webrtc::{
     track::track_local::{TrackLocal, track_local_static_sample::TrackLocalStaticSample},
 };
 
-const OPUS_SAMPLE_RATE: u64 = 48000;
-
 pub type Result<T> = std::result::Result<T, WebRTCError>;
 
 #[derive(Debug, Setters, Clone)]
@@ -160,20 +158,19 @@ pub async fn handle_whep(
 
                                     if let Err(err) = video_track
                                         .write_sample(&Sample {
-                                        data: data.into(),
+                                        data,
                                         duration: Duration::from_secs(1),
                                         ..Default::default()
                                     }).await {
                                         log::warn!("send video data error: {}", err);
                                     }
                                 }
-                                PacketData::Audio { timestamp: _timestamp, channels, data } => {
-                                    log::trace!("{:?}: sending audio data ({}) bytes with {channels} channels", _timestamp.elapsed(), data.len());
+                                PacketData::Audio { timestamp: _timestamp, duration, data } => {
+                                    log::trace!("{:?}: sending audio data ({}) bytes with {duration:.2?}", _timestamp.elapsed(), data.len());
 
-                                    let sample_duration = Duration::from_millis(data.len() as u64 * 1000 / (OPUS_SAMPLE_RATE * channels.max(1 ) as u64)) ;
                                     if let Err(err) = audio_track.write_sample(&Sample {
-                                        data: data.into(),
-                                        duration: sample_duration,
+                                        data,
+                                        duration,
                                         ..Default::default()
                                     }).await {
                                         log::warn!("send audio data error: {}", err);
