@@ -1,4 +1,5 @@
 pub mod common;
+pub mod opus;
 pub mod session;
 pub mod webrtc;
 pub mod whep;

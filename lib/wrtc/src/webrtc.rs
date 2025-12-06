@@ -37,7 +37,7 @@ impl WebRTCServer {
         let socket_addr: &SocketAddr = &self
             .address
             .parse()
-            .unwrap_or_else(|_| SocketAddr::from_str("0.0.0.0:9090").unwrap());
+            .unwrap_or_else(|_| SocketAddr::from_str("0.0.0.0:8080").unwrap());
         let listener = TcpListener::bind(socket_addr).await?;
 
         log::info!("WebRTC server listening on tcp://{}", socket_addr);

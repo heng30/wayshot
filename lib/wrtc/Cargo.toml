@@ -12,19 +12,24 @@ http.workspace = true
 bytes.workspace = true
 anyhow.workspace = true
 webrtc.workspace = true
-chrono.workspace = true
-fdk-aac.workspace = true
 bytesio.workspace = true
 indexmap.workspace = true
 audiopus.workspace = true
 byteorder.workspace = true
 thiserror.workspace = true
 derive_setters.workspace = true
-job_scheduler_ng.workspace = true
 tokio = { workspace = true, features = ["full"] }
 cutil = { workspace = true, features = ["crypto"] }
-serde = { workspace = true, features = ["derive", "rc"] }
+serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
+image.workspace = true
+hound.workspace = true
 env_logger.workspace = true
 serde_json.workspace = true
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+video-encoder = { workspace = true, features = ["x264"] }
+
+[target.'cfg(target_os = "windows")'.dev-dependencies]
+video-encoder = { workspace = true, features = ["ffmpeg"] }

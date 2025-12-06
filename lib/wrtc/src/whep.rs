@@ -44,7 +44,7 @@ impl From<WebRTCServerSessionConfig> for WhepConfig {
     fn from(value: WebRTCServerSessionConfig) -> Self {
         Self {
             ice_servers: value.ice_servers,
-            socket_addr: SocketAddr::from_str("0.0.0.0:9090").unwrap(),
+            socket_addr: SocketAddr::from_str("0.0.0.0:8080").unwrap(),
         }
     }
 }
