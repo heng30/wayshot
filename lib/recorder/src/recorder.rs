@@ -1,8 +1,7 @@
 use crate::{
     AudioRecorder, CursorTracker, CursorTrackerConfig, EncodedFrame, FPS, Frame, FrameUser,
     ProgressState, RecorderConfig, RecorderError, Resolution, SimpleFpsCounter, SpeakerRecorder,
-    StatsUser, VideoEncoder, VideoEncoderConfig, platform_speaker_recoder,
-    speaker_recorder::SpeakerRecorderConfig,
+    StatsUser, platform_speaker_recoder, speaker_recorder::SpeakerRecorderConfig,
 };
 use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_setters::Setters;
@@ -29,6 +28,7 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
+use video_encoder::{VideoEncoder, VideoEncoderConfig};
 
 type EncoderChannelData = (u64, ResizedImageBuffer);
 pub type ResizedImageBuffer = ImageBuffer<Rgb<u8>, Vec<u8>>;
@@ -148,9 +148,9 @@ impl RecordingSession {
             self.config.screen_size.height as u32,
         );
 
-        let video_encoder_config =
-            VideoEncoderConfig::new(encoder_width, encoder_height).with_fps(self.config.fps);
-        let mut video_encoder = crate::video_encoder::new(video_encoder_config)?;
+        let video_encoder_config = VideoEncoderConfig::new(encoder_width, encoder_height)
+            .with_fps(self.config.fps.to_u32());
+        let mut video_encoder = video_encoder::new(video_encoder_config)?;
         let headers_data = video_encoder.headers()?;
         let (audio_sender, speaker_sender) = self.mp4_worker(Some(headers_data.clone()))?;
 
@@ -1097,8 +1097,8 @@ impl RecordingSession {
             resolution.dimensions(screen_size.width as u32, screen_size.height as u32);
 
         let video_encoder_config =
-            VideoEncoderConfig::new(encoder_width, encoder_height).with_fps(fps);
-        match crate::video_encoder::new(video_encoder_config) {
+            VideoEncoderConfig::new(encoder_width, encoder_height).with_fps(fps.to_u32());
+        match ::video_encoder::new(video_encoder_config) {
             Ok(_) => log::info!("Warmup video encoder successfully"),
             Err(e) => log::warn!("Warmup video encoder failed: {e}"),
         }

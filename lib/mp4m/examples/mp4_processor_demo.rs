@@ -3,8 +3,8 @@ use image::{ImageBuffer, Rgb};
 use mp4m::mp4_processor::{
     AudioConfig, Mp4Processor, Mp4ProcessorConfigBuilder, VideoConfig, VideoFrameType,
 };
-use recorder::{self, EncodedFrame, FPS, VideoEncoderConfig};
 use std::{path::PathBuf, thread, time::Duration};
+use video_encoder::{EncodedFrame, VideoEncoderConfig};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
@@ -12,8 +12,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let audio_file = "data/speaker.wav";
     let output_file = "data/tmp/output.mp4";
     let (width, height) = (1920, 1080);
-    let (fps, duration_seconds) = (FPS::Fps25, 10);
-    let total_frames = fps.to_u32() * duration_seconds;
+    let (fps, duration_seconds) = (25, 10);
+    let total_frames = fps * duration_seconds;
 
     // Create red, green, blue images (RGB format)
     let red_frame = create_color_frame(width, height, 255, 0, 0);
@@ -43,11 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create video config
     let config = Mp4ProcessorConfigBuilder::default()
         .save_path(PathBuf::from(output_file))
-        .video_config(VideoConfig {
-            width,
-            height,
-            fps: fps.to_u32(),
-        })
+        .video_config(VideoConfig { width, height, fps })
         .build()?;
 
     let mut processor = Mp4Processor::new(config);
@@ -99,7 +95,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let config = VideoEncoderConfig::new(width, height).with_fps(fps);
-    let mut h264_encoder = recorder::video_encoder_new(config)?;
+    let mut h264_encoder = video_encoder::new(config)?;
     let headers_data = h264_encoder.headers()?;
 
     let processor_thread = thread::spawn(move || {
@@ -109,7 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     for frame_num in 0..total_frames {
-        let img = match (frame_num / fps.to_u32()) % 3 {
+        let img = match (frame_num / fps) % 3 {
             0 => &red_frame,
             1 => &green_frame,
             2 => &blue_frame,

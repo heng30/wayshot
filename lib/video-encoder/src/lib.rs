@@ -1,14 +1,29 @@
-#[cfg(feature = "x264-video-encoder")]
+#[cfg(feature = "x264")]
 mod ve_x264;
 
-#[cfg(feature = "openh264-video-encoder")]
+#[cfg(feature = "openh264")]
 mod ve_openh264;
 
-#[cfg(feature = "ffmpeg-video-encoder")]
+#[cfg(feature = "ffmpeg")]
 mod ve_ffmpeg;
 
-use crate::{FPS, RecorderError, recorder::ResizedImageBuffer};
 use derive_setters::Setters;
+use image::{ImageBuffer, Rgb};
+
+// Standard video timescale (90kHz) for better compatibility
+pub const VIDEO_TIMESCALE: u32 = 90000;
+
+#[derive(thiserror::Error, Debug)]
+pub enum EncoderError {
+    #[error("Image processing failed: {0}")]
+    ImageProcessingFailed(String),
+
+    #[error("Video encoding failed: {0}")]
+    VideoEncodingFailed(String),
+}
+
+pub type Result<T> = std::result::Result<T, EncoderError>;
+pub type ResizedImageBuffer = ImageBuffer<Rgb<u8>, Vec<u8>>;
 
 #[derive(Debug, Clone)]
 pub enum EncodedFrame {
@@ -24,9 +39,9 @@ impl Default for EncodedFrame {
 }
 
 pub trait VideoEncoder {
-    fn encode_frame(&mut self, img: ResizedImageBuffer) -> Result<EncodedFrame, RecorderError>;
-    fn headers(&mut self) -> Result<Vec<u8>, RecorderError>;
-    fn flush(self: Box<Self>, cb: Box<dyn FnMut(Vec<u8>) + 'static>) -> Result<(), RecorderError>;
+    fn encode_frame(&mut self, img: ResizedImageBuffer) -> Result<EncodedFrame>;
+    fn headers(&mut self) -> Result<Vec<u8>>;
+    fn flush(self: Box<Self>, cb: Box<dyn FnMut(Vec<u8>) + 'static>) -> Result<()>;
 }
 
 #[derive(Clone, Debug, Setters)]
@@ -34,7 +49,7 @@ pub trait VideoEncoder {
 pub struct VideoEncoderConfig {
     pub width: u32,
     pub height: u32,
-    pub fps: FPS,
+    pub fps: u32,
     pub annexb: bool,
 }
 
@@ -43,27 +58,26 @@ impl VideoEncoderConfig {
         Self {
             width,
             height,
-            fps: FPS::Fps25,
+            fps: 25,
             annexb: false,
         }
     }
 }
 
-pub fn new(config: VideoEncoderConfig) -> Result<Box<dyn VideoEncoder>, RecorderError> {
-    #[cfg(feature = "x264-video-encoder")]
+pub fn new(config: VideoEncoderConfig) -> Result<Box<dyn VideoEncoder>> {
+    #[cfg(feature = "x264")]
     let ve = ve_x264::X264VideoEncoder::new(config)?;
 
-    #[cfg(feature = "openh264-video-encoder")]
+    #[cfg(feature = "openh264")]
     let ve = ve_openh264::OpenH264VideoEncoder::new(config)?;
 
-    #[cfg(feature = "ffmpeg-video-encoder")]
+    #[cfg(feature = "ffmpeg")]
     let ve = ve_ffmpeg::FfmpegVideoEncoder::new(config)?;
 
     Ok(Box::new(ve))
 }
 
-#[allow(unused)]
-pub fn rgb_to_i420_yuv(rgb_data: &[u8], width: u32, height: u32) -> Result<Vec<u8>, RecorderError> {
+pub fn rgb_to_i420_yuv(rgb_data: &[u8], width: u32, height: u32) -> Result<Vec<u8>> {
     use yuv::{
         YuvChromaSubsampling, YuvConversionMode, YuvPlanarImageMut, YuvRange, YuvStandardMatrix,
         rgb_to_yuv420,
@@ -84,7 +98,7 @@ pub fn rgb_to_i420_yuv(rgb_data: &[u8], width: u32, height: u32) -> Result<Vec<u
         YuvConversionMode::Balanced,
     )
     .map_err(|e| {
-        RecorderError::ImageProcessingFailed(format!("RGB to YUV conversion failed: {:?}", e))
+        EncoderError::ImageProcessingFailed(format!("RGB to YUV conversion failed: {:?}", e))
     })?;
 
     // Extract the YUV data from the planar image

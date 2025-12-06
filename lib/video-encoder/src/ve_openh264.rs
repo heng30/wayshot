@@ -1,5 +1,7 @@
-use super::{EncodedFrame, rgb_to_i420_yuv};
-use crate::{RecorderError, VideoEncoder, VideoEncoderConfig, recorder::ResizedImageBuffer};
+use crate::{
+    EncodedFrame, EncoderError, ResizedImageBuffer, Result, VideoEncoder, VideoEncoderConfig,
+    rgb_to_i420_yuv,
+};
 use image::{ImageBuffer, Rgb};
 use openh264::{
     OpenH264API,
@@ -22,7 +24,7 @@ pub struct OpenH264VideoEncoder {
 }
 
 impl OpenH264VideoEncoder {
-    pub fn new(config: VideoEncoderConfig) -> Result<Self, RecorderError> {
+    pub fn new(config: VideoEncoderConfig) -> Result<Self> {
         assert!(config.width > 0 && config.height > 0);
 
         let encoder_config = EncoderConfig::new()
@@ -33,12 +35,12 @@ impl OpenH264VideoEncoder {
             .adaptive_quantization(false)
             .rate_control_mode(RateControlMode::Timestamp)
             .usage_type(UsageType::ScreenContentRealTime)
-            .max_frame_rate(FrameRate::from_hz(config.fps.to_u32() as f32))
-            .intra_frame_period(IntraFramePeriod::from_num_frames(config.fps.to_u32()));
+            .max_frame_rate(FrameRate::from_hz(config.fps as f32))
+            .intra_frame_period(IntraFramePeriod::from_num_frames(config.fps));
 
         let encoder = Encoder::with_api_config(OpenH264API::from_source(), encoder_config)
             .map_err(|e| {
-                RecorderError::VideoEncodingFailed(format!(
+                EncoderError::VideoEncodingFailed(format!(
                     "Failed to create OpenH264 encoder: {e:?}"
                 ))
             })?;
@@ -183,10 +185,10 @@ impl OpenH264VideoEncoder {
 }
 
 impl VideoEncoder for OpenH264VideoEncoder {
-    fn encode_frame(&mut self, img: ResizedImageBuffer) -> Result<EncodedFrame, RecorderError> {
+    fn encode_frame(&mut self, img: ResizedImageBuffer) -> Result<EncodedFrame> {
         let (img_width, img_height) = img.dimensions();
         if img_width != self.width || img_height != self.height {
-            return Err(RecorderError::ImageProcessingFailed(format!(
+            return Err(EncoderError::ImageProcessingFailed(format!(
                 "frame is already resize. current size: {}x{}. expect size: {}x{}",
                 img_width, img_height, self.width, self.height
             )));
@@ -197,7 +199,7 @@ impl VideoEncoder for OpenH264VideoEncoder {
 
         let now = Instant::now();
         let bitstream = self.encoder.encode(&yuv_buffer).map_err(|e| {
-            RecorderError::VideoEncodingFailed(format!("OpenH264 encoding failed: {:?}", e))
+            EncoderError::VideoEncodingFailed(format!("OpenH264 encoding failed: {:?}", e))
         })?;
         log::debug!("openh264 encode yuv frame spent: {:.2?}", now.elapsed());
 
@@ -231,7 +233,7 @@ impl VideoEncoder for OpenH264VideoEncoder {
         Ok(encoded_frame)
     }
 
-    fn headers(&mut self) -> Result<Vec<u8>, RecorderError> {
+    fn headers(&mut self) -> Result<Vec<u8>> {
         // TODO: maybe parse the annexb headers from the test_img
         if self.annexb {
             return Ok(vec![]);
@@ -247,7 +249,7 @@ impl VideoEncoder for OpenH264VideoEncoder {
         let test_img =
             ImageBuffer::<Rgb<u8>, Vec<u8>>::from_raw(self.width, self.height, test_frame_data)
                 .ok_or_else(|| {
-                    RecorderError::ImageProcessingFailed(
+                    EncoderError::ImageProcessingFailed(
                         "Failed to create test frame for SPS/PPS extraction".to_string(),
                     )
                 })?;
@@ -289,7 +291,7 @@ impl VideoEncoder for OpenH264VideoEncoder {
         Ok(vec![])
     }
 
-    fn flush(self: Box<Self>, _cb: Box<dyn FnMut(Vec<u8>) + 'static>) -> Result<(), RecorderError> {
+    fn flush(self: Box<Self>, _cb: Box<dyn FnMut(Vec<u8>) + 'static>) -> Result<()> {
         Ok(())
     }
 }

@@ -1,8 +1,8 @@
-use std::time::Duration;
-
-use super::EncodedFrame;
-use crate::{RecorderError, VideoEncoder, VideoEncoderConfig, recorder::ResizedImageBuffer};
+use super::{
+    EncodedFrame, EncoderError, ResizedImageBuffer, Result, VideoEncoder, VideoEncoderConfig,
+};
 use ffmpeg_next::{Dictionary, Rational, codec, encoder, format, frame, packet};
+use std::time::Duration;
 
 pub struct FfmpegVideoEncoder {
     width: u32,
@@ -12,53 +12,50 @@ pub struct FfmpegVideoEncoder {
 }
 
 impl FfmpegVideoEncoder {
-    pub fn new(config: VideoEncoderConfig) -> Result<Self, RecorderError> {
+    pub fn new(config: VideoEncoderConfig) -> Result<Self> {
         assert!(config.width > 0 && config.height > 0);
 
         ffmpeg_next::init().map_err(|e| {
-            RecorderError::VideoEncodingFailed(format!("Failed to initialize ffmpeg: {}", e))
+            EncoderError::VideoEncodingFailed(format!("Failed to initialize ffmpeg: {}", e))
         })?;
 
         let codec = encoder::find_by_name("libx264")
             .or_else(|| encoder::find(codec::Id::H264))
             .ok_or_else(|| {
-                RecorderError::VideoEncodingFailed("H.264 encoder not found".to_string())
+                EncoderError::VideoEncodingFailed("H.264 encoder not found".to_string())
             })?;
 
         let mut encoder = codec::Context::new_with_codec(codec)
             .encoder()
             .video()
             .map_err(|e| {
-                RecorderError::VideoEncodingFailed(format!(
-                    "Failed to create encoder context: {}",
-                    e
-                ))
+                EncoderError::VideoEncodingFailed(format!("Failed to create encoder context: {e}"))
             })?;
 
         encoder.set_width(config.width);
         encoder.set_height(config.height);
         encoder.set_format(format::Pixel::YUV420P);
-        encoder.set_frame_rate(Some(Rational::new(config.fps.to_u32() as i32, 1)));
-        encoder.set_time_base((1, config.fps.to_u32() as i32));
+        encoder.set_frame_rate(Some(Rational::new(config.fps as i32, 1)));
+        encoder.set_time_base((1, config.fps as i32));
 
         let mut opts = Dictionary::new();
         opts.set("preset", "superfast");
         opts.set("profile", "baseline");
         opts.set("crf", "23");
-        opts.set("g", format!("{}", config.fps.to_u32()).as_str()); // max_keyframe_interval
+        opts.set("g", format!("{}", config.fps).as_str()); // max_keyframe_interval
         opts.set("tune", "zerolatency");
         opts.set("forced-idr", "1"); // Force keyframes more regularly
 
         let x264_params = format!(
             "annexb={}:bframes=0:cabac=0:scenecut=0:keyint={}:keyint_min={}:rc_lookahead=0",
             if config.annexb { 1 } else { 0 },
-            config.fps.to_u32(),
-            config.fps.to_u32()
+            config.fps,
+            config.fps
         );
         opts.set("x264-params", x264_params.as_str());
 
         let encoder = encoder.open_with(opts).map_err(|e| {
-            RecorderError::VideoEncodingFailed(format!("Failed to open encoder: {}", e))
+            EncoderError::VideoEncodingFailed(format!("Failed to open encoder: {e}"))
         })?;
 
         Ok(Self {
@@ -69,7 +66,7 @@ impl FfmpegVideoEncoder {
         })
     }
 
-    fn create_yuv_frame_from_i420(&self, i420_data: &[u8]) -> Result<frame::Video, RecorderError> {
+    fn create_yuv_frame_from_i420(&self, i420_data: &[u8]) -> Result<frame::Video> {
         let mut output_frame = frame::Video::empty();
         output_frame.set_format(format::Pixel::YUV420P);
         output_frame.set_width(self.width);
@@ -100,10 +97,10 @@ impl FfmpegVideoEncoder {
 }
 
 impl VideoEncoder for FfmpegVideoEncoder {
-    fn encode_frame(&mut self, img: ResizedImageBuffer) -> Result<EncodedFrame, RecorderError> {
+    fn encode_frame(&mut self, img: ResizedImageBuffer) -> Result<EncodedFrame> {
         let (img_width, img_height) = img.dimensions();
         if img_width != self.width || img_height != self.height {
-            return Err(RecorderError::ImageProcessingFailed(format!(
+            return Err(EncoderError::ImageProcessingFailed(format!(
                 "frame is already resize. current size: {}x{}. expect size: {}x{}",
                 img_width, img_height, self.width, self.height
             )));
@@ -114,7 +111,7 @@ impl VideoEncoder for FfmpegVideoEncoder {
         output_frame.set_pts(Some(self.frame_index as i64));
 
         self.encoder.send_frame(&output_frame).map_err(|e| {
-            RecorderError::VideoEncodingFailed(format!("FFmpeg encoding failed: {e}"))
+            EncoderError::VideoEncodingFailed(format!("FFmpeg encoding failed: {e}"))
         })?;
 
         let mut packet = packet::Packet::empty();
@@ -124,37 +121,37 @@ impl VideoEncoder for FfmpegVideoEncoder {
                     self.frame_index += 1;
                     Ok(EncodedFrame::Frame((self.frame_index, data.to_vec())))
                 } else {
-                    return Err(RecorderError::VideoEncodingFailed(
+                    return Err(EncoderError::VideoEncodingFailed(
                         "FFmpeg encoder encode data is empty".to_string(),
                     ));
                 }
             }
             Err(ffmpeg_next::Error::Other { errno }) if errno == 11 => {
-                return Err(RecorderError::VideoEncodingFailed(
+                return Err(EncoderError::VideoEncodingFailed(
                     "FFmpeg encoder encode empty frame".to_string(),
                 ));
             }
             Err(ffmpeg_next::Error::Eof) => {
-                return Err(RecorderError::VideoEncodingFailed(
+                return Err(EncoderError::VideoEncodingFailed(
                     "FFmpeg encoder Eof".to_string(),
                 ));
             }
             Err(e) => {
-                return Err(RecorderError::VideoEncodingFailed(format!(
+                return Err(EncoderError::VideoEncodingFailed(format!(
                     "FFmpeg receive packet failed: {e}"
                 )));
             }
         }
     }
 
-    fn headers(&mut self) -> Result<Vec<u8>, RecorderError> {
+    fn headers(&mut self) -> Result<Vec<u8>> {
         log::debug!("Encoding test frame to extract headers from FFmpeg");
 
         // Create a test frame (black frame)
         let test_frame_data = vec![0u8; (self.width * self.height * 3) as usize];
         let test_img = image::RgbImage::from_raw(self.width, self.height, test_frame_data)
             .ok_or_else(|| {
-                RecorderError::ImageProcessingFailed(
+                EncoderError::ImageProcessingFailed(
                     "Failed to create test frame for header extraction".to_string(),
                 )
             })?;
@@ -165,7 +162,7 @@ impl VideoEncoder for FfmpegVideoEncoder {
 
         // Send test frame to encoder
         self.encoder.send_frame(&output_frame).map_err(|e| {
-            RecorderError::VideoEncodingFailed(format!("FFmpeg test frame encoding failed: {e}"))
+            EncoderError::VideoEncodingFailed(format!("FFmpeg test frame encoding failed: {e}"))
         })?;
 
         // Try to receive packet (should contain SPS/PPS headers)
@@ -184,7 +181,7 @@ impl VideoEncoder for FfmpegVideoEncoder {
                 log::warn!("FFmpeg encoder needs more frames to generate headers");
             }
             Err(e) => {
-                return Err(RecorderError::VideoEncodingFailed(format!(
+                return Err(EncoderError::VideoEncodingFailed(format!(
                     "Failed to receive headers packet: {e}",
                 )));
             }
@@ -194,10 +191,7 @@ impl VideoEncoder for FfmpegVideoEncoder {
         Ok(vec![])
     }
 
-    fn flush(
-        mut self: Box<Self>,
-        mut cb: Box<dyn FnMut(Vec<u8>) + 'static>,
-    ) -> Result<(), RecorderError> {
+    fn flush(mut self: Box<Self>, mut cb: Box<dyn FnMut(Vec<u8>) + 'static>) -> Result<()> {
         let mut empty_count = 0;
         let max_empty_attempts = 3;
 
@@ -230,7 +224,7 @@ impl VideoEncoder for FfmpegVideoEncoder {
                     continue;
                 }
                 Err(e) => {
-                    return Err(RecorderError::VideoEncodingFailed(format!(
+                    return Err(EncoderError::VideoEncodingFailed(format!(
                         "Failed to flush encoder: {e}"
                     )));
                 }

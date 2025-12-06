@@ -22,15 +22,12 @@ thiserror.workspace = true
 once_cell.workspace = true
 spin_sleep.workspace = true
 nnnoiseless.workspace = true
+video-encoder.workspace = true
 derive_setters.workspace = true
 screen-capture.workspace = true
-openh264 = { workspace = true, optional = true }
-yuv = { workspace = true, features = ["rayon"] }
-ffmpeg-next = { workspace = true, optional = true }
 fast_image_resize = { workspace = true, features = ["rayon"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-x264 = { workspace = true, optional = true }
 pipewire.workspace = true
 screen-capture-wayland-wlr = { workspace = true, optional = true }
 screen-capture-wayland-portal = { workspace = true, optional = true }
@@ -64,14 +61,10 @@ env_logger.workspace = true
 
 [features]
 default = []
-windows = ["ffmpeg-video-encoder"]
-wayland-wlr = ["dep:screen-capture-wayland-wlr", "x264-video-encoder"]
-wayland-portal = ["dep:screen-capture-wayland-portal", "x264-video-encoder"]
+windows = ["video-encoder/ffmpeg"]
+wayland-wlr = ["dep:screen-capture-wayland-wlr", "video-encoder/x264"]
+wayland-portal = ["dep:screen-capture-wayland-portal", "video-encoder/x264"]
 
 # For debug on Linux
-# wayland-wlr = ["dep:screen-capture-wayland-wlr", "ffmpeg-video-encoder"]
-# wayland-wlr = ["dep:screen-capture-wayland-wlr", "openh264-video-encoder"]
-
-x264-video-encoder = ["dep:x264"]
-openh264-video-encoder = ["dep:openh264"]
-ffmpeg-video-encoder = ["dep:ffmpeg-next"]
+# wayland-wlr = ["dep:screen-capture-wayland-wlr", "video-encoder/ffmpeg"]
+# wayland-wlr = ["dep:screen-capture-wayland-wlr", "video-encoder/openh264"]

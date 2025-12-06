@@ -1,0 +1,32 @@
+[package]
+name = "video-encoder"
+license.workspace = true
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[dependencies]
+log.workspace = true
+image.workspace = true
+thiserror.workspace = true
+derive_setters.workspace = true
+yuv = { workspace = true, features = ["rayon"] }
+openh264 = { workspace = true, optional = true }
+ffmpeg-next = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+x264 = { workspace = true, optional = true }
+
+[dev-dependencies]
+env_logger.workspace = true
+
+[features]
+default = []
+x264 = ["dep:x264"]
+openh264 = ["dep:openh264"]
+ffmpeg = ["dep:ffmpeg-next"]

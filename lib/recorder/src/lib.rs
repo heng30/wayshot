@@ -7,7 +7,6 @@ mod error;
 mod recorder;
 mod resolution;
 mod speaker_recorder;
-mod video_encoder;
 
 pub use audio_level::*;
 pub use audio_recorder::{AudioDeviceInfo, AudioRecorder, AudioRecorderError};

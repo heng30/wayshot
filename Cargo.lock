@@ -4769,9 +4769,9 @@ dependencies = [
  "log",
  "mp4",
  "rand 0.9.2",
- "recorder",
  "rubato",
  "thiserror 2.0.17",
+ "video-encoder",
 ]
 
 [[package]]
@@ -6436,14 +6436,12 @@ dependencies = [
  "derive_setters",
  "env_logger",
  "fast_image_resize",
- "ffmpeg-next",
  "hound",
  "image",
  "log",
  "mp4m",
  "nnnoiseless",
  "once_cell",
- "openh264",
  "pipewire",
  "screen-capture",
  "screen-capture-wayland-portal",
@@ -6451,10 +6449,9 @@ dependencies = [
  "screen-capture-windows",
  "spin_sleep",
  "thiserror 2.0.17",
+ "video-encoder",
  "winapi",
  "windows 0.62.2",
- "x264",
- "yuv",
 ]
 
 [[package]]
@@ -8779,6 +8776,21 @@ checksum = "80a7e511ce1795821207a837b7b1c8d8aca0c648810966ad200446ae58f6667f"
 dependencies = [
  "itertools 0.14.0",
  "nom 8.0.0",
+]
+
+[[package]]
+name = "video-encoder"
+version = "0.1.0"
+dependencies = [
+ "derive_setters",
+ "env_logger",
+ "ffmpeg-next",
+ "image",
+ "log",
+ "openh264",
+ "thiserror 2.0.17",
+ "x264",
+ "yuv",
 ]
 
 [[package]]

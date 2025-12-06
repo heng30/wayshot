@@ -10,7 +10,6 @@ homepage.workspace = true
 repository.workspace = true
 description.workspace = true
 
-
 [dependencies]
 log.workspace = true
 mp4.workspace = true
@@ -20,6 +19,7 @@ fdk-aac.workspace = true
 thiserror.workspace = true
 crossbeam.workspace = true
 derive_builder.workspace = true
+video-encoder.workspace = true
 
 [dev-dependencies]
 rand.workspace = true
@@ -27,7 +27,7 @@ image.workspace = true
 env_logger.workspace = true
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
-recorder = { workspace = true, features = ["wayland-wlr"] }
+video-encoder = { workspace = true, features = ["x264"] }
 
 [target.'cfg(target_os = "windows")'.dev-dependencies]
-recorder = { workspace = true, features = ["windows"] }
+video-encoder = { workspace = true, features = ["ffmpeg"] }

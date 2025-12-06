@@ -12,7 +12,7 @@ pub enum RecorderError {
     ImageProcessingFailed(String),
 
     #[error("Video encoding failed: {0}")]
-    VideoEncodingFailed(String),
+    VideoEncodingFailed(#[from] video_encoder::EncoderError),
 
     #[error("Video decoding failed: {0}")]
     VideoDecodingFailed(String),

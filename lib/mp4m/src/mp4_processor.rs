@@ -8,8 +8,8 @@ use mp4::{
 };
 use std::{fs::File, io::BufWriter, path::PathBuf};
 use thiserror::Error;
+use video_encoder::VIDEO_TIMESCALE;
 
-pub const VIDEO_TIMESCALE: u32 = 90000; // Standard video timescale (90kHz) for better compatibility
 const DEFAULT_PPS: [u8; 6] = [0x68, 0xeb, 0xe3, 0xcb, 0x22, 0xc0];
 const DEFAULT_SPS: [u8; 25] = [
     0x67, 0x64, 0x00, 0x1e, 0xac, 0xd9, 0x40, 0xa0, 0x2f, 0xf9, 0x70, 0x11, 0x00, 0x00, 0x03, 0x03,

@@ -1,18 +1,19 @@
-use super::{EncodedFrame, VideoEncoder, VideoEncoderConfig, rgb_to_i420_yuv};
-use crate::{FPS, RecorderError, recorder::ResizedImageBuffer};
-use mp4m::VIDEO_TIMESCALE;
+use crate::{
+    EncodedFrame, EncoderError, ResizedImageBuffer, Result, VIDEO_TIMESCALE, VideoEncoder,
+    VideoEncoderConfig, rgb_to_i420_yuv,
+};
 use x264::{Colorspace, Encoder, Image, Preset, Setup, Tune};
 
 pub struct X264VideoEncoder {
     width: u32,
     height: u32,
     frame_index: u64,
-    fps: FPS,
+    fps: u32,
     encoder: Encoder,
 }
 
 impl X264VideoEncoder {
-    pub fn new(config: VideoEncoderConfig) -> Result<Self, RecorderError> {
+    pub fn new(config: VideoEncoderConfig) -> Result<Self> {
         let VideoEncoderConfig {
             width,
             height,
@@ -29,14 +30,14 @@ impl X264VideoEncoder {
             true,              // fast_decode: Standard decoding
             true,              // zero_latency: Minimal internal buffering
         )
-        .fps(fps.to_u32(), 1)
-        .max_keyframe_interval(fps.to_u32() as i32) // Simpler keyframe interval
+        .fps(fps, 1)
+        .max_keyframe_interval(fps as i32) // Simpler keyframe interval
         .scenecut_threshold(0) // Disable scene detection to guarantee keyframes at max interval
         .annexb(annexb) // Use Annex B format if true (start codes), or AVCC format if false (length prefixes, MP4 compatible)
         .baseline() // Use Baseline profile for maximum compatibility
         .build(Colorspace::I420, width as i32, height as i32)
         .map_err(|e| {
-            RecorderError::VideoEncodingFailed(format!("Failed to create x264 encoder: {:?}", e))
+            EncoderError::VideoEncodingFailed(format!("Failed to create x264 encoder: {e:?}"))
         })?;
 
         Ok(Self {
@@ -50,10 +51,10 @@ impl X264VideoEncoder {
 }
 
 impl VideoEncoder for X264VideoEncoder {
-    fn encode_frame(&mut self, img: ResizedImageBuffer) -> Result<EncodedFrame, RecorderError> {
+    fn encode_frame(&mut self, img: ResizedImageBuffer) -> Result<EncodedFrame> {
         let (img_width, img_height) = img.dimensions();
         if img_width != self.width || img_height != self.height {
-            return Err(RecorderError::ImageProcessingFailed(format!(
+            return Err(EncoderError::ImageProcessingFailed(format!(
                 "frame is already resize. current size: {}x{}. expect size: {}x{}",
                 img_width, img_height, self.width, self.height
             )));
@@ -92,9 +93,9 @@ impl VideoEncoder for X264VideoEncoder {
 
         // Calculate timestamp in x264 timebase units (frame_index * timebase / fps)
         // x264 uses a timebase of 1/90000 by default, so we need to convert frame number to this timescale
-        let timestamp = (self.frame_index * VIDEO_TIMESCALE as u64) / self.fps.to_u32() as u64;
+        let timestamp = (self.frame_index * VIDEO_TIMESCALE as u64) / self.fps as u64;
         let (data, _) = self.encoder.encode(timestamp as i64, image).map_err(|e| {
-            RecorderError::VideoEncodingFailed(format!("x264 encoding failed: {:?}", e))
+            EncoderError::VideoEncodingFailed(format!("x264 encoding failed: {:?}", e))
         })?;
 
         let encoded_data = data.entirety().to_vec();
@@ -104,27 +105,24 @@ impl VideoEncoder for X264VideoEncoder {
         Ok(encoded_frame)
     }
 
-    fn headers(&mut self) -> Result<Vec<u8>, RecorderError> {
+    fn headers(&mut self) -> Result<Vec<u8>> {
         Ok(self
             .encoder
             .headers()
             .map_err(|e| {
-                RecorderError::VideoEncodingFailed(format!("Failed to get encoder headers: {e:?}"))
+                EncoderError::VideoEncodingFailed(format!("Failed to get encoder headers: {e:?}"))
             })?
             .entirety()
             .to_vec())
     }
 
-    fn flush(
-        self: Box<Self>,
-        mut cb: Box<dyn FnMut(Vec<u8>) + 'static>,
-    ) -> Result<(), RecorderError> {
+    fn flush(self: Box<Self>, mut cb: Box<dyn FnMut(Vec<u8>) + 'static>) -> Result<()> {
         let mut items = self.encoder.flush();
         while let Some(result) = items.next() {
             match result {
                 Ok((data, _)) => cb(data.entirety().to_vec()),
                 Err(e) => {
-                    return Err(RecorderError::VideoEncodingFailed(format!(
+                    return Err(EncoderError::VideoEncodingFailed(format!(
                         "Failed to flush encoder frame: {e:?}"
                     )));
                 }
