@@ -118,6 +118,8 @@ impl WebRTCServerSession {
 
         let request_data = self.reader.extract_remaining_bytes();
 
+        // log::debug!("{}", std::str::from_utf8(&request_data)?);
+
         if let Some(http_request) = HttpRequest::unmarshal(std::str::from_utf8(&request_data)?) {
             let request_method = http_request.method.as_str();
             if request_method == http_method_name::GET {
@@ -178,7 +180,7 @@ impl WebRTCServerSession {
 
                     if let Some(auth) = &self.auth {
                         let token_carrier = http_request
-                            .get_header(&"Authorization".to_string())
+                            .get_header(&"authorization".to_string())
                             .map(|header| SecretCarrier::Bearer(header.to_string()))
                             .or_else(|| {
                                 http_request
@@ -315,8 +317,8 @@ impl WebRTCServerSession {
                 let mut response = Self::gen_response(http::StatusCode::CREATED);
                 response
                     .headers
-                    .insert("Content-Type".to_string(), "application/sdp".to_string());
-                response.headers.insert("Location".to_string(), path);
+                    .insert("content-type".to_string(), "application/sdp".to_string());
+                response.headers.insert("location".to_string(), path);
                 response.body = Some(session_description.sdp.as_bytes().to_vec());
                 response
             }
@@ -346,14 +348,14 @@ impl WebRTCServerSession {
 
         response
             .headers
-            .insert("Access-Control-Allow-Origin".to_owned(), "*".to_owned());
+            .insert("access-control-allow-origin".to_owned(), "*".to_owned());
         response.headers.insert(
-            "Access-Control-Allow-Headers".to_owned(),
+            "access-control-allow-headers".to_owned(),
             "content-type".to_owned(),
         );
         response
             .headers
-            .insert("Access-Control-Allow-Method".to_owned(), "POST".to_owned());
+            .insert("access-control-allow-method".to_owned(), "POST".to_owned());
         response
     }
 
@@ -361,7 +363,7 @@ impl WebRTCServerSession {
         let mut response = Self::gen_response(http::StatusCode::OK);
         response
             .headers
-            .insert("Content-Type".to_string(), content_type.to_string());
+            .insert("content-type".to_string(), content_type.to_string());
         response.body = Some(contents.to_vec());
         response
     }

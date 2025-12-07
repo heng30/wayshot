@@ -79,7 +79,7 @@ impl Auth {
             err = AuthError::TokenIsNotCorrect;
         }
 
-        log::error!("Auth error stream_name: {auth_err_reason}, reason: {auth_err_reason}",);
+        log::error!("Auth error: {auth_err_reason}",);
         return Err(err);
     }
 

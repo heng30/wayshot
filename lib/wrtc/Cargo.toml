@@ -16,11 +16,15 @@ webrtc.workspace = true
 bytesio.workspace = true
 indexmap.workspace = true
 audiopus.workspace = true
+openh264.workspace = true
 byteorder.workspace = true
 thiserror.workspace = true
+serde_json.workspace = true
+mp4-player.workspace = true
 derive_setters.workspace = true
 tokio = { workspace = true, features = ["full"] }
 serde = { workspace = true, features = ["derive"] }
+reqwest = { workspace = true, features = ["json"] }
 
 [dev-dependencies]
 image.workspace = true

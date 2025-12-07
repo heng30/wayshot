@@ -1,3 +1,4 @@
+pub mod client;
 pub mod common;
 pub mod opus;
 pub mod session;

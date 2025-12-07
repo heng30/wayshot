@@ -105,12 +105,12 @@ pub struct HttpRequest {
 
 impl HttpRequest {
     pub fn get_header(&self, header_name: &String) -> Option<&String> {
-        self.headers.get(header_name)
+        self.headers.get(&header_name.to_lowercase())
     }
 }
 
 pub fn parse_content_length(request_data: &str) -> Option<u32> {
-    let start = "Content-Length:";
+    let start = "content-length:";
     let end = "\r\n";
 
     let start_index = request_data.find(start)? + start.len();
@@ -167,7 +167,7 @@ impl Unmarshal for HttpRequest {
                     let value = line[index + 2..].to_string();
 
                     // for schema: webrtc
-                    if name == "Host" {
+                    if name.to_lowercase() == "host" {
                         let (address_val, port_val) = scanf!(value, ':', String, u16);
                         if let Some(address) = address_val {
                             http_request.uri.host = address;
@@ -177,7 +177,7 @@ impl Unmarshal for HttpRequest {
                             http_request.uri.port = Some(port);
                         }
                     }
-                    http_request.headers.insert(name, value);
+                    http_request.headers.insert(name.to_lowercase(), value);
                 }
             }
             idx + 4
@@ -209,9 +209,9 @@ impl Marshal for HttpRequest {
         );
 
         for (header_name, header_value) in &self.headers {
-            if header_name.as_str() == "Content-Length" {
+            if header_name.to_lowercase() == "content-length" {
                 if let Some(body) = &self.body {
-                    request_str += &format!("Content-Length: {}\r\n", body.len());
+                    request_str += &format!("content-length: {}\r\n", body.len());
                 }
             } else {
                 request_str += &format!("{header_name}: {header_value}\r\n");
@@ -240,7 +240,7 @@ pub struct HttpResponse {
 
 impl HttpResponse {
     pub fn get_header(&self, header_name: &String) -> Option<&String> {
-        self.headers.get(header_name)
+        self.headers.get(&header_name.to_lowercase())
     }
 }
 
@@ -273,7 +273,7 @@ impl Unmarshal for HttpResponse {
                 if let Some(index) = line.find(": ") {
                     let name = line[..index].to_string();
                     let value = line[index + 2..].to_string();
-                    http_response.headers.insert(name, value);
+                    http_response.headers.insert(name.to_lowercase(), value);
                 }
             }
             idx + 4
@@ -297,13 +297,13 @@ impl Marshal for HttpResponse {
         );
 
         for (header_name, header_value) in &self.headers {
-            if header_name.as_str() != "Content-Length" {
+            if header_name.to_lowercase() != "content-length" {
                 response_str += &format!("{header_name}: {header_value}\r\n");
             }
         }
 
         if let Some(body) = &self.body {
-            response_str += &format!("Content-Length: {}\r\n", body.len());
+            response_str += &format!("content-length: {}\r\n", body.len());
         }
 
         response_str += "\r\n";
