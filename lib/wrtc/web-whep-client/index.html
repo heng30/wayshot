@@ -973,6 +973,11 @@
             var player = document.getElementById("localVideo");
             player.srcObject = event.streams[0];
             player.controls = false; // Disable default controls
+
+            // Get volume slider value and set volume before playing
+            const volumeValue = volumeSlider.value / 100;
+            player.volume = volumeValue;
+
             player.muted = false; // Enable audio
             playBtn.textContent = "❚❚";
 

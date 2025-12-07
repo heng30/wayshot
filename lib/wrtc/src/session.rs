@@ -122,9 +122,11 @@ impl WebRTCServerSession {
             let request_method = http_request.method.as_str();
             if request_method == http_method_name::GET {
                 let response = match http_request.uri.path.as_str() {
-                    "/" => Self::gen_file_response(WEB_WHEP_INDEX),
-                    "/whep.js" => Self::gen_file_response(WEB_WHEP_JS),
-                    // "/favicon.con" => Self::gen_file_response(WEB_FAVICON),
+                    "/" => Self::gen_file_response(WEB_WHEP_INDEX.as_bytes(), "text/html"),
+                    "/favicon.ico" => Self::gen_file_response(WEB_FAVICON, "mage/x-icon"),
+                    "/whep.js" => {
+                        Self::gen_file_response(WEB_WHEP_JS.as_bytes(), "application/javascript")
+                    }
                     _ => {
                         log::warn!(
                             "the http get path: {} is not supported.",
@@ -159,7 +161,9 @@ impl WebRTCServerSession {
                     };
 
                     self.session_id = Some(Uuid::new(RandomDigitCount::Zero));
-                    let offer = RTCSessionDescription::offer(sdp_data.clone())?;
+                    let offer = RTCSessionDescription::offer(
+                        String::from_utf8(sdp_data.clone()).unwrap_or_default(),
+                    )?;
 
                     let path = format!(
                         "{}?{}session_id={}",
@@ -313,7 +317,7 @@ impl WebRTCServerSession {
                     .headers
                     .insert("Content-Type".to_string(), "application/sdp".to_string());
                 response.headers.insert("Location".to_string(), path);
-                response.body = Some(session_description.sdp);
+                response.body = Some(session_description.sdp.as_bytes().to_vec());
                 response
             }
             Err(err) => {
@@ -353,17 +357,17 @@ impl WebRTCServerSession {
         response
     }
 
-    fn gen_file_response(contents: &str) -> HttpResponse {
+    fn gen_file_response(contents: &[u8], content_type: &str) -> HttpResponse {
         let mut response = Self::gen_response(http::StatusCode::OK);
         response
             .headers
-            .insert("Content-Type".to_string(), "text/html".to_string());
-        response.body = Some(contents.to_string());
+            .insert("Content-Type".to_string(), content_type.to_string());
+        response.body = Some(contents.to_vec());
         response
     }
 
     async fn send_response(&mut self, response: &HttpResponse) -> Result<(), SessionError> {
-        self.writer.write(response.marshal().as_bytes())?;
+        self.writer.write(&response.marshal())?;
         self.writer.flush().await?;
         Ok(())
     }

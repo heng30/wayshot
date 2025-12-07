@@ -17,7 +17,7 @@ pub trait Unmarshal {
 }
 
 pub trait Marshal {
-    fn marshal(&self) -> String;
+    fn marshal(&self) -> Vec<u8>;
 }
 
 #[derive(Debug, Clone, Default)]
@@ -80,7 +80,7 @@ impl Unmarshal for Uri {
 }
 
 impl Marshal for Uri {
-    fn marshal(&self) -> String {
+    fn marshal(&self) -> Vec<u8> {
         let path_with_query = if let Some(query) = &self.query {
             format!("{}?{}", self.path, query)
         } else {
@@ -88,8 +88,7 @@ impl Marshal for Uri {
         };
 
         match self.schema {
-            Schema::WEBRTC => path_with_query,
-            Schema::UNKNOWN => path_with_query,
+            Schema::WEBRTC | Schema::UNKNOWN => path_with_query.as_bytes().to_vec(),
         }
     }
 }
@@ -101,7 +100,7 @@ pub struct HttpRequest {
     pub query_pairs: IndexMap<String, String>,
     pub version: String,
     pub headers: IndexMap<String, String>,
-    pub body: Option<String>,
+    pub body: Option<Vec<u8>>,
 }
 
 impl HttpRequest {
@@ -193,7 +192,7 @@ impl Unmarshal for HttpRequest {
         );
 
         if request_data.len() > header_end_idx {
-            http_request.body = Some(request_data[header_end_idx..].to_string());
+            http_request.body = Some(request_data[header_end_idx..].as_bytes().to_vec());
         }
 
         Some(http_request)
@@ -201,11 +200,11 @@ impl Unmarshal for HttpRequest {
 }
 
 impl Marshal for HttpRequest {
-    fn marshal(&self) -> String {
+    fn marshal(&self) -> Vec<u8> {
         let mut request_str = format!(
             "{} {} {}\r\n",
             self.method,
-            self.uri.marshal(),
+            String::from_utf8(self.uri.marshal()).unwrap_or_default(),
             self.version
         );
 
@@ -220,10 +219,13 @@ impl Marshal for HttpRequest {
         }
 
         request_str += "\r\n";
+
+        let mut req = request_str.as_bytes().to_vec();
         if let Some(body) = &self.body {
-            request_str += body;
+            req.extend_from_slice(&body);
         }
-        request_str
+
+        req
     }
 }
 
@@ -233,7 +235,7 @@ pub struct HttpResponse {
     pub status_code: u16,
     pub reason_phrase: String,
     pub headers: IndexMap<String, String>,
-    pub body: Option<String>,
+    pub body: Option<Vec<u8>>,
 }
 
 impl HttpResponse {
@@ -280,7 +282,7 @@ impl Unmarshal for HttpResponse {
         };
 
         if request_data.len() > header_end_idx {
-            http_response.body = Some(request_data[header_end_idx..].to_string());
+            http_response.body = Some(request_data[header_end_idx..].as_bytes().to_vec());
         }
 
         Some(http_response)
@@ -288,7 +290,7 @@ impl Unmarshal for HttpResponse {
 }
 
 impl Marshal for HttpResponse {
-    fn marshal(&self) -> String {
+    fn marshal(&self) -> Vec<u8> {
         let mut response_str = format!(
             "{} {} {}\r\n",
             self.version, self.status_code, self.reason_phrase
@@ -305,10 +307,12 @@ impl Marshal for HttpResponse {
         }
 
         response_str += "\r\n";
+
+        let mut resp = response_str.as_bytes().to_vec();
         if let Some(body) = &self.body {
-            response_str += body;
+            resp.extend_from_slice(&body);
         }
-        response_str
+        resp
     }
 }
 
@@ -373,7 +377,7 @@ mod tests {
 
         if let Some(parser) = HttpRequest::unmarshal(request) {
             println!("parser: {parser:?}");
-            let marshal_result = parser.marshal();
+            let marshal_result = String::from_utf8(parser.marshal()).unwrap();
             print!("\n\n{marshal_result}\n");
             assert_eq!(request, marshal_result);
         }
@@ -524,7 +528,7 @@ mod tests {
 
         if let Some(parser) = HttpRequest::unmarshal(request) {
             println!(" parser: {parser:?}");
-            let marshal_result = parser.marshal();
+            let marshal_result = String::from_utf8(parser.marshal()).unwrap();
             println!("\n\n{marshal_result}");
             assert_eq!(request, marshal_result);
         }
@@ -587,7 +591,7 @@ mod tests {
 
         if let Some(parser) = HttpResponse::unmarshal(response) {
             println!("parser: {parser:?}");
-            let marshal_result = parser.marshal();
+            let marshal_result = String::from_utf8(parser.marshal()).unwrap();
             println!("\n\n{marshal_result}\n");
             assert_eq!(response, marshal_result);
         }
