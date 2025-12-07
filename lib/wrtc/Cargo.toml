@@ -10,6 +10,7 @@ log.workspace = true
 rand.workspace = true
 http.workspace = true
 bytes.workspace = true
+rubato.workspace = true
 anyhow.workspace = true
 webrtc.workspace = true
 bytesio.workspace = true
@@ -19,7 +20,6 @@ byteorder.workspace = true
 thiserror.workspace = true
 derive_setters.workspace = true
 tokio = { workspace = true, features = ["full"] }
-cutil = { workspace = true, features = ["crypto"] }
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]

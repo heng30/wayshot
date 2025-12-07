@@ -1,142 +1,961 @@
-<!DOCTYPE html>
-<html>
-
-<head>
-    <title>WHEP Example</title>
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wayshot 屏幕共享</title>
     <style>
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+        background:
+          radial-gradient(circle at 15% 25%, rgba(255, 255, 255, 0.12) 0%, transparent 30%),
+          radial-gradient(circle at 75% 15%, rgba(255, 255, 255, 0.08) 0%, transparent 25%),
+          radial-gradient(circle at 45% 65%, rgba(255, 255, 255, 0.15) 0%, transparent 35%),
+          radial-gradient(circle at 85% 55%, rgba(255, 255, 255, 0.1) 0%, transparent 40%),
+          radial-gradient(circle at 25% 85%, rgba(255, 255, 255, 0.06) 0%, transparent 20%),
+          radial-gradient(circle at 65% 35%, rgba(255, 255, 255, 0.09) 0%, transparent 30%),
+          radial-gradient(circle at 35% 15%, rgba(255, 255, 255, 0.11) 0%, transparent 25%),
+          radial-gradient(circle at 55% 75%, rgba(255, 255, 255, 0.07) 0%, transparent 35%),
+          radial-gradient(circle at 5% 50%, rgba(255, 255, 255, 0.13) 0%, transparent 30%),
+          radial-gradient(circle at 95% 30%, rgba(255, 255, 255, 0.08) 0%, transparent 25%),
+          radial-gradient(circle at 20% 60%, rgba(255, 255, 255, 0.1) 0%, transparent 28%),
+          radial-gradient(circle at 70% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 32%),
+          linear-gradient(135deg, #0f2847 0%, #1a3d6f 100%);
+        margin: 0;
+        padding: 20px;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        color: #fff;
+        overflow: hidden; /* Hide scrollbar */
+      }
+
+      /* Hide scrollbar for Chrome, Safari and Opera */
+      body::-webkit-scrollbar {
+        display: none;
+      }
+
+      /* Hide scrollbar for IE, Edge and Firefox */
+      body {
+        -ms-overflow-style: none; /* IE and Edge */
+        scrollbar-width: none; /* Firefox */
+      }
+
+      h1 {
+        text-align: center;
+        margin: 0 0 30px 0;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 2rem;
+        font-weight: 400;
+      }
+
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 30px;
+        margin-bottom: 40px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      label {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 0.9rem;
+        margin-right: 5px;
+      }
+
+      .auth-input-group label {
+        color: rgba(255, 255, 255, 0.5) !important;
+        transition: color 0.3s;
+      }
+
+      .auth-input-group.enabled label {
+        color: rgba(255, 255, 255, 0.9) !important;
+      }
+
+      input[type="text"] {
+        padding: 8px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        font-size: 0.85rem;
+        border-radius: 6px;
+        width: 120px;
+        transition: all 0.2s;
+      }
+
+      input[type="text"]:focus {
+        outline: none;
+        border-color: #4a90e2;
+        background: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+      }
+
+      .switch-group {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .switch-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .switch {
+        position: relative;
+        width: 44px;
+        height: 24px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: background 0.3s;
+      }
+
+      .switch.active {
+        background: #4a90e2;
+      }
+
+      .switch-slider {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 20px;
+        height: 20px;
+        background: #fff;
+        border-radius: 50%;
+        transition: transform 0.3s;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .switch.active .switch-slider {
+        transform: translateX(20px);
+      }
+
+      .switch-label {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.85rem;
+        min-width: 80px;
+        transition: color 0.3s;
+      }
+
+      .switch-container.active .switch-label {
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .auth-input-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        opacity: 0.5;
+        transition: opacity 0.3s;
+      }
+
+      .auth-input-group.enabled {
+        opacity: 1;
+      }
+
+      .auth-input-group input[type="text"] {
+        width: 150px;
+        transition: all 0.2s;
+      }
+
+      .auth-input-group input[type="text"]:disabled {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.5);
+        cursor: not-allowed;
+      }
+
+      .auth-input-group.enabled input[type="text"] {
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .auth-input-group input[type="text"]:not(:disabled):focus {
+        border-color: #4a90e2;
+        background: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+      }
+
+      button {
+        padding: 8px 20px;
+        background: #4a90e2;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: all 0.2s;
+      }
+
+      button:hover {
+        background: #357abd;
+        box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+      }
+
+      button:active {
+        transform: translateY(0);
+      }
+
+      #video-container {
+        width: 800px;
+        max-width: 90vw;
+        /* Use aspect-ratio for responsive height */
+        aspect-ratio: 16 / 9;
+        background: #000;
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #localVideo {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        background: #000;
+      }
+
+      .playback-state-indicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80px;
+        height: 80px;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s;
+        pointer-events: none;
+        z-index: 10;
+      }
+
+      .playback-state-indicator.show {
+        opacity: 1;
+      }
+
+      .playback-state-indicator svg {
+        width: 40px;
+        height: 40px;
+        fill: rgba(255, 255, 255, 0.9);
+      }
+
+      .video-controls {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 13px;
+        opacity: 0;
+        transform: translateY(100%);
+        transition:
+          opacity 0.3s ease,
+          transform 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        pointer-events: none;
+        z-index: 20;
+      }
+
+      .video-controls.show {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+
+      /* Fullscreen controls behavior */
+      .video-container.fullscreen .video-controls {
+        opacity: 0;
+        transform: translateY(100%);
+        pointer-events: none;
+        transition:
+          opacity 0.3s ease,
+          transform 0.3s ease;
+      }
+
+      .video-container.fullscreen .video-controls.show {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+
+      #play-btn {
+        background: #4a90e2;
+        color: #fff;
+        border: none;
+        border-radius: 50% !important;
+        width: 27px !important;
+        height: 27px !important;
+        min-width: 27px !important;
+        min-height: 27px !important;
+        padding: 0 !important;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 10px;
+        transition: all 0.2s;
+        box-sizing: border-box;
+      }
+
+      #play-btn:hover {
+        background: #357abd;
+        transform: scale(1.1);
+      }
+
+      .time-display {
+        color: #fff;
+        font-size: 0.75rem;
+        min-width: 50px;
+        font-family: "Courier New", monospace;
+        margin: 0 10px;
+      }
+
+      .volume-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+      }
+
+      .volume-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0 !important;
+        margin: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: none;
+        outline: none;
+      }
+
+      .volume-btn:hover,
+      .volume-btn:focus {
+        background: none;
+        border: none;
+        box-shadow: none;
+        outline: none;
+        transform: none;
+      }
+
+      .volume-btn svg {
+        width: 17px;
+        height: 17px;
+        fill: #fff;
+      }
+
+      .volume-slider {
+        width: 0;
+        opacity: 0;
+        transition: all 0.3s;
+        height: 2px;
+        background: linear-gradient(
+          to right,
+          #4a90e2 var(--volume-percent, 100%),
+          gray var(--volume-percent, 100%)
+        );
+        border-radius: 1px;
+        outline: none;
+        cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+      }
+
+      .volume-container:hover .volume-slider,
+      .volume-slider:focus {
+        width: 80px;
+        opacity: 1;
+      }
+
+      .volume-slider::-webkit-slider-thumb {
+        appearance: none;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        border: 1px solid #ffffff;
+      }
+
+      .volume-slider::-moz-range-thumb {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        cursor: pointer;
+        border: 1px solid #ffffff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      }
+
+      .fullscreen-btn {
+        background: none;
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        font-size: 17px;
+        padding: 0 !important;
+        margin: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: none;
+        outline: none;
+      }
+
+      .fullscreen-btn:hover,
+      .fullscreen-btn:focus {
+        background: none;
+        border: none;
+        color: #fff;
+        box-shadow: none;
+        outline: none;
+        transform: none;
+      }
+
+      @media (max-width: 768px) {
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f2f2f2;
+          padding: 10px;
         }
 
         h1 {
-            text-align: center;
-            margin-top: 50px;
+          font-size: 1.5rem;
+          margin-bottom: 20px;
         }
 
-        label {
-            display: inline-block;
-            width: 100px;
-            margin-bottom: 10px;
+        .controls {
+          gap: 10px;
+          margin-bottom: 20px;
         }
 
         input[type="text"] {
-            padding: 5px;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-            width: 200px;
+          width: 100px;
+          padding: 6px 10px;
         }
 
         button {
-            padding: 10px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background-color: #3e8e41;
+          padding: 6px 16px;
+          font-size: 0.8rem;
         }
 
         #video-container {
-            width: 640px;
-            height: 360px;
-            margin: 0 auto;
-            background-color: #000;
-            position: relative;
+          /* Remove fixed height, keep aspect ratio */
+          aspect-ratio: 16 / 9;
         }
 
-        #localVideo {
-            width: 100%;
-            height: 100%;
+        .video-controls {
+          padding: 10px;
         }
 
-        #play-btn {
-            position: absolute;
-            top: 50%;
-            left: 0;
-            transform: translate(0, -50%);
-            font-size: 24px;
-            color: #fff;
-            cursor: pointer;
-            z-index: 1;
+        .time-display {
+          min-width: 60px;
+          font-size: 0.7rem;
         }
-
-        #progress-bar {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 10px;
-            background-color: #333;
-            cursor: pointer;
-        }
-
-        #progress-bar-fill {
-            height: 100%;
-            background-color: #4CAF50;
-            width: 0%;
-        }
+      }
     </style>
-</head>
+  </head>
 
-<body>
-    <h1>WHEP Example</h1>
-    <div style="text-align: center;">
-        <label for="app-name">App Name:</label>
-        <input type="text" id="app-name" name="app-name" value="live">
-        <label for="stream-name">Stream Name:</label>
-        <input type="text" id="stream-name" name="stream-name" value="test"><br>
-        <label for="token">Token:</label>
-        <input type="text" id="token" name="token" value="123">
-        <label for="use-header">Use Authorization header:</label>
-        <input type="checkbox" id="use-header" name="use-header">
-        <br><br>
-        <button id="start-whep-btn">Start WHEP</button>
+  <body>
+    <h1>Wayshot 屏幕共享</h1>
+    <div class="controls">
+      <div class="switch-group">
+        <div class="switch-container" id="switch-container">
+          <div class="switch" id="auth-switch">
+            <div class="switch-slider"></div>
+          </div>
+          <span class="switch-label" id="switch-label">未启用授权</span>
+        </div>
+        <div class="auth-input-group" id="auth-input-group">
+          <label for="token">令牌：</label>
+          <input type="text" id="token" name="token" value="123" disabled />
+        </div>
+      </div>
+      <button id="start-whep-btn">连接</button>
     </div>
     <div id="video-container">
-        <video id="localVideo" autoplay playsinline muted></video>
+      <video id="localVideo" autoplay playsinline muted></video>
+      <div class="playback-state-indicator" id="playback-state-indicator">
+        <svg viewBox="0 0 24 24">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+      </div>
+      <div class="video-controls">
+        <button id="play-btn">▶</button>
+        <div class="time-display" id="time-display">0:00</div>
+        <div class="volume-container">
+          <button class="volume-btn" id="volume-btn">
+            <svg id="volume-icon" viewBox="0 0 24 24">
+              <path
+                d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"
+              />
+            </svg>
+          </button>
+          <input
+            type="range"
+            class="volume-slider"
+            id="volume-slider"
+            min="0"
+            max="100"
+            value="100"
+          />
+        </div>
+        <button class="fullscreen-btn" id="fullscreen-btn">⛶</button>
+      </div>
     </div>
 
     <script src="whep.js"></script>
     <script>
-        const startWhepBtn = document.getElementById("start-whep-btn");
+      const startWhepBtn = document.getElementById("start-whep-btn");
+      const authSwitch = document.getElementById("auth-switch");
+      const switchContainer = document.getElementById("switch-container");
+      const switchLabel = document.getElementById("switch-label");
+      const authInputGroup = document.getElementById("auth-input-group");
+      const tokenInput = document.getElementById("token");
+      const videoContainer = document.getElementById("video-container");
+      const localVideo = document.getElementById("localVideo");
+      const playBtn = document.getElementById("play-btn");
+      const videoControls = document.querySelector(".video-controls");
+      const timeDisplay = document.getElementById("time-display");
+      const volumeBtn = document.getElementById("volume-btn");
+      const volumeIcon = document.getElementById("volume-icon");
+      const volumeSlider = document.getElementById("volume-slider");
+      const fullscreenBtn = document.getElementById("fullscreen-btn");
+      const playbackStateIndicator = document.getElementById(
+        "playback-state-indicator",
+      );
 
-        startWhepBtn.addEventListener("click", () => {
-            const appName = document.getElementById("app-name").value;
-            const streamName = document.getElementById("stream-name").value;
-            const token = document.getElementById("token").value;
-            const useHeader = document.getElementById("use-header").checked;
+      let authEnabled = false;
+      let hideControlsTimeout;
 
-            //Create peerconnection
-            const pc = window.pc = new RTCPeerConnection();
+      // Switch toggle functionality
+      authSwitch.addEventListener("click", () => {
+        authEnabled = !authEnabled;
 
-            //Add recv only transceivers
-            pc.addTransceiver("audio");
-            pc.addTransceiver("video");
+        if (authEnabled) {
+          authSwitch.classList.add("active");
+          switchContainer.classList.add("active");
+          switchLabel.textContent = "已启用授权";
+          authInputGroup.classList.add("enabled");
+          tokenInput.disabled = false;
+        } else {
+          authSwitch.classList.remove("active");
+          switchContainer.classList.remove("active");
+          switchLabel.textContent = "未启用授权";
+          authInputGroup.classList.remove("enabled");
+          tokenInput.disabled = true;
+        }
+      });
 
-            pc.ontrack = (event) => {
-                console.log(event)
-                if (event.track.kind == "video") {
-                    var player = document.getElementById('localVideo')
-                    player.srcObject = event.streams[0]
-                    player.controls = true
+      // Time formatting function
+      function formatTime(seconds) {
+        if (isNaN(seconds)) return "0:00";
+        const minutes = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${minutes}:${secs.toString().padStart(2, "0")}`;
+      }
 
-                }
+      // Update time display
+      function updateTimeDisplay() {
+        const currentTime = localVideo.currentTime || 0;
+        timeDisplay.textContent = formatTime(currentTime);
+      }
+
+      // Volume control functionality
+      let lastVolumeBeforeMute = 1; // Store last volume before mute
+
+      function updateVolumeButton() {
+        const volume = localVideo.volume;
+        if (volume === 0) {
+          // Muted icon
+          volumeIcon.innerHTML =
+            '<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>';
+        } else {
+          // Keep original icon for any volume > 0
+          volumeIcon.innerHTML =
+            '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>';
+        }
+      }
+
+      function updateVolumeSliderColor() {
+        const volumePercent = volumeSlider.value + "%";
+        volumeSlider.style.setProperty("--volume-percent", volumePercent);
+      }
+
+      volumeSlider.addEventListener("input", (e) => {
+        e.stopPropagation(); // Prevent event from bubbling up to video container
+        const volume = e.target.value / 100;
+        localVideo.volume = volume;
+        // Store current volume if not muted
+        if (volume > 0) {
+          lastVolumeBeforeMute = volume;
+        }
+        updateVolumeButton();
+        updateVolumeSliderColor();
+      });
+
+      volumeBtn.addEventListener("click", (e) => {
+        e.stopPropagation(); // Prevent event from bubbling up to video container
+        if (localVideo.volume > 0) {
+          // Muting: store current volume
+          lastVolumeBeforeMute = localVideo.volume;
+          localVideo.volume = 0;
+          volumeSlider.value = 0;
+        } else {
+          // Unmuting: restore last volume
+          localVideo.volume = lastVolumeBeforeMute;
+          volumeSlider.value = lastVolumeBeforeMute * 100;
+        }
+        updateVolumeButton();
+        updateVolumeSliderColor();
+      });
+
+      // Video fullscreen functionality
+      function toggleVideoFullscreen() {
+        if (!document.fullscreenElement) {
+          videoContainer
+            .requestFullscreen()
+            .then(() => {
+              fullscreenBtn.textContent = "⛶";
+            })
+            .catch((err) => {
+              console.error("Fullscreen error:", err);
+            });
+        } else {
+          document.exitFullscreen().then(() => {
+            fullscreenBtn.textContent = "⛶";
+          });
+        }
+      }
+
+      fullscreenBtn.addEventListener("click", (e) => {
+        e.stopPropagation(); // Prevent event from bubbling up to video container
+        toggleVideoFullscreen();
+      });
+
+      // Fullscreen mouse handling
+      let isFullscreen = false;
+      let mouseY = 0;
+      let controlBarVisible = false;
+      let isMouseOverControls = false;
+
+      function handleVideoContainerMouseMove(e) {
+        if (!isFullscreen) return;
+
+        const rect = videoContainer.getBoundingClientRect();
+        mouseY = e.clientY - rect.top;
+        const containerHeight = rect.height;
+        const distanceFromBottom = containerHeight - mouseY;
+
+        // Get control bar dimensions
+        const controlsRect = videoControls.getBoundingClientRect();
+        const isMouseInControls =
+          e.clientX >= controlsRect.left &&
+          e.clientX <= controlsRect.right &&
+          e.clientY >= controlsRect.top &&
+          e.clientY <= controlsRect.bottom;
+
+        // Show controls if mouse is near bottom (e.g., within 100px) or over controls
+        if (distanceFromBottom <= 100 || isMouseInControls) {
+          if (!controlBarVisible) {
+            videoControls.classList.add("show");
+            controlBarVisible = true;
+          }
+          clearTimeout(hideControlsTimeout);
+          hideControlsTimeout = setTimeout(() => {
+            if (controlBarVisible && !isMouseOverControls) {
+              videoControls.classList.remove("show");
+              controlBarVisible = false;
             }
-            //Create whep client
-            const whep = new WHEPClient();
+          }, 2000);
+        } else {
+          // Mouse is away from bottom area and not over controls - hide after delay
+          if (controlBarVisible && !isMouseOverControls) {
+            clearTimeout(hideControlsTimeout);
+            hideControlsTimeout = setTimeout(() => {
+              if (controlBarVisible && !isMouseOverControls) {
+                videoControls.classList.remove("show");
+                controlBarVisible = false;
+              }
+            }, 500);
+          }
+        }
+      }
 
-            const url = location.origin + "/whep?app=" + appName + "&stream=" + streamName + (!useHeader ? "&token=" + token : "");
-            //const token = ""
+      // Listen for fullscreen changes
+      document.addEventListener("fullscreenchange", () => {
+        if (document.fullscreenElement) {
+          // Entering fullscreen
+          videoContainer.classList.add("fullscreen");
+          fullscreenBtn.textContent = "⛶";
+          isFullscreen = true;
+          isMouseOverControls = false;
+          // Initially hide controls in fullscreen
+          videoControls.classList.remove("show");
+          controlBarVisible = false;
+          // Add mousemove listener for fullscreen controls
+          videoContainer.addEventListener(
+            "mousemove",
+            handleVideoContainerMouseMove,
+          );
+        } else {
+          // Exiting fullscreen
+          videoContainer.classList.remove("fullscreen");
+          fullscreenBtn.textContent = "⛶";
+          isFullscreen = false;
+          isMouseOverControls = false;
+          // Remove mousemove listener
+          videoContainer.removeEventListener(
+            "mousemove",
+            handleVideoContainerMouseMove,
+          );
+          // Ensure controls are visible in non-fullscreen mode
+          videoControls.classList.add("show");
+          controlBarVisible = true;
+        }
+      });
 
-            //Start viewing
-            whep.view(pc, url, useHeader ? token : null);
+      // Video control auto-hide functionality
+      function showControls() {
+        if (isFullscreen) return; // Skip in fullscreen mode
+        videoControls.classList.add("show");
+        clearTimeout(hideControlsTimeout);
+        if (localVideo.srcObject && !localVideo.paused) {
+          hideControlsTimeout = setTimeout(() => {
+            videoControls.classList.remove("show");
+          }, 3000);
+        }
+      }
 
-        });
+      function hideControls() {
+        if (isFullscreen) return; // Skip in fullscreen mode
+        if (localVideo.srcObject && !localVideo.paused) {
+          videoControls.classList.remove("show");
+        }
+      }
+
+      // Fullscreen controls functionality
+      function showFullscreenControls() {
+        if (!isFullscreen) return;
+        clearTimeout(hideControlsTimeout);
+        videoControls.classList.add("show");
+        controlBarVisible = true;
+      }
+
+      function hideFullscreenControls() {
+        if (!isFullscreen) return;
+        clearTimeout(hideControlsTimeout);
+        hideControlsTimeout = setTimeout(() => {
+          if (controlBarVisible && !isMouseOverControls) {
+            videoControls.classList.remove("show");
+            controlBarVisible = false;
+          }
+        }, 500);
+      }
+
+      // Video event listeners
+      videoContainer.addEventListener("mouseenter", showControls);
+      videoContainer.addEventListener("mouseleave", hideControls);
+      videoContainer.addEventListener("mousemove", () => {
+        showControls();
+      });
+
+      // Video controls specific event listeners for fullscreen
+      videoControls.addEventListener("mouseenter", () => {
+        isMouseOverControls = true;
+        showFullscreenControls();
+      });
+      videoControls.addEventListener("mouseleave", () => {
+        isMouseOverControls = false;
+        hideFullscreenControls();
+      });
+
+      // Click and double click handling
+      let clickTimer = null;
+      let isDoubleClick = false;
+
+      videoContainer.addEventListener("click", (e) => {
+        // Don't toggle play/pause if clicking on control bar or its children
+        if (e.target.closest(".video-controls")) {
+          return;
+        }
+
+        // If this is part of a double click, skip the single click action
+        if (isDoubleClick) {
+          isDoubleClick = false;
+          return;
+        }
+
+        // Clear any existing timer
+        if (clickTimer) {
+          clearTimeout(clickTimer);
+        }
+
+        // Set a timer to execute single click action after a delay
+        clickTimer = setTimeout(() => {
+          if (localVideo.paused) {
+            localVideo.play();
+            playBtn.textContent = "❚❚";
+          } else {
+            localVideo.pause();
+            playBtn.textContent = "▶";
+          }
+          // Update playback state indicator
+          updatePlaybackStateIndicator();
+        }, 300); // 300ms delay to detect double clicks
+      });
+
+      // Double click to toggle fullscreen
+      videoContainer.addEventListener("dblclick", (e) => {
+        // Don't toggle fullscreen if clicking on control bar or its children
+        if (e.target.closest(".video-controls")) {
+          return;
+        }
+
+        // Mark as double click to prevent single click action
+        isDoubleClick = true;
+
+        // Clear the single click timer
+        if (clickTimer) {
+          clearTimeout(clickTimer);
+          clickTimer = null;
+        }
+
+        toggleVideoFullscreen();
+      });
+
+      // Spacebar to toggle play/pause
+      document.addEventListener("keydown", (e) => {
+        if (e.code === "Space" && document.activeElement.tagName !== "INPUT") {
+          e.preventDefault();
+          if (localVideo.paused) {
+            localVideo.play();
+            playBtn.textContent = "❚❚";
+          } else {
+            localVideo.pause();
+            playBtn.textContent = "▶";
+          }
+          // Update playback state indicator
+          updatePlaybackStateIndicator();
+        }
+      });
+
+      function updatePlaybackStateIndicator() {
+        if (localVideo.paused || localVideo.ended) {
+          playbackStateIndicator.classList.add("show");
+        } else {
+          playbackStateIndicator.classList.remove("show");
+        }
+      }
+
+      localVideo.addEventListener("play", () => {
+        videoContainer.classList.add("playing");
+        showControls();
+        playBtn.textContent = "❚❚";
+        updatePlaybackStateIndicator();
+      });
+
+      localVideo.addEventListener("pause", () => {
+        videoContainer.classList.remove("playing");
+        videoControls.classList.add("show");
+        playBtn.textContent = "▶";
+        updatePlaybackStateIndicator();
+      });
+
+      localVideo.addEventListener("ended", () => {
+        videoContainer.classList.remove("playing");
+        videoControls.classList.add("show");
+        playBtn.textContent = "▶";
+        updatePlaybackStateIndicator();
+      });
+
+      localVideo.addEventListener("timeupdate", () => {
+        updateTimeDisplay();
+      });
+
+      localVideo.addEventListener("loadedmetadata", () => {
+        updateTimeDisplay();
+      });
+
+      // Play button functionality
+      playBtn.addEventListener("click", (e) => {
+        e.stopPropagation(); // Prevent event from bubbling up to video container
+        if (localVideo.paused) {
+          localVideo.play();
+          playBtn.textContent = "❚❚";
+        } else {
+          localVideo.pause();
+          playBtn.textContent = "▶";
+        }
+        // Update playback state indicator
+        updatePlaybackStateIndicator();
+      });
+
+      startWhepBtn.addEventListener("click", () => {
+        const token = tokenInput.value;
+        const useAuth = authEnabled;
+
+        //Create peerconnection
+        const pc = (window.pc = new RTCPeerConnection());
+
+        //Add recv only transceivers
+        pc.addTransceiver("audio");
+        pc.addTransceiver("video");
+
+        pc.ontrack = (event) => {
+          console.log(event);
+          if (event.track.kind == "video") {
+            var player = document.getElementById("localVideo");
+            player.srcObject = event.streams[0];
+            player.controls = false; // Disable default controls
+            player.muted = false; // Enable audio
+            playBtn.textContent = "❚❚";
+
+            // Auto-play when video stream starts
+            player.play().catch((err) => {
+              console.log("Auto-play failed:", err);
+              playBtn.textContent = "▶";
+            });
+          }
+          if (event.track.kind == "audio") {
+            console.log("Audio track received");
+          }
+        };
+        //Create whep client
+        const whep = new WHEPClient();
+
+        let url = location.origin + "/whep";
+
+        //Start viewing
+        whep.view(pc, url, useAuth ? token : null);
+      });
+
+      // Initialize volume
+      localVideo.volume = 1;
+      updateVolumeButton();
+      updateVolumeSliderColor();
+      // Initialize playback state indicator
+      updatePlaybackStateIndicator();
+      // Initialize controls - show by default in non-fullscreen mode
+      videoControls.classList.add("show");
+      controlBarVisible = true;
     </script>
-</body>
-
+  </body>
 </html>

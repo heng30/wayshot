@@ -1,8 +1,8 @@
 use anyhow::{Result, bail};
+use hound::WavReader;
 use image::{ImageBuffer, Rgb};
 use std::{
     fs::File,
-    io::BufReader,
     path::Path,
     sync::{
         Arc,
@@ -12,9 +12,9 @@ use std::{
 };
 use tokio::sync::broadcast::{self, Sender};
 use video_encoder::{EncodedFrame, VideoEncoderConfig};
-use webrtc::media::io::ogg_reader::OggReader;
 use wrtc::{
-    Event, OPUS_SAMPLE_RATE, PacketData, session::WebRTCServerSessionConfig, webrtc::WebRTCServer,
+    Event, PacketData, common::auth::Auth, opus::OpusCoder, session::WebRTCServerSessionConfig,
+    webrtc::WebRTCServer,
 };
 
 const IMG_WIDTH: u32 = 1920;
@@ -24,7 +24,7 @@ const IMG_HEIGHT: u32 = 1080;
 async fn main() -> Result<()> {
     env_logger::init();
 
-    let audio_path = "./data/test.ogg".to_string();
+    let audio_path = "./data/test-44100.wav".to_string();
     let config = WebRTCServerSessionConfig::default();
     let (packet_sender, _) = broadcast::channel(128);
     let (event_sender, mut event_receiver) = broadcast::channel(16);
@@ -43,7 +43,7 @@ async fn main() -> Result<()> {
                         Ok(Event::PeerConnected(_)) => {
                             if connections.load(Ordering::Relaxed) == 0 {
                                 h264_streaming_thread(packet_sender_clone.clone(), connections.clone());
-                                ogg_stream_thread(packet_sender_clone.clone(), audio_path.clone(), connections.clone());
+                                wav_stream_thread(packet_sender_clone.clone(), audio_path.clone(), connections.clone());
                             }
 
                             let count = connections.fetch_add(1, Ordering::Relaxed);
@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
     let mut server = WebRTCServer::new(
         config,
         "0.0.0.0:9090".to_string(),
-        None,
+        Some(Auth::new("123".to_string())),
         packet_sender,
         event_sender,
     );
@@ -158,7 +158,7 @@ fn h264_streaming_thread(packet_sender: Sender<PacketData>, connections: Arc<Ato
     });
 }
 
-fn ogg_stream_thread(
+fn wav_stream_thread(
     packet_sender: Sender<PacketData>,
     audio_file: String,
     connections: Arc<AtomicI32>,
@@ -166,27 +166,75 @@ fn ogg_stream_thread(
     tokio::spawn(async move {
         'out: loop {
             let file = File::open(&audio_file).unwrap();
-            let reader = BufReader::new(file);
-            let (mut ogg, _) = OggReader::new(reader, true).unwrap();
-            let page_duration = Duration::from_millis(20);
+            let mut reader = WavReader::new(file).unwrap();
+            let spec = reader.spec();
 
-            let mut last_granule = 0;
-            let mut ticker = tokio::time::interval(page_duration);
+            let channels = if spec.channels == 1 {
+                audiopus::Channels::Mono
+            } else if spec.channels == 2 {
+                audiopus::Channels::Stereo
+            } else {
+                log::error!(
+                    "Only mono and stereo audio are supported, got {} channels",
+                    spec.channels
+                );
+                break;
+            };
 
-            while let Ok((page_data, page_header)) = ogg.parse_next_page() {
-                let sample_count = page_header.granule_position - last_granule;
-                last_granule = page_header.granule_position;
-                let sample_duration = Duration::from_millis(sample_count * 1000 / OPUS_SAMPLE_RATE);
+            let mut opus_coder = OpusCoder::new(spec.sample_rate, channels)
+                .expect("Failed to initialize Opus coder");
 
-                if let Err(e) = packet_sender.send(PacketData::Audio {
-                    timestamp: Instant::now(),
-                    duration: sample_duration,
-                    data: page_data.freeze().into(),
-                }) {
-                    log::warn!("send audio data failed: {e}");
+            let samples: Vec<f32> = reader
+                .samples::<i16>()
+                .map(|s| match s {
+                    Ok(sample) => sample as f32 / 32768.0,
+                    Err(e) => {
+                        log::warn!("Failed to read sample: {}", e);
+                        0.0
+                    }
+                })
+                .collect();
+
+            log::trace!(
+                "Loaded WAV: {}Hz, {} channels, {} samples, {:.2}s",
+                spec.sample_rate,
+                spec.channels,
+                samples.len(),
+                samples.len() as f32 / (spec.sample_rate as f32 * spec.channels as f32)
+            );
+
+            let samples_per_frame = opus_coder.input_samples_per_frame();
+            let frame_duration_ms = 20;
+            let frame_duration = Duration::from_millis(frame_duration_ms);
+            let mut ticker = tokio::time::interval(frame_duration);
+
+            for (frame_idx, chunk) in samples.chunks(samples_per_frame).enumerate() {
+                let mut frame = vec![0.0f32; samples_per_frame];
+                frame[..chunk.len()].copy_from_slice(chunk);
+
+                match opus_coder.encode(&frame) {
+                    Ok(opus_data) => {
+                        if let Err(e) = packet_sender.send(PacketData::Audio {
+                            timestamp: Instant::now(),
+                            duration: frame_duration,
+                            data: opus_data.into(),
+                        }) {
+                            log::warn!("send audio data failed: {e}");
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Encoding frame {} failed: {}", frame_idx + 1, e);
+                        if let Err(e) = packet_sender.send(PacketData::Audio {
+                            timestamp: Instant::now(),
+                            duration: frame_duration,
+                            data: vec![].into(),
+                        }) {
+                            log::warn!("send empty audio data failed: {e}");
+                        }
+                    }
                 }
 
-                _ = ticker.tick().await;
+                ticker.tick().await;
 
                 if connections.load(Ordering::Relaxed) <= 0 {
                     break 'out;
@@ -197,6 +245,8 @@ fn ogg_stream_thread(
                 break;
             }
         }
+
+        log::info!("wav_streaming_thread exit...");
     });
 }
 

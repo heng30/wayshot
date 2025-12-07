@@ -6,8 +6,8 @@ use wrtc::opus::{OpusCoder, OpusCoderError};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
-    let input_path = Path::new("data/test.wav");
-    let output_path = "/tmp/opus-coder.wav";
+    let input_path = Path::new("data/test-44100.wav");
+    let output_path = "/tmp/opus-coder-44100.wav";
 
     info!("Opus Codec Demo");
     info!("===============");
@@ -39,7 +39,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut opus_encoder = OpusCoder::new(spec.sample_rate, channels)?;
     let mut opus_decoder = OpusCoder::new(spec.sample_rate, channels)?;
-    info!("  Frame size: {} samples", opus_encoder.frame_size());
+    info!(
+        "  Internal frame size: {} samples (48kHz)",
+        opus_encoder.frame_size()
+    );
+    info!(
+        "  Input frame size: {} samples ({}Hz)",
+        (spec.sample_rate as usize * 20) / 1000,
+        spec.sample_rate
+    );
 
     // 3. Encode audio data
     info!("Encoding audio with Opus...");
@@ -52,9 +60,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("  Decoded {} samples", decoded_audio.len());
 
     // 5. Write decoded audio to WAV file
-    info!("Writing decoded audio to WAV file...");
-    write_wav_file(output_path, &decoded_audio, spec)?;
+    info!("Writing decoded audio to WAV file at 48kHz...");
+
+    // Opus always outputs at 48kHz, so we save at 48kHz regardless of input sample rate
+    let mut output_spec = spec;
+    output_spec.sample_rate = 48000;
+
+    write_wav_file(output_path, &decoded_audio, output_spec)?;
     info!("  Output written to: {}", output_path);
+    info!("  Output sample rate: 48000 Hz (Opus native rate)");
 
     info!("Demo completed successfully!");
 
@@ -92,7 +106,7 @@ fn encode_audio(
     audio_data: &[f32],
 ) -> Result<Vec<Vec<u8>>, OpusCoderError> {
     let mut encoded_packets = Vec::new();
-    let samples_per_frame = opus_coder.samples_per_frame();
+    let samples_per_frame = opus_coder.input_samples_per_frame();
     let total_frames = (audio_data.len() + samples_per_frame - 1) / samples_per_frame;
 
     debug!(

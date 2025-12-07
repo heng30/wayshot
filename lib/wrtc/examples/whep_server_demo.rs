@@ -13,7 +13,8 @@ use tokio::sync::broadcast::{self, Sender};
 use webrtc::media::io::h264_reader::H264Reader;
 use webrtc::media::io::ogg_reader::OggReader;
 use wrtc::{
-    Event, OPUS_SAMPLE_RATE, PacketData, session::WebRTCServerSessionConfig, webrtc::WebRTCServer,
+    Event, PacketData, opus::OPUS_SAMPLE_RATE, session::WebRTCServerSessionConfig,
+    webrtc::WebRTCServer,
 };
 
 #[tokio::main]

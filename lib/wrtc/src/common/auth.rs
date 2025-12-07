@@ -1,6 +1,5 @@
 use crate::scanf;
 use indexmap::IndexMap;
-use serde::Deserialize;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AuthError {
@@ -12,16 +11,6 @@ pub enum AuthError {
 
     #[error("invalid token format.")]
     InvalidTokenFormat,
-}
-
-#[derive(Debug, Deserialize, Clone, Default)]
-pub enum AuthAlgorithm {
-    #[default]
-    #[serde(rename = "simple")]
-    Simple,
-
-    #[serde(rename = "md5")]
-    Md5,
 }
 
 pub enum SecretCarrier {
@@ -69,31 +58,21 @@ pub fn get_secret(carrier: &SecretCarrier) -> Result<String, AuthError> {
 
 #[derive(Debug, Clone)]
 pub struct Auth {
-    key: String,
-    algorithm: AuthAlgorithm,
-    password: String,
+    token: String,
 }
 
 impl Auth {
-    pub fn new(key: String, password: String, algorithm: AuthAlgorithm) -> Self {
-        Self {
-            key,
-            algorithm,
-            password,
-        }
+    pub fn new(token: String) -> Self {
+        Self { token }
     }
 
-    pub fn authenticate(
-        &self,
-        stream_name: &String,
-        secret: &Option<SecretCarrier>,
-    ) -> Result<(), AuthError> {
+    pub fn authenticate(&self, secret: &Option<SecretCarrier>) -> Result<(), AuthError> {
         let mut auth_err_reason: String = String::from("there is no token str found.");
         let mut err = AuthError::NoTokenFound;
 
         if let Some(secret_value) = secret {
             let token = get_secret(secret_value)?;
-            if self.check(stream_name, token.as_str()) {
+            if self.check(token.as_str()) {
                 return Ok(());
             }
             auth_err_reason = format!("token is not correct: {token}");
@@ -104,13 +83,7 @@ impl Auth {
         return Err(err);
     }
 
-    fn check(&self, stream_name: &String, auth_str: &str) -> bool {
-        match self.algorithm {
-            AuthAlgorithm::Simple => self.password == auth_str,
-            AuthAlgorithm::Md5 => {
-                let raw_data = format!("{}{}", self.key, stream_name);
-                auth_str == cutil::crypto::md5(&raw_data).to_lowercase()
-            }
-        }
+    fn check(&self, token: &str) -> bool {
+        self.token == token
     }
 }

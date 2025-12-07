@@ -4,8 +4,6 @@ pub mod session;
 pub mod webrtc;
 pub mod whep;
 
-pub const OPUS_SAMPLE_RATE: u64 = 48000;
-
 #[derive(Clone)]
 pub enum PacketData {
     Video {

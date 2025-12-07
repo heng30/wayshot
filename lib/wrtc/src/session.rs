@@ -133,11 +133,12 @@ impl WebRTCServerSession {
                 return Ok(());
             }
 
-            //POST /whep?app=live&stream=test HTTP/1.1
+            //POST /whep HTTP/1.1
             let eles: Vec<&str> = http_request.uri.path.splitn(2, '/').collect();
             let pars_map = &http_request.query_pairs;
+            let ty = eles[1];
 
-            if eles.len() < 2 || pars_map.get("app").is_none() || pars_map.get("stream").is_none() {
+            if eles.len() < 2 {
                 log::warn!(
                     "WebRTCServerSession::run the http path is not correct: {}",
                     http_request.uri.path
@@ -145,12 +146,6 @@ impl WebRTCServerSession {
 
                 return Err(SessionError::HttpRequestPathError);
             }
-
-            let ty = eles[1];
-            let app_name = pars_map.get("app").unwrap().clone();
-            let stream_name = pars_map.get("stream").unwrap().clone();
-
-            log::info!("1:{},2:{},3:{}", ty, app_name, stream_name);
 
             match request_method {
                 http_method_name::POST => {
@@ -162,9 +157,13 @@ impl WebRTCServerSession {
                     let offer = RTCSessionDescription::offer(sdp_data.clone())?;
 
                     let path = format!(
-                        "{}?{}&session_id={}",
+                        "{}?{}session_id={}",
                         http_request.uri.path,
-                        http_request.uri.query.as_ref().unwrap(),
+                        if http_request.uri.query.is_some() {
+                            format!("{}&", http_request.uri.query.as_ref().unwrap())
+                        } else {
+                            "".to_string()
+                        },
                         self.session_id.unwrap()
                     );
 
@@ -179,7 +178,7 @@ impl WebRTCServerSession {
                                     .as_ref()
                                     .map(|q| SecretCarrier::Query(q.to_string()))
                             });
-                        auth.authenticate(&stream_name, &token_carrier)?;
+                        auth.authenticate(&token_carrier)?;
                     }
 
                     match ty.to_lowercase().as_str() {
