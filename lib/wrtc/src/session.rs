@@ -9,7 +9,7 @@ use crate::{
         },
         uuid::{RandomDigitCount, Uuid},
     },
-    whep::{WhepConfig, handle_whep},
+    whep::{ICE_SERVERS, WhepConfig, handle_whep},
 };
 use bytes::BytesMut;
 use bytesio::{
@@ -23,6 +23,7 @@ use webrtc::peer_connection::{RTCPeerConnection, sdp::session_description::RTCSe
 
 static WEB_WHEP_JS: &str = include_str!("../web-whep-client/whep.js");
 static WEB_WHEP_INDEX: &str = include_str!("../web-whep-client/index.html");
+static WEB_FAVICON: &[u8] = include_bytes!("../../../wayshot/windows/icon.ico");
 
 #[derive(Debug, Setters, Clone)]
 #[setters[prefix = "with_"]]
@@ -33,7 +34,10 @@ pub struct WebRTCServerSessionConfig {
 impl Default for WebRTCServerSessionConfig {
     fn default() -> Self {
         Self {
-            ice_servers: vec!["stun:stun.l.google.com:19302".to_owned()],
+            ice_servers: ICE_SERVERS
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>(),
         }
     }
 }
@@ -120,6 +124,7 @@ impl WebRTCServerSession {
                 let response = match http_request.uri.path.as_str() {
                     "/" => Self::gen_file_response(WEB_WHEP_INDEX),
                     "/whep.js" => Self::gen_file_response(WEB_WHEP_JS),
+                    // "/favicon.con" => Self::gen_file_response(WEB_FAVICON),
                     _ => {
                         log::warn!(
                             "the http get path: {} is not supported.",

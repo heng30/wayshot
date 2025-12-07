@@ -23,6 +23,10 @@ use webrtc::{
 };
 
 pub type Result<T> = std::result::Result<T, WebRTCError>;
+pub const ICE_SERVERS: [&str; 2] = [
+    "stun:stun.nextcloud.com:443",
+    "stun:stun.l.google.com:19302",
+];
 
 #[derive(Debug, Setters, Clone)]
 #[setters[prefix = "with_"]]
@@ -34,8 +38,11 @@ pub struct WhepConfig {
 impl WhepConfig {
     pub fn new(socket_addr: SocketAddr) -> Self {
         Self {
-            ice_servers: vec!["stun:stun.l.google.com:19302".to_owned()],
             socket_addr,
+            ice_servers: ICE_SERVERS
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>(),
         }
     }
 }
