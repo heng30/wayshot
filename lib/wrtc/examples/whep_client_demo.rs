@@ -6,7 +6,10 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::time::sleep;
+use tokio::sync::Notify;
 use wrtc::client::WHEPClient;
+use image::{ImageBuffer, Rgb};
+use hound::{WavWriter, WavSpec};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -31,12 +34,18 @@ async fn main() -> Result<()> {
     let audio_duration = Arc::new(Mutex::new(0f64));
     let audio_samples_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
 
+    // Create a shared completion notifier
+    let completion_notifier = Arc::new(Notify::new());
+    let video_notifier = Arc::new(Notify::new());
+    let audio_notifier = Arc::new(Notify::new());
+
     // Clone counters for video task
     let video_counter_clone = video_counter.clone();
     let output_dir_clone = output_dir.to_string();
+    let video_notifier_clone = video_notifier.clone();
 
     // Spawn a task to handle incoming video frames
-    let video_task = tokio::spawn(async move {
+    let _video_task = tokio::spawn(async move {
         let mut frame_count = 0;
         while let Some((width, height, rgb_data)) = video_rx.recv().await {
             frame_count += 1;
@@ -44,26 +53,28 @@ async fn main() -> Result<()> {
             println!("Received video frame #{}: {}x{} ({} bytes)",
                 frame_count, width, height, rgb_data.len());
 
-            // Save first 10 frames as image files
+            // Check RGB data for content
+            let non_zero_count = rgb_data.iter().filter(|&&v| v > 0).count();
+            let total_val: u32 = rgb_data.iter().map(|&v| v as u32).sum();
+            let avg_val = total_val as f32 / rgb_data.len() as f32;
+            println!("  Frame #{} RGB analysis: {} non-zero pixels, avg value: {:.2}", frame_count, non_zero_count, avg_val);
+
+            // Save first 10 frames as PNG image files
             if frame_count <= 10 {
-                let filename = format!("{}/frame_{:03}_{}x{}.rgb",
+                let filename = format!("{}/frame_{:03}_{}x{}.png",
                     output_dir_clone, frame_count, width, height);
 
-                match fs::write(&filename, &rgb_data) {
-                    Ok(_) => {
-                        println!("  Saved frame #{} to: {}", frame_count, filename);
-
-                        // Also create a simple header file with dimensions
-                        let header_filename = format!("{}/frame_{:03}_{}x{}.txt",
-                            output_dir_clone, frame_count, width, height);
-                        let header_content = format!("Width: {}\nHeight: {}\nData length: {}\n",
-                            width, height, rgb_data.len());
-
-                        if let Err(e) = fs::write(&header_filename, header_content) {
-                            eprintln!("Failed to write header file: {}", e);
+                // Convert RGB data to ImageBuffer and save as PNG
+                match ImageBuffer::<Rgb<u8>, _>::from_raw(width, height, rgb_data) {
+                    Some(img_buffer) => {
+                        match img_buffer.save(&filename) {
+                            Ok(_) => {
+                                println!("  Saved frame #{} to: {}", frame_count, filename);
+                            }
+                            Err(e) => eprintln!("Failed to save PNG frame #{}: {}", frame_count, e),
                         }
                     }
-                    Err(e) => eprintln!("Failed to save frame #{}: {}", frame_count, e),
+                    None => eprintln!("Failed to create image buffer for frame #{}", frame_count),
                 }
             }
 
@@ -73,6 +84,8 @@ async fn main() -> Result<()> {
             // Stop after saving first 10 frames
             if frame_count >= 10 {
                 println!("Successfully saved 10 video frames");
+                // Notify that video task is complete
+                video_notifier_clone.notify_one();
                 break;
             }
         }
@@ -87,6 +100,7 @@ async fn main() -> Result<()> {
     let audio_duration_clone = audio_duration.clone();
     let audio_samples_buffer_clone = audio_samples_buffer.clone();
     let output_dir_clone = output_dir.to_string();
+    let audio_notifier_clone = audio_notifier.clone();
 
     // Spawn a task to handle incoming audio samples
     let audio_task = tokio::spawn(async move {
@@ -96,9 +110,9 @@ async fn main() -> Result<()> {
 
         while let Some((received_sample_rate, samples)) = audio_rx.recv().await {
             packet_count += 1;
-            let duration_ms = (samples.len() as f64 / received_sample_rate as f64) * 1000.0;
+            let duration_ms = (samples.len() as f64 / 2.0 / received_sample_rate as f64) * 1000.0;
 
-            println!("Received audio packet #{}: {} Hz, {} samples ({:.2}ms)",
+            println!("Received audio packet #{}: {} Hz, {} samples ({:.2}ms) [STEREO]",
                 packet_count, received_sample_rate, samples.len(), duration_ms);
 
             // Accumulate audio data
@@ -108,38 +122,58 @@ async fn main() -> Result<()> {
                 buffer.extend_from_slice(&samples);
                 *duration += duration_ms / 1000.0; // Convert to seconds
 
-                // Save first 10 seconds of audio
+                // Save first 10 seconds of audio as WAV
                 if *duration >= 10.0 {
-                    println!("Collected {:.2} seconds of audio, saving...", *duration);
+                    println!("Collected {:.2} seconds of audio, saving as WAV...", *duration);
 
-                    let output_file = format!("{}/first_10_seconds_audio.raw", output_dir_clone);
-                    let header_file = format!("{}/first_10_seconds_audio_info.txt", output_dir_clone);
+                    let output_file = format!("{}/first_10_seconds_audio.wav", output_dir_clone);
+                    let info_file = format!("{}/first_10_seconds_audio_info.txt", output_dir_clone);
 
-                    // Save raw audio data
-                    match fs::write(&output_file,
-                        buffer.iter()
-                            .flat_map(|&sample| sample.to_le_bytes())
-                            .collect::<Vec<u8>>()) {
-                        Ok(_) => {
-                            println!("Saved audio data to: {}", output_file);
+                    // Create WAV spec
+                    let spec = WavSpec {
+                        channels: 2,
+                        sample_rate: received_sample_rate,
+                        bits_per_sample: 16,
+                        sample_format: hound::SampleFormat::Int,
+                    };
 
-                            // Save audio info
-                            let data_size = buffer.len() * 4; // f32 is 4 bytes
-                            let info_content = format!(
-                                "Sample Rate: {} Hz\nChannels: 2\nDuration: {:.2} seconds\nTotal Samples: {}\nData Size: {} bytes",
-                                received_sample_rate,
-                                *duration,
-                                buffer.len(),
-                                data_size
-                            );
+                    // Create WAV writer and write samples
+                    match WavWriter::create(&output_file, spec) {
+                        Ok(mut writer) => {
+                            for &sample in buffer.iter() {
+                                // Convert f32 sample to i16
+                                let sample_i16 = (sample.clamp(-1.0, 1.0) * 32767.0) as i16;
+                                if let Err(e) = writer.write_sample(sample_i16) {
+                                    eprintln!("Failed to write audio sample: {}", e);
+                                    break;
+                                }
+                            }
 
-                            if let Err(e) = fs::write(&header_file, info_content) {
-                                eprintln!("Failed to write audio info file: {}", e);
+                            if let Err(e) = writer.finalize() {
+                                eprintln!("Failed to finalize WAV file: {}", e);
+                            } else {
+                                println!("Saved audio data to: {}", output_file);
+
+                                // Save audio info
+                                let total_samples_stereo = buffer.len() / 2; // f32 samples, convert to stereo frames
+                                let info_content = format!(
+                                    "Sample Rate: {} Hz\nChannels: 2\nDuration: {:.2} seconds\nTotal Stereo Samples: {}\nTotal f32 Samples: {}\nFormat: 16-bit PCM WAV",
+                                    received_sample_rate,
+                                    *duration,
+                                    total_samples_stereo,
+                                    buffer.len()
+                                );
+
+                                if let Err(e) = fs::write(&info_file, info_content) {
+                                    eprintln!("Failed to write audio info file: {}", e);
+                                }
                             }
                         }
-                        Err(e) => eprintln!("Failed to save audio data: {}", e),
+                        Err(e) => eprintln!("Failed to create WAV file: {}", e),
                     }
 
+                    // Notify that audio task is complete
+                    audio_notifier_clone.notify_one();
                     break;
                 }
             }
@@ -168,47 +202,60 @@ async fn main() -> Result<()> {
         }
     });
 
-    // Create a monitoring task to check progress
+    // Create a coordination task that waits for both video and audio completion
     let video_counter_monitor = video_counter.clone();
     let audio_duration_monitor = audio_duration.clone();
-    let monitor_task = tokio::spawn(async move {
+    let completion_notifier_clone = completion_notifier.clone();
+    let video_notifier_monitor = video_notifier.clone();
+    let audio_notifier_monitor = audio_notifier.clone();
+    let coordinator_task = tokio::spawn(async move {
         let mut last_video = 0u32;
         let mut last_audio = 0f64;
+        let mut video_done = false;
+        let mut audio_done = false;
 
         loop {
-            sleep(Duration::from_millis(1000)).await;
+            tokio::select! {
+                _ = sleep(Duration::from_millis(1000)) => {
+                    let current_video = *video_counter_monitor.lock().unwrap();
+                    let current_audio = *audio_duration_monitor.lock().unwrap();
 
-            let current_video = *video_counter_monitor.lock().unwrap();
-            let current_audio = *audio_duration_monitor.lock().unwrap();
-
-            if current_video != last_video || current_audio != last_audio {
-                println!("Progress: {} video frames, {:.2} seconds audio",
-                    current_video, current_audio);
-                last_video = current_video;
-                last_audio = current_audio;
+                    if current_video != last_video || current_audio != last_audio {
+                        println!("Progress: {} video frames, {:.2} seconds audio",
+                            current_video, current_audio);
+                        last_video = current_video;
+                        last_audio = current_audio;
+                    }
+                }
+                _ = video_notifier_monitor.notified() => {
+                    println!("Video task completed (10 frames)");
+                    video_done = true;
+                }
+                _ = audio_notifier_monitor.notified() => {
+                    println!("Audio task completed (10 seconds)");
+                    audio_done = true;
+                }
             }
 
             // Check if we're done
-            if current_video >= 10 && current_audio >= 10.0 {
-                println!("Target achieved: 10 frames and 10 seconds of audio");
+            if video_done && audio_done {
+                println!("Both targets achieved: 10 frames and 10 seconds of audio");
+                completion_notifier_clone.notify_one();
                 break;
             }
         }
     });
 
-    // Wait for tasks with timeout
+    // Wait for tasks with improved coordination
     tokio::select! {
-        _ = video_task => {
-            println!("Video task completed");
+        _ = coordinator_task => {
+            println!("Coordinator task completed - both targets achieved");
         }
         _ = audio_task => {
             println!("Audio task completed");
         }
         _ = connect_task => {
             println!("Connect task completed");
-        }
-        _ = monitor_task => {
-            println!("Monitor task completed");
         }
         _ = sleep(Duration::from_secs(30)) => {
             println!("Test completed after 30 seconds timeout");
@@ -241,11 +288,10 @@ async fn main() -> Result<()> {
         }
     }
 
-    println!("\nTo view the RGB frames, you can use:");
-    println!("  ffmpeg -f rawvideo -pixel_format rgb24 -video_size 1920x1080 -i {}/frame_001_1920x1080.rgb {}/frame_001.png", output_dir, output_dir);
+    println!("\nPNG frames have been saved directly to: {}/frame_XXX_1920x1080.png", output_dir);
+    println!("WAV audio has been saved directly to: {}/first_10_seconds_audio.wav", output_dir);
 
-    println!("To convert audio to WAV:");
-    println!("  ffmpeg -f f32le -ar 48000 -ac 2 -i {}/first_10_seconds_audio.raw {}/first_10_seconds_audio.wav", output_dir, output_dir);
+    println!("\nYou can view the PNG frames with any image viewer or play the WAV file with any audio player.");
 
     println!("\nDemo completed successfully!");
     Ok(())

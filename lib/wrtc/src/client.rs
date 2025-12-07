@@ -23,6 +23,163 @@ use webrtc::track::track_remote::TrackRemote;
 pub type RGBFrame = (u32, u32, Vec<u8>); // (width, height, rgb_data)
 pub type AudioSamples = (u32, Vec<f32>); // (sample_rate, f32_samples)
 
+// Parse H264 RTP payload according to RFC 6184
+fn parse_h264_rtp_payload(payload: &[u8]) -> Vec<u8> {
+    if payload.is_empty() {
+        return Vec::new();
+    }
+
+    let nal_header = payload[0];
+    let f_bit = (nal_header >> 7) & 0x1;
+    let nal_type = nal_header & 0x1F;
+
+    debug!("Parsing RTP payload: NAL type {}, F bit {}", nal_type, f_bit);
+
+    match nal_type {
+        // Focus on important frame types
+        5 => {
+            // IDR frame - key frame
+            debug!("IDR frame (type 5), processing");
+            let mut result = Vec::with_capacity(payload.len() + 4);
+            result.extend_from_slice(&[0x00, 0x00, 0x00, 0x01]);
+            result.extend_from_slice(payload);
+            result
+        }
+
+        1 => {
+            // Non-IDR frame
+            debug!("Non-IDR frame (type 1), processing");
+            let mut result = Vec::with_capacity(payload.len() + 4);
+            result.extend_from_slice(&[0x00, 0x00, 0x00, 0x01]);
+            result.extend_from_slice(payload);
+            result
+        }
+
+        7 => {
+            // SPS - Sequence Parameter Set
+            debug!("SPS (type 7), processing");
+            let mut result = Vec::with_capacity(payload.len() + 4);
+            result.extend_from_slice(&[0x00, 0x00, 0x00, 0x01]);
+            result.extend_from_slice(payload);
+            result
+        }
+
+        8 => {
+            // PPS - Picture Parameter Set
+            debug!("PPS (type 8), processing");
+            let mut result = Vec::with_capacity(payload.len() + 4);
+            result.extend_from_slice(&[0x00, 0x00, 0x00, 0x01]);
+            result.extend_from_slice(payload);
+            result
+        }
+
+        // STAP-A contains multiple NAL units including SPS/PPS
+        24 => {
+            debug!("STAP-A packet, extracting NAL units");
+            parse_stap_a(payload)
+        }
+
+        // Skip other types for now
+        _ => {
+            debug!("Skipping NAL unit type: {}", nal_type);
+            Vec::new()
+        }
+    }
+}
+
+fn parse_stap_a(payload: &[u8]) -> Vec<u8> {
+    let mut result = Vec::new();
+    let mut pos = 1; // Skip STAP-A header
+
+    debug!("STAP-A: Processing {} bytes", payload.len());
+
+    while pos < payload.len() {
+        if pos + 2 > payload.len() {
+            break;
+        }
+
+        // Read NAL unit size (16 bits)
+        let nal_size = u16::from_be_bytes([payload[pos], payload[pos + 1]]) as usize;
+        pos += 2;
+
+        if pos + nal_size > payload.len() {
+            warn!("Invalid STAP-A NAL unit size: {}", nal_size);
+            break;
+        }
+
+        // Get NAL unit type
+        if nal_size > 0 {
+            let nal_type = payload[pos] & 0x1F;
+            debug!("STAP-A: Found NAL unit type {}, size: {}", nal_type, nal_size);
+        }
+
+        // Add start code and NAL unit
+        result.extend_from_slice(&[0x00, 0x00, 0x00, 0x01]);
+        result.extend_from_slice(&payload[pos..pos + nal_size]);
+
+        pos += nal_size;
+    }
+
+    debug!("STAP-A: Extracted {} bytes total", result.len());
+    result
+}
+
+// Store FU-A fragments temporarily - this is a simple implementation
+thread_local! {
+    static FU_A_BUFFER: std::cell::RefCell<Vec<u8>> = std::cell::RefCell::new(Vec::new());
+    static FU_A_STARTED: std::cell::RefCell<bool> = std::cell::RefCell::new(false);
+}
+
+fn parse_fu_a(payload: &[u8]) -> Vec<u8> {
+    if payload.len() < 3 {
+        return Vec::new();
+    }
+
+    let fu_header = payload[1];
+    let s_bit = (fu_header >> 7) & 0x1;
+    let e_bit = (fu_header >> 6) & 0x1;
+    let nal_type = fu_header & 0x1F;
+    let original_nal_header = (payload[0] & 0xE0) | nal_type;
+
+    debug!("FU-A: S={}, E={}, Type={}", s_bit, e_bit, nal_type);
+
+    FU_A_BUFFER.with(|buffer| {
+        FU_A_STARTED.with(|started| {
+            let mut buf = buffer.borrow_mut();
+            let mut is_started = started.borrow_mut();
+
+            if s_bit == 1 {
+                // Start of new fragment
+                buf.clear();
+                buf.extend_from_slice(&[0x00, 0x00, 0x00, 0x01]);
+                buf.push(original_nal_header);
+                buf.extend_from_slice(&payload[2..]);
+                *is_started = true;
+                debug!("FU-A: Started new fragment");
+                Vec::new() // Don't return incomplete data
+            } else if *is_started {
+                // Middle or end fragment
+                buf.extend_from_slice(&payload[2..]);
+
+                if e_bit == 1 {
+                    // End of fragment - return complete NAL unit
+                    *is_started = false;
+                    let result = buf.clone();
+                    buf.clear();
+                    debug!("FU-A: Completed fragment, {} bytes", result.len());
+                    result
+                } else {
+                    // Middle fragment - continue accumulating
+                    Vec::new()
+                }
+            } else {
+                // Fragment without start
+                Vec::new()
+            }
+        })
+    })
+}
+
 // H264 decoder for Annex-B format RTP streams
 pub struct H264Decoder {
     decoder: Decoder,
@@ -54,35 +211,81 @@ impl H264Decoder {
             ));
         }
 
-        // Parse Annex-B format NAL units
-        let nal_units = self.parse_annexb_nal_units(h264_data);
+        // h264_data already comes from parse_h264_rtp_payload() with Annex-B start codes
+        debug!("Processing pre-processed H264 data: {} bytes", h264_data.len());
 
-        // Try to decode each NAL unit until we get a frame
-        for nal_data in nal_units {
-            match self.decoder.decode(&nal_data) {
-                Ok(Some(yuv_frame)) => {
-                    // Convert YUV to RGB
-                    match Self::yuv420_to_rgb(&yuv_frame, self.width, self.height) {
-                        Ok(rgb_data) => {
-                            self.frame_count += 1;
-                            return Ok((self.width, self.height, rgb_data));
-                        }
-                        Err(e) => {
-                            warn!("YUV to RGB conversion error: {:?}", e);
-                            continue;
-                        }
+        // Skip start code to get NAL header for logging
+        let nal_type = if h264_data.len() >= 5 {
+            h264_data[4] & 0x1F
+        } else {
+            debug!("H264 data too short for NAL header");
+            anyhow::bail!("H264 data too short");
+        };
+
+        debug!("NAL unit type {}, size: {}", nal_type, h264_data.len());
+
+        match self.decoder.decode(h264_data) {
+            Ok(Some(yuv_frame)) => {
+                info!("Successfully decoded YUV frame from NAL type {}", nal_type);
+
+                // Convert YUV to RGB
+                match Self::yuv420_to_rgb(&yuv_frame, self.width, self.height) {
+                    Ok(rgb_data) => {
+                        self.frame_count += 1;
+                        info!("Successfully converted H264 frame to RGB: {}x{}", self.width, self.height);
+                        return Ok((self.width, self.height, rgb_data));
+                    }
+                    Err(e) => {
+                        warn!("YUV to RGB conversion error: {:?}", e);
                     }
                 }
-                Ok(None) => continue, // No frame produced, continue to next NAL
-                Err(e) => {
-                    warn!("H264 decode error: {:?}", e);
-                    continue; // Continue to next NAL on decode error
-                }
+            }
+            Ok(None) => {
+                debug!("No frame produced from NAL type {}, continuing", nal_type);
+            }
+            Err(e) => {
+                debug!("Decode error on NAL type {}: {:?}", nal_type, e);
             }
         }
 
-        // If no frame decoded, return a test pattern for debugging
-        self.generate_test_frame()
+        // If no frame decoded, return error
+        anyhow::bail!("Failed to decode any H264 frame from the input data")
+    }
+
+    fn parse_stap_a_single(&self, payload: &[u8]) -> Result<Vec<Vec<u8>>> {
+        if payload.is_empty() || payload[0] & 0x1F != 24 {
+            return Ok(Vec::new());
+        }
+
+        debug!("STAP-A packet, extracting NAL units");
+        let mut nal_units = Vec::new();
+        let mut offset = 1; // Skip STAP-A header
+
+        while offset < payload.len() {
+            if offset + 2 > payload.len() {
+                break;
+            }
+
+            // Read NAL unit size (16 bits, big endian)
+            let nal_size = u16::from_be_bytes([payload[offset], payload[offset + 1]]) as usize;
+            offset += 2;
+
+            if offset + nal_size > payload.len() {
+                warn!("STAP-A: NAL unit size {} exceeds remaining data", nal_size);
+                break;
+            }
+
+            // Extract NAL unit
+            let nal_data = payload[offset..offset + nal_size].to_vec();
+            let nal_type = nal_data[0] & 0x1F;
+            debug!("STAP-A: Found NAL unit type {}, size: {}", nal_type, nal_size);
+
+            nal_units.push(nal_data);
+            offset += nal_size;
+        }
+
+        debug!("STAP-A: Extracted {} NAL units", nal_units.len());
+        Ok(nal_units)
     }
 
     fn parse_annexb_nal_units(&self, data: &[u8]) -> Vec<Vec<u8>> {
@@ -168,6 +371,8 @@ impl H264Decoder {
         data.len() // No more start codes, return end of data
     }
 
+    // Parse H264 RTP payload according to RFC 6184
+  
     fn yuv420_to_rgb(
         yuv_frame: &openh264::decoder::DecodedYUV,
         width: u32,
@@ -182,7 +387,27 @@ impl H264Decoder {
         let height_usize = height as usize;
         let mut rgb_data = vec![0u8; width_usize * height_usize * 3];
 
+        // Debug: Check if we have valid YUV data
+        info!("YUV420 to RGB conversion: {}x{}", width, height);
+        info!("Y plane size: {}, U plane size: {}, V plane size: {}",
+              y_plane.len(), u_plane.len(), v_plane.len());
+
+        // Sample first few YUV values
+        if y_plane.len() > 10 {
+            info!("First 10 Y values: {:?}", &y_plane[..10]);
+        }
+        if u_plane.len() > 10 {
+            info!("First 10 U values: {:?}", &u_plane[..10]);
+        }
+        if v_plane.len() > 10 {
+            info!("First 10 V values: {:?}", &v_plane[..10]);
+        }
+
         // Simple YUV420 to RGB conversion
+        let mut non_zero_pixels = 0usize; // Use usize to avoid overflow
+        let mut max_y = 0u8;
+        let mut min_y = 255u8;
+
         for y in 0..height_usize {
             for x in 0..width_usize {
                 let y_idx = y * width_usize + x;
@@ -193,6 +418,11 @@ impl H264Decoder {
                 let u_val = u_plane[uv_y * width_usize / 2 + uv_x] as f32 - 128.0;
                 let v_val = v_plane[uv_y * width_usize / 2 + uv_x] as f32 - 128.0;
 
+                // Track Y range
+                let y_byte = y_plane[y_idx];
+                max_y = max_y.max(y_byte);
+                min_y = min_y.min(y_byte);
+
                 // YUV to RGB conversion (BT.601)
                 let r = (y_val + 1.402 * v_val).clamp(0.0, 255.0) as u8;
                 let g = (y_val - 0.344 * u_val - 0.714 * v_val).clamp(0.0, 255.0) as u8;
@@ -202,32 +432,19 @@ impl H264Decoder {
                 rgb_data[rgb_idx] = r;
                 rgb_data[rgb_idx + 1] = g;
                 rgb_data[rgb_idx + 2] = b;
+
+                if r > 0 || g > 0 || b > 0 {
+                    non_zero_pixels += 1;
+                }
             }
         }
+
+        info!("YUV analysis - Y range: {} to {}, Non-zero RGB pixels: {}", min_y, max_y, non_zero_pixels);
 
         Ok(rgb_data)
     }
 
-    fn generate_test_frame(&mut self) -> Result<RGBFrame> {
-        // Generate a test pattern as fallback when no real frame is decoded
-        self.frame_count += 1;
-        let mut rgb_data = vec![0u8; (self.width * self.height * 3) as usize];
-
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let idx = ((y * self.width + x) * 3) as usize;
-                let color_shift = (self.frame_count % 255) as u8;
-
-                // Create a moving color gradient
-                rgb_data[idx] = ((x + color_shift as u32) % 255) as u8; // R
-                rgb_data[idx + 1] = ((y + color_shift as u32) % 255) as u8; // G
-                rgb_data[idx + 2] = ((x + y) % 255) as u8; // B
-            }
-        }
-
-        Ok((self.width, self.height, rgb_data))
-    }
-}
+  }
 
 pub struct WHEPClient {
     pub video_sender: mpsc::UnboundedSender<RGBFrame>,
@@ -275,9 +492,28 @@ async fn process_video_track(
                 if let Ok((rtp_packet, _)) = result {
                     // Extract H264 payload from RTP packet
                     let payload = rtp_packet.payload;
+                    debug!("Received H264 RTP packet: {} bytes payload", payload.len());
+
+                    // Debug: Print first few bytes to understand the format
+                    if payload.len() > 0 {
+                        let first_bytes = &payload[..payload.len().min(10)];
+                        debug!("First bytes: {:?}", first_bytes);
+
+                        // Check if this looks like RTP payload format (RFC 6184)
+                        if payload.len() >= 2 {
+                            let nal_header = payload[0];
+                            let f_bit = (nal_header >> 7) & 0x1;
+                            let nri = (nal_header >> 5) & 0x3;
+                            let nal_type = nal_header & 0x1F;
+                            debug!("NAL header: 0x{:02x} (F={}, NRI={}, Type={})", nal_header, f_bit, nri, nal_type);
+                        }
+                    }
+
+                    // Parse H264 RTP payload according to RFC 6184
+                    let h264_data = parse_h264_rtp_payload(&payload);
 
                     // Decode H264 packet to RGB frame
-                    match h264_decoder.decode(&payload) {
+                    match h264_decoder.decode(&h264_data) {
                         Ok(rgb_frame) => {
                             if video_sender.send(rgb_frame).is_err() {
                                 info!("Video channel closed, stopping video processing");
@@ -522,6 +758,11 @@ impl WHEPClient {
             info!("Sending WHEP request to: {}/whep", server_url);
             debug!("SDP Offer length: {} bytes", offer_sdp.len());
 
+            // Log headers before sending for debugging
+            debug!("Setting HTTP headers:");
+            debug!("  Content-Type: application/sdp");
+            debug!("  Authorization: Bearer 123");
+
             let response = client
                 .post(&format!("{}/whep", server_url))
                 .header("Content-Type", "application/sdp")
@@ -558,6 +799,9 @@ impl WHEPClient {
             }
             _ = tokio::signal::ctrl_c() => {
                 info!("WHEP client stopped by user");
+            }
+            _ = tokio::time::sleep(Duration::from_secs(60)) => {
+                info!("WHEP client connection timeout after 60 seconds");
             }
         };
 
