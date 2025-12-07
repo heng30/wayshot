@@ -300,6 +300,31 @@
         fill: rgba(255, 255, 255, 0.9);
       }
 
+      .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top: 3px solid #fff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        margin: -25px 0 0 -25px; /* Half of width/height for centering */
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      .loading-spinner.show {
+        display: block;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
       .video-controls {
         position: absolute;
         bottom: 0;
@@ -452,6 +477,56 @@
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
       }
 
+      .browser-fullscreen-btn {
+        background: none;
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        font-size: 17px;
+        padding: 0 !important;
+        margin: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: none;
+        outline: none;
+      }
+
+      .browser-fullscreen-btn:hover,
+      .browser-fullscreen-btn:focus {
+        background: none;
+        border: none;
+        color: #fff;
+        box-shadow: none;
+        outline: none;
+        transform: none;
+      }
+
+      /* Web page fullscreen styles */
+      body.webpage-fullscreen {
+        padding: 0;
+        overflow: hidden;
+      }
+
+      body.webpage-fullscreen h1,
+      body.webpage-fullscreen .controls {
+        display: none;
+      }
+
+      body.webpage-fullscreen #video-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        max-width: none;
+        border-radius: 0;
+        box-shadow: none;
+        z-index: 1000;
+      }
+
       .fullscreen-btn {
         background: none;
         border: none;
@@ -545,6 +620,7 @@
           <path d="M8 5v14l11-7z" />
         </svg>
       </div>
+      <div class="loading-spinner" id="loading-spinner"></div>
       <div class="video-controls">
         <button id="play-btn">▶</button>
         <div class="time-display" id="time-display">00:00</div>
@@ -565,6 +641,7 @@
             value="100"
           />
         </div>
+        <button class="browser-fullscreen-btn" id="browser-fullscreen-btn">⤢</button>
         <button class="fullscreen-btn" id="fullscreen-btn">⛶</button>
       </div>
     </div>
@@ -585,13 +662,63 @@
       const volumeBtn = document.getElementById("volume-btn");
       const volumeIcon = document.getElementById("volume-icon");
       const volumeSlider = document.getElementById("volume-slider");
+      const browserFullscreenBtn = document.getElementById("browser-fullscreen-btn");
       const fullscreenBtn = document.getElementById("fullscreen-btn");
       const playbackStateIndicator = document.getElementById(
         "playback-state-indicator",
       );
+      const loadingSpinner = document.getElementById("loading-spinner");
 
       let authEnabled = false;
       let hideControlsTimeout;
+      let currentPeerConnection = null;
+      let currentWhepClient = null;
+      let isConnecting = false;
+
+      // Function to close existing connection
+      async function closeExistingConnection() {
+        try {
+          // Close WHEP client if exists (this will send HTTP DELETE)
+          if (currentWhepClient) {
+            await currentWhepClient.stop();
+            currentWhepClient = null;
+          }
+
+          // Close peer connection if exists (fallback cleanup)
+          if (currentPeerConnection) {
+            // Close all transceivers
+            currentPeerConnection.getTransceivers().forEach(transceiver => {
+              if (transceiver.stop) {
+                transceiver.stop();
+              }
+            });
+
+            // Close peer connection
+            currentPeerConnection.close();
+            currentPeerConnection = null;
+          }
+
+          // Clear video source and reset to black
+          localVideo.srcObject = null;
+          localVideo.load(); // Reset video element to black
+
+          // Reset UI state
+          playBtn.textContent = "▶";
+          playbackStateIndicator.classList.remove("show");
+          // Don't hide loading spinner here - let the caller handle it
+          // loadingSpinner.classList.remove("show");
+
+          isConnecting = false;
+        } catch (error) {
+          console.warn("Error closing connection:", error);
+          // Ensure state is reset even if close fails
+          currentWhepClient = null;
+          currentPeerConnection = null;
+          localVideo.srcObject = null;
+          localVideo.load(); // Reset video element to black
+          isConnecting = false;
+        }
+      }
 
       // Switch toggle functionality
       authSwitch.addEventListener("click", () => {
@@ -693,6 +820,28 @@
         }
       }
 
+      // Web page fullscreen functionality
+      let isWebpageFullscreen = false;
+
+      function toggleWebpageFullscreen() {
+        isWebpageFullscreen = !isWebpageFullscreen;
+
+        if (isWebpageFullscreen) {
+          // Enter webpage fullscreen
+          document.body.classList.add("webpage-fullscreen");
+          browserFullscreenBtn.textContent = "⤢";
+        } else {
+          // Exit webpage fullscreen
+          document.body.classList.remove("webpage-fullscreen");
+          browserFullscreenBtn.textContent = "⤢";
+        }
+      }
+
+      browserFullscreenBtn.addEventListener("click", (e) => {
+        e.stopPropagation(); // Prevent event from bubbling up to video container
+        toggleWebpageFullscreen();
+      });
+
       fullscreenBtn.addEventListener("click", (e) => {
         e.stopPropagation(); // Prevent event from bubbling up to video container
         toggleVideoFullscreen();
@@ -747,36 +896,10 @@
         }
       }
 
-      // Listen for fullscreen changes
-      document.addEventListener("fullscreenchange", () => {
-        if (document.fullscreenElement) {
-          // Entering fullscreen
-          videoContainer.classList.add("fullscreen");
-          fullscreenBtn.textContent = "⛶";
-          isFullscreen = true;
-          isMouseOverControls = false;
-          // Initially hide controls in fullscreen
-          videoControls.classList.remove("show");
-          controlBarVisible = false;
-          // Add mousemove listener for fullscreen controls
-          videoContainer.addEventListener(
-            "mousemove",
-            handleVideoContainerMouseMove,
-          );
-        } else {
-          // Exiting fullscreen
-          videoContainer.classList.remove("fullscreen");
-          fullscreenBtn.textContent = "⛶";
-          isFullscreen = false;
-          isMouseOverControls = false;
-          // Remove mousemove listener
-          videoContainer.removeEventListener(
-            "mousemove",
-            handleVideoContainerMouseMove,
-          );
-          // Ensure controls are visible in non-fullscreen mode
-          videoControls.classList.add("show");
-          controlBarVisible = true;
+      // Keyboard support for webpage fullscreen (Escape key)
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && isWebpageFullscreen) {
+          toggleWebpageFullscreen();
         }
       });
 
@@ -906,6 +1029,12 @@
       });
 
       function updatePlaybackStateIndicator() {
+        // Don't show playback indicator when loading spinner is showing
+        if (loadingSpinner.classList.contains("show")) {
+          playbackStateIndicator.classList.remove("show");
+          return;
+        }
+
         if (localVideo.paused || localVideo.ended) {
           playbackStateIndicator.classList.add("show");
         } else {
@@ -956,12 +1085,34 @@
         updatePlaybackStateIndicator();
       });
 
-      startWhepBtn.addEventListener("click", () => {
+      startWhepBtn.addEventListener("click", async () => {
         const token = tokenInput.value;
         const useAuth = authEnabled;
 
+        // Show loading spinner and clear video immediately when starting connection process
+        loadingSpinner.classList.add("show");
+        playbackStateIndicator.classList.remove("show");
+
+        // Clear video immediately to show black background
+        localVideo.srcObject = null;
+        localVideo.load();
+
+        // If already connecting or has existing connection, close it first
+        if (isConnecting || currentPeerConnection || currentWhepClient) {
+          await closeExistingConnection();
+
+          // If we're in the middle of connecting, stop here but keep spinner showing
+          if (isConnecting) {
+            return;
+          }
+        }
+
+        // Set connecting state
+        isConnecting = true;
+
         //Create peerconnection
-        const pc = (window.pc = new RTCPeerConnection());
+        const pc = new RTCPeerConnection();
+        currentPeerConnection = pc;
 
         //Add recv only transceivers
         pc.addTransceiver("audio");
@@ -981,23 +1132,50 @@
             player.muted = false; // Enable audio
             playBtn.textContent = "❚❚";
 
+            // Hide loading spinner when video starts
+            loadingSpinner.classList.remove("show");
+
+            isConnecting = false;
+
             // Auto-play when video stream starts
             player.play().catch((err) => {
               console.log("Auto-play failed:", err);
               playBtn.textContent = "▶";
+              // Hide loading spinner even if auto-play fails
+              loadingSpinner.classList.remove("show");
             });
           }
           if (event.track.kind == "audio") {
             console.log("Audio track received");
           }
         };
+
+        // Handle connection failure
+        pc.onconnectionstatechange = () => {
+          console.log("Connection state:", pc.connectionState);
+          if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+            loadingSpinner.classList.remove("show");
+            playBtn.textContent = "▶";
+            isConnecting = false;
+            currentPeerConnection = null;
+          }
+        };
+
         //Create whep client
         const whep = new WHEPClient();
+        currentWhepClient = whep;
 
         let url = location.origin + "/whep";
 
         //Start viewing
-        whep.view(pc, url, useAuth ? token : null);
+        whep.view(pc, url, useAuth ? token : null).catch((err) => {
+          console.error("WHEP connection failed:", err);
+          loadingSpinner.classList.remove("show");
+          playBtn.textContent = "▶";
+          isConnecting = false;
+          currentPeerConnection = null;
+          currentWhepClient = null;
+        });
       });
 
       // Initialize volume
