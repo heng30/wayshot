@@ -1,11 +1,13 @@
 use anyhow::{Result, bail};
 use hound::WavReader;
 use image::{ImageBuffer, Rgb};
+use once_cell::sync::Lazy;
 use std::{
+    collections::HashSet,
     fs::File,
     path::Path,
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicI32, Ordering},
     },
     time::{Duration, Instant},
@@ -19,6 +21,7 @@ use wrtc::{
 
 const IMG_WIDTH: u32 = 1920;
 const IMG_HEIGHT: u32 = 1080;
+static CONNECTIONS: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet::default()));
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -35,35 +38,32 @@ async fn main() -> Result<()> {
 
     let packet_sender_clone = packet_sender.clone();
     tokio::spawn(async move {
-        let connections = Arc::new(AtomicI32::new(0));
         loop {
             tokio::select! {
                 ev = event_receiver.recv() => {
                     match ev {
-                        Ok(Event::PeerConnected(_)) => {
-                            if connections.load(Ordering::Relaxed) == 0 {
-                                h264_streaming_thread(packet_sender_clone.clone(), connections.clone());
-                                wav_stream_thread(packet_sender_clone.clone(), audio_path.clone(), connections.clone());
+                        Ok(Event::PeerConnected(addr)) => {
+                            let mut connections = CONNECTIONS.lock().unwrap();
+                            if connections.is_empty(){
+                                h264_streaming_thread(packet_sender_clone.clone());
+                                wav_stream_thread(packet_sender_clone.clone(), audio_path.clone());
                             }
 
-                            let count = connections.fetch_add(1, Ordering::Relaxed);
-                            log::info!("connections count: {}", count + 1);
+                            connections.insert(addr);
+                            log::info!("connections count: {}", connections.len());
                         }
                         Ok(Event::LocalClosed(addr)) => {
-                            if connections.fetch_sub(1, Ordering::Relaxed) == 0 {
-                                connections.store(0, Ordering::Relaxed);
-                            }
-
                             log::info!("LocalClosed({addr})");
-                            log::info!("connections count: {}", connections.load(Ordering::Relaxed));
+
+                            let mut connections = CONNECTIONS.lock().unwrap();
+                            connections.remove(&addr);
+                            log::info!("connections count: {}", connections.len());
                         }
                         Ok(Event::PeerClosed(addr)) => {
-                            if connections.fetch_sub(1, Ordering::Relaxed) == 0 {
-                                connections.store(0, Ordering::Relaxed);
-                            }
-
                             log::info!("PeerClosed({addr})");
-                            log::info!("connections count: {}", connections.load(Ordering::Relaxed));
+                            let mut connections = CONNECTIONS.lock().unwrap();
+                            connections.remove(&addr);
+                            log::info!("connections count: {}", connections.len());
                         }
                         _ => (),
                     }
@@ -89,7 +89,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn h264_streaming_thread(packet_sender: Sender<PacketData>, connections: Arc<AtomicI32>) {
+fn h264_streaming_thread(packet_sender: Sender<PacketData>) {
     std::thread::spawn(move || {
         let fps = 25;
 
@@ -133,7 +133,7 @@ fn h264_streaming_thread(packet_sender: Sender<PacketData>, connections: Arc<Ato
 
                 std::thread::sleep(Duration::from_secs_f64(1 as f64 / fps as f64));
 
-                if connections.load(Ordering::Relaxed) <= 0 {
+                if CONNECTIONS.lock().unwrap().is_empty() {
                     break 'out;
                 }
             }
@@ -149,7 +149,7 @@ fn h264_streaming_thread(packet_sender: Sender<PacketData>, connections: Arc<Ato
                 log::warn!("Failed to flush encoder frame: {:?}", e);
             }
 
-            if connections.load(Ordering::Relaxed) <= 0 {
+            if CONNECTIONS.lock().unwrap().is_empty() {
                 break;
             }
         }
@@ -158,11 +158,7 @@ fn h264_streaming_thread(packet_sender: Sender<PacketData>, connections: Arc<Ato
     });
 }
 
-fn wav_stream_thread(
-    packet_sender: Sender<PacketData>,
-    audio_file: String,
-    connections: Arc<AtomicI32>,
-) {
+fn wav_stream_thread(packet_sender: Sender<PacketData>, audio_file: String) {
     tokio::spawn(async move {
         'out: loop {
             let file = File::open(&audio_file).unwrap();
@@ -236,12 +232,12 @@ fn wav_stream_thread(
 
                 ticker.tick().await;
 
-                if connections.load(Ordering::Relaxed) <= 0 {
+                if CONNECTIONS.lock().unwrap().is_empty() {
                     break 'out;
                 }
             }
 
-            if connections.load(Ordering::Relaxed) <= 0 {
+            if CONNECTIONS.lock().unwrap().is_empty() {
                 break;
             }
         }

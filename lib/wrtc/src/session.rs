@@ -148,10 +148,7 @@ impl WebRTCServerSession {
             let ty = eles[1];
 
             if eles.len() < 2 {
-                log::warn!(
-                    "WebRTCServerSession::run the http path is not correct: {}",
-                    http_request.uri.path
-                );
+                log::warn!("the http path is not correct: {}", http_request.uri.path);
 
                 return Err(SessionError::HttpRequestPathError);
             }
@@ -247,10 +244,7 @@ impl WebRTCServerSession {
                 }
                 http_method_name::PATCH => (),
                 _ => {
-                    log::warn!(
-                        "WebRTCServerSession::unsupported method name: {}",
-                        http_request.method
-                    );
+                    log::warn!("unsupported method name: {}", http_request.method);
                 }
             }
 
@@ -271,7 +265,7 @@ impl WebRTCServerSession {
 
             sessions_unlock.remove(uuid);
         } else {
-            log::warn!("the session :{uuid}  is not exited.");
+            log::warn!("the session: [{uuid}] is not exited.");
         }
     }
 

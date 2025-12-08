@@ -1,21 +1,21 @@
 use anyhow::{Result, bail};
+use once_cell::sync::Lazy;
 use std::{
+    collections::HashSet,
     fs::File,
     io::BufReader,
     path::Path,
-    sync::{
-        Arc,
-        atomic::{AtomicI32, Ordering},
-    },
+    sync::Mutex,
     time::{Duration, Instant},
 };
 use tokio::sync::broadcast::{self, Sender};
-use webrtc::media::io::h264_reader::H264Reader;
-use webrtc::media::io::ogg_reader::OggReader;
+use webrtc::media::io::{h264_reader::H264Reader, ogg_reader::OggReader};
 use wrtc::{
     Event, PacketData, opus::OPUS_SAMPLE_RATE, session::WebRTCServerSessionConfig,
     webrtc::WebRTCServer,
 };
+
+static CONNECTIONS: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet::default()));
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -37,36 +37,32 @@ async fn main() -> Result<()> {
 
     let packet_sender_clone = packet_sender.clone();
     tokio::spawn(async move {
-        let connections = Arc::new(AtomicI32::new(0));
-
         loop {
             tokio::select! {
                 ev = event_receiver.recv() => {
                     match ev {
-                        Ok(Event::PeerConnected(_)) => {
-                            if connections.load(Ordering::Relaxed) == 0 {
-                                h264_streaming_thread(packet_sender_clone.clone(), video_path.clone(), connections.clone());
-                                ogg_stream_thread(packet_sender_clone.clone(), audio_path.clone(), connections.clone());
+                        Ok(Event::PeerConnected(addr)) => {
+                            let mut connections = CONNECTIONS.lock().unwrap();
+                            if connections.is_empty(){
+                                h264_streaming_thread(packet_sender_clone.clone(), video_path.clone());
+                                ogg_stream_thread(packet_sender_clone.clone(), audio_path.clone());
                             }
 
-                            let count = connections.fetch_add(1, Ordering::Relaxed);
-                            log::info!("connections count: {}", count + 1);
+                            connections.insert(addr);
+                            log::info!("connections count: {}", connections.len());
                         }
                         Ok(Event::LocalClosed(addr)) => {
-                            if connections.fetch_sub(1, Ordering::Relaxed) == 0 {
-                                connections.store(0, Ordering::Relaxed);
-                            }
-
                             log::info!("LocalClosed({addr})");
-                            log::info!("connections count: {}", connections.load(Ordering::Relaxed));
+                            let mut connections = CONNECTIONS.lock().unwrap();
+                            connections.remove(&addr);
+                            log::info!("connections count: {}", connections.len());
                         }
                         Ok(Event::PeerClosed(addr)) => {
-                            if connections.fetch_sub(1, Ordering::Relaxed) == 0 {
-                                connections.store(0, Ordering::Relaxed);
-                            }
-
                             log::info!("PeerClosed({addr})");
-                            log::info!("connections count: {}", connections.load(Ordering::Relaxed));
+                            let mut connections = CONNECTIONS.lock().unwrap();
+                            connections.remove(&addr);
+                            log::info!("connections count: {}", connections.len());
+
                         }
                         _ => (),
                     }
@@ -92,11 +88,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn h264_streaming_thread(
-    packet_sender: Sender<PacketData>,
-    video_file: String,
-    connections: Arc<AtomicI32>,
-) {
+fn h264_streaming_thread(packet_sender: Sender<PacketData>, video_file: String) {
     tokio::spawn(async move {
         'out: loop {
             let file = File::open(&video_file.clone()).unwrap();
@@ -128,12 +120,12 @@ fn h264_streaming_thread(
 
                 _ = ticker.tick().await;
 
-                if connections.load(Ordering::Relaxed) <= 0 {
+                if CONNECTIONS.lock().unwrap().is_empty() {
                     break 'out;
                 }
             }
 
-            if connections.load(Ordering::Relaxed) <= 0 {
+            if CONNECTIONS.lock().unwrap().is_empty() {
                 break;
             }
         }
@@ -142,11 +134,7 @@ fn h264_streaming_thread(
     });
 }
 
-fn ogg_stream_thread(
-    packet_sender: Sender<PacketData>,
-    audio_file: String,
-    connections: Arc<AtomicI32>,
-) {
+fn ogg_stream_thread(packet_sender: Sender<PacketData>, audio_file: String) {
     tokio::spawn(async move {
         'out: loop {
             let file = File::open(&audio_file).unwrap();
@@ -172,12 +160,12 @@ fn ogg_stream_thread(
 
                 _ = ticker.tick().await;
 
-                if connections.load(Ordering::Relaxed) <= 0 {
+                if CONNECTIONS.lock().unwrap().is_empty() {
                     break 'out;
                 }
             }
 
-            if connections.load(Ordering::Relaxed) <= 0 {
+            if CONNECTIONS.lock().unwrap().is_empty() {
                 break;
             }
         }
