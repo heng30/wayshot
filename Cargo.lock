@@ -10217,6 +10217,8 @@ dependencies = [
  "byteorder",
  "bytes",
  "bytesio",
+ "crossbeam",
+ "derivative",
  "derive_setters",
  "env_logger",
  "hound",

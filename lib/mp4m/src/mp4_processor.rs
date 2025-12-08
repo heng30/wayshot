@@ -421,8 +421,6 @@ impl Mp4Processor {
     ) {
         self.total_video_frames += 1;
 
-        const VIDEO_TIMESCALE: u32 = 90000;
-
         // Calculate duration in 90kHz timescale units (90000 / fps)
         let duration = VIDEO_TIMESCALE / self.config.video_config.fps;
 

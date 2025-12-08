@@ -1,6 +1,5 @@
 use crate::scanf;
 use indexmap::IndexMap;
-use std::fmt;
 
 pub mod http_method_name {
     pub const OPTIONS: &str = "OPTIONS";
@@ -21,30 +20,7 @@ pub trait Marshal {
 }
 
 #[derive(Debug, Clone, Default)]
-pub enum Schema {
-    WEBRTC,
-
-    #[default]
-    UNKNOWN,
-}
-
-impl fmt::Display for Schema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            // webrtc request uri does not contain the schema name
-            Schema::WEBRTC => {
-                write!(f, "")
-            }
-            Schema::UNKNOWN => {
-                write!(f, "unknown")
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default)]
 pub struct Uri {
-    pub schema: Schema,
     pub host: String,
     pub port: Option<u16>,
     pub path: String,
@@ -56,19 +32,7 @@ impl Unmarshal for Uri {
     fn unmarshal(url: &str) -> Option<Self> {
         let mut uri = Uri::default();
 
-        if url.starts_with("/whip") || url.starts_with("/whep") {
-            uri.schema = Schema::WEBRTC;
-        } else {
-            log::warn!("cannot judge the schema: {}", url);
-            uri.schema = Schema::UNKNOWN;
-        }
-
-        let path_with_query = match uri.schema {
-            Schema::WEBRTC => url,
-            Schema::UNKNOWN => url,
-        };
-
-        let path_data: Vec<&str> = path_with_query.splitn(2, '?').collect();
+        let path_data: Vec<&str> = url.splitn(2, '?').collect();
         uri.path = path_data[0].to_string();
 
         if path_data.len() > 1 {
@@ -87,9 +51,7 @@ impl Marshal for Uri {
             self.path.clone()
         };
 
-        match self.schema {
-            Schema::WEBRTC | Schema::UNKNOWN => path_with_query.as_bytes().to_vec(),
-        }
+        path_with_query.as_bytes().to_vec()
     }
 }
 
@@ -166,7 +128,6 @@ impl Unmarshal for HttpRequest {
                     let name = line[..index].to_string();
                     let value = line[index + 2..].to_string();
 
-                    // for schema: webrtc
                     if name.to_lowercase() == "host" {
                         let (address_val, port_val) = scanf!(value, ':', String, u16);
                         if let Some(address) = address_val {
@@ -324,9 +285,9 @@ mod tests {
     #[test]
     fn test_parse_http_request() {
         let request = "POST /whip/endpoint?app=live&stream=test HTTP/1.1\r\n\
-        Host: whip.example.com\r\n\
-        Content-Type: application/sdp\r\n\
-        Content-Length: 1326\r\n\
+        host: whip.example.com\r\n\
+        content-type: application/sdp\r\n\
+        content-length: 1326\r\n\
         \r\n\
         v=0\r\n\
         o=- 5228595038118931041 2 IN IP4 127.0.0.1\r\n\
@@ -387,19 +348,19 @@ mod tests {
     #[test]
     fn test_whep_request() {
         let request = "POST /whep?app=live&stream=test HTTP/1.1\r\n\
-        Host: localhost:3000\r\n\
-        Accept: */*\r\n\
-        Sec-Fetch-Site: same-origin\r\n\
-        Accept-Language: zh-cn\r\n\
-        Accept-Encoding: gzip, deflate\r\n\
-        Sec-Fetch-Mode: cors\r\n\
-        Content-Type: application/sdp\r\n\
-        Origin: http://localhost:3000\r\n\
-        User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15\r\n\
-        Referer: http://localhost:3000/\r\n\
-        Content-Length: 3895\r\n\
-        Connection: keep-alive\r\n\
-        Sec-Fetch-Dest: empty\r\n\
+        host: localhost:3000\r\n\
+        accept: */*\r\n\
+        sec-fetch-site: same-origin\r\n\
+        accept-language: zh-cn\r\n\
+        accept-encoding: gzip, deflate\r\n\
+        sec-fetch-mode: cors\r\n\
+        content-type: application/sdp\r\n\
+        origin: http://localhost:3000\r\n\
+        user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15\r\n\
+        referer: http://localhost:3000/\r\n\
+        content-length: 3895\r\n\
+        connection: keep-alive\r\n\
+        sec-fetch-dest: empty\r\n\
         \r\n\
         v=0\r\n\
         o=- 6550659986740559335 2 IN IP4 127.0.0.1\r\n\
@@ -538,9 +499,9 @@ mod tests {
     #[test]
     fn test_parse_http_response() {
         let response = "HTTP/1.1 201 Created\r\n\
-        Content-Type: application/sdp\r\n\
-        Location: https://whip.example.com/resource/id\r\n\
-        Content-Length: 1392\r\n\
+        content-type: application/sdp\r\n\
+        location: https://whip.example.com/resource/id\r\n\
+        content-length: 1392\r\n\
         \r\n\
         v=0\r\n\
         o=- 1657793490019 1 IN IP4 127.0.0.1\r\n\

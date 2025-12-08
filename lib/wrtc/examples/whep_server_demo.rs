@@ -11,7 +11,9 @@ use std::{
 use tokio::sync::broadcast::{self, Sender};
 use webrtc::media::io::{h264_reader::H264Reader, ogg_reader::OggReader};
 use wrtc::{
-    Event, PacketData, opus::OPUS_SAMPLE_RATE, session::WebRTCServerSessionConfig,
+    Event, PacketData,
+    opus::OPUS_SAMPLE_RATE,
+    session::{MediaInfo, WebRTCServerSessionConfig},
     webrtc::WebRTCServer,
 };
 
@@ -23,7 +25,7 @@ async fn main() -> Result<()> {
 
     let video_path = "./data/test.h264".to_string();
     let audio_path = "./data/test.ogg".to_string();
-    let config = WebRTCServerSessionConfig::default();
+    let config = WebRTCServerSessionConfig::default().with_media_info(MediaInfo::default());
     let (packet_sender, _) = broadcast::channel(128);
     let (event_sender, mut event_receiver) = broadcast::channel(16);
 

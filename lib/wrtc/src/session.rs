@@ -17,6 +17,7 @@ use bytesio::{
 };
 use derive_setters::Setters;
 use http::StatusCode;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::{net::TcpStream, sync::Mutex};
 use webrtc::peer_connection::{RTCPeerConnection, sdp::session_description::RTCSessionDescription};
@@ -25,15 +26,19 @@ static WEB_WHEP_JS: &str = include_str!("../web-whep-client/whep.js");
 static WEB_WHEP_INDEX: &str = include_str!("../web-whep-client/index.html");
 static WEB_FAVICON: &[u8] = include_bytes!("../../../wayshot/windows/icon.ico");
 
+pub type SessionsMap = Arc<Mutex<HashMap<Uuid, Arc<Mutex<WebRTCServerSession>>>>>;
+
 #[derive(Debug, Setters, Clone)]
 #[setters[prefix = "with_"]]
 pub struct WebRTCServerSessionConfig {
+    pub media_info: MediaInfo,
     pub ice_servers: Vec<String>,
 }
 
 impl Default for WebRTCServerSessionConfig {
     fn default() -> Self {
         Self {
+            media_info: MediaInfo::default(),
             ice_servers: ICE_SERVERS
                 .iter()
                 .map(|s| s.to_string())
@@ -42,7 +47,37 @@ impl Default for WebRTCServerSessionConfig {
     }
 }
 
-pub type SessionsMap = Arc<Mutex<HashMap<Uuid, Arc<Mutex<WebRTCServerSession>>>>>;
+#[derive(Debug, Clone, Serialize, Deserialize, Derivative)]
+#[derivative(Default)]
+pub struct VideoInfo {
+    #[derivative(Default(value = "1920"))]
+    pub width: i32,
+
+    #[derivative(Default(value = "1080"))]
+    pub height: i32,
+
+    #[derivative(Default(value = "25"))]
+    pub fps: u16,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Derivative)]
+#[derivative(Default)]
+pub struct AudioInfo {
+    #[derivative(Default(value = "2"))]
+    pub channels: u16,
+
+    #[derivative(Default(value = "48000"))]
+    pub sample_rate: u32,
+
+    #[derivative(Default(value = "20"))]
+    pub frame_duration_ms: u32,
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct MediaInfo {
+    pub video: VideoInfo,
+    pub audio: AudioInfo,
+}
 
 pub struct WebRTCServerSession {
     config: WebRTCServerSessionConfig,
@@ -128,6 +163,11 @@ impl WebRTCServerSession {
                     "/favicon.ico" => Self::gen_file_response(WEB_FAVICON, "mage/x-icon"),
                     "/whep.js" => {
                         Self::gen_file_response(WEB_WHEP_JS.as_bytes(), "application/javascript")
+                    }
+                    "/mediainfo" => {
+                        let contents =
+                            serde_json::to_string(&self.config.media_info).unwrap_or_default();
+                        Self::gen_file_response(contents.as_bytes(), "text/json")
                     }
                     _ => {
                         log::warn!(

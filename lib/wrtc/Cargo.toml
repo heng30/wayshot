@@ -1,9 +1,14 @@
 [package]
 name = "wrtc"
-edition = "2024"
-license = "MIT"
-version = "0.1.0"
-description = "A whip/whep library."
+license.workspace = true
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "A whep library"
 
 [dependencies]
 log.workspace = true
@@ -11,16 +16,18 @@ rand.workspace = true
 http.workspace = true
 bytes.workspace = true
 rubato.workspace = true
-anyhow.workspace = true
 webrtc.workspace = true
 bytesio.workspace = true
 indexmap.workspace = true
 audiopus.workspace = true
 openh264.workspace = true
 byteorder.workspace = true
+crossbeam.workspace = true
 thiserror.workspace = true
+derivative.workspace = true
 serde_json.workspace = true
 mp4-player.workspace = true
+video-encoder.workspace = true
 derive_setters.workspace = true
 tokio = { workspace = true, features = ["full"] }
 serde = { workspace = true, features = ["derive"] }
@@ -29,6 +36,7 @@ reqwest = { workspace = true, features = ["json"] }
 [dev-dependencies]
 image.workspace = true
 hound.workspace = true
+anyhow.workspace = true
 once_cell.workspace = true
 stunclient.workspace = true
 env_logger.workspace = true

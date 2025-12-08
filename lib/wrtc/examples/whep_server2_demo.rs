@@ -6,16 +6,16 @@ use std::{
     collections::HashSet,
     fs::File,
     path::Path,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicI32, Ordering},
-    },
+    sync::Mutex,
     time::{Duration, Instant},
 };
 use tokio::sync::broadcast::{self, Sender};
 use video_encoder::{EncodedFrame, VideoEncoderConfig};
 use wrtc::{
-    Event, PacketData, common::auth::Auth, opus::OpusCoder, session::WebRTCServerSessionConfig,
+    Event, PacketData,
+    common::auth::Auth,
+    opus::OpusCoder,
+    session::{MediaInfo, WebRTCServerSessionConfig},
     webrtc::WebRTCServer,
 };
 
@@ -28,7 +28,7 @@ async fn main() -> Result<()> {
     env_logger::init();
 
     let audio_path = "./data/test-44100.wav".to_string();
-    let config = WebRTCServerSessionConfig::default();
+    let config = WebRTCServerSessionConfig::default().with_media_info(MediaInfo::default());
     let (packet_sender, _) = broadcast::channel(128);
     let (event_sender, mut event_receiver) = broadcast::channel(16);
 

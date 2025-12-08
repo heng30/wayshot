@@ -64,6 +64,7 @@ impl VideoEncoderConfig {
     }
 }
 
+#[cfg(any(feature = "x264", feature = "openh264", feature = "ffmpeg"))]
 pub fn new(config: VideoEncoderConfig) -> Result<Box<dyn VideoEncoder>> {
     #[cfg(feature = "x264")]
     let ve = ve_x264::X264VideoEncoder::new(config)?;

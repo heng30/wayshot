@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate derivative;
+
 pub mod client;
 pub mod common;
 pub mod opus;
@@ -93,4 +96,49 @@ pub enum SessionError {
 
     #[error("Channel receive error")]
     ChannelRecvError,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ClientError {
+    #[error("H264 decoder error: {0}")]
+    H264DecoderError(String),
+
+    #[error("Opus coder error: {0}")]
+    OpusCoderError(#[from] crate::opus::OpusCoderError),
+
+    #[error("YUV to RGB conversion error: {0}")]
+    YuvToRgbError(String),
+
+    #[error("H264 data too short")]
+    H264DataTooShort,
+
+    #[error("Failed to decode any H264 frame from the input data")]
+    H264DecodeFailed,
+
+    #[error("WebRTC error: {0}")]
+    WebRTCError(#[from] ::webrtc::error::Error),
+
+    #[error("WebRTC util error: {0}")]
+    WebRTCUtilError(#[from] ::webrtc::util::Error),
+
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
+
+    #[error("UTF-8 error: {0}")]
+    Utf8Error(#[from] std::str::Utf8Error),
+
+    #[error("HTTP request error: {0}")]
+    ReqwestError(#[from] reqwest::Error),
+
+    #[error("SDP parse error: {0}")]
+    SdpParseError(String),
+
+    #[error("Connection error: {0}")]
+    ConnectionError(String),
+
+    #[error("Channel send error: {0}")]
+    ChannelError(String),
+
+    #[error("Missing local description")]
+    MissingLocalDescription,
 }
