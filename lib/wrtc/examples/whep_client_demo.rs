@@ -156,8 +156,8 @@ async fn main() -> Result<()> {
         _ = connect_task => {
             info!("Connect task completed");
         }
-        _ = sleep(Duration::from_secs(15)) => {
-            warn!("Test completed after 15 seconds timeout");
+        _ = sleep(Duration::from_secs(20)) => {
+            warn!("Test completed after 20 seconds timeout");
         }
     }
 

@@ -1,4 +1,4 @@
-use crate::{cursor_tracker::TransitionType, resolution::Resolution};
+use crate::{ProcessMode, cursor_tracker::TransitionType, resolution::Resolution};
 use chrono::Local;
 use derive_setters::Setters;
 use screen_capture::LogicalSize;
@@ -35,6 +35,9 @@ impl FPS {
 #[derive(Debug, Clone, Setters)]
 #[setters(prefix = "with_")]
 pub struct RecorderConfig {
+    pub process_mode: ProcessMode,
+    pub save_path: PathBuf,
+
     pub screen_name: String,
     pub screen_size: LogicalSize,
     pub fps: FPS,
@@ -54,8 +57,6 @@ pub struct RecorderConfig {
     #[setters(strip_option)]
     pub speaker_gain: Option<Arc<AtomicI32>>,
 
-    pub save_path: PathBuf,
-
     pub enable_cursor_tracking: bool,
     pub region_width: i32,
     pub region_height: i32,
@@ -68,13 +69,17 @@ pub struct RecorderConfig {
     pub max_stable_region_duration: u64,
     pub zoom_in_transition_type: TransitionType,
     pub zoom_out_transition_type: TransitionType,
+
+    pub share_screen_config: ShareScreenConfig,
 }
 
 impl RecorderConfig {
     pub fn new(screen_name: String, screen_size: LogicalSize, save_path: PathBuf) -> Self {
         Self {
-            screen_name,
+            process_mode: ProcessMode::RecordScreen,
             save_path,
+
+            screen_name,
             screen_size,
             fps: FPS::Fps25,
             resolution: Resolution::P1080,
@@ -103,6 +108,8 @@ impl RecorderConfig {
             max_stable_region_duration: 5,
             zoom_in_transition_type: TransitionType::EaseIn,
             zoom_out_transition_type: TransitionType::EaseOut,
+
+            share_screen_config: ShareScreenConfig::default(),
         }
     }
 
@@ -116,6 +123,15 @@ impl RecorderConfig {
         filename.push_str(".mp4");
         dir.as_ref().to_path_buf().join(filename)
     }
+}
+
+#[derive(Debug, Clone, Default, Setters)]
+#[setters(prefix = "with_")]
+pub struct ShareScreenConfig {
+    pub save_mp4: bool,
+
+    #[setters(strip_option)]
+    pub tun_server: Option<String>,
 }
 
 #[derive(Debug, Default, Clone)]

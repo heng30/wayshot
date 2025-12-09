@@ -16,6 +16,7 @@ const DEFAULT_SPS: [u8; 25] = [
     0xe9, 0x00, 0x00, 0xea, 0x60, 0x0f, 0x16, 0x2d, 0x96,
 ];
 
+#[derive(Clone)]
 pub enum VideoFrameType {
     Frame(Vec<u8>),
     End,

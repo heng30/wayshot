@@ -35,6 +35,7 @@ pub type RGBFrame = (u32, u32, Vec<u8>); // (width, height, rgb_data)
 pub type AudioSamples = Vec<f32>;
 pub type ClientResult<T> = std::result::Result<T, ClientError>;
 
+#[non_exhaustive]
 #[derive(Debug, Setters, Clone)]
 #[setters[prefix = "with_"]]
 pub struct WHEPClientConfig {
@@ -91,6 +92,8 @@ impl WHEPClient {
             media_info.audio.sample_rate
         );
 
+        info!("ice servers: {:#?}", media_info.ice_servers);
+
         Ok(Self {
             config,
             media_info,
@@ -143,7 +146,11 @@ impl WHEPClient {
 
         let config = RTCConfiguration {
             ice_servers: vec![RTCIceServer {
-                urls: self.config.ice_servers.clone(),
+                urls: if self.media_info.ice_servers.is_empty() {
+                    self.config.ice_servers.clone()
+                } else {
+                    self.media_info.ice_servers.clone()
+                },
                 ..Default::default()
             }],
             ..Default::default()

@@ -28,6 +28,7 @@ pub const ICE_SERVERS: [&str; 2] = [
     "stun:stun.l.google.com:19302",
 ];
 
+#[non_exhaustive]
 #[derive(Debug, Setters, Clone)]
 #[setters[prefix = "with_"]]
 pub struct WhepConfig {
@@ -50,7 +51,7 @@ impl WhepConfig {
 impl From<WebRTCServerSessionConfig> for WhepConfig {
     fn from(value: WebRTCServerSessionConfig) -> Self {
         Self {
-            ice_servers: value.ice_servers,
+            ice_servers: value.media_info.ice_servers,
             socket_addr: SocketAddr::from_str("0.0.0.0:8080").unwrap(),
         }
     }

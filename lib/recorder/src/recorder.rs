@@ -1,7 +1,7 @@
 use crate::{
     AudioRecorder, CursorTracker, CursorTrackerConfig, EncodedFrame, FPS, Frame, FrameUser,
-    ProgressState, RecorderConfig, RecorderError, Resolution, SimpleFpsCounter, SpeakerRecorder,
-    StatsUser, platform_speaker_recoder, speaker_recorder::SpeakerRecorderConfig,
+    ProcessMode, ProgressState, RecorderConfig, RecorderError, Resolution, SimpleFpsCounter,
+    SpeakerRecorder, StatsUser, platform_speaker_recoder, speaker_recorder::SpeakerRecorderConfig,
 };
 use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_setters::Setters;
@@ -66,6 +66,7 @@ pub struct RecordingSession {
     audio_mixer_finished_sig: Option<Arc<AtomicBool>>,
     audio_mixer_worker: Option<JoinHandle<()>>,
     mp4_writer_worker: Option<JoinHandle<()>>,
+    share_screen_worker: Option<JoinHandle<()>>,
     h264_frame_sender: Option<Sender<VideoFrameType>>,
 
     crop_region_receiver: Option<Receiver<Rectangle>>,
@@ -103,6 +104,7 @@ impl RecordingSession {
             audio_mixer_worker: None,
 
             mp4_writer_worker: None,
+            share_screen_worker: None,
             h264_frame_sender: None,
 
             crop_region_receiver: None,
@@ -149,11 +151,39 @@ impl RecordingSession {
         );
 
         let video_encoder_config = VideoEncoderConfig::new(encoder_width, encoder_height)
-            .with_fps(self.config.fps.to_u32());
+            .with_fps(self.config.fps.to_u32())
+            .with_annexb(match self.config.process_mode {
+                ProcessMode::RecordScreen => false,
+                ProcessMode::ShareScreen => true,
+            });
+
         let mut video_encoder = video_encoder::new(video_encoder_config)?;
         let headers_data = video_encoder.headers()?;
-        let (audio_sender, speaker_sender) = self.mp4_worker(Some(headers_data.clone()))?;
 
+        let (
+            audio_sender,
+            speak_sender,
+            mix_audio_receiver,
+            mix_audio_channels,
+            mix_audio_sample_rate,
+        ) = self.mix_audio_tracks()?;
+
+        let h264_frame_sender = match self.config.process_mode {
+            ProcessMode::RecordScreen => self.mp4_worker(
+                Some(headers_data.clone()),
+                mix_audio_receiver,
+                mix_audio_channels,
+                mix_audio_sample_rate,
+            )?,
+            ProcessMode::ShareScreen => self.share_screen_worker(
+                Some(headers_data.clone()),
+                mix_audio_receiver,
+                mix_audio_channels,
+                mix_audio_sample_rate,
+            )?,
+        };
+
+        self.h264_frame_sender = h264_frame_sender;
         self.video_encoder = Some(video_encoder);
 
         if let Some(ref sender) = self.h264_frame_sender {
@@ -172,6 +202,7 @@ impl RecordingSession {
             sync_sig: self.sync_sig.clone(),
         };
 
+        // start screen capture
         for i in 0..thread_counts {
             let config_duplicate = config.clone();
             let screen_capturer_duplicate = screen_capturer.clone();
@@ -235,7 +266,7 @@ impl RecordingSession {
                 }
 
                 if self.config.enable_recording_speaker {
-                    self.enable_speaker_audio(speaker_sender.clone())?;
+                    self.enable_speaker_audio(speak_sender.clone())?;
                     log::info!("Enable speaker recording successfully");
                 };
             }
@@ -709,12 +740,23 @@ impl RecordingSession {
         })
     }
 
-    fn mp4_worker(
+    fn mix_audio_tracks(
         &mut self,
-        video_encoder_header_data: Option<Vec<u8>>,
-    ) -> Result<(Option<Sender<Vec<f32>>>, Option<Sender<Vec<f32>>>), RecorderError> {
+    ) -> Result<
+        (
+            Option<Sender<Vec<f32>>>,
+            Option<Sender<Vec<f32>>>,
+            Option<Receiver<Vec<f32>>>,
+            Option<u16>,
+            Option<u32>,
+        ),
+        RecorderError,
+    > {
         let mut specs = vec![];
         let (mut audio_sender, mut speak_sender) = (None, None);
+        let mut mix_audio_receiver = None;
+        let mut mix_audio_sample_rate = None;
+        let mut mix_audio_channels = None;
 
         if let Some(ref device_name) = self.config.audio_device_name {
             specs.push(AudioRecorder::new().spec(device_name)?);
@@ -724,29 +766,16 @@ impl RecordingSession {
             specs.push(platform_speaker_recoder(SpeakerRecorderConfig::default())?.spec());
         }
 
-        let (encoder_width, encoder_height) = self.config.resolution.dimensions(
-            self.config.screen_size.width as u32,
-            self.config.screen_size.height as u32,
-        );
-
-        let mut mp4_processor = Mp4Processor::new(
-            Mp4ProcessorConfigBuilder::default()
-                .save_path(self.config.save_path.clone())
-                .channel_size(AUDIO_MIXER_CHANNEL_SIZE)
-                .video_config(VideoConfig {
-                    width: encoder_width,
-                    height: encoder_height,
-                    fps: self.config.fps.to_u32(),
-                })
-                .build()?,
-        );
-
         if !specs.is_empty() {
+            let (mix_audios_tx, mix_audio_rx) = bounded(AUDIO_MIXER_CHANNEL_SIZE);
+            mix_audio_receiver = Some(mix_audio_rx);
+
             let target_sample_rate = specs
                 .iter()
                 .max_by_key(|item| item.sample_rate)
                 .unwrap()
                 .sample_rate;
+            mix_audio_sample_rate = Some(target_sample_rate);
 
             let target_channels = if self.config.convert_to_mono {
                 1
@@ -757,22 +786,13 @@ impl RecordingSession {
                     .unwrap()
                     .channels
             };
-
-            let mp4_audio_sender = mp4_processor.add_audio_track(AudioConfig {
-                convert_to_mono: false,
-                spec: WavSpec {
-                    channels: target_channels,
-                    sample_rate: target_sample_rate,
-                    bits_per_sample: 32,
-                    sample_format: hound::SampleFormat::Float,
-                },
-            })?;
+            mix_audio_channels = Some(target_channels);
 
             let config = AudioProcessorConfigBuilder::default()
                 .target_sample_rate(target_sample_rate)
                 .channel_size(AUDIO_MIXER_CHANNEL_SIZE)
                 .convert_to_mono(self.config.convert_to_mono)
-                .output_destination(Some(OutputDestination::<f32>::Channel(mp4_audio_sender)))
+                .output_destination(Some(OutputDestination::<f32>::Channel(mix_audios_tx)))
                 .build()?;
 
             let mut audio_processor = AudioProcessor::new(config);
@@ -813,7 +833,76 @@ impl RecordingSession {
             self.audio_mixer_worker = Some(handle);
         }
 
-        self.h264_frame_sender = Some(mp4_processor.h264_sender());
+        Ok((
+            audio_sender,
+            speak_sender,
+            mix_audio_receiver,
+            mix_audio_channels,
+            mix_audio_sample_rate,
+        ))
+    }
+
+    fn mp4_worker(
+        &mut self,
+        video_encoder_header_data: Option<Vec<u8>>,
+        mut mix_audio_receiver: Option<Receiver<Vec<f32>>>,
+        mix_audio_channels: Option<u16>,
+        mix_audio_sample_rate: Option<u32>,
+    ) -> Result<Option<Sender<VideoFrameType>>, RecorderError> {
+        let (encoder_width, encoder_height) = self.config.resolution.dimensions(
+            self.config.screen_size.width as u32,
+            self.config.screen_size.height as u32,
+        );
+
+        let mut mp4_processor = Mp4Processor::new(
+            Mp4ProcessorConfigBuilder::default()
+                .save_path(self.config.save_path.clone())
+                .channel_size(AUDIO_MIXER_CHANNEL_SIZE)
+                .video_config(VideoConfig {
+                    width: encoder_width,
+                    height: encoder_height,
+                    fps: self.config.fps.to_u32(),
+                })
+                .build()?,
+        );
+
+        let mut mp4_audio_sender = if let Some(sample_rate) = mix_audio_sample_rate
+            && let Some(channels) = mix_audio_channels
+        {
+            let sender = mp4_processor.add_audio_track(AudioConfig {
+                convert_to_mono: false,
+                spec: WavSpec {
+                    channels: channels,
+                    sample_rate: sample_rate,
+                    bits_per_sample: 32,
+                    sample_format: hound::SampleFormat::Float,
+                },
+            })?;
+            Some(sender)
+        } else {
+            None
+        };
+
+        if let Some(mp4_audio_tx) = mp4_audio_sender.take()
+            && let Some(mix_audio_rx) = mix_audio_receiver.take()
+        {
+            let stop_sig = self.stop_sig.clone();
+            thread::spawn(move || {
+                loop {
+                    if stop_sig.load(Ordering::Relaxed) {
+                        break;
+                    }
+
+                    if let Ok(data) = mix_audio_rx.try_recv()
+                        && let Err(e) = mp4_audio_tx.try_send(data)
+                    {
+                        log::warn!("forward mix audio samples to mp4 processor faild: {e}");
+                    }
+                }
+            });
+        }
+
+        let h264_frame_sender = Some(mp4_processor.h264_sender());
         let handle = thread::spawn(move || {
             if let Err(e) = mp4_processor.run_processing_loop(video_encoder_header_data) {
                 log::warn!("MP4 processing error: {}", e);
@@ -821,7 +910,74 @@ impl RecordingSession {
         });
         self.mp4_writer_worker = Some(handle);
 
-        Ok((audio_sender, speak_sender))
+        Ok(h264_frame_sender)
+    }
+
+    fn share_screen_worker(
+        &mut self,
+        video_encoder_header_data: Option<Vec<u8>>,
+        mix_audio_receiver: Option<Receiver<Vec<f32>>>,
+        mix_audio_channels: Option<u16>,
+        mix_audio_sample_rate: Option<u32>,
+    ) -> Result<Option<Sender<VideoFrameType>>, RecorderError> {
+        let (mp4_mix_audio_sender, mp4_mix_audio_receiver) = if mix_audio_receiver.is_some() {
+            let (tx, rx) = bounded::<Vec<f32>>(AUDIO_MIXER_CHANNEL_SIZE);
+            (Some(tx), Some(rx))
+        } else {
+            (None, None)
+        };
+
+        let (h264_frame_sender, h264_frame_receiver) =
+            bounded::<VideoFrameType>(ENCODER_WORKER_CHANNEL_SIZE);
+
+        let mp4_h264_frame_sender = if self.config.share_screen_config.save_mp4 {
+            // TODO: mp4_worker cannot handle annexb format frames
+            self.mp4_worker(
+                video_encoder_header_data.clone(),
+                mp4_mix_audio_receiver,
+                mix_audio_channels,
+                mix_audio_sample_rate,
+            )?
+        } else {
+            None
+        };
+
+        let stop_sig = self.stop_sig.clone();
+        let handle = thread::spawn(move || {
+            loop {
+                if stop_sig.load(Ordering::Relaxed) {
+                    break;
+                }
+
+                if let Some(ref receiver) = mix_audio_receiver
+                    && let Ok(data) = receiver.try_recv()
+                {
+                    if let Some(ref sender) = mp4_mix_audio_sender
+                        && let Err(e) = sender.try_send(data.clone())
+                    {
+                        log::warn!("try send audio data to mp4_worker failed: {e}");
+                    }
+
+                    // TODO: send to share screen
+                }
+
+                if let Ok(data) = h264_frame_receiver.try_recv() {
+                    if let Some(ref sender) = mp4_h264_frame_sender
+                        && let Err(e) = sender.try_send(data.clone())
+                    {
+                        log::warn!("try send h264 frame to mp4_worker failed: {e}");
+                    }
+
+                    // TODO: send to share screen
+                }
+            }
+
+            log::info!("share_screen_worker exit...");
+        });
+
+        self.share_screen_worker = Some(handle);
+
+        Ok(Some(h264_frame_sender))
     }
 
     fn wait_stop(
@@ -901,6 +1057,14 @@ impl RecordingSession {
                 log::warn!("join mp4 writer worker failed: {:?}", e);
             } else {
                 log::info!("join mp4 writer worker successfully");
+            }
+        }
+
+        if let Some(handle) = self.share_screen_worker.take() {
+            if let Err(e) = handle.join() {
+                log::warn!("join share screen worker failed: {:?}", e);
+            } else {
+                log::info!("join share screen worker successfully");
             }
         }
 
@@ -1119,3 +1283,125 @@ impl RecordingSession {
         Ok(((mean_ms / iterval_ms).ceil() * 2.0).ceil() as u32)
     }
 }
+
+// fn mp4_worker(
+//     &mut self,
+//     video_encoder_header_data: Option<Vec<u8>>,
+// ) -> Result<
+//     (
+//         Option<Sender<VideoFrameType>>,
+//         Option<Sender<Vec<f32>>>,
+//         Option<Sender<Vec<f32>>>,
+//     ),
+//     RecorderError,
+// > {
+//     let mut specs = vec![];
+//     let (mut audio_sender, mut speak_sender) = (None, None);
+//
+//     if let Some(ref device_name) = self.config.audio_device_name {
+//         specs.push(AudioRecorder::new().spec(device_name)?);
+//     }
+//
+//     if self.config.enable_recording_speaker {
+//         specs.push(platform_speaker_recoder(SpeakerRecorderConfig::default())?.spec());
+//     }
+//
+//     let (encoder_width, encoder_height) = self.config.resolution.dimensions(
+//         self.config.screen_size.width as u32,
+//         self.config.screen_size.height as u32,
+//     );
+//
+//     let mut mp4_processor = Mp4Processor::new(
+//         Mp4ProcessorConfigBuilder::default()
+//             .save_path(self.config.save_path.clone())
+//             .channel_size(AUDIO_MIXER_CHANNEL_SIZE)
+//             .video_config(VideoConfig {
+//                 width: encoder_width,
+//                 height: encoder_height,
+//                 fps: self.config.fps.to_u32(),
+//             })
+//             .build()?,
+//     );
+//
+//     if !specs.is_empty() {
+//         let target_sample_rate = specs
+//             .iter()
+//             .max_by_key(|item| item.sample_rate)
+//             .unwrap()
+//             .sample_rate;
+//
+//         let target_channels = if self.config.convert_to_mono {
+//             1
+//         } else {
+//             specs
+//                 .iter()
+//                 .max_by_key(|item| item.channels)
+//                 .unwrap()
+//                 .channels
+//         };
+//
+//         let mp4_audio_sender = mp4_processor.add_audio_track(AudioConfig {
+//             convert_to_mono: false,
+//             spec: WavSpec {
+//                 channels: target_channels,
+//                 sample_rate: target_sample_rate,
+//                 bits_per_sample: 32,
+//                 sample_format: hound::SampleFormat::Float,
+//             },
+//         })?;
+//
+//         let config = AudioProcessorConfigBuilder::default()
+//             .target_sample_rate(target_sample_rate)
+//             .channel_size(AUDIO_MIXER_CHANNEL_SIZE)
+//             .convert_to_mono(self.config.convert_to_mono)
+//             .output_destination(Some(OutputDestination::<f32>::Channel(mp4_audio_sender)))
+//             .build()?;
+//
+//         let mut audio_processor = AudioProcessor::new(config);
+//
+//         if self.config.audio_device_name.is_some() && self.config.enable_recording_speaker {
+//             audio_sender = Some(audio_processor.add_track(specs[0]));
+//             speak_sender = Some(audio_processor.add_track(specs[1]));
+//         } else if self.config.audio_device_name.is_some() {
+//             audio_sender = Some(audio_processor.add_track(specs[0]));
+//         } else if self.config.enable_recording_speaker {
+//             speak_sender = Some(audio_processor.add_track(specs[0]));
+//         }
+//
+//         self.audio_mixer_stop_sig = Some(Arc::new(AtomicBool::new(false)));
+//         self.audio_mixer_finished_sig = Some(Arc::new(AtomicBool::new(false)));
+//
+//         let stop_sig = self.audio_mixer_stop_sig.clone().unwrap();
+//         let finished_sig = self.audio_mixer_finished_sig.clone().unwrap();
+//
+//         let handle = thread::spawn(move || {
+//             loop {
+//                 if let Err(e) = audio_processor.process_samples() {
+//                     log::warn!("Audio mixer process samples failed: {e}");
+//                 }
+//
+//                 if stop_sig.load(Ordering::Relaxed) {
+//                     if let Err(e) = audio_processor.flush() {
+//                         log::warn!("Audio mixer flush sample failed: {e}");
+//                     }
+//                     finished_sig.store(true, Ordering::Relaxed);
+//                     return;
+//                 }
+//
+//                 thread::sleep(Duration::from_millis(100));
+//             }
+//         });
+//
+//         self.audio_mixer_worker = Some(handle);
+//     }
+//
+//     let h264_frame_sender = Some(mp4_processor.h264_sender());
+//     let handle = thread::spawn(move || {
+//         if let Err(e) = mp4_processor.run_processing_loop(video_encoder_header_data) {
+//             log::warn!("MP4 processing error: {}", e);
+//         }
+//     });
+//     self.mp4_writer_worker = Some(handle);
+//
+//     Ok((h264_frame_sender, audio_sender, speak_sender))
+// }

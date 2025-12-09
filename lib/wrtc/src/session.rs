@@ -28,27 +28,25 @@ static WEB_FAVICON: &[u8] = include_bytes!("../../../wayshot/windows/icon.ico");
 
 pub type SessionsMap = Arc<Mutex<HashMap<Uuid, Arc<Mutex<WebRTCServerSession>>>>>;
 
+#[non_exhaustive]
 #[derive(Debug, Setters, Clone)]
 #[setters[prefix = "with_"]]
 pub struct WebRTCServerSessionConfig {
     pub media_info: MediaInfo,
-    pub ice_servers: Vec<String>,
 }
 
 impl Default for WebRTCServerSessionConfig {
     fn default() -> Self {
         Self {
             media_info: MediaInfo::default(),
-            ice_servers: ICE_SERVERS
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>(),
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Derivative)]
+#[non_exhaustive]
+#[derive(Debug, Clone, Setters, Serialize, Deserialize, Derivative)]
 #[derivative(Default)]
+#[setters[prefix = "with_"]]
 pub struct VideoInfo {
     #[derivative(Default(value = "1920"))]
     pub width: i32,
@@ -60,8 +58,10 @@ pub struct VideoInfo {
     pub fps: u16,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Derivative)]
+#[non_exhaustive]
+#[derive(Debug, Clone, Setters, Serialize, Deserialize, Derivative)]
 #[derivative(Default)]
+#[setters[prefix = "with_"]]
 pub struct AudioInfo {
     #[derivative(Default(value = "2"))]
     pub channels: u16,
@@ -73,10 +73,29 @@ pub struct AudioInfo {
     pub frame_duration_ms: u32,
 }
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Setters, Clone, Serialize, Deserialize)]
+#[setters[prefix = "with_"]]
 pub struct MediaInfo {
     pub video: VideoInfo,
     pub audio: AudioInfo,
+    pub ice_servers: Vec<String>,
+
+    #[setters(skip)]
+    _private: (),
+}
+
+impl Default for MediaInfo {
+    fn default() -> Self {
+        Self {
+            video: VideoInfo::default(),
+            audio: AudioInfo::default(),
+            ice_servers: ICE_SERVERS
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>(),
+            _private: (),
+        }
+    }
 }
 
 pub struct WebRTCServerSession {

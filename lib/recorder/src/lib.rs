@@ -28,6 +28,12 @@ pub enum ProgressState {
     Stopped,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProcessMode {
+    RecordScreen,
+    ShareScreen,
+}
+
 #[derive(Debug, Clone)]
 pub struct Frame {
     pub thread_id: u32,
