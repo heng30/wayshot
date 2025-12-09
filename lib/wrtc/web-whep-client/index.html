@@ -92,14 +92,7 @@
         scrollbar-width: none; /* Firefox */
       }
 
-      h1 {
-        text-align: center;
-        margin: 0 0 30px 0;
-        color: rgba(255, 255, 255, 0.8);
-        font-size: 2rem;
-        font-weight: 400;
-      }
-
+    
       .controls {
         display: flex;
         align-items: center;
@@ -244,6 +237,15 @@
       button:hover {
         background: #357abd;
         box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+      }
+
+      button.connected {
+        background: #e74c3c;
+      }
+
+      button.connected:hover {
+        background: #c0392b;
+        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
       }
 
       button:active {
@@ -504,14 +506,108 @@
         transform: none;
       }
 
+      /* Toast notification styles */
+      .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        pointer-events: none;
+      }
+
+      .toast {
+        background: rgba(231, 76, 60, 0.95);
+        color: #fff;
+        padding: 16px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        min-width: 300px;
+        max-width: 400px;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+        pointer-events: auto;
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      .toast.error {
+        background: rgba(231, 76, 60, 0.95);
+      }
+
+      .toast.warning {
+        background: rgba(243, 156, 18, 0.95);
+      }
+
+      .toast.info {
+        background: rgba(52, 152, 219, 0.95);
+      }
+
+      .toast.success {
+        background: rgba(46, 204, 113, 0.95);
+      }
+
+      .toast-icon {
+        flex-shrink: 0;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .toast-icon svg {
+        width: 100%;
+        height: 100%;
+        fill: currentColor;
+      }
+
+      .toast-message {
+        flex: 1;
+        line-height: 1.4;
+      }
+
+      .toast-close {
+        flex-shrink: 0;
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.8);
+        cursor: pointer;
+        padding: 0;
+        margin: 0;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: all 0.2s;
+      }
+
+      .toast-close:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+      }
+
       /* Web page fullscreen styles */
       body.webpage-fullscreen {
         padding: 0;
         overflow: hidden;
       }
 
-      body.webpage-fullscreen h1,
-      body.webpage-fullscreen .controls {
+      body.webpage-fullscreen .main-title,
+      body.webpage-fullscreen .controls,
+      body.webpage-fullscreen .utility-controls {
         display: none;
       }
 
@@ -554,14 +650,96 @@
         transform: none;
       }
 
+      .main-title {
+        text-align: center;
+        margin: 0 0 30px 0;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 2.5rem;
+        font-weight: 500;
+      }
+
+      .utility-controls {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        z-index: 100;
+      }
+
+      .language-buttons {
+        display: flex;
+        gap: 8px;
+      }
+
+      .lang-btn {
+        padding: 6px 12px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .lang-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: #fff;
+      }
+
+      .lang-btn.active {
+        background: #4a90e2;
+        border-color: #4a90e2;
+        color: #fff;
+      }
+
+      .github-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        transition: all 0.3s;
+        text-decoration: none;
+      }
+
+      .github-link:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: scale(1.1);
+      }
+
+      .github-link svg {
+        width: 18px;
+        height: 18px;
+        fill: rgba(255, 255, 255, 0.8);
+        transition: fill 0.3s;
+      }
+
+      .github-link:hover svg {
+        fill: #fff;
+      }
+
       @media (max-width: 768px) {
         body {
           padding: 10px;
         }
 
-        h1 {
-          font-size: 1.5rem;
+        .main-title {
+          font-size: 1.8rem;
           margin-bottom: 20px;
+        }
+
+        .utility-controls {
+          top: 10px;
+          right: 10px;
+          gap: 10px;
         }
 
         .controls {
@@ -597,7 +775,18 @@
   </head>
 
   <body>
-    <h1>Wayshot 屏幕共享</h1>
+    <h1 class="main-title">Wayshot 屏幕共享</h1>
+    <div class="utility-controls">
+      <div class="language-buttons">
+        <button class="lang-btn active" data-lang="zh">中文</button>
+        <button class="lang-btn" data-lang="en">English</button>
+      </div>
+      <a href="https://github.com/Heng30/wayshot" target="_blank" class="github-link">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+        </svg>
+      </a>
+    </div>
     <div class="controls">
       <div class="switch-group">
         <div class="switch-container" id="switch-container">
@@ -646,8 +835,121 @@
       </div>
     </div>
 
+    <!-- Toast container for notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
     <script src="whep.js"></script>
     <script>
+      // Language translations
+      const translations = {
+        zh: {
+          title: "Wayshot 屏幕共享",
+          authDisabled: "未启用授权",
+          authEnabled: "已启用授权",
+          tokenLabel: "令牌：",
+          connectBtn: "连接",
+          disconnectBtn: "双击断开连接"
+        },
+        en: {
+          title: "Wayshot Screen Sharing",
+          authDisabled: "Authorization Disabled",
+          authEnabled: "Authorization Enabled",
+          tokenLabel: "Token: ",
+          connectBtn: "Connect",
+          disconnectBtn: "Double-click to Disconnect"
+        }
+      };
+
+      let currentLang = 'zh';
+
+      // Toast notification system
+      const toastContainer = document.getElementById('toast-container');
+      let toastCounter = 0;
+
+      function showToast(message, type = 'error', duration = 5000) {
+        const toastId = `toast-${toastCounter++}`;
+
+        // Create icon based on type
+        let iconSvg = '';
+        switch (type) {
+          case 'error':
+            iconSvg = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>';
+            break;
+          case 'warning':
+            iconSvg = '<svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
+            break;
+          case 'info':
+            iconSvg = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>';
+            break;
+          case 'success':
+            iconSvg = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+            break;
+        }
+
+        const toastHtml = `
+          <div class="toast ${type}" id="${toastId}">
+            <div class="toast-icon">${iconSvg}</div>
+            <div class="toast-message">${message}</div>
+            <button class="toast-close" onclick="closeToast('${toastId}')">
+              <svg viewBox="0 0 24 24">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
+          </div>
+        `;
+
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+
+        const toastElement = document.getElementById(toastId);
+
+        // Trigger animation
+        setTimeout(() => {
+          toastElement.classList.add('show');
+        }, 10);
+
+        // Auto remove after duration
+        if (duration > 0) {
+          setTimeout(() => {
+            closeToast(toastId);
+          }, duration);
+        }
+
+        return toastId;
+      }
+
+      function closeToast(toastId) {
+        const toastElement = document.getElementById(toastId);
+        if (toastElement) {
+          toastElement.classList.remove('show');
+          setTimeout(() => {
+            toastElement.remove();
+          }, 300);
+        }
+      }
+
+      // Function to update UI language
+      function updateLanguage(lang) {
+        const texts = translations[lang];
+        document.title = texts.title;
+        document.querySelector('.main-title').textContent = texts.title;
+        document.getElementById('switch-label').textContent = authEnabled ? texts.authEnabled : texts.authDisabled;
+        document.querySelector('label[for="token"]').textContent = texts.tokenLabel;
+        document.getElementById('start-whep-btn').textContent = texts.connectBtn;
+
+        // Update language button states
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.lang === lang);
+        });
+      }
+
+      // Language switching event listeners
+      document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentLang = btn.dataset.lang;
+          updateLanguage(currentLang);
+        });
+      });
+
       const startWhepBtn = document.getElementById("start-whep-btn");
       const authSwitch = document.getElementById("auth-switch");
       const switchContainer = document.getElementById("switch-container");
@@ -677,6 +979,8 @@
 
       // Function to close existing connection
       async function closeExistingConnection() {
+        console.log("Closing existing connection...");
+
         try {
           // Close WHEP client if exists (this will send HTTP DELETE)
           if (currentWhepClient) {
@@ -686,54 +990,44 @@
 
           // Close peer connection if exists (fallback cleanup)
           if (currentPeerConnection) {
-            // Close all transceivers
-            currentPeerConnection.getTransceivers().forEach(transceiver => {
-              if (transceiver.stop) {
-                transceiver.stop();
-              }
-            });
-
-            // Close peer connection
             currentPeerConnection.close();
             currentPeerConnection = null;
           }
 
           // Clear video source and reset to black
           localVideo.srcObject = null;
-          localVideo.load(); // Reset video element to black
+          localVideo.load();
 
           // Reset UI state
           playBtn.textContent = "▶";
           playbackStateIndicator.classList.remove("show");
-          // Don't hide loading spinner here - let the caller handle it
-          // loadingSpinner.classList.remove("show");
 
-          isConnecting = false;
+          console.log("Connection closed successfully");
         } catch (error) {
-          console.warn("Error closing connection:", error);
+          console.error("Error closing connection:", error);
           // Ensure state is reset even if close fails
           currentWhepClient = null;
           currentPeerConnection = null;
           localVideo.srcObject = null;
-          localVideo.load(); // Reset video element to black
-          isConnecting = false;
+          localVideo.load();
         }
       }
 
       // Switch toggle functionality
       authSwitch.addEventListener("click", () => {
         authEnabled = !authEnabled;
+        const texts = translations[currentLang];
 
         if (authEnabled) {
           authSwitch.classList.add("active");
           switchContainer.classList.add("active");
-          switchLabel.textContent = "已启用授权";
+          switchLabel.textContent = texts.authEnabled;
           authInputGroup.classList.add("enabled");
           tokenInput.disabled = false;
         } else {
           authSwitch.classList.remove("active");
           switchContainer.classList.remove("active");
-          switchLabel.textContent = "未启用授权";
+          switchLabel.textContent = texts.authDisabled;
           authInputGroup.classList.remove("enabled");
           tokenInput.disabled = true;
         }
@@ -1071,6 +1365,18 @@
         updateTimeDisplay();
       });
 
+      // Update connection button state
+      function updateConnectionButton(isConnected) {
+        const texts = translations[currentLang];
+        if (isConnected) {
+          startWhepBtn.textContent = texts.disconnectBtn || "断开连接";
+          startWhepBtn.classList.add("connected");
+        } else {
+          startWhepBtn.textContent = texts.connectBtn;
+          startWhepBtn.classList.remove("connected");
+        }
+      }
+
       // Play button functionality
       playBtn.addEventListener("click", (e) => {
         e.stopPropagation(); // Prevent event from bubbling up to video container
@@ -1086,6 +1392,31 @@
       });
 
       startWhepBtn.addEventListener("click", async () => {
+        // Check if we're currently connected - if so, disconnect
+        if (currentPeerConnection || currentWhepClient) {
+          console.log("Disconnecting...");
+
+          // Show loading spinner during disconnection
+          loadingSpinner.classList.add("show");
+          playbackStateIndicator.classList.remove("show");
+
+          try {
+            await closeExistingConnection();
+            console.log("Disconnected successfully");
+          } catch (error) {
+            console.error("Error during disconnection:", error);
+          }
+
+          // Always update button state after disconnection attempt
+          updateConnectionButton(false);
+
+          // Hide spinner and reset states
+          loadingSpinner.classList.remove("show");
+          isConnecting = false;
+          return;
+        }
+
+        // Otherwise, start a new connection
         const token = tokenInput.value;
         const useAuth = authEnabled;
 
@@ -1097,14 +1428,9 @@
         localVideo.srcObject = null;
         localVideo.load();
 
-        // If already connecting or has existing connection, close it first
-        if (isConnecting || currentPeerConnection || currentWhepClient) {
-          await closeExistingConnection();
-
-          // If we're in the middle of connecting, stop here but keep spinner showing
-          if (isConnecting) {
-            return;
-          }
+        // If already connecting, stop here
+        if (isConnecting) {
+          return;
         }
 
         // Set connecting state
@@ -1137,6 +1463,9 @@
 
             isConnecting = false;
 
+            // Update button to show disconnect state
+            updateConnectionButton(true);
+
             // Auto-play when video stream starts
             player.play().catch((err) => {
               console.log("Auto-play failed:", err);
@@ -1154,10 +1483,14 @@
         pc.onconnectionstatechange = () => {
           console.log("Connection state:", pc.connectionState);
           if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+            console.log("Connection lost, cleaning up...");
             loadingSpinner.classList.remove("show");
             playBtn.textContent = "▶";
             isConnecting = false;
             currentPeerConnection = null;
+            currentWhepClient = null;
+            // Update button to show connect state
+            updateConnectionButton(false);
           }
         };
 
@@ -1170,11 +1503,31 @@
         //Start viewing
         whep.view(pc, url, useAuth ? token : null).catch((err) => {
           console.error("WHEP connection failed:", err);
+
+          // Check if it's an authorization error
+          if (err.message === "UNAUTHORIZED") {
+            const texts = translations[currentLang];
+            const authMessage = useAuth
+              ? "授权失败，请检查令牌是否正确"
+              : "需要授权才能连接，请启用授权并输入有效令牌";
+            const enAuthMessage = useAuth
+              ? "Authorization failed, please check if the token is correct"
+              : "Authorization required to connect, please enable authorization and enter a valid token";
+
+            showToast(currentLang === 'zh' ? authMessage : enAuthMessage, 'error', 6000);
+          } else {
+            const texts = translations[currentLang];
+            const connectFailMessage = currentLang === 'zh' ? "连接失败，请检查网络连接" : "Connection failed, please check network connection";
+            showToast(connectFailMessage, 'error', 5000);
+          }
+
           loadingSpinner.classList.remove("show");
           playBtn.textContent = "▶";
           isConnecting = false;
           currentPeerConnection = null;
           currentWhepClient = null;
+          // Update button to show connect state on error
+          updateConnectionButton(false);
         });
       });
 
@@ -1187,6 +1540,9 @@
       // Initialize controls - show by default in non-fullscreen mode
       videoControls.classList.add("show");
       controlBarVisible = true;
+
+      // Initialize language
+      updateLanguage(currentLang);
     </script>
   </body>
 </html>

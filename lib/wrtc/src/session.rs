@@ -226,7 +226,13 @@ impl WebRTCServerSession {
                                     .as_ref()
                                     .map(|q| SecretCarrier::Query(q.to_string()))
                             });
-                        auth.authenticate(&token_carrier)?;
+
+                        if let Err(e) = auth.authenticate(&token_carrier) {
+                            self.send_response(&Self::gen_response(http::StatusCode::UNAUTHORIZED))
+                                .await?;
+
+                            return Err(SessionError::AuthError(e));
+                        }
                     }
 
                     match ty.to_lowercase().as_str() {
