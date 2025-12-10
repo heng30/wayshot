@@ -155,9 +155,12 @@ impl WHEPClient {
         };
 
         let peer_connection = Arc::new(api.new_peer_connection(config).await?);
-        peer_connection
-            .add_transceiver_from_kind(RTPCodecType::Audio, None)
-            .await?;
+
+        if self.media_info.audio.is_some() {
+            peer_connection
+                .add_transceiver_from_kind(RTPCodecType::Audio, None)
+                .await?;
+        }
 
         if self.media_info.audio.is_some() {
             peer_connection
@@ -625,4 +628,88 @@ fn parse_stap_a_multiple(payload: &[u8]) -> Vec<Vec<u8>> {
         pos += nal_size;
     }
     results
+}
+
+/// Convert H.264 NAL units from Annex B format (start codes) to length-prefixes format
+/// This is required for MP4 container format, which uses 4-byte length prefixes instead of start codes
+pub fn convert_annexb_to_length_prefixes(annexb_data: &[u8]) -> Vec<u8> {
+    let mut i = 0;
+    let mut length_preference_data = Vec::new();
+
+    if annexb_data.is_empty() {
+        return length_preference_data;
+    }
+
+    // Find first start code, ignoring leading garbage data
+    while i + 2 < annexb_data.len() {
+        if annexb_data[i] == 0 && annexb_data[i + 1] == 0 && annexb_data[i + 2] == 1 {
+            break; // Found 3-byte start code
+        }
+        if i + 3 < annexb_data.len()
+            && annexb_data[i] == 0
+            && annexb_data[i + 1] == 0
+            && annexb_data[i + 2] == 0
+            && annexb_data[i + 3] == 1
+        {
+            break; // Found 4-byte start code
+        }
+        i += 1;
+    }
+
+    while i < annexb_data.len() {
+        // 1. Determine current start code length
+        let start_code_len = if i + 3 < annexb_data.len()
+            && annexb_data[i] == 0
+            && annexb_data[i + 1] == 0
+            && annexb_data[i + 2] == 0
+            && annexb_data[i + 3] == 1
+        {
+            4
+        } else if i + 2 < annexb_data.len()
+            && annexb_data[i] == 0
+            && annexb_data[i + 1] == 0
+            && annexb_data[i + 2] == 1
+        {
+            3
+        } else {
+            // No valid start code found, we're done
+            break;
+        };
+
+        let nal_start = i + start_code_len;
+        let mut nal_end = annexb_data.len();
+
+        // 2. Find next start code (as end of current NAL)
+        // Optimization: search from nal_start
+        let mut j = nal_start;
+        while j + 2 < annexb_data.len() {
+            if annexb_data[j] == 0 && annexb_data[j + 1] == 0 {
+                if annexb_data[j + 2] == 1 {
+                    // Found next 00 00 01
+                    nal_end = j;
+                    break;
+                } else if j + 3 < annexb_data.len()
+                    && annexb_data[j + 2] == 0
+                    && annexb_data[j + 3] == 1
+                {
+                    // Found next 00 00 00 01
+                    nal_end = j;
+                    break;
+                }
+            }
+            j += 1;
+        }
+
+        let nal_data = &annexb_data[nal_start..nal_end];
+        let nal_size = nal_data.len();
+
+        if nal_size > 0 {
+            length_preference_data.extend_from_slice(&(nal_size as u32).to_be_bytes());
+            length_preference_data.extend_from_slice(nal_data);
+        }
+
+        i = nal_end;
+    }
+
+    length_preference_data
 }

@@ -20,20 +20,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::debug!("Audio specs - File 1: {:?}", spec1);
     log::debug!("Audio specs - File 2: {:?}", spec2);
 
-    let all_samples1: Vec<f32> = match spec1.sample_format {
-        hound::SampleFormat::Float => reader1.samples::<f32>().collect::<Result<Vec<f32>, _>>()?,
-        hound::SampleFormat::Int => reader1
-            .samples::<i16>()
-            .map(|s| s.map(|v| v as f32))
-            .collect::<Result<Vec<f32>, _>>()?,
-    };
-    let all_samples2: Vec<f32> = match spec2.sample_format {
-        hound::SampleFormat::Float => reader2.samples::<f32>().collect::<Result<Vec<f32>, _>>()?,
-        hound::SampleFormat::Int => reader2
-            .samples::<i16>()
-            .map(|s| s.map(|v| v as f32))
-            .collect::<Result<Vec<f32>, _>>()?,
-    };
+    let all_samples1: Vec<i16> = reader1.samples::<i16>().collect::<Result<Vec<i16>, _>>()?;
+    let all_samples2: Vec<i16> = reader2.samples::<i16>().collect::<Result<Vec<i16>, _>>()?;
 
     log::debug!("Total samples - File 1: {}", all_samples1.len());
     log::debug!("Total samples - File 2: {}", all_samples2.len());
@@ -41,44 +29,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let max_samples = all_samples1.len().max(all_samples2.len());
     log::debug!("Max samples across files: {}", max_samples);
 
-    let samples_per_ms1 = (spec1.sample_rate as f32 / 1000.0) as usize * spec1.channels as usize;
-    let samples_per_ms2 = (spec2.sample_rate as f32 / 1000.0) as usize * spec2.channels as usize;
+    let samples1_per_ms = (spec1.sample_rate as f32 * spec1.channels as f32 / 1000.0) as usize;
+    let samples2_per_ms = (spec2.sample_rate as f32 * spec2.channels as f32 / 1000.0) as usize;
+    let min_chunk_ms = 10;
+    let max_chunk_ms = 10;
 
-    let min_chunk_samples1 = (500.0 * samples_per_ms1 as f32) as usize;
-    let max_chunk_samples1 = (1000.0 * samples_per_ms1 as f32) as usize;
-    let min_chunk_samples2 = (500.0 * samples_per_ms2 as f32) as usize;
-    let max_chunk_samples2 = (1000.0 * samples_per_ms2 as f32) as usize;
-
-    log::debug!(
-        "Track 1 - Samples per ms: {} ({} channels)",
-        samples_per_ms1,
-        spec1.channels
-    );
-    log::debug!(
-        "Track 1 - Min chunk samples (500ms): {}",
-        min_chunk_samples1
-    );
-    log::debug!(
-        "Track 1 - Max chunk samples (1000ms): {}",
-        max_chunk_samples1
-    );
-    log::debug!(
-        "Track 2 - Samples per ms: {} ({} channels)",
-        samples_per_ms2,
-        spec2.channels
-    );
-    log::debug!(
-        "Track 2 - Min chunk samples (500ms): {}",
-        min_chunk_samples2
-    );
-    log::debug!(
-        "Track 2 - Max chunk samples (1000ms): {}",
-        max_chunk_samples2
-    );
+    log::debug!("Samples1 per ms: {}", samples1_per_ms);
+    log::debug!("Samples2 per ms: {}", samples2_per_ms);
+    log::debug!("Min chunk ms: {}", min_chunk_ms);
+    log::debug!("Max chunk ms: {}", max_chunk_ms);
 
     let config = AudioProcessorConfigBuilder::default()
         .target_sample_rate(sample_rate::CD)
-        .convert_to_mono(false)
+        .convert_to_mono(true)
         .output_destination(Some(OutputDestination::<f32>::File(output_file.into())))
         .build()?;
 
@@ -90,67 +53,51 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut processed_samples1 = 0;
     let mut processed_samples2 = 0;
 
-    let now = std::time::Instant::now();
-
     while processed_samples1 < all_samples1.len() || processed_samples2 < all_samples2.len() {
-        let remaining_samples1 = all_samples1.len() - processed_samples1;
-        let remaining_samples2 = all_samples2.len() - processed_samples2;
+        let chunk_ms = rng.random_range(min_chunk_ms..=max_chunk_ms);
 
-        let chunk_size1 = if remaining_samples1 == 0 {
-            0
-        } else if remaining_samples1 < min_chunk_samples1 {
-            remaining_samples1
-        } else {
-            rng.random_range(min_chunk_samples1..=max_chunk_samples1.min(remaining_samples1))
-        };
+        // Calculate chunk size for each track based on their sample rates
+        let chunk1_size = chunk_ms * samples1_per_ms;
+        let chunk2_size = chunk_ms * samples2_per_ms;
 
-        let chunk_size2 = if remaining_samples2 == 0 {
-            0
-        } else if remaining_samples2 < min_chunk_samples2 {
-            remaining_samples2
-        } else {
-            rng.random_range(min_chunk_samples2..=max_chunk_samples2.min(remaining_samples2))
-        };
-
-        let chunk1 = if chunk_size1 > 0 {
-            let end = processed_samples1 + chunk_size1;
+        let chunk1 = if processed_samples1 < all_samples1.len() {
+            let end = (processed_samples1 + chunk1_size).min(all_samples1.len());
             &all_samples1[processed_samples1..end]
         } else {
             &[]
         };
 
-        let chunk2 = if chunk_size2 > 0 {
-            let end = processed_samples2 + chunk_size2;
+        let chunk2 = if processed_samples2 < all_samples2.len() {
+            let end = (processed_samples2 + chunk2_size).min(all_samples2.len());
             &all_samples2[processed_samples2..end]
         } else {
             &[]
         };
 
         log::debug!(
-            "Processing chunks - Track1: {} samples, Track2: {} samples",
+            "Processing chunk: {} ms - Track1: {} samples, Track2: {} samples",
+            chunk_ms,
             chunk1.len(),
             chunk2.len()
         );
 
         if !chunk1.is_empty() {
-            sender1.send(chunk1.to_vec())?;
-            processed_samples1 += chunk_size1;
+            sender1.send(chunk1.iter().map(|i| *i as f32).collect())?;
         }
         if !chunk2.is_empty() {
-            sender2.send(chunk2.to_vec())?;
-            processed_samples2 += chunk_size2;
+            sender2.send(chunk2.iter().map(|i| *i as f32).collect())?;
         }
 
         processor.process_samples()?;
+
+        processed_samples1 += chunk1_size;
+        processed_samples2 += chunk2_size;
     }
 
     processor.flush()?;
 
-    log::debug!(
-        "Spent: {:.2?}, Mixed output saved to: {}",
-        now.elapsed(),
-        output_file
-    );
+    log::debug!("Two-track audio mixing completed!");
+    log::debug!("Mixed output saved to: {}", output_file);
 
     Ok(())
 }

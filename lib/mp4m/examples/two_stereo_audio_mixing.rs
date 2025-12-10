@@ -30,13 +30,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let max_samples = all_samples1.len().max(all_samples2.len());
     log::debug!("Max samples across files: {}", max_samples);
 
-    let samples_per_ms = (spec1.sample_rate as f32 / 1000.0) as usize;
-    let min_chunk_samples = (500.0 * samples_per_ms as f32) as usize;
-    let max_chunk_samples = (1000.0 * samples_per_ms as f32) as usize;
+    let samples1_per_ms = (spec1.sample_rate as f32 * spec1.channels as f32 / 1000.0) as usize;
+    let samples2_per_ms = (spec2.sample_rate as f32 * spec2.channels as f32 / 1000.0) as usize;
+    let min_chunk_ms = 10;
+    let max_chunk_ms = 10;
 
-    log::debug!("Samples per ms: {}", samples_per_ms);
-    log::debug!("Min chunk samples (500ms): {}", min_chunk_samples);
-    log::debug!("Max chunk samples (1000ms): {}", max_chunk_samples);
+    log::debug!("Samples1 per ms: {}", samples1_per_ms);
+    log::debug!("Samples2 per ms: {}", samples2_per_ms);
+    log::debug!("Min chunk ms: {}", min_chunk_ms);
+    log::debug!("Max chunk ms: {}", max_chunk_ms);
 
     let config = AudioProcessorConfigBuilder::default()
         .target_sample_rate(sample_rate::CD)
@@ -49,35 +51,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sender2 = processor.add_track(spec2);
 
     let mut rng = rand::rng();
-    let mut processed_samples = 0;
+    let mut processed_samples1 = 0;
+    let mut processed_samples2 = 0;
 
-    while processed_samples < max_samples {
-        let remaining_samples = max_samples - processed_samples;
+    while processed_samples1 < all_samples1.len() || processed_samples2 < all_samples2.len() {
+        let chunk_ms = rng.random_range(min_chunk_ms..=max_chunk_ms);
 
-        let chunk_size = if remaining_samples < min_chunk_samples {
-            remaining_samples
-        } else {
-            rng.random_range(min_chunk_samples..=max_chunk_samples.min(remaining_samples))
-        };
+        // Calculate chunk size for each track based on their sample rates
+        let chunk1_size = chunk_ms * samples1_per_ms;
+        let chunk2_size = chunk_ms * samples2_per_ms;
 
-        let chunk1 = if processed_samples < all_samples1.len() {
-            let end = (processed_samples + chunk_size).min(all_samples1.len());
-            &all_samples1[processed_samples..end]
+        let chunk1 = if processed_samples1 < all_samples1.len() {
+            let end = (processed_samples1 + chunk1_size).min(all_samples1.len());
+            &all_samples1[processed_samples1..end]
         } else {
             &[]
         };
 
-        let chunk2 = if processed_samples < all_samples2.len() {
-            let end = (processed_samples + chunk_size).min(all_samples2.len());
-            &all_samples2[processed_samples..end]
+        let chunk2 = if processed_samples2 < all_samples2.len() {
+            let end = (processed_samples2 + chunk2_size).min(all_samples2.len());
+            &all_samples2[processed_samples2..end]
         } else {
             &[]
         };
 
         log::debug!(
-            "Processing chunk: {} samples ({} ms) - Tracks: {}/{}",
-            chunk_size,
-            chunk_size as f32 / samples_per_ms as f32,
+            "Processing chunk: {} ms - Track1: {} samples, Track2: {} samples",
+            chunk_ms,
             chunk1.len(),
             chunk2.len()
         );
@@ -91,9 +91,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         processor.process_samples()?;
 
-        processed_samples += chunk_size;
-
-        std::thread::sleep(std::time::Duration::from_millis(10));
+        processed_samples1 += chunk1_size;
+        processed_samples2 += chunk2_size;
     }
 
     processor.flush()?;

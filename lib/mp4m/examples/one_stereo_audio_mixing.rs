@@ -23,8 +23,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::debug!("Total samples: {}", all_samples.len());
 
     let samples_per_ms = (spec.sample_rate as f32 / 1000.0) as usize;
-    let min_chunk_samples = (500.0 * samples_per_ms as f32) as usize;
-    let max_chunk_samples = (1000.0 * samples_per_ms as f32) as usize;
+    let min_chunk_samples = (10.0 * samples_per_ms as f32) as usize;
+    let max_chunk_samples = (20.0 * samples_per_ms as f32) as usize;
 
     log::debug!("Samples per ms: {}", samples_per_ms);
     log::debug!("Min chunk samples (500ms): {}", min_chunk_samples);
@@ -63,8 +63,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         processor.process_samples()?;
 
         processed_samples += chunk_size;
-
-        std::thread::sleep(std::time::Duration::from_millis(10));
     }
 
     processor.flush()?;

@@ -14,7 +14,6 @@ description.workspace = true
 log.workspace = true
 mp4.workspace = true
 hound.workspace = true
-rubato.workspace = true
 fdk-aac.workspace = true
 thiserror.workspace = true
 crossbeam.workspace = true

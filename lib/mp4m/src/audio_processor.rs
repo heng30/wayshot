@@ -2,9 +2,10 @@ use crate::SampleType;
 use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_builder::Builder;
 use hound::{SampleFormat, WavSpec, WavWriter};
-use rubato::{Resampler, SincFixedIn, WindowFunction};
 use std::{fs::File, io::BufWriter, marker::PhantomData, path::PathBuf};
 use thiserror::Error;
+
+const FRAME_DURATION_MS: usize = 20;
 
 /// Common audio sample rates
 pub mod sample_rate {
@@ -110,7 +111,7 @@ impl<T: SampleType> AudioProcessor<T> {
         sender
     }
 
-    fn resample_audio(
+    pub fn resample_audio(
         input_samples: &[f32],
         input_sample_rate: u32,
         output_sample_rate: u32,
@@ -120,46 +121,51 @@ impl<T: SampleType> AudioProcessor<T> {
             return Ok(input_samples.to_vec());
         }
 
-        let num_frames = input_samples.len() / channels as usize;
+        let channels = channels as usize;
+        let input_frames = input_samples.len() / channels;
+        let ratio = output_sample_rate as f64 / input_sample_rate as f64;
+        let output_frames = (input_frames as f64 * ratio).round() as usize;
+        let output_samples = output_frames * channels;
+        let mut output = vec![0.0f32; output_samples];
 
-        let mut resampler = SincFixedIn::<f32>::new(
-            output_sample_rate as f64 / input_sample_rate as f64,
-            4.0,
-            rubato::SincInterpolationParameters {
-                sinc_len: 1024,
-                f_cutoff: 0.9,
-                window: WindowFunction::BlackmanHarris2,
-                oversampling_factor: 1024,
-                interpolation: rubato::SincInterpolationType::Cubic,
-            },
-            num_frames,
-            channels as usize,
-        )
-        .map_err(|e| AudioError::ResamplingError(e.to_string()))?;
+        // Simple linear interpolation resampling for each channel independently
+        for ch in 0..channels {
+            let input_channel: Vec<f32> = input_samples
+                .iter()
+                .skip(ch)
+                .step_by(channels)
+                .cloned()
+                .collect();
 
-        let input_frames: Vec<Vec<f32>> = (0..channels as usize)
-            .map(|channel_idx| {
-                input_samples
-                    .iter()
-                    .skip(channel_idx)
-                    .step_by(channels as usize)
-                    .cloned()
-                    .collect()
-            })
-            .collect();
+            for out_frame in 0..output_frames {
+                let input_pos = out_frame as f64 / ratio;
+                let input_frame = input_pos.floor() as usize;
+                let fraction = input_pos - input_frame as f64;
 
-        let output_frames = resampler
-            .process(&input_frames, None)
-            .map_err(|e| AudioError::ResamplingError(e.to_string()))?;
-        let output_samples: Vec<f32> = (0..output_frames[0].len())
-            .flat_map(|frame_idx| {
-                let output_frames_ref = &output_frames;
-                (0..channels as usize)
-                    .map(move |channel_idx| output_frames_ref[channel_idx][frame_idx])
-            })
-            .collect();
+                if input_frame + 1 >= input_channel.len() {
+                    // At the end, just copy the last sample
+                    output[out_frame * channels + ch] = input_channel[input_channel.len() - 1];
+                } else {
+                    // Linear interpolation between neighboring samples
+                    let sample1 = input_channel[input_frame];
+                    let sample2 = input_channel[input_frame + 1];
+                    let interpolated = sample1 + (sample2 - sample1) * fraction as f32;
+                    output[out_frame * channels + ch] = interpolated;
+                }
+            }
+        }
 
-        Ok(output_samples)
+        let actual_ratio = output_samples as f64 / input_samples.len() as f64;
+        let expected_ratio = output_sample_rate as f64 / input_sample_rate as f64;
+        let ratio_error = (actual_ratio - expected_ratio).abs();
+        if ratio_error > 0.001 {
+            return Err(AudioError::ResamplingError(format!(
+                "Ratio error: expected {:.6}, got {:.6}",
+                expected_ratio, actual_ratio
+            )));
+        }
+
+        Ok(output)
     }
 
     fn stereo_to_mono(samples: &[f32], channels: u16) -> Vec<f32> {
@@ -274,27 +280,28 @@ impl<T: SampleType> AudioProcessor<T> {
         }
 
         loop {
-            let mut max_samples_seconds = 0;
+            let mut max_frames = 0;
             let mut is_all_track_ready = true;
 
             for i in 0..self.specs.len() {
                 let spec = &self.specs[i];
-                let samples_per_second = spec.sample_rate as usize * spec.channels as usize;
+                let samples_per_frame =
+                    spec.sample_rate as usize * spec.channels as usize * FRAME_DURATION_MS / 1000;
 
-                if self.buffers[i].len() < samples_per_second {
+                if self.buffers[i].len() < samples_per_frame {
                     is_all_track_ready = false;
                 }
 
-                max_samples_seconds =
-                    max_samples_seconds.max(self.buffers[i].len() / samples_per_second);
+                max_frames = max_frames.max(self.buffers[i].len() / samples_per_frame);
             }
 
             if !is_all_track_ready {
-                if max_samples_seconds < 3 {
+                if max_frames < 3 {
                     return Ok(());
                 } else {
                     log::debug!(
-                        "At least one audio buffer samples counts is great than 3 second's samples counts"
+                        "At least one audio buffer samples counts is great than {}ms samples counts",
+                        3 * FRAME_DURATION_MS
                     );
                 }
             }
@@ -303,15 +310,16 @@ impl<T: SampleType> AudioProcessor<T> {
             let mut all_processed_tracks = Vec::new();
             for i in 0..self.specs.len() {
                 let spec = &self.specs[i];
-                let samples_per_second = spec.sample_rate as usize * spec.channels as usize;
+                let samples_per_frame =
+                    spec.sample_rate as usize * spec.channels as usize * FRAME_DURATION_MS / 1000;
 
-                if self.buffers[i].len() < samples_per_second {
+                if self.buffers[i].len() < samples_per_frame {
                     // Process available samples and pad with silence
-                    let silence_samples = samples_per_second - self.buffers[i].len();
+                    let silence_samples = samples_per_frame - self.buffers[i].len();
                     self.buffers[i].extend(vec![0.0; silence_samples]);
                 };
 
-                let processed = self.resamples(i, samples_per_second)?;
+                let processed = self.resamples(i, samples_per_frame)?;
 
                 if !processed.is_empty() {
                     all_processed_tracks.push(processed);

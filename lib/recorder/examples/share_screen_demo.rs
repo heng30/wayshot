@@ -1,4 +1,7 @@
-use recorder::{AudioRecorder, FPS, RecorderConfig, RecordingSession, platform_screen_capture};
+use recorder::{
+    AudioRecorder, FPS, RecorderConfig, RecordingSession, ShareScreenConfig,
+    platform_screen_capture,
+};
 use screen_capture::ScreenCapture;
 use std::sync::atomic::Ordering;
 use std::thread;
@@ -33,6 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         RecorderConfig::make_filename("/tmp"),
     )
     .with_process_mode(recorder::ProcessMode::ShareScreen)
+    .with_share_screen_config(ShareScreenConfig::default().with_save_mp4(true))
     .with_enable_recording_speaker(true)
     .with_audio_device_name(Some(default_input.name))
     .with_resolution(recorder::Resolution::Original((
@@ -47,8 +51,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let stop_sig = session.get_stop_sig().clone();
     thread::spawn(move || {
-        thread::sleep(Duration::from_secs(600));
-        log::debug!("5 seconds elapsed, stopping recording...");
+        thread::sleep(Duration::from_secs(30));
+        log::debug!("stopping recording...");
         stop_sig.store(true, Ordering::Relaxed);
     });
 

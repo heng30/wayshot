@@ -11,7 +11,7 @@ mod speaker_recorder;
 
 pub use audio_level::*;
 pub use audio_recorder::{AudioDeviceInfo, AudioRecorder, AudioRecorderError};
-pub use config::{FPS, RecorderConfig, SimpleFpsCounter};
+pub use config::{FPS, RecorderConfig, ShareScreenConfig, SimpleFpsCounter};
 pub use crossbeam::channel::{Receiver, Sender, bounded};
 pub use cursor_tracker::{CursorTracker, CursorTrackerConfig, TransitionType};
 pub use denoise::*;

@@ -19,6 +19,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::{Notify, broadcast};
+use wrtc::client::convert_annexb_to_length_prefixes;
 use wrtc::{
     Event, PacketData, PacketDataSender,
     common::auth::Auth,
@@ -228,9 +229,11 @@ impl RecordingSession {
 
         let mp4_h264_frame_sender = if self.config.share_screen_config.save_mp4 {
             log::info!("start mp4_worker...");
-            // TODO: mp4_worker cannot handle annexb format frames
+            let converted_header_data =
+                video_encoder_header_data.map(|data| convert_annexb_to_length_prefixes(&data));
+
             self.mp4_worker(
-                video_encoder_header_data.clone(),
+                converted_header_data,
                 mp4_mix_audio_receiver,
                 mix_audio_channels,
                 mix_audio_sample_rate,
@@ -294,6 +297,12 @@ impl RecordingSession {
 
             loop {
                 if stop_sig.load(Ordering::Relaxed) {
+                    if let Some(ref sender) = mp4_h264_frame_sender
+                        && let Err(e) = sender.try_send(VideoFrameType::End)
+                    {
+                        log::warn!("mp4_h264_frame_sender try send `End` failed: {e}");
+                    }
+
                     exit_notify.notify_waiters();
                     break;
                 }
@@ -353,7 +362,7 @@ impl RecordingSession {
                 }
 
                 if let Ok(data) = h264_frame_receiver.try_recv() {
-                    log::debug!(
+                    log::trace!(
                         "receiver h264 frame: {} bytes",
                         match data {
                             VideoFrameType::Frame(ref content) => content.len(),
@@ -362,10 +371,17 @@ impl RecordingSession {
                     );
                     no_data = false;
 
-                    if let Some(ref sender) = mp4_h264_frame_sender
-                        && let Err(e) = sender.try_send(data.clone())
-                    {
-                        log::warn!("try send h264 frame to mp4_worker failed: {e}");
+                    if let Some(ref sender) = mp4_h264_frame_sender {
+                        let converted_data = match data {
+                            VideoFrameType::Frame(ref content) => {
+                                VideoFrameType::Frame(convert_annexb_to_length_prefixes(&content))
+                            }
+                            VideoFrameType::End => VideoFrameType::End,
+                        };
+
+                        if let Err(e) = sender.try_send(converted_data) {
+                            log::warn!("try send h264 frame to mp4_worker failed: {e}");
+                        }
                     }
 
                     if let VideoFrameType::Frame(data) = data
@@ -383,7 +399,7 @@ impl RecordingSession {
                     no_data = h264_frame_receiver.is_empty();
                 }
 
-                log::debug!(
+                log::trace!(
                     "connections: {}, h264_frame_receiver: {}, mix_audio_receiver: {:?}",
                     SHARE_SCREEN_CONNECTIONS.lock().unwrap().len(),
                     h264_frame_receiver.len(),

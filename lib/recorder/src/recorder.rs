@@ -831,10 +831,15 @@ impl RecordingSession {
                 / self.total_frame_count.load(Ordering::Relaxed).max(1) as f64,
         );
 
-        if self.config.save_path.exists() {
-            log::info!("Successfully save: {}", self.config.save_path.display())
-        } else {
-            log::info!("No found: {}", self.config.save_path.display())
+        if matches!(self.config.process_mode, ProcessMode::RecordScreen)
+            || (matches!(self.config.process_mode, ProcessMode::ShareScreen)
+                && self.config.share_screen_config.save_mp4)
+        {
+            if self.config.save_path.exists() {
+                log::info!("Successfully save: {}", self.config.save_path.display())
+            } else {
+                log::info!("No found: {}", self.config.save_path.display())
+            }
         }
 
         Ok(())
