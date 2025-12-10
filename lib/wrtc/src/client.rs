@@ -84,12 +84,8 @@ impl WHEPClient {
         };
 
         info!(
-            "Fetched media info: video {}x{} @ {}fps, audio {}ch @ {}Hz",
-            media_info.video.width,
-            media_info.video.height,
-            media_info.video.fps,
-            media_info.audio.channels,
-            media_info.audio.sample_rate
+            "Fetched media info: video {}x{} @ {}fps, audio {:?}",
+            media_info.video.width, media_info.video.height, media_info.video.fps, media_info.audio,
         );
 
         info!("ice servers: {:#?}", media_info.ice_servers);
@@ -121,20 +117,22 @@ impl WHEPClient {
             RTPCodecType::Video,
         )?;
 
-        m.register_codec(
-            RTCRtpCodecParameters {
-                capability: RTCRtpCodecCapability {
-                    mime_type: MIME_TYPE_OPUS.to_owned(),
-                    clock_rate: OPUS_SAMPLE_RATE as u32,
-                    channels: self.media_info.audio.channels,
-                    sdp_fmtp_line: "".to_owned(),
-                    rtcp_feedback: vec![],
+        if let Some(ref audio_info) = self.media_info.audio {
+            m.register_codec(
+                RTCRtpCodecParameters {
+                    capability: RTCRtpCodecCapability {
+                        mime_type: MIME_TYPE_OPUS.to_owned(),
+                        clock_rate: OPUS_SAMPLE_RATE as u32,
+                        channels: audio_info.channels,
+                        sdp_fmtp_line: "".to_owned(),
+                        rtcp_feedback: vec![],
+                    },
+                    payload_type: 111,
+                    ..Default::default()
                 },
-                payload_type: 111,
-                ..Default::default()
-            },
-            RTPCodecType::Audio,
-        )?;
+                RTPCodecType::Audio,
+            )?;
+        }
 
         let mut registry = Registry::new();
         registry = register_default_interceptors(registry, &mut m)?;
@@ -160,9 +158,12 @@ impl WHEPClient {
         peer_connection
             .add_transceiver_from_kind(RTPCodecType::Audio, None)
             .await?;
-        peer_connection
-            .add_transceiver_from_kind(RTPCodecType::Video, None)
-            .await?;
+
+        if self.media_info.audio.is_some() {
+            peer_connection
+                .add_transceiver_from_kind(RTPCodecType::Video, None)
+                .await?;
+        }
 
         let notify_tx = Arc::new(Notify::new());
         let notify_rx = notify_tx.clone();
@@ -197,6 +198,7 @@ impl WHEPClient {
             });
 
             let notify_rx = Arc::clone(&notify_rx);
+            let media_info = media_info.clone();
             let mut video_sender = video_sender.clone();
             let mut audio_sender = audio_sender.clone();
 
@@ -206,14 +208,16 @@ impl WHEPClient {
                 if mime_type == MIME_TYPE_OPUS.to_lowercase() {
                     info!("Got Opus track, processing audio");
 
-                    if let Some(sender) = audio_sender.take() {
+                    if let Some(audio_info) = media_info.audio
+                        && let Some(sender) = audio_sender.take()
+                    {
                         tokio::spawn(async move {
-                            let _ = process_audio_track(
+                            _ = process_audio_track(
                                 track,
                                 sender,
                                 notify_rx,
-                                media_info.audio.sample_rate,
-                                media_info.audio.channels,
+                                audio_info.sample_rate,
+                                audio_info.channels,
                             )
                             .await;
                         });
@@ -222,7 +226,7 @@ impl WHEPClient {
                     info!("Got H264 track, processing video");
                     if let Some(sender) = video_sender.take() {
                         tokio::spawn(async move {
-                            let _ = process_video_track(
+                            _ = process_video_track(
                                 track,
                                 sender,
                                 notify_rx,

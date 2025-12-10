@@ -79,66 +79,68 @@ async fn main() -> Result<()> {
 
     let audio_duration_clone = audio_duration.clone();
     let output_dir_clone = output_dir.to_string();
-    let audio_info = client.media_info.audio.clone();
 
-    let audio_task = tokio::spawn(async move {
-        let mut packet_count = 0;
+    if let Some(audio_info) = client.media_info.audio.clone() {
+        tokio::spawn(async move {
+            let mut packet_count = 0;
 
-        while let Ok(samples) = audio_rx.recv() {
-            packet_count += 1;
-            let duration_ms =
-                (samples.len() as f64 / audio_info.channels as f64 / audio_info.sample_rate as f64)
+            while let Ok(samples) = audio_rx.recv() {
+                packet_count += 1;
+                let duration_ms = (samples.len() as f64
+                    / audio_info.channels as f64
+                    / audio_info.sample_rate as f64)
                     * 1000.0;
 
-            trace!(
-                "Received audio packet #{}: {} Hz, {} samples ({:.2}ms) [STEREO]",
-                packet_count,
-                audio_info.sample_rate,
-                samples.len(),
-                duration_ms
-            );
-
-            let mut buffer = audio_samples_buffer.lock().unwrap();
-            let mut duration = audio_duration_clone.lock().unwrap();
-            buffer.extend_from_slice(&samples);
-            *duration += duration_ms / 1000.0;
-
-            if *duration >= 10.0 {
-                info!(
-                    "Collected {:.2} seconds of audio, saving as WAV...",
-                    *duration
+                trace!(
+                    "Received audio packet #{}: {} Hz, {} samples ({:.2}ms) [STEREO]",
+                    packet_count,
+                    audio_info.sample_rate,
+                    samples.len(),
+                    duration_ms
                 );
 
-                let output_file = format!("{}/first_10_seconds_audio.wav", output_dir_clone);
-                let spec = WavSpec {
-                    channels: audio_info.channels,
-                    sample_rate: audio_info.sample_rate,
-                    bits_per_sample: 16,
-                    sample_format: hound::SampleFormat::Int,
-                };
+                let mut buffer = audio_samples_buffer.lock().unwrap();
+                let mut duration = audio_duration_clone.lock().unwrap();
+                buffer.extend_from_slice(&samples);
+                *duration += duration_ms / 1000.0;
 
-                match WavWriter::create(&output_file, spec) {
-                    Ok(mut writer) => {
-                        for &sample in buffer.iter() {
-                            let sample_i16 = (sample.clamp(-1.0, 1.0) * 32767.0) as i16;
-                            if let Err(e) = writer.write_sample(sample_i16) {
-                                warn!("Failed to write audio sample: {}", e);
-                                break;
+                if *duration >= 10.0 {
+                    info!(
+                        "Collected {:.2} seconds of audio, saving as WAV...",
+                        *duration
+                    );
+
+                    let output_file = format!("{}/first_10_seconds_audio.wav", output_dir_clone);
+                    let spec = WavSpec {
+                        channels: audio_info.channels,
+                        sample_rate: audio_info.sample_rate,
+                        bits_per_sample: 16,
+                        sample_format: hound::SampleFormat::Int,
+                    };
+
+                    match WavWriter::create(&output_file, spec) {
+                        Ok(mut writer) => {
+                            for &sample in buffer.iter() {
+                                let sample_i16 = (sample.clamp(-1.0, 1.0) * 32767.0) as i16;
+                                if let Err(e) = writer.write_sample(sample_i16) {
+                                    warn!("Failed to write audio sample: {}", e);
+                                    break;
+                                }
+                            }
+
+                            if let Err(e) = writer.finalize() {
+                                warn!("Failed to finalize WAV file: {}", e);
                             }
                         }
-
-                        if let Err(e) = writer.finalize() {
-                            warn!("Failed to finalize WAV file: {}", e);
-                        }
+                        Err(e) => warn!("Failed to create WAV file: {}", e),
                     }
-                    Err(e) => warn!("Failed to create WAV file: {}", e),
+                    break;
                 }
-                break;
             }
-        }
 
-        info!("Audio receive thread exit...");
-    });
+            info!("Audio receive thread exit...");
+        });
+    }
 
     let connect_task = tokio::spawn(async move {
         info!("Attempting to connect to WHEP server");
@@ -150,9 +152,6 @@ async fn main() -> Result<()> {
     });
 
     tokio::select! {
-        _ = audio_task => {
-            info!("Audio task completed");
-        }
         _ = connect_task => {
             info!("Connect task completed");
         }

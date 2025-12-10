@@ -77,7 +77,7 @@ pub struct AudioInfo {
 #[setters[prefix = "with_"]]
 pub struct MediaInfo {
     pub video: VideoInfo,
-    pub audio: AudioInfo,
+    pub audio: Option<AudioInfo>,
     pub ice_servers: Vec<String>,
 
     #[setters(skip)]
@@ -88,7 +88,7 @@ impl Default for MediaInfo {
     fn default() -> Self {
         Self {
             video: VideoInfo::default(),
-            audio: AudioInfo::default(),
+            audio: Some(AudioInfo::default()),
             ice_servers: ICE_SERVERS
                 .iter()
                 .map(|s| s.to_string())

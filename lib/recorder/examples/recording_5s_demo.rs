@@ -4,7 +4,8 @@ use recorder::{
 use screen_capture::ScreenCapture;
 use std::{sync::atomic::Ordering, thread, time::Duration};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     log::info!("Recording for exactly 5 seconds...");

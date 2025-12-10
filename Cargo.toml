@@ -124,6 +124,7 @@ wayland-protocols-wlr = "0.3"
 rodio = { version = "0.21", default-features = false }
 
 mp4m = { path = "lib/mp4m" }
+wrtc = { path = "lib/wrtc" }
 cutil = { path = "lib/cutil" }
 sqldb = { path = "lib/sqldb" }
 pmacro = { path = "lib/pmacro" }

@@ -6423,6 +6423,7 @@ dependencies = [
 name = "recorder"
 version = "0.1.0"
 dependencies = [
+ "audiopus",
  "chrono",
  "cpal",
  "crossbeam",
@@ -6443,9 +6444,11 @@ dependencies = [
  "screen-capture-windows",
  "spin_sleep",
  "thiserror 2.0.17",
+ "tokio",
  "video-encoder",
  "winapi",
  "windows 0.62.2",
+ "wrtc",
 ]
 
 [[package]]

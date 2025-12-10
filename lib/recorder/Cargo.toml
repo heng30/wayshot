@@ -14,9 +14,11 @@ description.workspace = true
 log.workspace = true
 cpal.workspace = true
 mp4m.workspace = true
+wrtc.workspace = true
 hound.workspace = true
 image.workspace = true
 chrono.workspace = true
+audiopus.workspace = true
 crossbeam.workspace = true
 thiserror.workspace = true
 once_cell.workspace = true
@@ -25,6 +27,7 @@ nnnoiseless.workspace = true
 video-encoder.workspace = true
 derive_setters.workspace = true
 screen-capture.workspace = true
+tokio = { workspace = true, features = ["full"] }
 fast_image_resize = { workspace = true, features = ["rayon"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -34,7 +37,7 @@ screen-capture-wayland-portal = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 screen-capture-windows.workspace = true
-winapi = { version = "0.3", features = [
+winapi = { workspace = true, features = [
   "audioclient",
   "mmdeviceapi",
   "avrt",

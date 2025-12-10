@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use audiopus::{
     coder::{Decoder, Encoder},
     error::Error as OpusError,
@@ -120,6 +122,10 @@ impl OpusCoder {
 
     pub fn samples_per_frame(&self) -> usize {
         self.frame_size * self.channels as usize
+    }
+
+    pub fn frame_duration(&self) -> Duration {
+        Duration::from_millis(20)
     }
 
     pub fn input_samples_per_frame(&self) -> usize {

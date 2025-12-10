@@ -6,10 +6,13 @@ use std::{
     collections::HashSet,
     fs::File,
     path::Path,
-    sync::Mutex,
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
-use tokio::sync::broadcast::{self, Sender};
+use tokio::sync::{
+    Notify,
+    broadcast::{self, Sender},
+};
 use video_encoder::{EncodedFrame, VideoEncoderConfig};
 use wrtc::{
     Event, PacketData,
@@ -31,11 +34,13 @@ async fn main() -> Result<()> {
     let config = WebRTCServerSessionConfig::default().with_media_info(MediaInfo::default());
     let (packet_sender, _) = broadcast::channel(128);
     let (event_sender, mut event_receiver) = broadcast::channel(16);
+    let exit_notify = Arc::new(Notify::new());
 
     if !Path::new(&audio_path).exists() {
         bail!("audio file: '{audio_path}' not exist");
     }
 
+    let exit_notify_clone = exit_notify.clone();
     let packet_sender_clone = packet_sender.clone();
     tokio::spawn(async move {
         loop {
@@ -70,7 +75,7 @@ async fn main() -> Result<()> {
                 }
                 _ = tokio::signal::ctrl_c() => {
                     log::info!("receive ctrl-c, exit...");
-                    std::process::exit(0);
+                    exit_notify_clone.notify_waiters();
                 }
             }
         }
@@ -82,6 +87,7 @@ async fn main() -> Result<()> {
         Some(Auth::new("123".to_string())),
         packet_sender,
         event_sender,
+        exit_notify,
     );
 
     server.run().await?;

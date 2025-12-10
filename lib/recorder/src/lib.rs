@@ -4,6 +4,7 @@ mod config;
 mod cursor_tracker;
 mod denoise;
 mod error;
+mod process_mode;
 mod recorder;
 mod resolution;
 mod speaker_recorder;

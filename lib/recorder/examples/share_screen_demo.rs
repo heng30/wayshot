@@ -4,7 +4,8 @@ use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::Duration;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     log::debug!("Recording for exactly 5 seconds...");
@@ -31,6 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         screen_infos[0].logical_size.clone(),
         RecorderConfig::make_filename("/tmp"),
     )
+    .with_process_mode(recorder::ProcessMode::ShareScreen)
     .with_enable_recording_speaker(true)
     .with_audio_device_name(Some(default_input.name))
     .with_resolution(recorder::Resolution::Original((
