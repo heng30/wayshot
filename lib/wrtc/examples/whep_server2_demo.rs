@@ -18,12 +18,16 @@ use wrtc::{
     Event, PacketData,
     common::auth::Auth,
     opus::OpusCoder,
-    session::{MediaInfo, WebRTCServerSessionConfig},
+    session::{MediaInfo, VideoInfo, WebRTCServerSessionConfig},
     webrtc::WebRTCServer,
 };
 
-const IMG_WIDTH: u32 = 1920;
-const IMG_HEIGHT: u32 = 1080;
+// const IMG_WIDTH: u32 = 1920;
+// const IMG_HEIGHT: u32 = 1080;
+
+const IMG_WIDTH: u32 = 3072;
+const IMG_HEIGHT: u32 = 1920;
+
 static CONNECTIONS: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet::default()));
 
 #[tokio::main]
@@ -31,7 +35,12 @@ async fn main() -> Result<()> {
     env_logger::init();
 
     let audio_path = "./data/test-44100.wav".to_string();
-    let config = WebRTCServerSessionConfig::default().with_media_info(MediaInfo::default());
+    let medio_info = MediaInfo::default().with_video(
+        VideoInfo::default()
+            .with_width(IMG_WIDTH as i32)
+            .with_height(IMG_HEIGHT as i32),
+    );
+    let config = WebRTCServerSessionConfig::default().with_media_info(medio_info);
     let (packet_sender, _) = broadcast::channel(128);
     let (event_sender, mut event_receiver) = broadcast::channel(16);
     let exit_notify = Arc::new(Notify::new());

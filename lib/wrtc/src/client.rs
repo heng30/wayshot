@@ -332,21 +332,27 @@ async fn process_video_track(
 
     info!("H264 video decoder initialized");
 
+    // FU-A fragment buffer
+    let mut fragment_buffer: Vec<u8> = Vec::with_capacity(5 * 1024 * 1024);
+    let mut frame_assembling = false;
+
     loop {
         tokio::select! {
             result = track.read_rtp() => {
                 if let Ok((rtp_packet, _)) = result {
                     let payload = rtp_packet.payload;
-                    trace!("Received H264 RTP packet: {} bytes payload", payload.len());
 
-                    let h264_data = parse_h264_rtp_payload(&payload);
-                    match h264_decoder.decode(&h264_data) {
-                        Ok(rgb_frame) => {
-                            if let Err(e) = video_sender.try_send(rgb_frame) {
-                                warn!("video_sender try send failed: {e}");
+                    let h264_data_chunks = handle_h264_rtp_payload(&payload, &mut fragment_buffer, &mut frame_assembling);
+
+                    for nal_unit in h264_data_chunks {
+                         match h264_decoder.decode(&nal_unit) {
+                            Ok(rgb_frame) => {
+                                if let Err(e) = video_sender.try_send(rgb_frame) {
+                                    warn!("video_sender try send failed: {e}");
+                                }
                             }
+                            Err(e) =>  trace!("H264 decoding attempt failed: {e:?}"),
                         }
-                        Err(e) => trace!("H264 decoding failed: {e}"),
                     }
                 } else {
                     info!("Video track ended");
@@ -500,53 +506,101 @@ async fn fetch_media_info(server_url: &str) -> ClientResult<MediaInfo> {
     }
 }
 
-fn parse_h264_rtp_payload(payload: &[u8]) -> Vec<u8> {
+fn handle_h264_rtp_payload(
+    payload: &[u8],
+    fragment_buffer: &mut Vec<u8>,
+    assembling: &mut bool,
+) -> Vec<Vec<u8>> {
     if payload.is_empty() {
         return Vec::new();
     }
 
     let nal_header = payload[0];
-    let f_bit = (nal_header >> 7) & 0x1;
     let nal_type = nal_header & 0x1F;
 
-    trace!(
-        "Parsing RTP payload: NAL type {}({}), F bit {}",
-        match nal_type {
-            1 => "Non-IDR",
-            5 => "IDR",
-            7 => "SPS",
-            8 => "PPS",
-            24 => "STAP-A",
-            _ => "Unknown",
-        },
-        nal_type,
-        f_bit
-    );
+    // NAL Header: [F|NRI|Type]
+    // F: 1 bit (forbidden_zero_bit)
+    // NRI: 2 bits (nal_ref_idc)
+    // Type: 5 bits (nal_unit_type)
 
     match nal_type {
+        // Single NAL Unit types
         1 | 5 | 7 | 8 => {
+            *assembling = false;
             let mut result = Vec::with_capacity(payload.len() + 4);
             result.extend_from_slice(&[0x00, 0x00, 0x00, 0x01]);
             result.extend_from_slice(payload);
-            result
+            vec![result]
         }
+        // STAP-A (Single-Time Aggregation Packet) - usually contains SPS/PPS
         24 => {
-            // STAP-A contains multiple NAL units including SPS/PPS
-            trace!("STAP-A packet, extracting NAL units");
-            parse_stap_a(payload)
+            *assembling = false;
+            parse_stap_a_multiple(payload)
         }
+        // FU-A (Fragmentation Unit)
+        28 => parse_fu_a(payload, fragment_buffer, assembling),
         _ => {
-            trace!("Skipping NAL unit type: {}", nal_type);
+            trace!("Skipping unknown/unsupported NAL unit type: {}", nal_type);
             Vec::new()
         }
     }
 }
 
-fn parse_stap_a(payload: &[u8]) -> Vec<u8> {
-    let mut result = Vec::new();
-    let mut pos = 1; // Skip STAP-A header
+fn parse_fu_a(payload: &[u8], buffer: &mut Vec<u8>, assembling: &mut bool) -> Vec<Vec<u8>> {
+    if payload.len() < 2 {
+        return Vec::new();
+    }
 
-    trace!("STAP-A: Processing {} bytes", payload.len());
+    // FU Indicator (Byte 0): [F|NRI|28]
+    let fu_indicator = payload[0];
+
+    // FU Header (Byte 1): [S|E|R|Type]
+    let fu_header = payload[1];
+    let is_start = (fu_header & 0x80) != 0;
+    let is_end = (fu_header & 0x40) != 0;
+    let original_nal_type = fu_header & 0x1F;
+
+    // header packet
+    if is_start {
+        // Orginal Header = (FU Indicator & 0xE0) | (Original Type & 0x1F)
+        let reconstructed_header = (fu_indicator & 0xE0) | original_nal_type;
+
+        // Start Code
+        buffer.clear();
+        buffer.extend_from_slice(&[0x00, 0x00, 0x00, 0x01]);
+        buffer.push(reconstructed_header);
+
+        // skip FU Indicator and FU Header (2bytes)
+        buffer.extend_from_slice(&payload[2..]);
+        *assembling = true;
+
+        // It'a a  Start and End packet
+        if is_end {
+            *assembling = false;
+            return vec![buffer.clone()];
+        }
+
+        Vec::new() // wait for more data
+    } else if *assembling {
+        // nono header packets
+        buffer.extend_from_slice(&payload[2..]);
+
+        if is_end {
+            // end packet, return NAL
+            *assembling = false;
+            vec![buffer.clone()]
+        } else {
+            Vec::new() // wait for more data
+        }
+    } else {
+        trace!("Received FU-A middle/end packet without start, dropping.");
+        Vec::new()
+    }
+}
+
+fn parse_stap_a_multiple(payload: &[u8]) -> Vec<Vec<u8>> {
+    let mut results = Vec::new();
+    let mut pos = 1; // Skip STAP-A header
 
     while pos < payload.len() {
         if pos + 2 > payload.len() {
@@ -563,12 +617,12 @@ fn parse_stap_a(payload: &[u8]) -> Vec<u8> {
         }
 
         // Add start code and NAL unit
-        result.extend_from_slice(&[0x00, 0x00, 0x00, 0x01]);
-        result.extend_from_slice(&payload[pos..pos + nal_size]);
+        let mut nal_unit = Vec::with_capacity(nal_size + 4);
+        nal_unit.extend_from_slice(&[0x00, 0x00, 0x00, 0x01]);
+        nal_unit.extend_from_slice(&payload[pos..pos + nal_size]);
+        results.push(nal_unit);
 
         pos += nal_size;
     }
-
-    trace!("STAP-A: Extracted {} bytes total", result.len());
-    result
+    results
 }

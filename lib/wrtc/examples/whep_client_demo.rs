@@ -9,7 +9,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use tokio::time::sleep;
+use tokio::{sync::Notify, time::sleep};
 use wrtc::client::{AudioSamples, RGBFrame, WHEPClient, WHEPClientConfig};
 
 #[tokio::main]
@@ -79,6 +79,8 @@ async fn main() -> Result<()> {
 
     let audio_duration_clone = audio_duration.clone();
     let output_dir_clone = output_dir.to_string();
+    let done_notify = Arc::new(Notify::new());
+    let done_notify_clone = done_notify.clone();
 
     if let Some(audio_info) = client.media_info.audio.clone() {
         tokio::spawn(async move {
@@ -134,6 +136,7 @@ async fn main() -> Result<()> {
                         }
                         Err(e) => warn!("Failed to create WAV file: {}", e),
                     }
+                    done_notify_clone.notify_waiters();
                     break;
                 }
             }
@@ -154,6 +157,9 @@ async fn main() -> Result<()> {
     tokio::select! {
         _ = connect_task => {
             info!("Connect task completed");
+        }
+        _  = done_notify.notified() => {
+            info!("Done notify completed");
         }
         _ = sleep(Duration::from_secs(20)) => {
             warn!("Test completed after 20 seconds timeout");
