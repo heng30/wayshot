@@ -72,14 +72,27 @@ impl HttpRequest {
 }
 
 pub fn parse_content_length(request_data: &str) -> Option<u32> {
-    let start = "content-length:";
     let end = "\r\n";
+    let start = "content-length:";
 
-    let start_index = request_data.find(start)? + start.len();
-    let end_index = request_data[start_index..].find(end)? + start_index;
-    let length_str = &request_data[start_index..end_index];
+    if let Some(header_end_idx) = request_data.find("\r\n\r\n") {
+        let headers_only = &request_data[..header_end_idx];
+        let headers_lower = headers_only.to_ascii_lowercase();
 
-    length_str.trim().parse().ok()
+        let start_index = headers_lower.find(start)?;
+        let start_index = start_index + start.len();
+        let end_index = headers_lower[start_index..].find(end)? + start_index;
+
+        let length_str = &headers_only[start_index..end_index];
+        length_str.trim().parse().ok()
+    } else {
+        let request_data_lower = request_data.to_ascii_lowercase();
+        let start_index = request_data_lower.find(start)? + start.len();
+        let end_index = request_data_lower[start_index..].find(end)? + start_index;
+
+        let length_str = &request_data[start_index..end_index];
+        length_str.trim().parse().ok()
+    }
 }
 
 impl Unmarshal for HttpRequest {

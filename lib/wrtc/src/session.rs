@@ -170,6 +170,8 @@ impl WebRTCServerSession {
         if let Some(content_length) =
             common::http::parse_content_length(std::str::from_utf8(&remaining_data)?)
         {
+            log::info!("Content-Length: {content_length}");
+
             while remaining_data.len() < content_length as usize {
                 log::trace!(
                     "content_length: {} {}",
@@ -185,7 +187,7 @@ impl WebRTCServerSession {
 
         let request_data = self.reader.extract_remaining_bytes();
 
-        // log::debug!("{}", std::str::from_utf8(&request_data)?);
+        log::info!("{}", std::str::from_utf8(&request_data)?);
 
         if let Some(http_request) = HttpRequest::unmarshal(std::str::from_utf8(&request_data)?) {
             let request_method = http_request.method.as_str();
