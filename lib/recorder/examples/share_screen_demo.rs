@@ -11,7 +11,10 @@ use std::time::Duration;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
-    log::debug!("Recording for exactly 5 seconds...");
+    rustls::crypto::CryptoProvider::install_default(
+        rustls::crypto::ring::default_provider().into(),
+    )
+    .expect("failed to set crypto provider");
 
     let audio_recorder = AudioRecorder::new();
     let Some(default_input) = audio_recorder.get_default_input_device()? else {
@@ -36,7 +39,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         RecorderConfig::make_filename("/tmp"),
     )
     .with_process_mode(recorder::ProcessMode::ShareScreen)
-    .with_share_screen_config(ShareScreenConfig::default().with_save_mp4(true))
+    .with_share_screen_config(
+        ShareScreenConfig::new("0.0.0.0:9090".to_string()).with_save_mp4(true),
+    )
     .with_enable_recording_speaker(true)
     .with_audio_device_name(Some(default_input.name))
     .with_resolution(recorder::Resolution::Original((
@@ -51,7 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let stop_sig = session.get_stop_sig().clone();
     thread::spawn(move || {
-        thread::sleep(Duration::from_secs(30));
+        thread::sleep(Duration::from_secs(30000));
         log::debug!("stopping recording...");
         stop_sig.store(true, Ordering::Relaxed);
     });

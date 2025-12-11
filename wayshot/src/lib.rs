@@ -47,6 +47,8 @@ pub fn init_logger() {
     use std::io::Write;
 
     env_logger::builder()
+        .filter_module("webrtc", log::LevelFilter::Warn)
+        .filter_module("webrtc_srtp", log::LevelFilter::Warn)
         .format(|buf, record| {
             let style = buf.default_level_style(record.level());
             let ts = cutil::time::local_now("%H:%M:%S");

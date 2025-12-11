@@ -13,7 +13,10 @@ use crate::{
 };
 use bytes::BytesMut;
 use bytesio::{
-    bytes_reader::BytesReader, bytes_writer::AsyncBytesWriter, bytesio::TNetIO, bytesio::TcpIO,
+    bytes_reader::BytesReader,
+    bytes_writer::AsyncBytesWriter,
+    bytesio::TNetIO,
+    bytesio::{TcpIO, TlsIO},
 };
 use derive_setters::Setters;
 use http::StatusCode;
@@ -27,6 +30,11 @@ static WEB_WHEP_INDEX: &str = include_str!("../web-whep-client/index.html");
 static WEB_FAVICON: &[u8] = include_bytes!("../../../wayshot/windows/icon.ico");
 
 pub type SessionsMap = Arc<Mutex<HashMap<Uuid, Arc<Mutex<WebRTCServerSession>>>>>;
+
+pub enum HttpStream {
+    Tcp(TcpStream),
+    Tls(tokio_rustls::server::TlsStream<TcpStream>),
+}
 
 #[non_exhaustive]
 #[derive(Debug, Setters, Clone)]
@@ -121,12 +129,15 @@ impl WebRTCServerSession {
         config: WebRTCServerSessionConfig,
         sessions: SessionsMap,
         auth: Option<Auth>,
-        stream: TcpStream,
+        stream: HttpStream,
         socket_addr: SocketAddr,
         packet_sender: PacketDataSender,
         event_sender: EventSender,
     ) -> Self {
-        let net_io: Box<dyn TNetIO + Send + Sync> = Box::new(TcpIO::new(stream));
+        let net_io: Box<dyn TNetIO + Send + Sync> = match stream {
+            HttpStream::Tcp(tcp_stream) => Box::new(TcpIO::new(tcp_stream)),
+            HttpStream::Tls(tls_stream) => Box::new(TlsIO::new(tls_stream)),
+        };
         let io = Arc::new(Mutex::new(net_io));
 
         Self {
@@ -145,7 +156,9 @@ impl WebRTCServerSession {
             peer_connection: None,
         }
     }
+}
 
+impl WebRTCServerSession {
     pub async fn run(&mut self) -> Result<(), SessionError> {
         while self.reader.len() < 4 {
             let data = self.io.lock().await.read().await?;
@@ -412,9 +425,10 @@ impl WebRTCServerSession {
             "access-control-allow-headers".to_owned(),
             "content-type".to_owned(),
         );
-        response
-            .headers
-            .insert("access-control-allow-method".to_owned(), "POST".to_owned());
+        response.headers.insert(
+            "access-control-allow-method".to_owned(),
+            "GET, POST, PUT, PATCH, DELETE, OPTIONS".to_owned(),
+        );
         response
     }
 

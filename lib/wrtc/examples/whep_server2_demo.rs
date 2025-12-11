@@ -2,6 +2,7 @@ use anyhow::{Result, bail};
 use hound::WavReader;
 use image::{ImageBuffer, Rgb};
 use once_cell::sync::Lazy;
+use rustls::crypto::{CryptoProvider, ring};
 use std::{
     collections::HashSet,
     fs::File,
@@ -15,8 +16,7 @@ use tokio::sync::{
 };
 use video_encoder::{EncodedFrame, VideoEncoderConfig};
 use wrtc::{
-    Event, PacketData,
-    common::auth::Auth,
+    Event, PacketData, WebRTCServerConfig,
     opus::OpusCoder,
     session::{MediaInfo, VideoInfo, WebRTCServerSessionConfig},
     webrtc::WebRTCServer,
@@ -34,13 +34,17 @@ static CONNECTIONS: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashS
 async fn main() -> Result<()> {
     env_logger::init();
 
+    CryptoProvider::install_default(ring::default_provider().into())
+        .expect("failed to set crypto provider");
+
     let audio_path = "./data/test-44100.wav".to_string();
     let medio_info = MediaInfo::default().with_video(
         VideoInfo::default()
             .with_width(IMG_WIDTH as i32)
             .with_height(IMG_HEIGHT as i32),
     );
-    let config = WebRTCServerSessionConfig::default().with_media_info(medio_info);
+    let config = WebRTCServerConfig::new("0.0.0.0:9090".to_string(), Some("123".to_string()));
+    let session_config = WebRTCServerSessionConfig::default().with_media_info(medio_info);
     let (packet_sender, _) = broadcast::channel(128);
     let (event_sender, mut event_receiver) = broadcast::channel(16);
     let exit_notify = Arc::new(Notify::new());
@@ -92,8 +96,7 @@ async fn main() -> Result<()> {
 
     let mut server = WebRTCServer::new(
         config,
-        "0.0.0.0:9090".to_string(),
-        Some(Auth::new("123".to_string())),
+        session_config,
         packet_sender,
         event_sender,
         exit_notify,

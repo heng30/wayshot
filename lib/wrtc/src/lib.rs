@@ -8,6 +8,8 @@ pub mod session;
 pub mod webrtc;
 pub mod whep;
 
+pub use webrtc::{WebRTCServer, WebRTCServerConfig};
+
 #[derive(Clone)]
 pub enum PacketData {
     Video {
@@ -46,6 +48,12 @@ pub enum WebRTCError {
     #[error("parse int error: {0}")]
     ParseIntError(#[from] std::num::ParseIntError),
 
+    #[error("IO error: {0}")]
+    IOError(#[from] std::io::Error),
+
+    #[error("Addr parse error: {0}")]
+    AddrParseError(#[from] std::net::AddrParseError),
+
     #[error("cannot get local description")]
     CanNotGetLocalDescription,
 
@@ -54,6 +62,9 @@ pub enum WebRTCError {
 
     #[error("missing colon")]
     MissingColon,
+
+    #[error("TLS configuration error: {0}")]
+    TlsConfigError(String),
 }
 
 #[derive(Debug, thiserror::Error)]

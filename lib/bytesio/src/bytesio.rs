@@ -4,11 +4,13 @@ use bytes::{BufMut, Bytes, BytesMut};
 use futures::{SinkExt, StreamExt};
 use std::{net::SocketAddr, time::Duration};
 use tokio::net::{TcpStream, UdpSocket};
+use tokio_rustls::server::TlsStream;
 use tokio_util::codec::{BytesCodec, Framed};
 
 pub enum NetType {
     TCP,
     UDP,
+    TcpTls,
 }
 
 #[async_trait]
@@ -154,7 +156,6 @@ impl TNetIO for UdpIO {
 
 pub struct TcpIO {
     stream: Framed<TcpStream, BytesCodec>,
-    //timeout: Duration,
 }
 
 impl TcpIO {
@@ -193,6 +194,51 @@ impl TNetIO for TcpIO {
                 Err(err) => Err(BytesIOError::IOError(err)),
             },
             None => Err(BytesIOError::NoneReturn),
+        }
+    }
+}
+
+pub struct TlsIO {
+    stream: TlsStream<TcpStream>,
+}
+
+impl TlsIO {
+    pub fn new(stream: TlsStream<TcpStream>) -> Self {
+        Self { stream }
+    }
+}
+
+#[async_trait]
+impl TNetIO for TlsIO {
+    fn get_net_type(&self) -> NetType {
+        NetType::TcpTls
+    }
+
+    async fn write(&mut self, bytes: Bytes) -> Result<(), BytesIOError> {
+        use tokio::io::AsyncWriteExt;
+        self.stream.write_all(&bytes).await?;
+        self.stream.flush().await?;
+        Ok(())
+    }
+
+    async fn read_timeout(&mut self, duration: Duration) -> Result<BytesMut, BytesIOError> {
+        match tokio::time::timeout(duration, self.read()).await {
+            Ok(data) => data,
+            Err(err) => Err(BytesIOError::TimeoutError(err)),
+        }
+    }
+
+    async fn read(&mut self) -> Result<BytesMut, BytesIOError> {
+        use tokio::io::AsyncReadExt;
+        let mut buf = BytesMut::new();
+        let mut temp_buf = vec![0u8; 8192];
+
+        match self.stream.read(&mut temp_buf).await {
+            Ok(n) => {
+                buf.extend_from_slice(&temp_buf[..n]);
+                Ok(buf)
+            }
+            Err(e) => Err(BytesIOError::IOError(e)),
         }
     }
 }

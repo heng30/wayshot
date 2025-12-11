@@ -114,13 +114,18 @@ nnnoiseless = "0.5"
 ffmpeg-next = "8.0"
 async-trait = "0.1"
 tokio-stream = "0.1"
-audiopus = "0.3.0-rc.0"
+tokio-rustls = "0.26"
+rustls-pemfile = "2.2"
 derive_builder = "0.20"
+audiopus = "0.3.0-rc.0"
 wayland-client = "0.31"
+rustls-pki-types = "1.13"
 fast_image_resize = "5.3"
 wayland-protocols = "0.32"
 wayland-protocols-wlr = "0.3"
 rodio = { version = "0.21", default-features = false }
+
+rustls = "0.23"
 
 mp4m = { path = "lib/mp4m" }
 wrtc = { path = "lib/wrtc" }

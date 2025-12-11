@@ -31,6 +31,7 @@ image = { workspace = true, optional = true }
 qrcode = { workspace = true, optional = true }
 uuid = { workspace = true, features = ["v4"] }
 tokio = { workspace = true, features = ["full"] }
+rustls = { workspace = true, features = ["ring"] }
 display-info = { workspace = true, optional = true }
 serde = { workspace = true, features = ["serde_derive"] }
 cutil = { workspace = true, features = ["str", "time", "number", "fs"] }

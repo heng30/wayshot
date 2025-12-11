@@ -27,8 +27,11 @@ thiserror.workspace = true
 derivative.workspace = true
 serde_json.workspace = true
 mp4-player.workspace = true
+tokio-rustls.workspace = true
 video-encoder.workspace = true
 derive_setters.workspace = true
+rustls-pemfile.workspace = true
+rustls-pki-types.workspace = true
 tokio = { workspace = true, features = ["full"] }
 serde = { workspace = true, features = ["derive"] }
 reqwest = { workspace = true, features = ["json"] }
@@ -41,6 +44,7 @@ once_cell.workspace = true
 stunclient.workspace = true
 env_logger.workspace = true
 serde_json.workspace = true
+rustls = { workspace = true, features = ["ring"] }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 video-encoder = { workspace = true, features = ["x264"] }

@@ -1,5 +1,6 @@
 use anyhow::{Result, bail};
 use once_cell::sync::Lazy;
+use rustls::crypto::{CryptoProvider, ring};
 use std::{
     collections::HashSet,
     fs::File,
@@ -14,10 +15,10 @@ use tokio::sync::{
 };
 use webrtc::media::io::{h264_reader::H264Reader, ogg_reader::OggReader};
 use wrtc::{
-    Event, PacketData,
+    Event, PacketData, WebRTCServerConfig,
     opus::OPUS_SAMPLE_RATE,
     session::{MediaInfo, WebRTCServerSessionConfig},
-    webrtc::{WebRTCServer, WebRTCServerConfig},
+    webrtc::WebRTCServer,
 };
 
 static CONNECTIONS: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet::default()));
@@ -26,15 +27,18 @@ static CONNECTIONS: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashS
 async fn main() -> Result<()> {
     env_logger::init();
 
-    rustls::crypto::CryptoProvider::install_default(
-        rustls::crypto::ring::default_provider().into(),
-    )
-    .expect("failed to set crypto provider");
+    CryptoProvider::install_default(ring::default_provider().into())
+        .expect("failed to set crypto provider");
 
     let video_path = "./data/test.h264".to_string();
     let audio_path = "./data/test.ogg".to_string();
-    let config = WebRTCServerConfig::new("0.0.0.0:9090".to_string(), None);
+
+    let config = WebRTCServerConfig::new("0.0.0.0:9090".to_string(), None)
+        .with_enable_https(true)
+        .with_cert_file(Some("./data/ca.crt".to_string()))
+        .with_key_file(Some("./data/ca.key".to_string()));
     let session_config = WebRTCServerSessionConfig::default().with_media_info(MediaInfo::default());
+
     let (packet_sender, _) = broadcast::channel(128);
     let (event_sender, mut event_receiver) = broadcast::channel(16);
     let exit_notify = Arc::new(Notify::new());

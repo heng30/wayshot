@@ -269,7 +269,13 @@ impl WHEPClient {
         let _ = gather_complete.recv().await;
 
         if let Some(local_desc) = peer_connection.local_description().await {
-            let client = reqwest::Client::new();
+            let client = reqwest::Client::builder()
+                .danger_accept_invalid_certs(true)
+                .danger_accept_invalid_hostnames(true)
+                .build()
+                .map_err(|e| {
+                    ClientError::ConnectionError(format!("Failed to build HTTP client: {}", e))
+                })?;
             let offer_sdp = local_desc.sdp;
 
             info!("Sending WHEP request to: {}/whep", self.config.server_url);
@@ -489,7 +495,11 @@ impl H264Decoder {
 }
 
 async fn fetch_media_info(server_url: &str) -> ClientResult<MediaInfo> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .danger_accept_invalid_hostnames(true)
+        .build()
+        .map_err(|e| ClientError::ConnectionError(format!("Failed to build HTTP client: {}", e)))?;
     let response = client
         .get(&format!("{}/mediainfo", server_url))
         .send()

@@ -126,28 +126,23 @@ impl RecorderConfig {
 }
 
 #[non_exhaustive]
-#[derive(Debug, Clone, Setters)]
+#[derive(Debug, Default, Clone, Setters)]
 #[setters(prefix = "with_")]
 pub struct ShareScreenConfig {
-    pub listen_addr: String,
-
-    #[setters(strip_option)]
-    pub auth_token: Option<String>,
-
     pub save_mp4: bool,
 
-    #[setters(strip_option)]
+    pub listen_addr: String,
+    pub auth_token: Option<String>,
     pub tun_server: Option<String>,
+
+    pub enable_https: bool,
+    pub cert_file: Option<String>,
+    pub key_file: Option<String>,
 }
 
-impl Default for ShareScreenConfig {
-    fn default() -> Self {
-        Self {
-            listen_addr: "0.0.0.0:9090".to_string(),
-            auth_token: None,
-            save_mp4: false,
-            tun_server: None,
-        }
+impl ShareScreenConfig {
+    pub fn new(listen_addr: String) -> Self {
+        ShareScreenConfig::default().with_listen_addr(listen_addr)
     }
 }
 

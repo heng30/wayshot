@@ -21,8 +21,7 @@ use std::{
 use tokio::sync::{Notify, broadcast};
 use wrtc::client::convert_annexb_to_length_prefixes;
 use wrtc::{
-    Event, PacketData, PacketDataSender,
-    common::auth::Auth,
+    Event, PacketData, PacketDataSender, WebRTCServerConfig,
     opus::OpusCoder,
     session::{AudioInfo, MediaInfo, VideoInfo, WebRTCServerSessionConfig},
     webrtc::WebRTCServer,
@@ -460,33 +459,35 @@ impl RecordingSession {
         }
 
         let (event_sender, mut event_receiver) = broadcast::channel(ENCODER_WORKER_CHANNEL_SIZE);
+        let config = WebRTCServerConfig::new(
+            self.config.share_screen_config.listen_addr.clone(),
+            self.config.share_screen_config.auth_token.clone(),
+        )
+        .with_enable_https(self.config.share_screen_config.enable_https)
+        .with_cert_file(self.config.share_screen_config.cert_file.clone())
+        .with_key_file(self.config.share_screen_config.key_file.clone());
+
         let session_config = WebRTCServerSessionConfig::default().with_media_info(media_info);
         let mut server = WebRTCServer::new(
+            config,
             session_config,
-            self.config.share_screen_config.listen_addr.clone(),
-            if let Some(ref token) = self.config.share_screen_config.auth_token {
-                Some(Auth::new(token.clone()))
-            } else {
-                None
-            },
             packet_sender,
             event_sender,
-            exit_notify,
+            exit_notify.clone(),
         );
 
         let stop_sig = self.stop_sig.clone();
         tokio::spawn(async move {
+            match server.run().await {
+                Ok(_) => log::info!("WebRTCServer exit..."),
+                Err(e) => log::warn!("WebRTCServer run failed: {e}"),
+            }
+            stop_sig.store(true, Ordering::Relaxed);
+        });
+
+        tokio::spawn(async move {
             loop {
                 tokio::select! {
-                    ret = server.run() => {
-                        match ret {
-                            Ok(_) => log::info!("WebRTCServer exit..."),
-                            Err(e) => log::warn!("WebRTCServer run failed: {e}"),
-                        }
-
-                        break;
-                    }
-
                     event = event_receiver.recv() => {
                         match event {
                             Ok(Event::PeerConnected(addr)) => {
@@ -510,10 +511,12 @@ impl RecordingSession {
                             _ => (),
                         }
                     }
+                    _ = exit_notify.notified() => {
+                        log::info!("event_receiver receive `exit_notify`.");
+                        break;
+                    }
                 }
             }
-
-            stop_sig.store(true, Ordering::Relaxed);
         });
     }
 }

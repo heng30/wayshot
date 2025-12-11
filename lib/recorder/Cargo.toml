@@ -61,6 +61,7 @@ windows = { workspace = true, features = [
 [dev-dependencies]
 ctrlc.workspace = true
 env_logger.workspace = true
+rustls = { workspace = true, features = ["ring"] }
 
 [features]
 default = []

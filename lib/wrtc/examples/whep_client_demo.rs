@@ -3,6 +3,7 @@ use crossbeam::channel::bounded;
 use hound::{WavSpec, WavWriter};
 use image::{ImageBuffer, Rgb};
 use log::{info, trace, warn};
+use rustls::crypto::{CryptoProvider, ring};
 use std::{
     fs,
     path::Path,
@@ -14,8 +15,16 @@ use wrtc::client::{AudioSamples, RGBFrame, WHEPClient, WHEPClientConfig};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
-    let server_url = "http://localhost:9090".to_string();
+    // let server_url = "http://localhost:9090".to_string();
+    let server_url = "https://192.168.10.8:9090".to_string();
+
+    env_logger::builder()
+        .filter_module("webrtc", log::LevelFilter::Warn)
+        .filter_module("webrtc_srtp", log::LevelFilter::Warn)
+        .init();
+
+    CryptoProvider::install_default(ring::default_provider().into())
+        .expect("failed to set crypto provider");
 
     info!("WHEP Client Demo");
     info!("================");

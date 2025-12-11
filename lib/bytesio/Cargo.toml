@@ -14,5 +14,6 @@ thiserror.workspace = true
 byteorder.workspace = true
 async-trait.workspace = true
 tokio-stream.workspace = true
+tokio-rustls = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tokio-util = { workspace = true, features = ["codec"] }
