@@ -34,7 +34,10 @@ async fn main() -> Result<()> {
     let video_path = "./data/test.h264".to_string();
     let audio_path = "./data/test.ogg".to_string();
     let config = WebRTCServerConfig::new("0.0.0.0:9090".to_string(), None);
-    let session_config = WebRTCServerSessionConfig::default().with_media_info(MediaInfo::default());
+    let session_config = WebRTCServerSessionConfig::default()
+        .with_media_info(MediaInfo::default())
+        .with_host_ips(vec!["192.168.10.8".to_string()]);
+
     let (packet_sender, _) = broadcast::channel(128);
     let (event_sender, mut event_receiver) = broadcast::channel(16);
     let exit_notify = Arc::new(Notify::new());

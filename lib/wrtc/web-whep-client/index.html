@@ -92,7 +92,6 @@
         scrollbar-width: none; /* Firefox */
       }
 
-    
       .controls {
         display: flex;
         align-items: center;
@@ -323,8 +322,12 @@
       }
 
       @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
       }
 
       .video-controls {
@@ -781,9 +784,15 @@
         <button class="lang-btn active" data-lang="zh">中文</button>
         <button class="lang-btn" data-lang="en">English</button>
       </div>
-      <a href="https://github.com/Heng30/wayshot" target="_blank" class="github-link">
+      <a
+        href="https://github.com/Heng30/wayshot"
+        target="_blank"
+        class="github-link"
+      >
         <svg viewBox="0 0 24 24">
-          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          <path
+            d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
+          />
         </svg>
       </a>
     </div>
@@ -830,7 +839,9 @@
             value="100"
           />
         </div>
-        <button class="browser-fullscreen-btn" id="browser-fullscreen-btn">⤢</button>
+        <button class="browser-fullscreen-btn" id="browser-fullscreen-btn">
+          ⤢
+        </button>
         <button class="fullscreen-btn" id="fullscreen-btn">⛶</button>
       </div>
     </div>
@@ -848,7 +859,7 @@
           authEnabled: "已启用授权",
           tokenLabel: "令牌：",
           connectBtn: "连接",
-          disconnectBtn: "双击断开连接"
+          disconnectBtn: "断开连接",
         },
         en: {
           title: "Wayshot Screen Sharing",
@@ -856,33 +867,37 @@
           authEnabled: "Authorization Enabled",
           tokenLabel: "Token: ",
           connectBtn: "Connect",
-          disconnectBtn: "Double-click to Disconnect"
-        }
+          disconnectBtn: "Disconnect",
+        },
       };
 
-      let currentLang = 'zh';
+      let currentLang = "zh";
 
       // Toast notification system
-      const toastContainer = document.getElementById('toast-container');
+      const toastContainer = document.getElementById("toast-container");
       let toastCounter = 0;
 
-      function showToast(message, type = 'error', duration = 5000) {
+      function showToast(message, type = "error", duration = 5000) {
         const toastId = `toast-${toastCounter++}`;
 
         // Create icon based on type
-        let iconSvg = '';
+        let iconSvg = "";
         switch (type) {
-          case 'error':
-            iconSvg = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>';
+          case "error":
+            iconSvg =
+              '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>';
             break;
-          case 'warning':
-            iconSvg = '<svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
+          case "warning":
+            iconSvg =
+              '<svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
             break;
-          case 'info':
-            iconSvg = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>';
+          case "info":
+            iconSvg =
+              '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>';
             break;
-          case 'success':
-            iconSvg = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+          case "success":
+            iconSvg =
+              '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
             break;
         }
 
@@ -898,13 +913,13 @@
           </div>
         `;
 
-        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        toastContainer.insertAdjacentHTML("beforeend", toastHtml);
 
         const toastElement = document.getElementById(toastId);
 
         // Trigger animation
         setTimeout(() => {
-          toastElement.classList.add('show');
+          toastElement.classList.add("show");
         }, 10);
 
         // Auto remove after duration
@@ -920,7 +935,7 @@
       function closeToast(toastId) {
         const toastElement = document.getElementById(toastId);
         if (toastElement) {
-          toastElement.classList.remove('show');
+          toastElement.classList.remove("show");
           setTimeout(() => {
             toastElement.remove();
           }, 300);
@@ -931,20 +946,24 @@
       function updateLanguage(lang) {
         const texts = translations[lang];
         document.title = texts.title;
-        document.querySelector('.main-title').textContent = texts.title;
-        document.getElementById('switch-label').textContent = authEnabled ? texts.authEnabled : texts.authDisabled;
-        document.querySelector('label[for="token"]').textContent = texts.tokenLabel;
-        document.getElementById('start-whep-btn').textContent = texts.connectBtn;
+        document.querySelector(".main-title").textContent = texts.title;
+        document.getElementById("switch-label").textContent = authEnabled
+          ? texts.authEnabled
+          : texts.authDisabled;
+        document.querySelector('label[for="token"]').textContent =
+          texts.tokenLabel;
+        document.getElementById("start-whep-btn").textContent =
+          texts.connectBtn;
 
         // Update language button states
-        document.querySelectorAll('.lang-btn').forEach(btn => {
-          btn.classList.toggle('active', btn.dataset.lang === lang);
+        document.querySelectorAll(".lang-btn").forEach((btn) => {
+          btn.classList.toggle("active", btn.dataset.lang === lang);
         });
       }
 
       // Language switching event listeners
-      document.querySelectorAll('.lang-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
+      document.querySelectorAll(".lang-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
           currentLang = btn.dataset.lang;
           updateLanguage(currentLang);
         });
@@ -964,7 +983,9 @@
       const volumeBtn = document.getElementById("volume-btn");
       const volumeIcon = document.getElementById("volume-icon");
       const volumeSlider = document.getElementById("volume-slider");
-      const browserFullscreenBtn = document.getElementById("browser-fullscreen-btn");
+      const browserFullscreenBtn = document.getElementById(
+        "browser-fullscreen-btn",
+      );
       const fullscreenBtn = document.getElementById("fullscreen-btn");
       const playbackStateIndicator = document.getElementById(
         "playback-state-indicator",
@@ -1482,7 +1503,10 @@
         // Handle connection failure
         pc.onconnectionstatechange = () => {
           console.log("Connection state:", pc.connectionState);
-          if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+          if (
+            pc.connectionState === "failed" ||
+            pc.connectionState === "disconnected"
+          ) {
             console.log("Connection lost, cleaning up...");
             loadingSpinner.classList.remove("show");
             playBtn.textContent = "▶";
@@ -1514,11 +1538,18 @@
               ? "Authorization failed, please check if the token is correct"
               : "Authorization required to connect, please enable authorization and enter a valid token";
 
-            showToast(currentLang === 'zh' ? authMessage : enAuthMessage, 'error', 6000);
+            showToast(
+              currentLang === "zh" ? authMessage : enAuthMessage,
+              "error",
+              6000,
+            );
           } else {
             const texts = translations[currentLang];
-            const connectFailMessage = currentLang === 'zh' ? "连接失败，请检查网络连接" : "Connection failed, please check network connection";
-            showToast(connectFailMessage, 'error', 5000);
+            const connectFailMessage =
+              currentLang === "zh"
+                ? "连接失败，请检查网络连接"
+                : "Connection failed, please check network connection";
+            showToast(connectFailMessage, "error", 5000);
           }
 
           loadingSpinner.classList.remove("show");

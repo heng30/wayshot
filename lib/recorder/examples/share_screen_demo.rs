@@ -40,7 +40,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .with_process_mode(recorder::ProcessMode::ShareScreen)
     .with_share_screen_config(
-        ShareScreenConfig::new("0.0.0.0:9090".to_string()).with_save_mp4(true),
+        ShareScreenConfig::new("0.0.0.0:9090".to_string())
+            .with_save_mp4(true)
+            .with_disable_host_ipv6(true)
+            .with_host_ips(vec!["192.168.10.8".to_string()]), // NOTE: change or remove it
     )
     .with_enable_recording_speaker(true)
     .with_audio_device_name(Some(default_input.name))

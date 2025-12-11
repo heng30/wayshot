@@ -134,6 +134,9 @@ pub struct ShareScreenConfig {
     pub listen_addr: String,
     pub auth_token: Option<String>,
     pub tun_server: Option<String>,
+    pub stun_server: Option<String>,
+    pub host_ips: Vec<String>,
+    pub disable_host_ipv6: bool,
 
     pub enable_https: bool,
     pub cert_file: Option<String>,

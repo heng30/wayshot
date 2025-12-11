@@ -454,8 +454,12 @@ impl RecordingSession {
             .with_audio(audio_info)
             .with_video(video_info);
 
-        if let Some(ref tuns) = self.config.share_screen_config.tun_server {
-            media_info.ice_servers.push(format!("tun:{tuns}"));
+        if let Some(ref stun) = self.config.share_screen_config.stun_server {
+            media_info.ice_servers.push(format!("stun:{stun}"));
+        }
+
+        if let Some(ref tun) = self.config.share_screen_config.tun_server {
+            media_info.ice_servers.push(format!("tun:{tun}"));
         }
 
         let (event_sender, mut event_receiver) = broadcast::channel(ENCODER_WORKER_CHANNEL_SIZE);
@@ -467,7 +471,11 @@ impl RecordingSession {
         .with_cert_file(self.config.share_screen_config.cert_file.clone())
         .with_key_file(self.config.share_screen_config.key_file.clone());
 
-        let session_config = WebRTCServerSessionConfig::default().with_media_info(media_info);
+        let session_config = WebRTCServerSessionConfig::default()
+            .with_media_info(media_info)
+            .with_host_ips(self.config.share_screen_config.host_ips.clone())
+            .with_disable_host_ipv6(self.config.share_screen_config.disable_host_ipv6);
+
         let mut server = WebRTCServer::new(
             config,
             session_config,

@@ -9,8 +9,13 @@ use webrtc::{
         APIBuilder,
         interceptor_registry::register_default_interceptors,
         media_engine::{MIME_TYPE_H264, MIME_TYPE_OPUS, MediaEngine},
+        setting_engine::SettingEngine,
     },
-    ice_transport::{ice_connection_state::RTCIceConnectionState, ice_server::RTCIceServer},
+    ice::network_type::NetworkType,
+    ice_transport::{
+        ice_candidate_type::RTCIceCandidateType, ice_connection_state::RTCIceConnectionState,
+        ice_server::RTCIceServer,
+    },
     interceptor::registry::Registry,
     media::Sample,
     peer_connection::{
@@ -33,13 +38,17 @@ pub const ICE_SERVERS: [&str; 2] = [
 #[setters[prefix = "with_"]]
 pub struct WhepConfig {
     pub ice_servers: Vec<String>,
+    pub host_ips: Vec<String>,
     pub socket_addr: SocketAddr,
+    pub disable_host_ipv6: bool,
 }
 
 impl WhepConfig {
     pub fn new(socket_addr: SocketAddr) -> Self {
         Self {
             socket_addr,
+            host_ips: vec![],
+            disable_host_ipv6: false,
             ice_servers: ICE_SERVERS
                 .iter()
                 .map(|s| s.to_string())
@@ -51,8 +60,10 @@ impl WhepConfig {
 impl From<WebRTCServerSessionConfig> for WhepConfig {
     fn from(value: WebRTCServerSessionConfig) -> Self {
         Self {
+            host_ips: value.host_ips,
+            disable_host_ipv6: value.disable_host_ipv6,
             ice_servers: value.media_info.ice_servers,
-            socket_addr: SocketAddr::from_str("0.0.0.0:8080").unwrap(),
+            socket_addr: SocketAddr::from_str("0.0.0.0:9090").unwrap(),
         }
     }
 }
@@ -69,10 +80,23 @@ pub async fn handle_whep(
     let mut registry = Registry::new();
     registry = register_default_interceptors(registry, &mut m)?;
 
-    let api = APIBuilder::new()
+    log::info!("host_ips: {:?}", config.host_ips);
+
+    let mut api = APIBuilder::new()
         .with_media_engine(m)
-        .with_interceptor_registry(registry)
-        .build();
+        .with_interceptor_registry(registry);
+
+    if !config.host_ips.is_empty() {
+        let mut setting_engine = SettingEngine::default();
+
+        if config.disable_host_ipv6 {
+            setting_engine.set_network_types(vec![NetworkType::Tcp4, NetworkType::Udp4]);
+        }
+
+        setting_engine.set_nat_1to1_ips(config.host_ips, RTCIceCandidateType::Host);
+        api = api.with_setting_engine(setting_engine);
+    }
+    let api = api.build();
 
     let rtc_peer_config = RTCConfiguration {
         ice_servers: vec![RTCIceServer {

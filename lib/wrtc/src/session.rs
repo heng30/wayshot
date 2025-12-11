@@ -37,18 +37,12 @@ pub enum HttpStream {
 }
 
 #[non_exhaustive]
-#[derive(Debug, Setters, Clone)]
+#[derive(Debug, Default, Setters, Clone)]
 #[setters[prefix = "with_"]]
 pub struct WebRTCServerSessionConfig {
     pub media_info: MediaInfo,
-}
-
-impl Default for WebRTCServerSessionConfig {
-    fn default() -> Self {
-        Self {
-            media_info: MediaInfo::default(),
-        }
-    }
+    pub host_ips: Vec<String>,
+    pub disable_host_ipv6: bool,
 }
 
 #[non_exhaustive]
@@ -187,7 +181,7 @@ impl WebRTCServerSession {
 
         let request_data = self.reader.extract_remaining_bytes();
 
-        log::info!("{}", std::str::from_utf8(&request_data)?);
+        log::debug!("{}", std::str::from_utf8(&request_data)?);
 
         if let Some(http_request) = HttpRequest::unmarshal(std::str::from_utf8(&request_data)?) {
             let request_method = http_request.method.as_str();

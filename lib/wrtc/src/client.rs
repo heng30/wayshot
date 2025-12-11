@@ -20,8 +20,13 @@ use webrtc::{
         APIBuilder,
         interceptor_registry::register_default_interceptors,
         media_engine::{MIME_TYPE_H264, MIME_TYPE_OPUS, MediaEngine},
+        setting_engine::SettingEngine,
     },
-    ice_transport::{ice_connection_state::RTCIceConnectionState, ice_server::RTCIceServer},
+    ice::network_type::NetworkType,
+    ice_transport::{
+        ice_candidate_type::RTCIceCandidateType, ice_connection_state::RTCIceConnectionState,
+        ice_server::RTCIceServer,
+    },
     interceptor::registry::Registry,
     peer_connection::{
         configuration::RTCConfiguration, sdp::session_description::RTCSessionDescription,
@@ -45,6 +50,8 @@ pub struct WHEPClientConfig {
     pub auth_token: Option<String>,
 
     pub ice_servers: Vec<String>,
+    pub host_ips: Vec<String>,
+    pub disable_host_ipv6: bool,
 }
 
 impl WHEPClientConfig {
@@ -52,6 +59,8 @@ impl WHEPClientConfig {
         Self {
             server_url,
             auth_token: None,
+            host_ips: vec![],
+            disable_host_ipv6: false,
             ice_servers: ICE_SERVERS
                 .iter()
                 .map(|s| s.to_string())
@@ -137,10 +146,22 @@ impl WHEPClient {
         let mut registry = Registry::new();
         registry = register_default_interceptors(registry, &mut m)?;
 
-        let api = APIBuilder::new()
+        let mut api = APIBuilder::new()
             .with_media_engine(m)
-            .with_interceptor_registry(registry)
-            .build();
+            .with_interceptor_registry(registry);
+
+        if !self.config.host_ips.is_empty() {
+            let mut setting_engine = SettingEngine::default();
+
+            if self.config.disable_host_ipv6 {
+                setting_engine.set_network_types(vec![NetworkType::Tcp4, NetworkType::Udp4]);
+            }
+
+            setting_engine
+                .set_nat_1to1_ips(self.config.host_ips.clone(), RTCIceCandidateType::Host);
+            api = api.with_setting_engine(setting_engine);
+        }
+        let api = api.build();
 
         let config = RTCConfiguration {
             ice_servers: vec![RTCIceServer {
