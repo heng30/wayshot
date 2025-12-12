@@ -453,6 +453,12 @@ impl RecordingSession {
             .with_audio(audio_info)
             .with_video(video_info);
 
+        if self.config.share_screen_config.stun_server.is_some()
+            || self.config.share_screen_config.turn_server.is_some()
+        {
+            media_info.ice_servers.clear();
+        }
+
         if let Some(ref stun) = self.config.share_screen_config.stun_server {
             media_info.ice_servers.push(stun.clone());
         }

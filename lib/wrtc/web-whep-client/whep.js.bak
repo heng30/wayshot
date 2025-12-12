@@ -1,0 +1,190 @@
+const Extensions = {
+  Core: {
+    ServerSentEvents: "urn:ietf:params:whep:ext:core:server-sent-events",
+    Layer: "urn:ietf:params:whep:ext:core:layer",
+  },
+};
+
+class WHEPClient extends EventTarget {
+  constructor() {
+    super();
+  }
+
+  async fetchIceServers(mediainfoUrl, token) {
+    try {
+      const headers = {};
+      if (token) headers["Authorization"] = "Bearer " + token;
+
+      const response = await fetch(mediainfoUrl, {
+        method: "GET",
+        headers,
+      });
+
+      if (!response.ok) {
+        console.warn(
+          "Failed to fetch ICE servers from /mediainfo:",
+          response.status,
+        );
+        return [];
+      }
+
+      const data = await response.json();
+
+      // Extract ICE servers from the mediainfo response
+      // Expected format: { ice_servers: [{ urls: ["stun:example.com:443", ...], username: "", credential: "" }, ...] }
+      if (data.ice_servers && Array.isArray(data.ice_servers)) {
+        return data.ice_servers.map((server) => {
+          const iceServer = {
+            urls: server.urls,
+          };
+
+          // Check if any URL is a TURN server
+          const hasTurnServer =
+            server.urls &&
+            server.urls.some((url) => url.toLowerCase().startsWith("turn:"));
+
+          if (hasTurnServer) {
+            // For TURN servers, ensure username and credential exist (can be empty as placeholders)
+            iceServer.username =
+              server.username && server.username.trim() !== ""
+                ? server.username
+                : "";
+            iceServer.credential =
+              server.credential && server.credential.trim() !== ""
+                ? server.credential
+                : "";
+            server.credentialType = "password";
+          } else {
+            // For non-TURN servers, only add username and credential if they exist and are not empty
+            if (server.username && server.username.trim() !== "") {
+              iceServer.username = server.username;
+            }
+            if (server.credential && server.credential.trim() !== "") {
+              iceServer.credential = server.credential;
+            }
+
+            if (
+              server.username &&
+              server.username != "" &&
+              server.credential &&
+              server.credential != ""
+            ) {
+              server.credentialType = "password";
+            }
+          }
+
+          return iceServer;
+        });
+      }
+
+      return [];
+    } catch (error) {
+      console.warn("Error fetching ICE servers:", error);
+      return [];
+    }
+  }
+
+  async view(pc, url, token) {
+    if (this.pc) throw new Error("Already viewing");
+
+    this.token = token;
+    this.pc = pc;
+
+    pc.onconnectionstatechange = (_event) => {
+      console.log(`Connection state changed to: ${pc.connectionState}`);
+      switch (pc.connectionState) {
+        case "connected":
+          console.log("WebRTC connection established successfully");
+          break;
+        case "disconnected":
+        case "failed":
+          console.warn("WebRTC connection lost or failed");
+          break;
+        case "closed":
+          console.log("WebRTC connection closed");
+          break;
+      }
+    };
+
+    pc.oniceconnectionstatechange = (_event) => {
+      console.log(`ICE connection state: ${pc.iceConnectionState}`);
+    };
+
+    pc.onicecandidate = (_event) => {
+      // console.log(event);
+    };
+
+    const mediainfoUrl = new URL("/mediainfo", url).toString();
+    const iceServers = await this.fetchIceServers(mediainfoUrl, token);
+
+    if (iceServers.length > 0) {
+      const config = pc.getConfiguration();
+      config.iceServers = iceServers;
+      pc.setConfiguration(config);
+      console.log("Set ICE servers from /mediainfo:", iceServers);
+    }
+
+    const offer = await pc.createOffer();
+    const headers = {
+      "Content-Type": "application/sdp",
+    };
+    if (token) headers["Authorization"] = "Bearer " + token;
+
+    const fetched = await fetch(url, {
+      method: "POST",
+      body: offer.sdp,
+      headers,
+    });
+
+    if (!fetched.ok) {
+      if (fetched.status === 401) {
+        throw new Error("UNAUTHORIZED");
+      } else {
+        throw new Error("Request rejected with status " + fetched.status);
+      }
+    }
+    if (!fetched.headers.get("location"))
+      throw new Error("Response missing location header");
+
+    this.resourceURL = new URL(fetched.headers.get("location"), url);
+
+    const answer = await fetched.text();
+
+    await pc.setLocalDescription(offer);
+    await pc.setRemoteDescription({ type: "answer", sdp: answer });
+  }
+
+  restart() {
+    this.restartIce = true;
+  }
+
+  async trickle() {}
+
+  async stop() {
+    if (!this.pc) {
+      return;
+    }
+
+    this.pc.close();
+    this.pc = null;
+
+    if (!this.resourceURL)
+      throw new Error("WHEP resource url not available yet");
+
+    const headers = {};
+    if (this.token) headers["Authorization"] = "Bearer " + this.token;
+
+    try {
+      const response = await fetch(this.resourceURL, {
+        method: "DELETE",
+        headers,
+      });
+
+      if (!response.ok) {
+        console.warn(`DELETE request failed with status: ${response.status}`);
+      }
+    } catch (e) {
+      console.error("Failed to send DELETE request:", e);
+    }
+  }
+}

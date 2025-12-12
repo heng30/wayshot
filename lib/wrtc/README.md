@@ -8,19 +8,23 @@ Fork [xiu](https://github.com/harlanc/xiu)
 - edit configure
     ```bash
     # 默认位置：/etc/turnserver.conf 或 /etc/coturn/turnserver.conf
-    listening-ip=0.0.0.0 # 服务器内网IP地址
-    listening-port=3478　　# STUN/TURN服务的端口 对应UDP和TCP的端口都要打开
-    relay-ip=192.168.10.8 # 服务器内网IP地址
-    external-ip=192.168.10.8 # 服务器公网IP地址
+    listening-ip=0.0.0.0
+    listening-port=3478
+    relay-ip=192.168.10.8
+    external-ip=192.168.10.8
 
-    tls-listening-port=5349　　#TURN服务器的tls端口
-    cert=/tmp/turn_cert.pem　　#证书地址
-    pkey=/tmp/turn_key.pem　　#密钥地址
+    tls-listening-port=5349
+    cert=/tmp/turn_cert.pem
+    pkey=/tmp/turn_key.pem
 
-    no-cli　　# 关闭CLI支持
+    realm=example.com
 
-    # lt-cred-mech　　# 开启密码验证
-    # user=usename:password　　# 设置ICE时所用的用户名和密码
+    # lt-cred-mech
+    # user=foo:123456
+
+    no-auth
+    no-cli
+    verbose
     ```
 
 - test `turnserver`

@@ -216,9 +216,14 @@ pub async fn handle_whep(
                                 }
                             }
                         }
-                        _ => {
+                        Err(broadcast::error::RecvError::Lagged(skipped_count)) => {
+                            log::info!("Client lagged, skipped {skipped_count} messages. Network might be slow.");
+                            continue;
+                        }
+                        Err(broadcast::error::RecvError::Closed) => {
+                            log::info!("Broadcast channel source closed.");
                             if let Err(e) = event_sender.send(crate::Event::LocalClosed(socket_addr.clone())) {
-                                log::warn!("event_sender send LocalClosed {socket_addr} failed: {e}");
+                                log::warn!("event_sender send LocalClosed failed: {e}");
                             }
                             break;
                         }

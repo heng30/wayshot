@@ -43,9 +43,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ShareScreenConfig::new("0.0.0.0:9090".to_string())
             .with_save_mp4(true)
             .with_disable_host_ipv6(true)
+            .with_enable_https(true)
+            .with_cert_file(Some("../wrtc/data/ca.crt".to_string()))
+            .with_key_file(Some("../wrtc/data/ca.key".to_string()))
             // start turnserver: `turnserver -c ./turnserver.conf -v`
             .with_turn_server(Some(RTCIceServer {
                 urls: vec!["turn:192.168.10.8:3478".to_string()],
+                username: "foo".to_string(),
+                credential: "123456".to_string(),
+            })) // NOTE: change or remove it
+            .with_stun_server(Some(RTCIceServer {
+                urls: vec!["stun:192.168.10.8:3478".to_string()],
                 username: "foo".to_string(),
                 credential: "123456".to_string(),
             })) // NOTE: change or remove it
@@ -53,10 +61,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .with_enable_recording_speaker(true)
     .with_audio_device_name(Some(default_input.name))
-    .with_resolution(recorder::Resolution::Original((
-        screen_infos[0].logical_size.width as u32,
-        screen_infos[0].logical_size.height as u32,
-    )))
+    .with_resolution(recorder::Resolution::P720)
+    // .with_resolution(recorder::Resolution::Original((
+    //     screen_infos[0].logical_size.width as u32,
+    //     screen_infos[0].logical_size.height as u32,
+    // )))
     .with_fps(FPS::Fps25);
 
     log::debug!("Recording configuration: {:#?}", config);
