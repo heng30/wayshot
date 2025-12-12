@@ -1,5 +1,5 @@
 use crate::{
-    EventSender, PacketDataSender, SessionError,
+    EventSender, PacketDataSender, RTCIceServer, SessionError,
     common::{
         self,
         auth::{Auth, SecretCarrier},
@@ -80,7 +80,7 @@ pub struct AudioInfo {
 pub struct MediaInfo {
     pub video: VideoInfo,
     pub audio: Option<AudioInfo>,
-    pub ice_servers: Vec<String>,
+    pub ice_servers: Vec<RTCIceServer>,
 
     #[setters(skip)]
     _private: (),
@@ -91,10 +91,13 @@ impl Default for MediaInfo {
         Self {
             video: VideoInfo::default(),
             audio: Some(AudioInfo::default()),
-            ice_servers: ICE_SERVERS
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>(),
+            ice_servers: vec![RTCIceServer {
+                urls: ICE_SERVERS
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>(),
+                ..Default::default()
+            }],
             _private: (),
         }
     }
@@ -193,6 +196,8 @@ impl WebRTCServerSession {
                         Self::gen_file_response(WEB_WHEP_JS.as_bytes(), "application/javascript")
                     }
                     "/mediainfo" => {
+                        self.check_auth(&http_request).await?;
+
                         let contents =
                             serde_json::to_string(&self.config.media_info).unwrap_or_default();
                         Self::gen_file_response(contents.as_bytes(), "text/json")
@@ -210,6 +215,8 @@ impl WebRTCServerSession {
                 return Ok(());
             }
 
+            self.check_auth(&http_request).await?;
+
             //POST /whep HTTP/1.1
             let eles: Vec<&str> = http_request.uri.path.splitn(2, '/').collect();
             let pars_map = &http_request.query_pairs;
@@ -217,8 +224,19 @@ impl WebRTCServerSession {
 
             if eles.len() < 2 {
                 log::warn!("the http path is not correct: {}", http_request.uri.path);
-
                 return Err(SessionError::HttpRequestPathError);
+            }
+
+            if !matches!(ty.to_lowercase().as_str(), "whep") {
+                log::warn!(
+                    "current path: {}, method: {}",
+                    http_request.uri.path,
+                    ty.to_lowercase()
+                );
+
+                let response = Self::gen_response(http::StatusCode::BAD_REQUEST);
+                self.send_response(&response).await?;
+                return Err(SessionError::HttpRequestNotSupported);
             }
 
             match request_method {
@@ -243,82 +261,41 @@ impl WebRTCServerSession {
                         self.session_id.unwrap()
                     );
 
-                    if let Some(auth) = &self.auth {
-                        let token_carrier = http_request
-                            .get_header(&"authorization".to_string())
-                            .map(|header| SecretCarrier::Bearer(header.to_string()))
-                            .or_else(|| {
-                                http_request
-                                    .uri
-                                    .query
-                                    .as_ref()
-                                    .map(|q| SecretCarrier::Query(q.to_string()))
-                            });
-
-                        if let Err(e) = auth.authenticate(&token_carrier) {
-                            self.send_response(&Self::gen_response(http::StatusCode::UNAUTHORIZED))
-                                .await?;
-
-                            return Err(SessionError::AuthError(e));
-                        }
-                    }
-
-                    match ty.to_lowercase().as_str() {
-                        "whep" => {
-                            self.start_streaming(path, offer).await?;
-                        }
-                        _ => {
-                            log::warn!(
-                                "current path: {}, method: {}",
-                                http_request.uri.path,
-                                ty.to_lowercase()
-                            );
-                            return Err(SessionError::HttpRequestNotSupported);
-                        }
-                    }
-                }
-                http_method_name::OPTIONS => {
-                    self.send_response(&Self::gen_response(http::StatusCode::OK))
-                        .await?
+                    self.start_streaming(path, offer).await?;
                 }
                 http_method_name::DELETE => {
-                    if let Err(e) = self
-                        .event_sender
-                        .send(crate::Event::PeerClosed(self.socket_addr.to_string()))
-                    {
-                        log::warn!(
-                            "event_sender send PeerClosed {} failed: {e}",
-                            self.socket_addr.to_string()
-                        );
-                    }
-
                     if let Some(session_id) = pars_map.get("session_id") {
+                        if let Err(e) = self
+                            .event_sender
+                            .send(crate::Event::PeerClosed(self.socket_addr.to_string()))
+                        {
+                            log::warn!(
+                                "event_sender send PeerClosed {} failed: {e}",
+                                self.socket_addr.to_string()
+                            );
+                        }
+
                         if let Some(uuid) = Uuid::from_str2(session_id) {
                             Self::remove_session(self.sessions.clone(), &uuid).await;
                         }
+
+                        let response = Self::gen_response(http::StatusCode::OK);
+                        self.send_response(&response).await?;
                     } else {
                         log::warn!(
                             "the delete path does not contain session id: {}?{}",
                             http_request.uri.path,
                             http_request.uri.query.as_ref().unwrap()
                         );
-                    }
 
-                    if !matches!(ty.to_lowercase().as_str(), "whep") {
-                        log::warn!(
-                            "current path: {}, method: {}",
-                            http_request.uri.path,
-                            ty.to_lowercase()
-                        );
-                        return Err(SessionError::HttpRequestNotSupported);
+                        let response = Self::gen_response(http::StatusCode::BAD_REQUEST);
+                        self.send_response(&response).await?;
                     }
-
-                    let response = Self::gen_response(http::StatusCode::OK);
-                    self.send_response(&response).await?;
                 }
-                http_method_name::PATCH => (),
                 _ => {
                     log::warn!("unsupported method name: {}", http_request.method);
+                    let response = Self::gen_response(http::StatusCode::BAD_REQUEST);
+                    self.send_response(&response).await?;
                 }
             }
 
@@ -334,7 +311,7 @@ impl WebRTCServerSession {
         if let Some(session) = sessions_unlock.get(uuid) {
             match session.lock().await.close_peer_connection().await {
                 Err(e) => log::warn!("close peer connection failed: {e}"),
-                _ => log::info!("close peer connection: [{uuid}] successfully."),
+                _ => log::info!("close session: [{uuid}] successfully."),
             }
 
             sessions_unlock.remove(uuid);
@@ -423,7 +400,7 @@ impl WebRTCServerSession {
         );
         response.headers.insert(
             "access-control-allow-method".to_owned(),
-            "GET, POST, PUT, PATCH, DELETE, OPTIONS".to_owned(),
+            "GET, POST, DELETE".to_owned(),
         );
         response
     }
@@ -447,6 +424,30 @@ impl WebRTCServerSession {
         if let Some(pc) = &self.peer_connection {
             pc.close().await?;
         }
+        Ok(())
+    }
+
+    async fn check_auth(&mut self, http_request: &HttpRequest) -> Result<(), SessionError> {
+        if let Some(auth) = &self.auth {
+            let token_carrier = http_request
+                .get_header(&"authorization".to_string())
+                .map(|header| SecretCarrier::Bearer(header.to_string()))
+                .or_else(|| {
+                    http_request
+                        .uri
+                        .query
+                        .as_ref()
+                        .map(|q| SecretCarrier::Query(q.to_string()))
+                });
+
+            if let Err(e) = auth.authenticate(&token_carrier) {
+                self.send_response(&Self::gen_response(http::StatusCode::UNAUTHORIZED))
+                    .await?;
+
+                return Err(SessionError::AuthError(e));
+            }
+        }
+
         Ok(())
     }
 }

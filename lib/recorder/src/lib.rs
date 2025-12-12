@@ -22,6 +22,7 @@ pub use speaker_recorder::{
     SpeakerRecorder, SpeakerRecorderConfig, SpeakerRecorderError, platform_speaker_recoder,
 };
 pub use video_encoder::{EncodedFrame, VideoEncoder, VideoEncoderConfig, new as video_encoder_new};
+pub use wrtc::RTCIceServer;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgressState {

@@ -14,10 +14,9 @@ use tokio::sync::{
 };
 use webrtc::media::io::{h264_reader::H264Reader, ogg_reader::OggReader};
 use wrtc::{
-    Event, PacketData,
+    Event, PacketData, WebRTCServer, WebRTCServerConfig,
     opus::OPUS_SAMPLE_RATE,
     session::{MediaInfo, WebRTCServerSessionConfig},
-    webrtc::{WebRTCServer, WebRTCServerConfig},
 };
 
 static CONNECTIONS: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet::default()));

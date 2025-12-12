@@ -37,7 +37,7 @@ pub const ICE_SERVERS: [&str; 2] = [
 #[derive(Debug, Setters, Clone)]
 #[setters[prefix = "with_"]]
 pub struct WhepConfig {
-    pub ice_servers: Vec<String>,
+    pub ice_servers: Vec<RTCIceServer>,
     pub host_ips: Vec<String>,
     pub socket_addr: SocketAddr,
     pub disable_host_ipv6: bool,
@@ -49,20 +49,17 @@ impl WhepConfig {
             socket_addr,
             host_ips: vec![],
             disable_host_ipv6: false,
-            ice_servers: ICE_SERVERS
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>(),
+            ice_servers: vec![],
         }
     }
 }
 
 impl From<WebRTCServerSessionConfig> for WhepConfig {
-    fn from(value: WebRTCServerSessionConfig) -> Self {
+    fn from(config: WebRTCServerSessionConfig) -> Self {
         Self {
-            host_ips: value.host_ips,
-            disable_host_ipv6: value.disable_host_ipv6,
-            ice_servers: value.media_info.ice_servers,
+            host_ips: config.host_ips,
+            disable_host_ipv6: config.disable_host_ipv6,
+            ice_servers: config.media_info.ice_servers,
             socket_addr: SocketAddr::from_str("0.0.0.0:9090").unwrap(),
         }
     }
@@ -98,11 +95,20 @@ pub async fn handle_whep(
     }
     let api = api.build();
 
-    let rtc_peer_config = RTCConfiguration {
-        ice_servers: vec![RTCIceServer {
-            urls: config.ice_servers,
+    let ice_servers = if config.ice_servers.is_empty() {
+        vec![RTCIceServer {
+            urls: ICE_SERVERS
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>(),
             ..Default::default()
-        }],
+        }]
+    } else {
+        config.ice_servers.clone()
+    };
+
+    let rtc_peer_config = RTCConfiguration {
+        ice_servers,
         ..Default::default()
     };
 

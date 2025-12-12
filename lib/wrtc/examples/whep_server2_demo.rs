@@ -16,10 +16,9 @@ use tokio::sync::{
 };
 use video_encoder::{EncodedFrame, VideoEncoderConfig};
 use wrtc::{
-    Event, PacketData, WebRTCServerConfig,
+    Event, PacketData, WebRTCServer, WebRTCServerConfig,
     opus::OpusCoder,
     session::{MediaInfo, VideoInfo, WebRTCServerSessionConfig},
-    webrtc::WebRTCServer,
 };
 
 // const IMG_WIDTH: u32 = 1920;

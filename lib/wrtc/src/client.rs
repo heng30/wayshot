@@ -1,5 +1,5 @@
 use crate::{
-    ClientError,
+    ClientError, RTCIceServer,
     opus::{OPUS_SAMPLE_RATE, OpusCoder},
     session::MediaInfo,
     whep::ICE_SERVERS,
@@ -14,7 +14,10 @@ use http::{
 use log::{debug, info, trace, warn};
 use openh264::decoder::Decoder;
 use std::sync::Arc;
-use tokio::{sync::Notify, time::Duration};
+use tokio::{
+    sync::{Mutex, Notify},
+    time::Duration,
+};
 use webrtc::{
     api::{
         APIBuilder,
@@ -25,7 +28,6 @@ use webrtc::{
     ice::network_type::NetworkType,
     ice_transport::{
         ice_candidate_type::RTCIceCandidateType, ice_connection_state::RTCIceConnectionState,
-        ice_server::RTCIceServer,
     },
     interceptor::registry::Registry,
     peer_connection::{
@@ -49,7 +51,7 @@ pub struct WHEPClientConfig {
     #[setters(strip_option)]
     pub auth_token: Option<String>,
 
-    pub ice_servers: Vec<String>,
+    pub ice_servers: Vec<RTCIceServer>,
     pub host_ips: Vec<String>,
     pub disable_host_ipv6: bool,
 }
@@ -61,10 +63,13 @@ impl WHEPClientConfig {
             auth_token: None,
             host_ips: vec![],
             disable_host_ipv6: false,
-            ice_servers: ICE_SERVERS
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>(),
+            ice_servers: vec![RTCIceServer {
+                urls: ICE_SERVERS
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>(),
+                ..Default::default()
+            }],
         }
     }
 }
@@ -74,6 +79,9 @@ pub struct WHEPClient {
     pub media_info: MediaInfo,
     pub video_sender: Option<Sender<RGBFrame>>,
     pub audio_sender: Option<Sender<AudioSamples>>,
+    pub exit_notify: Arc<Notify>,
+
+    session_url: Arc<Mutex<Option<String>>>,
 }
 
 impl WHEPClient {
@@ -81,16 +89,18 @@ impl WHEPClient {
         config: WHEPClientConfig,
         video_sender: Option<Sender<RGBFrame>>,
         audio_sender: Option<Sender<AudioSamples>>,
+        exit_notify: Arc<Notify>,
     ) -> ClientResult<WHEPClient> {
-        let media_info = match fetch_media_info(&config.server_url).await {
-            Ok(info) => info,
-            Err(e) => {
-                warn!("Failed to fetch media info: {e}");
-                return Err(ClientError::ConnectionError(format!(
-                    "Failed to fetch media info: {e}"
-                )));
-            }
-        };
+        let media_info =
+            match fetch_media_info(&config.server_url, config.auth_token.as_ref()).await {
+                Ok(info) => info,
+                Err(e) => {
+                    warn!("Failed to fetch media info: {e}");
+                    return Err(ClientError::ConnectionError(format!(
+                        "Failed to fetch media info: {e}"
+                    )));
+                }
+            };
 
         info!(
             "Fetched media info: video {}x{} @ {}fps, audio {:?}",
@@ -104,6 +114,8 @@ impl WHEPClient {
             media_info,
             video_sender,
             audio_sender,
+            exit_notify,
+            session_url: Arc::new(Mutex::new(None)),
         })
     }
 }
@@ -163,15 +175,14 @@ impl WHEPClient {
         }
         let api = api.build();
 
+        let ice_servers = if self.media_info.ice_servers.is_empty() {
+            self.config.ice_servers.clone()
+        } else {
+            self.media_info.ice_servers.clone()
+        };
+
         let config = RTCConfiguration {
-            ice_servers: vec![RTCIceServer {
-                urls: if self.media_info.ice_servers.is_empty() {
-                    self.config.ice_servers.clone()
-                } else {
-                    self.media_info.ice_servers.clone()
-                },
-                ..Default::default()
-            }],
+            ice_servers,
             ..Default::default()
         };
 
@@ -189,8 +200,7 @@ impl WHEPClient {
                 .await?;
         }
 
-        let notify_tx = Arc::new(Notify::new());
-        let notify_rx = notify_tx.clone();
+        let exit_notify = self.exit_notify.clone();
         let video_sender = self.video_sender.clone();
         let audio_sender = self.audio_sender.clone();
         let pc = Arc::downgrade(&peer_connection);
@@ -221,7 +231,7 @@ impl WHEPClient {
                 }
             });
 
-            let notify_rx = Arc::clone(&notify_rx);
+            let exit_notify = exit_notify.clone();
             let media_info = media_info.clone();
             let mut video_sender = video_sender.clone();
             let mut audio_sender = audio_sender.clone();
@@ -239,7 +249,7 @@ impl WHEPClient {
                             _ = process_audio_track(
                                 track,
                                 sender,
-                                notify_rx,
+                                exit_notify,
                                 audio_info.sample_rate,
                                 audio_info.channels,
                             )
@@ -253,7 +263,7 @@ impl WHEPClient {
                             _ = process_video_track(
                                 track,
                                 sender,
-                                notify_rx,
+                                exit_notify,
                                 media_info.video.width as u32,
                                 media_info.video.height as u32,
                             )
@@ -264,8 +274,7 @@ impl WHEPClient {
             })
         }));
 
-        let notify_tx2 = notify_tx.clone();
-        let (done_tx, mut done_rx) = tokio::sync::mpsc::channel::<()>(1);
+        let exit_notify = self.exit_notify.clone();
 
         peer_connection.on_ice_connection_state_change(Box::new(
             move |connection_state: RTCIceConnectionState| {
@@ -275,8 +284,7 @@ impl WHEPClient {
                     info!("WHEP client connected to server");
                 } else if connection_state == RTCIceConnectionState::Failed {
                     warn!("WHEP client connection failed");
-                    notify_tx2.notify_waiters();
-                    _ = done_tx.try_send(());
+                    exit_notify.notify_waiters();
                 }
                 Box::pin(async {})
             },
@@ -324,6 +332,14 @@ impl WHEPClient {
             info!("WHEP response status: {}", response.status());
 
             if response.status().is_success() {
+                if let Some(location) = response.headers().get("location") {
+                    if let Ok(location_str) = location.to_str() {
+                        let session_url_str = format!("{}{}", self.config.server_url, location_str);
+                        info!("Session URL: {}", session_url_str);
+                        *self.session_url.lock().await = Some(session_url_str);
+                    }
+                }
+
                 let answer_sdp = response.text().await?;
                 debug!("SDP Answer received, length: {} bytes", answer_sdp.len());
 
@@ -342,11 +358,59 @@ impl WHEPClient {
             return Err(ClientError::MissingLocalDescription);
         }
 
-        _ = done_rx.recv().await;
+        _ = self.exit_notify.notified().await;
 
         info!("WHEP client connection ended");
 
         peer_connection.close().await?;
+        self.close_session().await?;
+        Ok(())
+    }
+
+    pub async fn close_session(&self) -> ClientResult<()> {
+        let session_url = {
+            let url_guard = self.session_url.lock().await;
+            match url_guard.as_ref() {
+                Some(url) => url.clone(),
+                None => {
+                    warn!("No session URL available - session may not be established");
+                    return Ok(());
+                }
+            }
+        };
+
+        info!("Closing WHEP session: {}", session_url);
+
+        let client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .danger_accept_invalid_hostnames(true)
+            .build()
+            .map_err(|e| {
+                ClientError::ConnectionError(format!("Failed to build HTTP client: {}", e))
+            })?;
+
+        let mut headers = HeaderMap::new();
+        if let Some(token) = &self.config.auth_token {
+            headers.insert(
+                AUTHORIZATION,
+                HeaderValue::from_str(&format!("Bearer {token}")).unwrap(),
+            );
+        }
+
+        let response = client.delete(&session_url).headers(headers).send().await?;
+
+        if response.status().is_success() {
+            info!("WHEP session closed successfully");
+        } else {
+            warn!(
+                "Failed to close WHEP session: {} - {}",
+                response.status(),
+                response.text().await.unwrap_or_default()
+            );
+        }
+
+        *self.session_url.lock().await = None;
+
         Ok(())
     }
 }
@@ -512,31 +576,6 @@ impl H264Decoder {
         }
 
         Err(ClientError::H264DecodeFailed)
-    }
-}
-
-async fn fetch_media_info(server_url: &str) -> ClientResult<MediaInfo> {
-    let client = reqwest::Client::builder()
-        .danger_accept_invalid_certs(true)
-        .danger_accept_invalid_hostnames(true)
-        .build()
-        .map_err(|e| ClientError::ConnectionError(format!("Failed to build HTTP client: {}", e)))?;
-    let response = client
-        .get(&format!("{}/mediainfo", server_url))
-        .send()
-        .await
-        .map_err(|e| ClientError::ConnectionError(format!("Failed to fetch media info: {}", e)))?;
-
-    if response.status().is_success() {
-        let media_info: MediaInfo = response.json().await.map_err(|e| {
-            ClientError::ConnectionError(format!("Failed to parse media info: {}", e))
-        })?;
-        Ok(media_info)
-    } else {
-        Err(ClientError::ConnectionError(format!(
-            "Media info endpoint returned status: {}",
-            response.status()
-        )))
     }
 }
 
@@ -743,4 +782,44 @@ pub fn convert_annexb_to_length_prefixes(annexb_data: &[u8]) -> Vec<u8> {
     }
 
     length_preference_data
+}
+
+async fn fetch_media_info(
+    server_url: &str,
+    auth_token: Option<&String>,
+) -> ClientResult<MediaInfo> {
+    let mut client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .danger_accept_invalid_hostnames(true);
+
+    if let Some(token) = &auth_token {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {token}")).unwrap(),
+        );
+        client = client.default_headers(headers);
+    };
+
+    let client = client
+        .build()
+        .map_err(|e| ClientError::ConnectionError(format!("Failed to build HTTP client: {}", e)))?;
+
+    let response = client
+        .get(&format!("{}/mediainfo", server_url))
+        .send()
+        .await
+        .map_err(|e| ClientError::ConnectionError(format!("Failed to fetch media info: {}", e)))?;
+
+    if response.status().is_success() {
+        let media_info: MediaInfo = response.json().await.map_err(|e| {
+            ClientError::ConnectionError(format!("Failed to parse media info: {}", e))
+        })?;
+        Ok(media_info)
+    } else {
+        Err(ClientError::ConnectionError(format!(
+            "Media info endpoint returned status: {}",
+            response.status()
+        )))
+    }
 }

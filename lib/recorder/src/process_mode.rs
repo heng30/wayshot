@@ -21,10 +21,9 @@ use std::{
 use tokio::sync::{Notify, broadcast};
 use wrtc::client::convert_annexb_to_length_prefixes;
 use wrtc::{
-    Event, PacketData, PacketDataSender, WebRTCServerConfig,
+    Event, PacketData, PacketDataSender, WebRTCServer, WebRTCServerConfig,
     opus::OpusCoder,
     session::{AudioInfo, MediaInfo, VideoInfo, WebRTCServerSessionConfig},
-    webrtc::WebRTCServer,
 };
 
 pub(crate) const AUDIO_MIXER_CHANNEL_SIZE: usize = 1024;
@@ -455,11 +454,11 @@ impl RecordingSession {
             .with_video(video_info);
 
         if let Some(ref stun) = self.config.share_screen_config.stun_server {
-            media_info.ice_servers.push(format!("stun:{stun}"));
+            media_info.ice_servers.push(stun.clone());
         }
 
-        if let Some(ref tun) = self.config.share_screen_config.tun_server {
-            media_info.ice_servers.push(format!("tun:{tun}"));
+        if let Some(ref turn) = self.config.share_screen_config.turn_server {
+            media_info.ice_servers.push(turn.clone());
         }
 
         let (event_sender, mut event_receiver) = broadcast::channel(ENCODER_WORKER_CHANNEL_SIZE);

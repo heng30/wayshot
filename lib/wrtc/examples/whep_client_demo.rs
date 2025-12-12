@@ -37,6 +37,7 @@ async fn main() -> Result<()> {
     }
     fs::create_dir_all(output_dir)?;
 
+    let exit_notify = Arc::new(Notify::new());
     let video_counter = Arc::new(Mutex::new(0u32));
     let audio_duration = Arc::new(Mutex::new(0f64));
     let audio_samples_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
@@ -50,6 +51,7 @@ async fn main() -> Result<()> {
             .with_disable_host_ipv6(true),
         Some(video_tx),
         Some(audio_tx),
+        exit_notify.clone(),
     )
     .await?;
 
@@ -92,8 +94,7 @@ async fn main() -> Result<()> {
 
     let audio_duration_clone = audio_duration.clone();
     let output_dir_clone = output_dir.to_string();
-    let done_notify = Arc::new(Notify::new());
-    let done_notify_clone = done_notify.clone();
+    let exit_notify_clone = exit_notify.clone();
 
     if let Some(audio_info) = client.media_info.audio.clone() {
         tokio::spawn(async move {
@@ -149,7 +150,7 @@ async fn main() -> Result<()> {
                         }
                         Err(e) => warn!("Failed to create WAV file: {}", e),
                     }
-                    done_notify_clone.notify_waiters();
+                    exit_notify_clone.notify_waiters();
                     break;
                 }
             }
@@ -171,8 +172,8 @@ async fn main() -> Result<()> {
         _ = connect_task => {
             info!("Connect task completed");
         }
-        _  = done_notify.notified() => {
-            info!("Done notify completed");
+        _  = exit_notify.notified() => {
+            info!("exit notify completed");
         }
         _ = sleep(Duration::from_secs(20)) => {
             warn!("Test completed after 20 seconds timeout");

@@ -8,6 +8,7 @@ use std::{
     sync::{Arc, atomic::AtomicI32},
     time::{Duration, Instant},
 };
+use wrtc::RTCIceServer;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum FPS {
@@ -133,8 +134,8 @@ pub struct ShareScreenConfig {
 
     pub listen_addr: String,
     pub auth_token: Option<String>,
-    pub tun_server: Option<String>,
-    pub stun_server: Option<String>,
+    pub turn_server: Option<RTCIceServer>,
+    pub stun_server: Option<RTCIceServer>,
     pub host_ips: Vec<String>,
     pub disable_host_ipv6: bool,
 

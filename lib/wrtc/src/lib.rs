@@ -5,10 +5,11 @@ pub mod client;
 pub mod common;
 pub mod opus;
 pub mod session;
-pub mod webrtc;
 pub mod whep;
+pub mod wrtc;
 
-pub use webrtc::{WebRTCServer, WebRTCServerConfig};
+pub use webrtc::ice_transport::ice_server::RTCIceServer;
+pub use wrtc::{WebRTCServer, WebRTCServerConfig};
 
 #[derive(Clone)]
 pub enum PacketData {
