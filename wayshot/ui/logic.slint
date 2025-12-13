@@ -11,6 +11,7 @@ import {
     SettingControl,
     SettingPlayer,
     SettingCursorTracker,
+    SettingShareScreen,
     Fps,
     Resolution,
     HistoryEntry,
@@ -98,6 +99,9 @@ export global Logic {
     callback get-setting-cursor-tracker() -> SettingCursorTracker;
     callback set-setting-cursor-tracker(setting: SettingCursorTracker);
 
+    callback get-setting-share-screen() -> SettingShareScreen;
+    callback set-setting-share-screen(setting: SettingShareScreen);
+
     callback init-sources-dialog();
     callback choose-save-dir();
     callback update-sources(setting: SettingControl);
@@ -138,6 +142,11 @@ export global Logic {
     get-current-playlist-index => {
         return -1;
     }
+
+    callback add-host-ip(host-ips: [string], ip: string);
+    callback remove-host-ip(host-ips: [string], index: int);
+    callback load-share-screen-cert-file();
+    callback load-share-screen-key-file();
 
     pure public function fps-to-int(fps: Fps) -> int {
         if (fps == Fps.Fps24) {

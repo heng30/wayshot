@@ -60,7 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_host_ips(vec!["192.168.10.8".to_string()]), // NOTE: change or remove it
     )
     .with_enable_recording_speaker(true)
-    .with_audio_device_name(Some(default_input.name))
+    // .with_audio_device_name(Some(default_input.name))
     .with_resolution(recorder::Resolution::P720)
     // .with_resolution(recorder::Resolution::Original((
     //     screen_infos[0].logical_size.width as u32,

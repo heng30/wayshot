@@ -1,8 +1,3 @@
-//! Settings panel logic module
-//!
-//! Handles application settings including preferences, proxy configuration,
-//! AI model settings, backup/restore, and cache management.
-
 use super::tr::tr;
 use crate::{
     config, global_logic, global_store,
@@ -11,13 +6,6 @@ use crate::{
 };
 use slint::ComponentHandle;
 
-/// Initializes settings panel logic
-///
-/// Sets up all settings-related callbacks including preferences,
-/// proxy settings, AI model configuration, and utility functions.
-///
-/// # Parameters
-/// - `ui`: Reference to the application window
 pub fn init(ui: &AppWindow) {
     init_setting(ui);
 
@@ -127,6 +115,20 @@ pub fn init(ui: &AppWindow) {
         toast_success!(ui_weak.unwrap(), tr("save configuration successfully"));
     });
 
+    global_logic!(ui).on_get_setting_share_screen(move || {
+        let config = config::all().share_screen;
+        config.into()
+    });
+
+    let ui_weak = ui.as_weak();
+    global_logic!(ui).on_set_setting_share_screen(move |setting| {
+        let mut all = config::all();
+        all.share_screen = setting.into();
+        _ = config::save(all);
+
+        toast_success!(ui_weak.unwrap(), tr("save configuration successfully"));
+    });
+
     let ui_weak = ui.as_weak();
     global_logic!(ui).on_remove_caches(move || {
         let ui = ui_weak.unwrap();
@@ -168,12 +170,6 @@ pub fn init(ui: &AppWindow) {
     }
 }
 
-/// Initializes setting values from configuration
-///
-/// Loads current configuration values into the settings UI.
-///
-/// # Parameters
-/// - `ui`: Reference to the application window
 fn init_setting(ui: &AppWindow) {
     let config = config::all().preference;
     let mut setting = global_store!(ui).get_setting_preference();
@@ -193,13 +189,6 @@ fn init_setting(ui: &AppWindow) {
     global_store!(ui).set_setting_control(config::all().control.into());
 }
 
-/// Performs backup operation for desktop platforms
-///
-/// Creates a backup archive containing configuration and data files.
-///
-/// # Parameters
-/// - `ui`: Weak reference to the application window
-/// - `setting`: Backup settings including what to backup
 #[cfg(feature = "desktop")]
 fn backup(ui: slint::Weak<AppWindow>, setting: crate::slint_generatedAppWindow::SettingBackup) {
     use crate::logic::toast;
@@ -267,12 +256,6 @@ fn backup(ui: slint::Weak<AppWindow>, setting: crate::slint_generatedAppWindow::
     });
 }
 
-/// Performs recovery operation for desktop platforms
-///
-/// Restores application data from a backup archive.
-///
-/// # Parameters
-/// - `ui`: Weak reference to the application window
 #[cfg(feature = "desktop")]
 fn recover(ui: slint::Weak<AppWindow>) {
     use crate::logic::toast;
@@ -342,12 +325,6 @@ fn recover(ui: slint::Weak<AppWindow>) {
     });
 }
 
-/// Performs uninstall operation for desktop platforms
-///
-/// Removes application configuration and data directories.
-///
-/// # Parameters
-/// - `ui`: Weak reference to the application window
 #[cfg(feature = "desktop")]
 fn uninstall(ui: slint::Weak<AppWindow>) {
     let ui = ui.unwrap();

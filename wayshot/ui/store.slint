@@ -33,6 +33,7 @@ export enum SettingDetailIndex {
     Preference,
     Recorder,
     CursorTracking,
+    ShareScreen,
 }
 
 export enum MobileTabIndex {
@@ -89,6 +90,11 @@ export enum TransitionType {
     EaseOut,
 }
 
+export enum ProcessMode {
+    RecordScreen,
+    ShareScreen,
+}
+
 export struct SettingCursorTracker {
     enable-tracking: bool,
     region-width: int,
@@ -134,6 +140,31 @@ export struct SettingPlayer {
     sound: int,
  }
 
+export struct RTCIceServer {
+    url: string,
+    username: string,
+    credential: string,
+}
+
+export struct SettingShareScreen {
+    save_mp4: bool,
+
+    listen_addr: string,
+    auth_token: string,
+
+    enable-turn-server: bool,
+    turn_server: RTCIceServer,
+
+    enable-stun-server: bool,
+    stun_server: RTCIceServer,
+
+    host_ips: [string],
+    disable_host_ipv6: bool,
+
+    enable_https: bool,
+    cert_file: string,
+    key_file: string,
+}
 
 export struct StatsInfo {
     fps: float,
@@ -178,7 +209,7 @@ export global Store {
     // desktop
     in-out property <TabIndex> previous-tab-index: TabIndex.Home;
     in-out property <TabIndex> current-tab-index: TabIndex.Home;
-    in-out property <PopupIndex> current-popup-index: PopupIndex.None;
+    in-out property <PopupIndex> current-popup-index: PopupIndex.Setting;
     in-out property <SettingDetailIndex> current-setting-detail-index: SettingDetailIndex.Preference;
 
     // android
@@ -201,6 +232,7 @@ export global Store {
     in-out property <bool> is-cn: setting-preference.language == "cn";
     in-out property <RecordStatus> record-status: RecordStatus.Stopped;
     in-out property <FeatureType> feature-type: FeatureType.Other;
+    in-out property <ProcessMode> process-mode: ProcessMode.RecordScreen;
     in-out property <string> save-dir;
     in-out property <bool> never-recording-once: true;
 
@@ -239,6 +271,9 @@ export global Store {
         speaker-gain: 2,
         enable-speaker: true,
     };
+
+    in-out property <SettingShareScreen> setting-share-screen;
+    in-out property <SettingShareScreen> setting-share-screen-cache;
 
     in-out property <[HistoryEntry]> history-entries: [
         {

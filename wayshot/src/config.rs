@@ -1,12 +1,7 @@
-//! Configuration management module
-//!
-//! Handles application configuration loading, saving, and management.
-//! Supports platform-specific configuration directories and automatic
-//! configuration file creation.
-
 use crate::slint_generatedAppWindow::{
-    Fps as UIFps, Resolution as UIResolution, SettingControl as UISettingControl,
-    SettingCursorTracker as UISettingCursorTracker, SettingRecorder as UISettingRecorder,
+    Fps as UIFps, RTCIceServer as UIRTCIceServer, Resolution as UIResolution,
+    SettingControl as UISettingControl, SettingCursorTracker as UISettingCursorTracker,
+    SettingRecorder as UISettingRecorder, SettingShareScreen as UISettingShareScreen,
     TransitionType as UITransitionType,
 };
 use anyhow::{Context, Result, bail};
@@ -15,6 +10,7 @@ use once_cell::sync::Lazy;
 use pmacro::SlintFromConvert;
 use recorder::TransitionType;
 use serde::{Deserialize, Serialize};
+use slint::Model;
 use std::{fs, path::PathBuf, sync::Mutex};
 use uuid::Uuid;
 
@@ -59,9 +55,6 @@ impl AppDirs {
     }
 }
 
-/// Main configuration structure containing all application settings
-///
-/// Includes paths, preferences, proxy settings, and AI model configurations.
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct Config {
     #[serde(skip)]
@@ -86,11 +79,11 @@ pub struct Config {
     pub recorder: Recorder,
     pub control: Control,
     pub cursor_tracker: CursorTracker,
+
+    #[serde(default)]
+    pub share_screen: ShareScreen,
 }
 
-/// User preference settings for the application
-///
-/// Contains window settings, font preferences, language, and UI options.
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative)]
 #[derivative(Default)]
 pub struct Preference {
@@ -203,6 +196,42 @@ pub struct CursorTracker {
 
     pub zoom_in_transition_type: UITransitionType,
     pub zoom_out_transition_type: UITransitionType,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
+#[derivative(Default)]
+#[from("UIRTCIceServer")]
+pub struct RTCIceServer {
+    pub url: String,
+    pub username: String,
+    pub credential: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
+#[derivative(Default)]
+#[from("UISettingShareScreen")]
+pub struct ShareScreen {
+    #[derivative(Default(value = "true"))]
+    pub save_mp4: bool,
+
+    #[derivative(Default(value = "\"0.0.0.0:9090\".to_string()"))]
+    pub listen_addr: String,
+
+    pub auth_token: String,
+
+    pub enable_turn_server: bool,
+    pub turn_server: RTCIceServer,
+
+    pub enable_stun_server: bool,
+    pub stun_server: RTCIceServer,
+
+    #[vec(from = "host_ips")]
+    pub host_ips: Vec<String>,
+    pub disable_host_ipv6: bool,
+
+    pub enable_https: bool,
+    pub cert_file: String,
+    pub key_file: String,
 }
 
 crate::impl_slint_enum_serde!(UIFps, Fps24, Fps25, Fps30, Fps60);

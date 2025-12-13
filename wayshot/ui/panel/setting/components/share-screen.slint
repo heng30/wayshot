@@ -1,0 +1,346 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    DeviceType,
+    Icons,
+    SettingShareScreen,
+} from "../../def.slint";
+import { Fps, Resolution } from "../../../store.slint";
+import {
+    SettingDetail,
+    SettingDetailInner,
+    RadioBtn,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+    ConfirmBtn,
+    Label,
+    SettingDetailSwitch,
+} from "../../../base/widgets.slint";
+import { Tag } from "../../../base/tag.slint";
+
+export component ShareScreen inherits SettingDetail {
+    callback confirmed();
+
+    private property cache-setting <=> Store.setting-share-screen-cache;
+
+    init => {
+        root.set(Logic.get-setting-share-screen());
+    }
+
+    public function get() -> SettingShareScreen {
+        return root.cache-setting;
+    }
+
+    public function set(setting: SettingShareScreen) {
+        cache-setting = setting;
+    }
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Listen address");
+                tip: Logic.tr("HTTP server listen address");
+            }
+
+            listen-addr-li := LineInput {
+                text: cache-setting.listen-addr;
+                placeholder-text: "0.0.0.0:9090";
+            }
+        }
+
+        VerticalLayout {
+            spacing: Theme.spacing * 2;
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Host ips (optional)");
+                    tip: Logic.tr("NAT 1to1 ips");
+                }
+
+                LineInput {
+                    is-show-icon: true;
+                    icon: Icons.add-with-rect-light;
+                    placeholder-text: "192.168.0.1";
+
+                    accepted => {
+                        self.clicked();
+                    }
+
+                    clicked => {
+                        Logic.add-host-ip(cache-setting.host-ips, self.text);
+                        self.text = "";
+                    }
+                }
+            }
+
+            if cache-setting.host-ips.length > 0: HorizontalLayout {
+                alignment: start;
+                spacing: Theme.spacing * 2;
+                for ip[index] in cache-setting.host-ips: Tag {
+                    text: ip;
+                    is-show-close-btn: true;
+                    background: Theme.tag-colors[Math.mod(index, Theme.tag-colors.length)];
+
+                    close => {
+                        Logic.remove-host-ip(cache-setting.host-ips, index);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Auth token (optional)");
+                tip: Logic.tr("HTTP server auth token");
+            }
+
+            auth-token-li := LineInput {
+                placeholder-text: "123456";
+            }
+        }
+
+        VerticalLayout {
+            spacing: Theme.spacing;
+
+            SettingDetailInnerVbox {
+                SettingDetailSwitch {
+                    icon: Icons.stun-light;
+                    text: Logic.tr("STUN server");
+                    checked: cache-setting.enable-stun-server;
+
+                    toggled => {
+                        cache-setting.enable-stun-server = self.checked;
+                    }
+                }
+            }
+
+            if cache-setting.enable-stun-server: SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("URL");
+                }
+
+                LineInput {
+                    is-show-icon: self.text != cache-setting.stun-server.url;
+                    icon: Icons.check-box-light;
+                    icon-size: Theme.icon-size * 0.8;
+                    text: cache-setting.stun_server.url;
+                    placeholder-text: "stun:http:://192.168.0.1:3478";
+
+                    clicked => {
+                        cache-setting.stun-server.url = self.text;
+                    }
+
+                    accepted => {
+                        self.clicked();
+                    }
+                }
+            }
+
+            if cache-setting.enable-stun-server: SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("User name (optional)");
+                }
+
+                LineInput {
+                    is-show-icon: self.text != cache-setting.stun-server.username;
+                    icon: Icons.check-box-light;
+                    icon-size: Theme.icon-size * 0.8;
+                    text: cache-setting.stun-server.username;
+                    placeholder-text: "username";
+
+                    clicked => {
+                        cache-setting.stun-server.username = self.text;
+                    }
+
+                    accepted => {
+                        self.clicked();
+                    }
+                }
+            }
+
+            if cache-setting.enable-stun-server: SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Password (optional)");
+                }
+
+                LineInput {
+                    is-show-icon: self.text != cache-setting.stun-server.credential;
+                    icon: Icons.check-box-light;
+                    icon-size: Theme.icon-size * 0.8;
+                    text: cache-setting.stun-server.credential;
+                    placeholder-text: "password";
+
+                    clicked => {
+                        cache-setting.stun-server.credential = self.text;
+                    }
+
+                    accepted => {
+                        self.clicked();
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: Theme.spacing;
+
+            SettingDetailInnerVbox {
+                SettingDetailSwitch {
+                    icon: Icons.cloud-server-light;
+                    text: Logic.tr("TURN server");
+                    checked: cache-setting.enable-turn-server;
+
+                    toggled => {
+                        cache-setting.enable-turn-server = self.checked;
+                    }
+                }
+            }
+
+            if cache-setting.enable-turn-server: SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("URL");
+                }
+
+                LineInput {
+                    is-show-icon: self.text != cache-setting.turn-server.url;
+                    icon: Icons.check-box-light;
+                    icon-size: Theme.icon-size * 0.8;
+                    text: cache-setting.turn_server.url;
+                    placeholder-text: "turn:http:://192.168.0.1:3478";
+
+                    clicked => {
+                        cache-setting.turn-server.url = self.text;
+                    }
+
+                    accepted => {
+                        self.clicked();
+                    }
+                }
+            }
+
+            if cache-setting.enable-turn-server: SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("User name (optional)");
+                }
+
+                LineInput {
+                    is-show-icon: self.text != cache-setting.turn-server.username;
+                    icon: Icons.check-box-light;
+                    icon-size: Theme.icon-size * 0.8;
+                    text: cache-setting.turn_server.username;
+                    placeholder-text: "username";
+
+                    clicked => {
+                        cache-setting.turn-server.username = self.text;
+                    }
+
+                    accepted => {
+                        self.clicked();
+                    }
+                }
+            }
+
+            if cache-setting.enable-turn-server: SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Password (optional)");
+                }
+
+                LineInput {
+                    is-show-icon: self.text != cache-setting.turn-server.credential;
+                    icon: Icons.check-box-light;
+                    icon-size: Theme.icon-size * 0.8;
+                    text: cache-setting.turn_server.credential;
+                    placeholder-text: "password";
+
+                    clicked => {
+                        cache-setting.turn-server.credential = self.text;
+                    }
+
+                    accepted => {
+                        self.clicked();
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: Theme.spacing;
+
+            SettingDetailInnerVbox {
+                SettingDetailSwitch {
+                    icon: Icons.https-light;
+                    text: self.checked ? Logic.tr("Enabled TLS") : Logic.tr("Disabled TLS");
+                    checked: cache-setting.enable-https;
+
+                    toggled => {
+                        cache-setting.enable-https = self.checked;
+                    }
+                }
+            }
+
+            if cache-setting.enable-https: SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Certification");
+                }
+
+                LineInput {
+                    read-only: true;
+                    is-show-icon: true;
+                    icon: Icons.file-open-light;
+                    text: cache-setting.cert-file;
+                    placeholder-text: "*.crt or *.pem";
+
+                    clicked => {
+                        Logic.load-share-screen-cert-file();
+                    }
+                }
+            }
+
+            if cache-setting.enable-https: SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Private key");
+                }
+
+                LineInput {
+                    read-only: true;
+                    is-show-icon: true;
+                    icon: Icons.file-open-light;
+                    text: cache-setting.cert-file;
+                    placeholder-text: "*.key or *.pem";
+
+                    clicked => {
+                        Logic.load-share-screen-key-file();
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            spacing: Theme.spacing * 2;
+
+            SettingDetailSwitch {
+                icon: Icons.ipv6-light;
+                text: self.checked ? Logic.tr("Enabled host ipv6") : Logic.tr("Disabled host ipv6");
+                checked: !cache-setting.disable-host-ipv6;
+
+                toggled => {
+                    cache-setting.disable-host-ipv6 = !self.checked;
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            save-mp4-swicth := SettingDetailSwitch {
+                icon: Icons.save-archive-light;
+                text: self.checked ? Logic.tr("Enabled save mp4") : Logic.tr("Disabled save mp4");
+                checked: cache-setting.save-mp4;
+
+                toggled => {
+                    cache-setting.save-mp4 = self.checked;
+                }
+            }
+        }
+    }
+}

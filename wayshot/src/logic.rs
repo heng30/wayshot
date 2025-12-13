@@ -26,6 +26,9 @@ mod history;
 #[cfg(feature = "desktop")]
 mod player;
 
+#[cfg(feature = "desktop")]
+mod share_screen;
+
 pub fn init(ui: &AppWindow) {
     #[cfg(any(feature = "desktop", feature = "mobile"))]
     {
@@ -44,6 +47,7 @@ pub fn init(ui: &AppWindow) {
         recorder::init(ui);
         history::init(ui);
         player::init(ui);
+        share_screen::init(ui);
     }
 }
 

@@ -30,6 +30,7 @@ import {
 import { Preference } from "components/preference.slint";
 import { Donate } from "components/donate.slint";
 import { Recorder } from "components/recorder.slint";
+import { ShareScreen } from "components/share-screen.slint";
 import { CursorTracker } from "components/cursor-tracker.slint";
 import { HelpDetail } from "components/help-detail.slint";
 import { Backup } from "components/backup.slint";
@@ -44,11 +45,13 @@ component SettingBody inherits Rectangle {
             recorder.apply();
         } else if (Store.current-setting-detail-index == SettingDetailIndex.CursorTracking) {
             cursor-tracker.apply();
+        } else if (Store.current-setting-detail-index == SettingDetailIndex.ShareScreen) {
+            share-screen.apply();
         }
     }
 
     init => {
-        Logic.switch-setting-detail(SettingDetailIndex.Preference);
+        Logic.switch-setting-detail(SettingDetailIndex.ShareScreen); // TODO:
     }
 
     preference := Preference {
@@ -86,6 +89,15 @@ component SettingBody inherits Rectangle {
             Logic.set-setting-cursor-tracker(self.get());
         }
     }
+
+    share-screen := ShareScreen {
+        visible: Store.current-setting-detail-index == SettingDetailIndex.ShareScreen;
+        is-show-header: false;
+
+        public function apply() {
+            Logic.set-setting-share-screen(self.get());
+        }
+    }
 }
 
 component Setting inherits Rectangle {
@@ -105,6 +117,7 @@ component Setting inherits Rectangle {
                     { icon: Icons.ui-light, text: Logic.tr("Preference") },
                     { icon: Icons.monitor-recorder-light, text: Logic.tr("Recorder") },
                     { icon: Icons.monitor-recorder-light, text: Logic.tr("Cursor Tracking") },
+                    { icon: Icons.share-screen-light, text: Logic.tr("Share Screen") },
                 ];
 
                 clicked(index) => {
@@ -114,6 +127,8 @@ component Setting inherits Rectangle {
                         Logic.switch-setting-detail(SettingDetailIndex.Recorder);
                     } else if (index == 2) {
                         Logic.switch-setting-detail(SettingDetailIndex.CursorTracking);
+                    } else if (index == 3) {
+                        Logic.switch-setting-detail(SettingDetailIndex.ShareScreen);
                     }
                 }
             }
