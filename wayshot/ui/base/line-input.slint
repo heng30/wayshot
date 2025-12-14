@@ -34,6 +34,7 @@ export component LineInput inherits Rectangle {
     in property <bool> enabled <=> text-input.enabled;
     in property <string> placeholder-text;
     in-out property <bool> gain-focus-when-clicked: true;
+    out property <color> default-border-color: text-input.has-focus ? Theme.thirdly-brand-color : Theme.base-border-color;
 
     in property <bool> is-show-icon;
     in property <image> icon;
@@ -54,7 +55,7 @@ export component LineInput inherits Rectangle {
     forward-focus: text-input;
     border-radius: Theme.border-radius;
     border-width: text-input.has-focus ? 2px : 1px;
-    border-color: text-input.has-focus ? Theme.thirdly-brand-color : Theme.base-border-color;
+    border-color: default-border-color;
 
     public function paste() {
         text-input.paste();

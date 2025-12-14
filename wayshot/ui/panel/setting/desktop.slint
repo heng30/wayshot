@@ -51,7 +51,7 @@ component SettingBody inherits Rectangle {
     }
 
     init => {
-        Logic.switch-setting-detail(SettingDetailIndex.ShareScreen); // TODO:
+        Logic.switch-setting-detail(SettingDetailIndex.Preference);
     }
 
     preference := Preference {
@@ -95,7 +95,14 @@ component SettingBody inherits Rectangle {
         is-show-header: false;
 
         public function apply() {
-            Logic.set-setting-share-screen(self.get());
+            let setting = self.get();
+            let err = Logic.verify-setting-share-screen(setting);
+
+            if (err.is-empty) {
+                Logic.set-setting-share-screen(setting);
+            } else {
+                Util.show-toast(err, ToastStatus.Warning);
+            }
         }
     }
 }

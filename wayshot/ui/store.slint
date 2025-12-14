@@ -170,6 +170,7 @@ export struct StatsInfo {
     fps: float,
     loss: float,
     total: int,
+    share-screen-connections: int,
 }
 
 export enum RecordStatus{
@@ -209,7 +210,7 @@ export global Store {
     // desktop
     in-out property <TabIndex> previous-tab-index: TabIndex.Home;
     in-out property <TabIndex> current-tab-index: TabIndex.Home;
-    in-out property <PopupIndex> current-popup-index: PopupIndex.Setting;
+    in-out property <PopupIndex> current-popup-index: PopupIndex.None;
     in-out property <SettingDetailIndex> current-setting-detail-index: SettingDetailIndex.Preference;
 
     // android
@@ -273,7 +274,8 @@ export global Store {
     };
 
     in-out property <SettingShareScreen> setting-share-screen;
-    in-out property <SettingShareScreen> setting-share-screen-cache;
+    in-out property <string> setting-share-screen-cert-file;
+    in-out property <string> setting-share-screen-key-file;
 
     in-out property <[HistoryEntry]> history-entries: [
         {

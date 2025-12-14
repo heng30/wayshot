@@ -6,16 +6,16 @@ use crate::{
     },
     logic_cb,
     slint_generatedAppWindow::{
-        AppWindow, FeatureType, Fps as UIFps, RecordStatus as UIRecordStatus,
-        Resolution as UIResolution, SettingControl as UISettingControl, Source as UISource,
-        SourceType,
+        AppWindow, FeatureType, Fps as UIFps, ProcessMode as UIProcessMode,
+        RecordStatus as UIRecordStatus, Resolution as UIResolution,
+        SettingControl as UISettingControl, Source as UISource, SourceType,
     },
     toast_success, toast_warn,
 };
 use anyhow::{Result, bail};
 use once_cell::sync::Lazy;
 use recorder::{
-    AudioRecorder, FPS, RecorderConfig, RecordingSession, Resolution, SpeakerRecorder,
+    AudioRecorder, FPS, ProcessMode, RecorderConfig, RecordingSession, Resolution, SpeakerRecorder,
     SpeakerRecorderConfig, bounded, platform_screen_capture, platform_speaker_recoder,
 };
 use screen_capture::{ScreenCapture, ScreenInfo};
@@ -44,6 +44,8 @@ struct Cache {
 }
 
 static CACHE: Lazy<Mutex<Cache>> = Lazy::new(|| Mutex::new(Cache::default()));
+
+crate::impl_c_like_enum_convert!(UIProcessMode, ProcessMode, RecordScreen, ShareScreen);
 
 #[macro_export]
 macro_rules! store_audio_sources {
@@ -550,8 +552,11 @@ fn start_recording(ui: &AppWindow) {
     }
 
     let ui_weak = ui.as_weak();
+    let rt_handle = tokio::runtime::Handle::current();
+    let process_mode = global_store!(ui).get_process_mode();
+
     thread::spawn(move || {
-        if let Err(e) = inner_start_recording(ui_weak.clone()) {
+        if let Err(e) = inner_start_recording(rt_handle, ui_weak.clone(), process_mode.into()) {
             toast::async_toast_warn(ui_weak, e.to_string());
         }
     });
@@ -580,13 +585,18 @@ fn warmup_video_encoder() -> Result<()> {
     Ok(())
 }
 
-fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
+fn inner_start_recording(
+    rt_handle: tokio::runtime::Handle,
+    ui_weak: Weak<AppWindow>,
+    process_mode: ProcessMode,
+) -> Result<()> {
     log::info!("start recording...");
 
     let screen_info = current_screen_info()?;
     log::debug!("screen_info: {screen_info:?}");
 
     let all_config = config::all();
+    let save_mp4 = all_config.share_screen.save_mp4;
     let resolution = if matches!(all_config.recorder.resolution, UIResolution::Original) {
         Resolution::Original((
             screen_info.logical_size.width as u32,
@@ -607,6 +617,7 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
         screen_info.logical_size.clone(),
         RecorderConfig::make_filename(&all_config.recorder.save_dir),
     )
+    .with_process_mode(process_mode)
     .with_include_cursor(all_config.recorder.include_cursor)
     .with_enable_denoise(all_config.recorder.enable_denoise)
     .with_convert_to_mono(all_config.recorder.convert_to_mono)
@@ -633,13 +644,14 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
     )
     .with_zoom_in_transition_type(all_config.cursor_tracker.zoom_in_transition_type.into())
     .with_zoom_out_transition_type(all_config.cursor_tracker.zoom_out_transition_type.into())
-    .with_max_stable_region_duration(all_config.cursor_tracker.max_stable_region_duration as u64);
+    .with_max_stable_region_duration(all_config.cursor_tracker.max_stable_region_duration as u64)
+    .with_share_screen_config(all_config.share_screen.into());
 
     log::info!("Recording configuration: {:#?}", config);
 
     let (frame_sender_user, frame_receiver_user) = bounded(16);
     let mut session = RecordingSession::new(config).with_frame_sender_user(Some(frame_sender_user));
-    session.start(platform_screen_capture())?;
+    session.start(rt_handle, platform_screen_capture())?;
 
     _ = ui_weak.upgrade_in_event_loop(move |ui| {
         global_store!(ui).set_start_recording_timer(false);
@@ -681,13 +693,20 @@ fn inner_start_recording(ui_weak: Weak<AppWindow>) -> Result<()> {
                 sinfo.total = frame.stats.total_frames as i32;
                 sinfo.loss =
                     frame.stats.loss_frames as f32 / frame.stats.total_frames.max(1) as f32;
+                sinfo.share_screen_connections = frame.stats.share_screen_connections as i32;
                 global_store!(ui).set_stats_info(sinfo);
             });
         }
         log::info!("exit frame_receiver_user");
     });
 
-    let final_video_path = session.save_path();
+    let final_video_path = if matches!(process_mode, ProcessMode::RecordScreen)
+        || (matches!(process_mode, ProcessMode::ShareScreen) && save_mp4)
+    {
+        session.save_path()
+    } else {
+        Default::default()
+    };
 
     session.wait()?;
 

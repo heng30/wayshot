@@ -13,7 +13,7 @@ use std::{
     collections::HashSet,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
     },
     thread,
     time::{Duration, Instant},
@@ -27,7 +27,7 @@ use wrtc::{
 };
 
 pub(crate) const AUDIO_MIXER_CHANNEL_SIZE: usize = 1024;
-
+pub(crate) static SHARE_SCREEN_CONNECTIONS_COUNT: AtomicU32 = AtomicU32::new(0);
 static SHARE_SCREEN_CONNECTIONS: Lazy<Mutex<HashSet<String>>> =
     Lazy::new(|| Mutex::new(HashSet::default()));
 
@@ -209,6 +209,7 @@ impl RecordingSession {
 
     pub(crate) fn share_screen_worker(
         &mut self,
+        rt_handle: tokio::runtime::Handle,
         video_encoder_header_data: Option<Vec<u8>>,
         mix_audio_receiver: Option<Receiver<Vec<f32>>>,
         mix_audio_channels: Option<u16>,
@@ -249,7 +250,9 @@ impl RecordingSession {
             mix_audio_sample_rate,
             exit_notify.clone(),
         );
+
         self.start_share_screen_server(
+            rt_handle,
             packet_sender,
             mix_audio_channels,
             mix_audio_sample_rate,
@@ -422,6 +425,7 @@ impl RecordingSession {
 
     fn start_share_screen_server(
         &mut self,
+        rt_handle: tokio::runtime::Handle,
         packet_sender: PacketDataSender,
         mix_audio_channels: Option<u16>,
         mix_audio_sample_rate: Option<u32>,
@@ -490,46 +494,58 @@ impl RecordingSession {
         );
 
         let stop_sig = self.stop_sig.clone();
-        tokio::spawn(async move {
-            match server.run().await {
-                Ok(_) => log::info!("WebRTCServer exit..."),
-                Err(e) => log::warn!("WebRTCServer run failed: {e}"),
-            }
-            stop_sig.store(true, Ordering::Relaxed);
+
+        let rt_handle_clone = rt_handle.clone();
+        std::thread::spawn(move || {
+            rt_handle_clone.block_on(async move {
+                match server.run().await {
+                    Ok(_) => log::info!("WebRTCServer exit..."),
+                    Err(e) => log::warn!("WebRTCServer run failed: {e}"),
+                }
+                stop_sig.store(true, Ordering::Relaxed);
+            });
         });
 
-        tokio::spawn(async move {
-            loop {
-                tokio::select! {
-                    event = event_receiver.recv() => {
-                        match event {
-                            Ok(Event::PeerConnected(addr)) => {
-                                let mut connections = SHARE_SCREEN_CONNECTIONS.lock().unwrap();
-                                connections.insert(addr);
-                                log::info!("connections count: {}", connections.len());
-                            }
-                            Ok(Event::LocalClosed(addr)) => {
-                                log::info!("LocalClosed({addr})");
+        std::thread::spawn(move || {
+            rt_handle.block_on(async move {
+                loop {
+                    tokio::select! {
+                        event = event_receiver.recv() => {
+                            match event {
+                                Ok(Event::PeerConnected(addr)) => {
+                                    let mut connections = SHARE_SCREEN_CONNECTIONS.lock().unwrap();
+                                    connections.insert(addr);
+                                    SHARE_SCREEN_CONNECTIONS_COUNT.store(connections.len() as u32, Ordering::Relaxed);
+                                    log::info!("connections count: {}", connections.len());
+                                }
+                                Ok(Event::LocalClosed(addr)) => {
+                                    log::info!("LocalClosed({addr})");
 
-                                let mut connections = SHARE_SCREEN_CONNECTIONS.lock().unwrap();
-                                connections.remove(&addr);
-                                log::info!("connections count: {}", connections.len());
+                                    let mut connections = SHARE_SCREEN_CONNECTIONS.lock().unwrap();
+                                    connections.remove(&addr);
+                                    SHARE_SCREEN_CONNECTIONS_COUNT.store(connections.len() as u32, Ordering::Relaxed);
+                                    log::info!("connections count: {}", connections.len());
+                                }
+                                Ok(Event::PeerClosed(addr)) => {
+                                    log::info!("PeerClosed({addr})");
+
+                                    let mut connections = SHARE_SCREEN_CONNECTIONS.lock().unwrap();
+                                    connections.remove(&addr);
+                                    SHARE_SCREEN_CONNECTIONS_COUNT.store(connections.len() as u32, Ordering::Relaxed);
+                                    log::info!("connections count: {}", connections.len());
+                                }
+                                _ => (),
                             }
-                            Ok(Event::PeerClosed(addr)) => {
-                                log::info!("PeerClosed({addr})");
-                                let mut connections = SHARE_SCREEN_CONNECTIONS.lock().unwrap();
-                                connections.remove(&addr);
-                                log::info!("connections count: {}", connections.len());
-                            }
-                            _ => (),
+                        }
+                        _ = exit_notify.notified() => {
+                            SHARE_SCREEN_CONNECTIONS.lock().unwrap().clear();
+                            SHARE_SCREEN_CONNECTIONS_COUNT.store(0, Ordering::Relaxed);
+                            log::info!("event_receiver receive `exit_notify`.");
+                            break;
                         }
                     }
-                    _ = exit_notify.notified() => {
-                        log::info!("event_receiver receive `exit_notify`.");
-                        break;
-                    }
                 }
-            }
+            });
         });
     }
 }

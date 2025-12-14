@@ -1,7 +1,8 @@
 use crate::{
     AudioRecorder, CursorTracker, CursorTrackerConfig, EncodedFrame, FPS, Frame, FrameUser,
     ProcessMode, ProgressState, RecorderConfig, RecorderError, Resolution, SimpleFpsCounter,
-    SpeakerRecorder, StatsUser, platform_speaker_recoder, speaker_recorder::SpeakerRecorderConfig,
+    SpeakerRecorder, StatsUser, platform_speaker_recoder,
+    process_mode::SHARE_SCREEN_CONNECTIONS_COUNT, speaker_recorder::SpeakerRecorderConfig,
 };
 use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_setters::Setters;
@@ -113,6 +114,7 @@ impl RecordingSession {
 
     pub fn start(
         &mut self,
+        rt_handle: tokio::runtime::Handle,
         mut screen_capturer: impl ScreenCapture + Clone + Send + 'static,
     ) -> Result<(), RecorderError> {
         if !self
@@ -171,6 +173,7 @@ impl RecordingSession {
                 mix_audio_sample_rate,
             )?,
             ProcessMode::ShareScreen => self.share_screen_worker(
+                rt_handle,
                 Some(headers_data.clone()),
                 mix_audio_receiver,
                 mix_audio_channels,
@@ -622,6 +625,7 @@ impl RecordingSession {
         encoder_sender: &Sender<EncoderChannelData>,
         frame_sender_user: &Option<Sender<FrameUser>>,
         expect_total_frame_index: u64,
+        total_frame_count: Arc<AtomicU64>,
         loss_frame_count: Arc<AtomicU64>,
         fps: f32,
     ) {
@@ -629,8 +633,10 @@ impl RecordingSession {
             let frame_user = FrameUser {
                 stats: StatsUser {
                     fps,
-                    total_frames: expect_total_frame_index,
+                    total_frames: total_frame_count.load(Ordering::Relaxed),
                     loss_frames: loss_frame_count.load(Ordering::Relaxed),
+                    share_screen_connections: SHARE_SCREEN_CONNECTIONS_COUNT
+                        .load(Ordering::Relaxed),
                 },
                 buffer: img.clone(),
             };
@@ -651,6 +657,7 @@ impl RecordingSession {
         sender: Sender<EncoderChannelData>,
         receiver: Receiver<(usize, Instant, EncoderChannelData)>,
     ) -> JoinHandle<()> {
+        let total_frame_count = session.total_frame_count.clone();
         let loss_frame_count = session.loss_frame_count.clone();
         let frame_sender_user = session.frame_sender_user.clone();
 
@@ -674,6 +681,7 @@ impl RecordingSession {
                         &sender,
                         &frame_sender_user,
                         expect_total_frame_index,
+                        total_frame_count.clone(),
                         loss_frame_count.clone(),
                         fps,
                     );
@@ -687,6 +695,7 @@ impl RecordingSession {
                                     &sender,
                                     &frame_sender_user,
                                     expect_total_frame_index,
+                                    total_frame_count.clone(),
                                     loss_frame_count.clone(),
                                     fps,
                                 );
@@ -720,6 +729,7 @@ impl RecordingSession {
                                         &sender,
                                         &frame_sender_user,
                                         expect_total_frame_index,
+                                        total_frame_count.clone(),
                                         loss_frame_count.clone(),
                                         fps,
                                     );

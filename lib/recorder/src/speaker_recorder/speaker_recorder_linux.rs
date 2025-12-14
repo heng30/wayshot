@@ -246,7 +246,7 @@ impl SpeakerRecorder for SpeakerRecorderLinux {
     }
 
     fn find_default_output(&self) -> Result<Option<(u32, String)>, SpeakerRecorderError> {
-        log::info!("Start search output audio devices...");
+        log::debug!("Start search output audio devices...");
 
         let registry = self.core.get_registry().map_err(|e| {
             SpeakerRecorderError::PipewireError(format!("Get registry failed: {e}"))
@@ -294,12 +294,12 @@ impl SpeakerRecorder for SpeakerRecorderLinux {
             })
             .register();
 
-        log::info!("Wait enumerate devices...");
+        log::debug!("Wait enumerate devices...");
         for _ in 0..10 {
             self.mainloop.loop_().iterate(Duration::from_millis(100));
         }
 
-        log::info!("Find default device: {:?}", output_info);
+        log::debug!("Find default device: {:?}", output_info);
 
         let result = output_info
             .lock()

@@ -1,6 +1,6 @@
 import { ListView } from "std-widgets.slint";
 import { Theme, Icons, Util, Logic, Store, PopupIndex } from "../def.slint";
-import { RecordStatus, SourceType } from "../../store.slint";
+import { RecordStatus, SourceType, ProcessMode } from "../../store.slint";
 import {
     Link,
     Slider,
@@ -18,7 +18,30 @@ import {
     Divider,
     PopupAction,
     PopupActionSetting,
+    TabBtns,
 } from "../../base/widgets.slint";
+
+component ProcessModePanel inherits HorizontalLayout {
+    width: self.preferred-width;
+    height: self.preferred-height;
+
+    TabBtns {
+        enable: Store.record-status == RecordStatus.Stopped;
+
+        items: [
+            { icon: Icons.video-recorder-light, text: Logic.tr("Record Screen") },
+            { icon: Icons.share-screen-light, text: Logic.tr("Share Screen") },
+        ];
+
+        clicked(index) => {
+            if (index == 0) {
+                Logic.switch-process-mode(ProcessMode.RecordScreen);
+            } else if (index == 1) {
+                Logic.switch-process-mode(ProcessMode.ShareScreen);
+            }
+        }
+    }
+}
 
 component PreviewPanel inherits Rectangle {
     background: Theme.dark-text-color;
@@ -117,6 +140,11 @@ component PreviewPanel inherits Rectangle {
                 text: Logic.tr("frames") + ": " + Store.stats-info.total;
                 color: Theme.light-text-color;
             }
+
+            if Store.process-mode == ProcessMode.ShareScreen: Label {
+                text: Logic.tr("connections") + ": " + Store.stats-info.share-screen-connections;
+                color: Theme.light-text-color;
+            }
         }
     }
 
@@ -146,6 +174,10 @@ component PreviewPanel inherits Rectangle {
                 color: Theme.light-text-color;
             }
         }
+    }
+
+    ProcessModePanel {
+        y: Theme.padding * 4;
     }
 }
 

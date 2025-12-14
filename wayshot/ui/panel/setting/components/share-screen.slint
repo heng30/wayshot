@@ -23,7 +23,7 @@ import { Tag } from "../../../base/tag.slint";
 export component ShareScreen inherits SettingDetail {
     callback confirmed();
 
-    private property cache-setting <=> Store.setting-share-screen-cache;
+    private property <SettingShareScreen> cache-setting;
 
     init => {
         root.set(Logic.get-setting-share-screen());
@@ -35,6 +35,8 @@ export component ShareScreen inherits SettingDetail {
 
     public function set(setting: SettingShareScreen) {
         cache-setting = setting;
+        Store.setting-share-screen-cert-file = cache-setting.cert-file;
+        Store.setting-share-screen-key-file = cache-setting.key-file;
     }
 
     SettingDetailInner {
@@ -44,9 +46,16 @@ export component ShareScreen inherits SettingDetail {
                 tip: Logic.tr("HTTP server listen address");
             }
 
-            listen-addr-li := LineInput {
+            LineInput {
                 text: cache-setting.listen-addr;
                 placeholder-text: "0.0.0.0:9090";
+                border-color: self.text != cache-setting.listen-addr ? Theme.danger-color : self.default-border-color;
+
+                accepted => {
+                    if (!self.text.is-empty) {
+                        cache-setting.listen-addr = self.text;
+                    }
+                }
             }
         }
 
@@ -69,8 +78,11 @@ export component ShareScreen inherits SettingDetail {
                     }
 
                     clicked => {
-                        Logic.add-host-ip(cache-setting.host-ips, self.text);
-                        self.text = "";
+                        if (!self.text.is-empty) {
+                            Logic.add-host-ip(cache-setting.host-ips, self.text);
+                            self.text = "";
+                        }
+                        self.focus();
                     }
                 }
             }
@@ -96,8 +108,16 @@ export component ShareScreen inherits SettingDetail {
                 tip: Logic.tr("HTTP server auth token");
             }
 
-            auth-token-li := LineInput {
+            LineInput {
+                text: cache-setting.auth_token;
                 placeholder-text: "123456";
+                border-color: self.text != cache-setting.auth-token ? Theme.danger-color : self.default-border-color;
+
+                accepted => {
+                    if (!self.text.is-empty) {
+                        cache-setting.auth_token = self.text;
+                    }
+                }
             }
         }
 
@@ -122,18 +142,14 @@ export component ShareScreen inherits SettingDetail {
                 }
 
                 LineInput {
-                    is-show-icon: self.text != cache-setting.stun-server.url;
-                    icon: Icons.check-box-light;
-                    icon-size: Theme.icon-size * 0.8;
                     text: cache-setting.stun_server.url;
-                    placeholder-text: "stun:http:://192.168.0.1:3478";
-
-                    clicked => {
-                        cache-setting.stun-server.url = self.text;
-                    }
+                    placeholder-text: "stun:192.168.0.1:3478";
+                    border-color: self.text != cache-setting.stun-server.url ? Theme.danger-color : self.default-border-color;
 
                     accepted => {
-                        self.clicked();
+                        if (!self.text.is-empty) {
+                            cache-setting.stun-server.url = self.text;
+                        }
                     }
                 }
             }
@@ -144,18 +160,14 @@ export component ShareScreen inherits SettingDetail {
                 }
 
                 LineInput {
-                    is-show-icon: self.text != cache-setting.stun-server.username;
-                    icon: Icons.check-box-light;
-                    icon-size: Theme.icon-size * 0.8;
                     text: cache-setting.stun-server.username;
                     placeholder-text: "username";
-
-                    clicked => {
-                        cache-setting.stun-server.username = self.text;
-                    }
+                    border-color: self.text != cache-setting.stun-server.username ? Theme.danger-color : self.default-border-color;
 
                     accepted => {
-                        self.clicked();
+                        if (!self.text.is-empty) {
+                            cache-setting.stun-server.username = self.text;
+                        }
                     }
                 }
             }
@@ -166,18 +178,15 @@ export component ShareScreen inherits SettingDetail {
                 }
 
                 LineInput {
-                    is-show-icon: self.text != cache-setting.stun-server.credential;
-                    icon: Icons.check-box-light;
-                    icon-size: Theme.icon-size * 0.8;
                     text: cache-setting.stun-server.credential;
                     placeholder-text: "password";
-
-                    clicked => {
-                        cache-setting.stun-server.credential = self.text;
-                    }
+                    input-type: InputType.password;
+                    border-color: self.text != cache-setting.stun-server.credential ? Theme.danger-color : self.default-border-color;
 
                     accepted => {
-                        self.clicked();
+                        if (!self.text.is-empty) {
+                            cache-setting.stun-server.credential = self.text;
+                        }
                     }
                 }
             }
@@ -204,18 +213,14 @@ export component ShareScreen inherits SettingDetail {
                 }
 
                 LineInput {
-                    is-show-icon: self.text != cache-setting.turn-server.url;
-                    icon: Icons.check-box-light;
-                    icon-size: Theme.icon-size * 0.8;
                     text: cache-setting.turn_server.url;
-                    placeholder-text: "turn:http:://192.168.0.1:3478";
-
-                    clicked => {
-                        cache-setting.turn-server.url = self.text;
-                    }
+                    placeholder-text: "turn:192.168.0.1:3478";
+                    border-color: self.text != cache-setting.turn-server.url ? Theme.danger-color : self.default-border-color;
 
                     accepted => {
-                        self.clicked();
+                        if (!self.text.is-empty) {
+                            cache-setting.turn-server.url = self.text;
+                        }
                     }
                 }
             }
@@ -226,18 +231,14 @@ export component ShareScreen inherits SettingDetail {
                 }
 
                 LineInput {
-                    is-show-icon: self.text != cache-setting.turn-server.username;
-                    icon: Icons.check-box-light;
-                    icon-size: Theme.icon-size * 0.8;
                     text: cache-setting.turn_server.username;
                     placeholder-text: "username";
-
-                    clicked => {
-                        cache-setting.turn-server.username = self.text;
-                    }
+                    border-color: self.text != cache-setting.turn-server.username ? Theme.danger-color : self.default-border-color;
 
                     accepted => {
-                        self.clicked();
+                        if (!self.text.is-empty) {
+                            cache-setting.turn-server.username = self.text;
+                        }
                     }
                 }
             }
@@ -248,18 +249,15 @@ export component ShareScreen inherits SettingDetail {
                 }
 
                 LineInput {
-                    is-show-icon: self.text != cache-setting.turn-server.credential;
-                    icon: Icons.check-box-light;
-                    icon-size: Theme.icon-size * 0.8;
                     text: cache-setting.turn_server.credential;
                     placeholder-text: "password";
-
-                    clicked => {
-                        cache-setting.turn-server.credential = self.text;
-                    }
+                    input-type: InputType.password;
+                    border-color: self.text != cache-setting.turn-server.credential ? Theme.danger-color : self.default-border-color;
 
                     accepted => {
-                        self.clicked();
+                        if (!self.text.is-empty) {
+                            cache-setting.turn-server.credential = self.text;
+                        }
                     }
                 }
             }
@@ -289,8 +287,12 @@ export component ShareScreen inherits SettingDetail {
                     read-only: true;
                     is-show-icon: true;
                     icon: Icons.file-open-light;
-                    text: cache-setting.cert-file;
+                    text: Store.setting-share-screen-cert-file;
                     placeholder-text: "*.crt or *.pem";
+
+                    changed text => {
+                        cache-setting.cert-file = self.text;
+                    }
 
                     clicked => {
                         Logic.load-share-screen-cert-file();
@@ -307,8 +309,12 @@ export component ShareScreen inherits SettingDetail {
                     read-only: true;
                     is-show-icon: true;
                     icon: Icons.file-open-light;
-                    text: cache-setting.cert-file;
+                    text: Store.setting-share-screen-key-file;
                     placeholder-text: "*.key or *.pem";
+
+                    changed text => {
+                        cache-setting.key-file = self.text;
+                    }
 
                     clicked => {
                         Logic.load-share-screen-key-file();
@@ -322,7 +328,7 @@ export component ShareScreen inherits SettingDetail {
 
             SettingDetailSwitch {
                 icon: Icons.ipv6-light;
-                text: self.checked ? Logic.tr("Enabled host ipv6") : Logic.tr("Disabled host ipv6");
+                text: self.checked ? Logic.tr("Enabled IPV6") : Logic.tr("Disabled IPV6");
                 checked: !cache-setting.disable-host-ipv6;
 
                 toggled => {
@@ -334,7 +340,7 @@ export component ShareScreen inherits SettingDetail {
         SettingDetailInnerVbox {
             save-mp4-swicth := SettingDetailSwitch {
                 icon: Icons.save-archive-light;
-                text: self.checked ? Logic.tr("Enabled save mp4") : Logic.tr("Disabled save mp4");
+                text: self.checked ? Logic.tr("Save mp4") : Logic.tr("Don't save mp4");
                 checked: cache-setting.save-mp4;
 
                 toggled => {

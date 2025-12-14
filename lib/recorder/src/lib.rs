@@ -48,6 +48,7 @@ pub struct StatsUser {
     pub fps: f32,
     pub total_frames: u64,
     pub loss_frames: u64,
+    pub share_screen_connections: u32,
 }
 
 #[derive(Debug, Clone)]
