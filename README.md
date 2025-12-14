@@ -7,6 +7,8 @@
 ### Introduction
 This is a screen recording tool for `Linux` and `Windows`. It is based on `Rust` and the `Slint` GUI framework. Compatible `Linux` desktop environments include `Sway`, `Hyprland`, `Ubuntu`, `KDE`, and others.
 
+----
+
 ### Features
 - Single screen recording
 - Single input device audio recording
@@ -15,6 +17,9 @@ This is a screen recording tool for `Linux` and `Windows`. It is based on `Rust`
 - Cursor tracking
 - Manage recorded video history
 - Play recorded historical videos
+- Share screen with WebRTC
+
+----
 
 ### How to build?
 - Install `Rust`, `Cargo`, `libpipewire`, `libalsa`, `libx264` and `QT6`
@@ -30,6 +35,8 @@ This is a screen recording tool for `Linux` and `Windows`. It is based on `Rust`
 - Run `make cursor-release` to build the program for fetching the cursor position. This program needs to be used together with the `portal` version of `wayshot`.
 
 - Refer to [Makefile](./Makefile) for more information
+
+----
 
 ### Troubleshooting
 - Using the `Qt backend` can resolve the issue of fuzzy fonts on the Windows platform. It is also recommended to prioritize the `Qt backend` to maintain a consistent build environment with the developers.
@@ -63,6 +70,44 @@ This is a screen recording tool for `Linux` and `Windows`. It is based on `Rust`
     export LIBCLANG_PATH="C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/Llvm/x64/bin"
     make desktop-build-release desktop-features=desktop-windows
     ```
+
+----
+
+### How to Configure `STUN` and `TURN` Servers
+- Download and install [coturn](https://github.com/coturn/coturn)
+
+- Generate certificate and key: `openssl req -x509 -newkey rsa:1024 -keyout /tmp/turn_key.pem -out /tmp/turn_cert.pem -days 9999 -nodes`
+
+- Edit the configuration.
+    - Default location: `/etc/turnserver.conf` or `/etc/coturn/turnserver.conf`
+
+    - Example configuration:
+    ```bash
+    listening-ip=0.0.0.0
+    listening-port=3478
+    relay-ip=192.168.10.8
+    external-ip=192.168.10.8
+
+    tls-listening-port=5349
+    cert=/tmp/turn_cert.pem
+    pkey=/tmp/turn_key.pem
+
+    realm=example.com
+
+    lt-cred-mech
+    user=foo:123456
+
+    # no-auth
+    no-cli
+    verbose
+    ```
+
+- Testing
+    - `turnserver -c /etc/turnserver.conf`
+    - Test using [Trickle ICE](https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/)
+    - `TURN` server address format: `turn:192.168.10.1:3478`
+
+----
 
 ### Reference
 - [Slint Language Documentation](https://slint-ui.com/releases/1.0.0/docs/slint/)
