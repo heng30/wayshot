@@ -1,0 +1,200 @@
+import {
+    Theme,
+    Icons,
+    Util,
+    Logic,
+    Store,
+    SettingShareScreenClient,
+} from "../def.slint";
+import {
+    VideoPlayer,
+    SwitchBtn,
+    Label,
+    LineInput,
+    TextBtnWithoutIcon,
+} from "../../base/widgets.slint";
+
+export component ShareScreenPanel inherits Rectangle {
+    private property <int> play-time;
+    private property <SettingShareScreenClient> cache-setting;
+    private property <length> video-player-normal-width: Math.max(root.width * Theme.golden-ratio, Theme.default-width - Theme.padding * 8);
+    private property <length> video-player-normal-height: Math.min(root.video-player-normal-width * Theme.golden-ratio, root.height * Theme.golden-ratio);
+
+    init => {
+        cache-setting = Logic.get-setting-share-screen-client();
+    }
+
+    Timer {
+        interval: 1s;
+        running: Store.share-screen-player-is-playing;
+
+        triggered() => {
+            if (Store.share-screen-player-is-playing) {
+                play-time += 1;
+            } else {
+                play-time = 0;
+            }
+        }
+    }
+
+    VerticalLayout {
+        alignment: center;
+        spacing: Theme.spacing * 10;
+
+        if !vp.is-full-screen:VerticalLayout {
+            spacing: Theme.spacing * 8;
+
+            HorizontalLayout {
+                alignment: center;
+
+                Label {
+                    font-size: 40px;
+                    font-weight: Theme.bold-font-weight;
+                    text: Logic.tr("Wayshot Screen Sharing");
+                }
+            }
+
+            HorizontalLayout {
+                alignment: center;
+                spacing: Theme.spacing * 8;
+
+                auth-inner-hbox := HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        SwitchBtn {
+                            checked: cache-setting.enable-auth;
+
+                            toggled => {
+                                cache-setting.enable-auth = !cache-setting.enable-auth;
+                            }
+                        }
+                    }
+
+                    Label {
+                        vertical-alignment: center;
+                        text: Logic.tr("Auth");
+                        color: cache-setting.enable-auth ? Theme.regular-text-color : Theme.disabled-color;
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    Label {
+                        text: Logic.tr("Token") + ":";
+                        color: cache-setting.enable-auth ? Theme.regular-text-color : Theme.disabled-color;
+                    }
+
+                    token-li := LineInput {
+                        private property <bool> show-password;
+
+                        is-show-icon: true;
+                        width: min(vp.width * 0.2, 150px);
+                        read-only: !cache-setting.enable-auth;
+                        text: cache-setting.auth-token;
+                        placeholder-text: "eg: 123";
+                        icon-colorize: self.text-color;
+                        icon: show-password ? Icons.eye-light : Icons.close-eye-light;
+                        input-type: show-password ? InputType.text : InputType.password;
+                        text-color: cache-setting.enable-auth ? Theme.regular-text-color : Theme.disabled-color;
+
+                        clicked => {
+                            show-password = !show-password;
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    Label {
+                        text: Logic.tr("Server") + ":";
+                    }
+
+                    addr-li := LineInput {
+                        width: min(vp.width * 0.2, 200px);
+                        text: cache-setting.server-addr;
+                        placeholder-text: "192.168.0.10:9090";
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    TextBtnWithoutIcon {
+                        vpadding: Theme.padding * 2;
+                        hpadding: Theme.padding * 4;
+                        text-color: Theme.light-text-color;
+                        text: Store.share-screen-player-is-connected ? Logic.tr("Disconnect") : Logic.tr("Connect");
+                        background: Store.share-screen-player-is-connected ? Theme.danger-color : Theme.thirdly-brand-color;
+
+                        clicked => {
+                            if (Store.share-screen-player-is-connected) {
+                                Logic.share-screen-client-disconnect();
+                            } else {
+                                cache-setting.auth-token = token-li.text;
+                                cache-setting.server-addr = addr-li.text;
+                                Logic.set-setting-share-screen-client(cache-setting);
+                                Logic.share-screen-client-connect(cache-setting);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            height: vp.height;
+
+            vp := VideoPlayer {
+                width: self.is-full-screen ? root.width : root.video-player-normal-width;
+                height: self.is-full-screen ? root.height : root.video-player-normal-height;
+                border-radius: Theme.border-radius;
+                show-speed-btn: false;
+                show-progress-bar: false;
+                show-subtitle-btn: false;
+                player-image: Store.share-screen-player-image;
+                current-sound: Store.share-screen-player-sound;
+                is-playing: Store.share-screen-player-is-playing;
+                time-label: Logic.convert-to-meida-time(root.play-time);
+
+                private property <bool> store-is-playing: Store.share-screen-player-is-playing;
+
+                changed is-playing => {
+                    Store.share-screen-player-is-playing = self.is-playing;
+                }
+
+                changed store-is-playing => {
+                    self.is-playing = Store.share-screen-player-is-playing;
+                    if (!self.is-playing) {
+                        play-time = 0;
+                    }
+                }
+
+                play() => {
+                    if (Store.share-screen-player-is-connected) {
+                        Logic.share-screen-player-play();
+                    }
+                }
+
+                stop() => {
+                    if (Store.share-screen-player-is-connected) {
+                        Logic.share-screen-player-stop();
+                    }
+                }
+
+                sound-changed(sound) => {
+                    Store.share-screen-player-sound = sound;
+
+                    if (Store.share-screen-player-is-connected) {
+                        Logic.share-screen-player-sound-changed(sound);
+                    }
+                }
+            }
+        }
+    }
+}

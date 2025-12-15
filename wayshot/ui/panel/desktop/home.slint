@@ -3,6 +3,7 @@ import { Theme, Store, TabIndex } from "../def.slint";
 import { MainPanel } from "main.slint";
 import { PlayerPanel } from "player.slint";
 import { HistoryPanel } from "history.slint";
+import { ShareScreenPanel } from "share-screen.slint";
 
 export component Home inherits VerticalLayout {
     if Store.current-tab-index == TabIndex.Home: MainPanel {
@@ -12,6 +13,11 @@ export component Home inherits VerticalLayout {
     if Store.current-tab-index == TabIndex.History: HistoryPanel { }
 
     if Store.current-tab-index == TabIndex.Player: PlayerPanel {
+        height: parent.height;
+    }
+
+    if Store.current-tab-index == TabIndex.ShareScreen: ShareScreenPanel {
+        width: parent.width;
         height: parent.height;
     }
 }

@@ -16,6 +16,7 @@ import {
     Resolution,
     HistoryEntry,
     ProcessMode,
+    SettingShareScreenClient,
 } from "store.slint";
 
 import { PlaylistItem } from "base/def.slint";
@@ -110,6 +111,9 @@ export global Logic {
     callback get-setting-share-screen() -> SettingShareScreen;
     callback set-setting-share-screen(setting: SettingShareScreen);
 
+    callback get-setting-share-screen-client() -> SettingShareScreenClient;
+    callback set-setting-share-screen-client(setting: SettingShareScreenClient);
+
     callback init-sources-dialog();
     callback choose-save-dir();
     callback update-sources(setting: SettingControl);
@@ -151,11 +155,21 @@ export global Logic {
         return -1;
     }
 
-    callback add-host-ip(host-ips: [string], ip: string);
-    callback remove-host-ip(host-ips: [string], index: int);
-    callback load-share-screen-cert-file();
-    callback load-share-screen-key-file();
-    callback verify-setting-share-screen(setting: SettingShareScreen) -> string;
+    // share screen server
+    callback share-screen-add-host-ip(host-ips: [string], ip: string);
+    callback share-screen-remove-host-ip(host-ips: [string], index: int);
+    callback share-screen-load-cert-file();
+    callback share-screen-load-key-file();
+    callback share-screen-verify-setting(setting: SettingShareScreen) -> string;
+
+    // share screen client
+    callback share-screen-player-play();
+    callback share-screen-player-stop();
+    callback share-screen-player-sound-changed(progress: float);
+    callback share-screen-client-disconnect();
+    callback share-screen-client-connect(setting: SettingShareScreenClient);
+
+    pure callback convert-to-meida-time(duration: int) -> string;
 
     pure public function fps-to-int(fps: Fps) -> int {
         if (fps == Fps.Fps24) {

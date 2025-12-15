@@ -91,6 +91,20 @@ component HorizontalHomeIconsBar inherits Rectangle {
                 Logic.switch-tab(TabIndex.Player);
             }
         }
+
+        IconBtn {
+            icon: Icons.share-screen-fill;
+            icon-size: root.icon-size * 1.2;
+            show-icon-hover-background: root.show-icon-hover-background;
+            colorize: Store.current-tab-index == TabIndex.ShareScreen ? Theme.thirdly-brand-color : Theme.icon-color;
+            is-show-tip: root.is-show-tip;
+            tip-position: root.tip-position;
+            tip: Logic.tr("share screen");
+
+            clicked => {
+                Logic.switch-tab(TabIndex.ShareScreen);
+            }
+        }
     }
 }
 
@@ -138,6 +152,7 @@ component HorizontalStatusBar inherits StatusBar {
 }
 
 component VerticalStatusBar inherits Rectangle {
+    width: Theme.sidebar-width;
     background: Theme.secondary-background;
 
     private property <bool> is-show-tip: true;
@@ -145,65 +160,83 @@ component VerticalStatusBar inherits Rectangle {
     private property <length> icon-size: Theme.icon-size;
     private property <ComponentPosition> tip-position: ComponentPosition.Right;
 
-    VerticalLayout {
-        alignment: space-between;
+    HorizontalLayout {
+        alignment: center;
 
         VerticalLayout {
-            spacing: Theme.spacing * 5;
-            padding: Theme.padding * 2;
-            padding-top: Theme.padding * 3;
+            alignment: space-between;
 
-            IconBtn {
-                icon: Icons.home-fill;
-                icon-size: root.icon-size;
-                show-icon-hover-background: root.show-icon-hover-background;
-                colorize: Store.current-tab-index == TabIndex.Home ? Theme.thirdly-brand-color : Theme.icon-color;
-                is-show-tip: root.is-show-tip;
-                tip-position: root.tip-position;
-                tip: Logic.tr("home");
+            VerticalLayout {
+                spacing: Theme.spacing * 5;
+                padding: Theme.padding * 2;
+                padding-top: Theme.padding * 3;
 
-                clicked => {
-                    Logic.switch-tab(TabIndex.Home);
+                IconBtn {
+                    icon: Icons.home-fill;
+                    icon-size: root.icon-size;
+                    show-icon-hover-background: root.show-icon-hover-background;
+                    colorize: Store.current-tab-index == TabIndex.Home ? Theme.thirdly-brand-color : Theme.icon-color;
+                    is-show-tip: root.is-show-tip;
+                    tip-position: root.tip-position;
+                    tip: Logic.tr("home");
+
+                    clicked => {
+                        Logic.switch-tab(TabIndex.Home);
+                    }
+                }
+
+                IconBtn {
+                    icon: Icons.history-fill;
+                    icon-size: root.icon-size * 1.1;
+                    show-icon-hover-background: root.show-icon-hover-background;
+                    colorize: Store.current-tab-index == TabIndex.History ? Theme.thirdly-brand-color : Theme.icon-color;
+                    is-show-tip: root.is-show-tip;
+                    tip-position: root.tip-position;
+                    tip: Logic.tr("history");
+
+                    clicked => {
+                        Logic.switch-tab(TabIndex.History);
+                    }
+                }
+
+                IconBtn {
+                    icon: Icons.video-fill;
+                    icon-size: root.icon-size * 0.9;
+                    show-icon-hover-background: root.show-icon-hover-background;
+                    colorize: Store.current-tab-index == TabIndex.Player ? Theme.thirdly-brand-color : Theme.icon-color;
+                    is-show-tip: root.is-show-tip;
+                    tip-position: root.tip-position;
+                    tip: Logic.tr("player");
+
+                    clicked => {
+                        Logic.switch-tab(TabIndex.Player);
+                    }
+                }
+
+                IconBtn {
+                    icon: Icons.share-screen-fill;
+                    icon-size: root.icon-size * 1.2;
+                    show-icon-hover-background: root.show-icon-hover-background;
+                    colorize: Store.current-tab-index == TabIndex.ShareScreen ? Theme.thirdly-brand-color : Theme.icon-color;
+                    is-show-tip: root.is-show-tip;
+                    tip-position: root.tip-position;
+                    tip: Logic.tr("share screen");
+
+                    clicked => {
+                        Logic.switch-tab(TabIndex.ShareScreen);
+                    }
                 }
             }
 
-            IconBtn {
-                icon: Icons.history-fill;
-                icon-size: root.icon-size * 1.1;
+            VerticalSettingIconsBar {
+                icon-size: Theme.icon-size;
+                v-spacing: Theme.spacing * 5;
+                v-padding: Theme.padding * 2;
+                v-padding-bottom: Theme.padding * 5;
                 show-icon-hover-background: root.show-icon-hover-background;
-                colorize: Store.current-tab-index == TabIndex.History ? Theme.thirdly-brand-color : Theme.icon-color;
                 is-show-tip: root.is-show-tip;
                 tip-position: root.tip-position;
-                tip: Logic.tr("history");
-
-                clicked => {
-                    Logic.switch-tab(TabIndex.History);
-                }
             }
-
-            IconBtn {
-                icon: Icons.video-fill;
-                icon-size: root.icon-size * 0.9;
-                show-icon-hover-background: root.show-icon-hover-background;
-                colorize: Store.current-tab-index == TabIndex.Player ? Theme.thirdly-brand-color : Theme.icon-color;
-                is-show-tip: root.is-show-tip;
-                tip-position: root.tip-position;
-                tip: Logic.tr("player");
-
-                clicked => {
-                    Logic.switch-tab(TabIndex.Player);
-                }
-            }
-        }
-
-        VerticalSettingIconsBar {
-            icon-size: Theme.icon-size;
-            v-spacing: Theme.spacing * 5;
-            v-padding: Theme.padding * 2;
-            v-padding-bottom: Theme.padding * 5;
-            show-icon-hover-background: root.show-icon-hover-background;
-            is-show-tip: root.is-show-tip;
-            tip-position: root.tip-position;
         }
     }
 }
@@ -230,6 +263,7 @@ export component DesktopPanel inherits Rectangle {
 
             Home {
                 vertical-stretch: 1;
+                width: root.width - (Store.setting-preference.no-frame ? 0 : Theme.sidebar-width);
                 height: root.height - (Store.setting-preference.no-frame ? Theme.header-height : 0);
             }
         }

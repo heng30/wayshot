@@ -115,6 +115,18 @@ pub fn init(ui: &AppWindow) {
         toast_success!(ui_weak.unwrap(), tr("save configuration successfully"));
     });
 
+    global_logic!(ui).on_get_setting_share_screen_client(move || {
+        let config = config::all().share_screen_client;
+        config.into()
+    });
+
+    let ui_weak = ui.as_weak();
+    global_logic!(ui).on_set_setting_share_screen_client(move |setting| {
+        let mut all = config::all();
+        all.share_screen_client = setting.into();
+        _ = config::save(all);
+    });
+
     global_logic!(ui).on_get_setting_share_screen(move || {
         let config = config::all().share_screen;
         config.into()

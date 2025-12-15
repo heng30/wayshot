@@ -2,7 +2,7 @@ use crate::slint_generatedAppWindow::{
     Fps as UIFps, RTCIceServer as UIRTCIceServer, Resolution as UIResolution,
     SettingControl as UISettingControl, SettingCursorTracker as UISettingCursorTracker,
     SettingRecorder as UISettingRecorder, SettingShareScreen as UISettingShareScreen,
-    TransitionType as UITransitionType,
+    SettingShareScreenClient as UISettingShareScreenClient, TransitionType as UITransitionType,
 };
 use anyhow::{Context, Result, bail};
 use log::debug;
@@ -82,6 +82,9 @@ pub struct Config {
 
     #[serde(default)]
     pub share_screen: ShareScreen,
+
+    #[serde(default)]
+    pub share_screen_client: ShareScreenClient,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative)]
@@ -198,8 +201,15 @@ pub struct CursorTracker {
     pub zoom_out_transition_type: UITransitionType,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
-#[derivative(Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, SlintFromConvert)]
+#[from("UISettingShareScreenClient")]
+pub struct ShareScreenClient {
+    pub enable_auth: bool,
+    pub auth_token: String,
+    pub server_addr: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, SlintFromConvert)]
 #[from("UIRTCIceServer")]
 pub struct RTCIceServer {
     pub url: String,

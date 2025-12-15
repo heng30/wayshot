@@ -15,6 +15,7 @@ export enum TabIndex {
     Home,
     History,
     Player,
+    ShareScreen,
 }
 
 export enum PopupIndex {
@@ -131,14 +132,20 @@ export struct SettingControl {
 
     enable-stats: bool,
     enable-preview: bool,
- }
+}
 
 export struct SettingPlayer {
     id: string,
     current-time: string,
     end-time: string,
     sound: int,
- }
+}
+
+export struct SettingShareScreenClient {
+    enable-auth: bool,
+    auth-token: string,
+    server-addr: string,
+}
 
 export struct RTCIceServer {
     url: string,
@@ -209,7 +216,7 @@ export global Store {
 
     // desktop
     in-out property <TabIndex> previous-tab-index: TabIndex.Home;
-    in-out property <TabIndex> current-tab-index: TabIndex.Home;
+    in-out property <TabIndex> current-tab-index: TabIndex.ShareScreen;
     in-out property <PopupIndex> current-popup-index: PopupIndex.None;
     in-out property <SettingDetailIndex> current-setting-detail-index: SettingDetailIndex.Preference;
 
@@ -311,5 +318,11 @@ export global Store {
         { title: "Video 7 - Demo Content", duration: "3:30" },
         { title: "Video 8 - Example Video", duration: "1:50" },
     ];
+
+    in-out property <image> share-screen-player-image;
+    in-out property <bool> share-screen-player-is-playing;
+    in-out property <bool> share-screen-player-is-connected;
+    in-out property <float> share-screen-player-sound: 50;
+
     //////////////////////////////// Logic End  ////////////////////////////////
 }

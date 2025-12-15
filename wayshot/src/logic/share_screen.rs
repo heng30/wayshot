@@ -2,7 +2,10 @@ use crate::{
     config, global_store,
     logic::{toast, tr::tr},
     logic_cb,
-    slint_generatedAppWindow::{AppWindow, SettingShareScreen as UISettingShareScreen},
+    slint_generatedAppWindow::{
+        AppWindow, SettingShareScreen as UISettingShareScreen,
+        SettingShareScreenClient as UISettingShareScreenClient,
+    },
 };
 use recorder::{RTCIceServer, ShareScreenConfig};
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel, Weak};
@@ -18,18 +21,27 @@ macro_rules! host_ips {
 }
 
 pub fn init(ui: &AppWindow) {
-    logic_cb!(add_host_ip, ui, ips, ip);
-    logic_cb!(remove_host_ip, ui, ips, index);
-    logic_cb!(load_share_screen_cert_file, ui);
-    logic_cb!(load_share_screen_key_file, ui);
-    logic_cb!(verify_setting_share_screen, ui, setting);
+    // share screen server
+    logic_cb!(share_screen_add_host_ip, ui, ips, ip);
+    logic_cb!(share_screen_remove_host_ip, ui, ips, index);
+    logic_cb!(share_screen_load_cert_file, ui);
+    logic_cb!(share_screen_load_key_file, ui);
+    logic_cb!(share_screen_verify_setting, ui, setting);
+
+    // share screen client
+    logic_cb!(share_screen_player_play, ui);
+    logic_cb!(share_screen_player_stop, ui);
+    logic_cb!(share_screen_player_sound_changed, ui, progress);
+    logic_cb!(share_screen_client_disconnect, ui);
+    logic_cb!(share_screen_client_connect, ui, setting);
+    logic_cb!(convert_to_meida_time, ui, duration);
 }
 
-fn add_host_ip(_ui: &AppWindow, ips: ModelRc<SharedString>, ip: SharedString) {
+fn share_screen_add_host_ip(_ui: &AppWindow, ips: ModelRc<SharedString>, ip: SharedString) {
     host_ips!(ips).insert(0, ip);
 }
 
-fn remove_host_ip(_ui: &AppWindow, ips: ModelRc<SharedString>, index: i32) {
+fn share_screen_remove_host_ip(_ui: &AppWindow, ips: ModelRc<SharedString>, index: i32) {
     if index < 0 || index >= host_ips!(ips).row_count() as i32 {
         return;
     }
@@ -37,7 +49,7 @@ fn remove_host_ip(_ui: &AppWindow, ips: ModelRc<SharedString>, index: i32) {
     host_ips!(ips).remove(index as usize);
 }
 
-fn load_share_screen_cert_file(ui: &AppWindow) {
+fn share_screen_load_cert_file(ui: &AppWindow) {
     let ui_weak = ui.as_weak();
 
     tokio::spawn(async move {
@@ -57,7 +69,7 @@ fn load_share_screen_cert_file(ui: &AppWindow) {
     });
 }
 
-fn load_share_screen_key_file(ui: &AppWindow) {
+fn share_screen_load_key_file(ui: &AppWindow) {
     let ui_weak = ui.as_weak();
 
     tokio::spawn(async move {
@@ -77,7 +89,7 @@ fn load_share_screen_key_file(ui: &AppWindow) {
     });
 }
 
-fn verify_setting_share_screen(_ui: &AppWindow, config: UISettingShareScreen) -> SharedString {
+fn share_screen_verify_setting(_ui: &AppWindow, config: UISettingShareScreen) -> SharedString {
     if config.enable_stun_server && !config.stun_server.url.starts_with("stun") {
         return tr("Invalid STUN server url format. Should start with `stun:`").into();
     }
@@ -87,6 +99,30 @@ fn verify_setting_share_screen(_ui: &AppWindow, config: UISettingShareScreen) ->
     }
 
     SharedString::default()
+}
+
+fn share_screen_player_play(ui: &AppWindow) {
+    todo!()
+}
+
+fn share_screen_player_stop(ui: &AppWindow) {
+    todo!()
+}
+
+fn share_screen_player_sound_changed(ui: &AppWindow, progress: f32) {
+    todo!()
+}
+
+fn share_screen_client_disconnect(ui: &AppWindow) {
+    todo!()
+}
+
+fn share_screen_client_connect(ui: &AppWindow, setting: UISettingShareScreenClient) {
+    // todo!()
+}
+
+fn convert_to_meida_time(ui: &AppWindow, duration: i32) -> SharedString {
+    cutil::time::seconds_to_media_timestamp(duration.max(0) as f64).into()
 }
 
 pub fn picker_file(

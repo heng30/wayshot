@@ -79,7 +79,7 @@ export component ShareScreen inherits SettingDetail {
 
                     clicked => {
                         if (!self.text.is-empty) {
-                            Logic.add-host-ip(cache-setting.host-ips, self.text);
+                            Logic.share-screen-add-host-ip(cache-setting.host-ips, self.text);
                             self.text = "";
                         }
                         self.focus();
@@ -96,7 +96,7 @@ export component ShareScreen inherits SettingDetail {
                     background: Theme.tag-colors[Math.mod(index, Theme.tag-colors.length)];
 
                     close => {
-                        Logic.remove-host-ip(cache-setting.host-ips, index);
+                        Logic.share-screen-remove-host-ip(cache-setting.host-ips, index);
                     }
                 }
             }
@@ -178,10 +178,18 @@ export component ShareScreen inherits SettingDetail {
                 }
 
                 LineInput {
-                    text: cache-setting.stun-server.credential;
+                    private property <bool> show-password;
+
+                    is-show-icon: true;
                     placeholder-text: "password";
-                    input-type: InputType.password;
+                    icon: show-password ? Icons.eye-light : Icons.close-eye-light;
+                    text: cache-setting.stun-server.credential;
+                    input-type: show-password ? InputType.text : InputType.password;
                     border-color: self.text != cache-setting.stun-server.credential ? Theme.danger-color : self.default-border-color;
+
+                    clicked => {
+                        show-password = !show-password;
+                    }
 
                     accepted => {
                         if (!self.text.is-empty) {
@@ -249,10 +257,18 @@ export component ShareScreen inherits SettingDetail {
                 }
 
                 LineInput {
-                    text: cache-setting.turn_server.credential;
+                    private property <bool> show-password;
+
+                    is-show-icon: true;
                     placeholder-text: "password";
-                    input-type: InputType.password;
+                    text: cache-setting.turn_server.credential;
+                    icon: show-password ? Icons.eye-light : Icons.close-eye-light;
+                    input-type: show-password ? InputType.text : InputType.password;
                     border-color: self.text != cache-setting.turn-server.credential ? Theme.danger-color : self.default-border-color;
+
+                    clicked => {
+                        show-password = !show-password;
+                    }
 
                     accepted => {
                         if (!self.text.is-empty) {
@@ -295,7 +311,7 @@ export component ShareScreen inherits SettingDetail {
                     }
 
                     clicked => {
-                        Logic.load-share-screen-cert-file();
+                        Logic.share-screen-load-cert-file();
                     }
                 }
             }
@@ -317,7 +333,7 @@ export component ShareScreen inherits SettingDetail {
                     }
 
                     clicked => {
-                        Logic.load-share-screen-key-file();
+                        Logic.share-screen-load-key-file();
                     }
                 }
             }

@@ -96,7 +96,7 @@ component SettingBody inherits Rectangle {
 
         public function apply() {
             let setting = self.get();
-            let err = Logic.verify-setting-share-screen(setting);
+            let err = Logic.share-screen-verify-setting(setting);
 
             if (err.is-empty) {
                 Logic.set-setting-share-screen(setting);
