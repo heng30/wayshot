@@ -34,6 +34,8 @@ export component LineInput inherits Rectangle {
     in property <bool> enabled <=> text-input.enabled;
     in property <string> placeholder-text;
     in-out property <bool> gain-focus-when-clicked: true;
+    in-out property <color> placeholder-text-color: Theme.placeholder-text-color;
+    out property has-focus <=> text-input.has-focus;
     out property <color> default-border-color: text-input.has-focus ? Theme.thirdly-brand-color : Theme.base-border-color;
 
     in property <bool> is-show-icon;
@@ -105,7 +107,7 @@ export component LineInput inherits Rectangle {
                 if text-input.text == "": Label {
                     x: 0;
                     text: root.placeholder-text;
-                    color: Theme.placeholder-text-color;
+                    color: root.placeholder-text-color;
                     font-size: text-input.font-size - 2px;
                 }
 

@@ -12,10 +12,13 @@ import {
     Label,
     LineInput,
     TextBtnWithoutIcon,
+    GentleBackground,
 } from "../../base/widgets.slint";
 
 export component ShareScreenPanel inherits Rectangle {
     private property <int> play-time;
+    private property <color> text-color: Theme.light-text-color.darker(30%);
+    private property <color> disabled-text-color: Theme.light-text-color.darker(80%);
     private property <SettingShareScreenClient> cache-setting;
     private property <length> video-player-normal-width: Math.max(root.width * Theme.golden-ratio, Theme.default-width - Theme.padding * 8);
     private property <length> video-player-normal-height: Math.min(root.video-player-normal-width * Theme.golden-ratio, root.height * Theme.golden-ratio);
@@ -37,6 +40,8 @@ export component ShareScreenPanel inherits Rectangle {
         }
     }
 
+    GentleBackground { }
+
     VerticalLayout {
         alignment: center;
         spacing: Theme.spacing * 10;
@@ -51,6 +56,7 @@ export component ShareScreenPanel inherits Rectangle {
                     font-size: 40px;
                     font-weight: Theme.bold-font-weight;
                     text: Logic.tr("Wayshot Screen Sharing");
+                    color: root.text-color;
                 }
             }
 
@@ -76,7 +82,7 @@ export component ShareScreenPanel inherits Rectangle {
                     Label {
                         vertical-alignment: center;
                         text: Logic.tr("Auth");
-                        color: cache-setting.enable-auth ? Theme.regular-text-color : Theme.disabled-color;
+                        color: cache-setting.enable-auth ? root.text-color : root.disabled-text-color;
                     }
                 }
 
@@ -85,7 +91,7 @@ export component ShareScreenPanel inherits Rectangle {
 
                     Label {
                         text: Logic.tr("Token") + ":";
-                        color: cache-setting.enable-auth ? Theme.regular-text-color : Theme.disabled-color;
+                        color: cache-setting.enable-auth ? root.text-color : root.disabled-text-color;
                     }
 
                     token-li := LineInput {
@@ -99,7 +105,9 @@ export component ShareScreenPanel inherits Rectangle {
                         icon-colorize: self.text-color;
                         icon: show-password ? Icons.eye-light : Icons.close-eye-light;
                         input-type: show-password ? InputType.text : InputType.password;
-                        text-color: cache-setting.enable-auth ? Theme.regular-text-color : Theme.disabled-color;
+                        text-color: cache-setting.enable-auth ? root.text-color : root.disabled-text-color;
+                        border-color: self.has-focus ? Theme.thirdly-brand-color : root.disabled-text-color.darker(30%);
+                        placeholder-text-color: root.disabled-text-color.darker(50%);
 
                         clicked => {
                             show-password = !show-password;
@@ -112,12 +120,16 @@ export component ShareScreenPanel inherits Rectangle {
 
                     Label {
                         text: Logic.tr("Server") + ":";
+                        color: root.text-color;
                     }
 
                     addr-li := LineInput {
                         width: min(vp.width * 0.2, 200px);
                         text: cache-setting.server-addr;
-                        placeholder-text: "192.168.0.10:9090";
+                        placeholder-text: "eg: 192.168.0.10:9090";
+                        text-color: root.text-color;
+                        border-color: self.has-focus ? Theme.thirdly-brand-color : root.disabled-text-color.darker(30%);
+                        placeholder-text-color: root.disabled-text-color.darker(50%);
                     }
                 }
 
@@ -128,6 +140,7 @@ export component ShareScreenPanel inherits Rectangle {
                         vpadding: Theme.padding * 2;
                         hpadding: Theme.padding * 4;
                         text-color: Theme.light-text-color;
+                        font-weight: Theme.bold-font-weight;
                         text: Store.share-screen-player-is-connected ? Logic.tr("Disconnect") : Logic.tr("Connect");
                         background: Store.share-screen-player-is-connected ? Theme.danger-color : Theme.thirdly-brand-color;
 
