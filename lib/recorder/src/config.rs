@@ -1,4 +1,6 @@
-use crate::{ProcessMode, cursor_tracker::TransitionType, resolution::Resolution};
+use crate::{
+    AsyncErrorSender, ProcessMode, cursor_tracker::TransitionType, resolution::Resolution,
+};
 use chrono::Local;
 use derive_setters::Setters;
 use screen_capture::LogicalSize;
@@ -36,8 +38,9 @@ impl FPS {
 #[derive(Debug, Clone, Setters)]
 #[setters(prefix = "with_")]
 pub struct RecorderConfig {
-    pub process_mode: ProcessMode,
     pub save_path: PathBuf,
+    pub process_mode: ProcessMode,
+    pub async_error_sender: Option<AsyncErrorSender>,
 
     pub screen_name: String,
     pub screen_size: LogicalSize,
@@ -77,8 +80,9 @@ pub struct RecorderConfig {
 impl RecorderConfig {
     pub fn new(screen_name: String, screen_size: LogicalSize, save_path: PathBuf) -> Self {
         Self {
-            process_mode: ProcessMode::RecordScreen,
             save_path,
+            process_mode: ProcessMode::RecordScreen,
+            async_error_sender: None,
 
             screen_name,
             screen_size,

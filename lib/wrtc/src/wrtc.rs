@@ -148,7 +148,6 @@ impl WebRTCServer {
 
     pub async fn run(&mut self) -> Result<(), WebRTCError> {
         let socket_addr: &SocketAddr = &self.config.address.parse()?;
-
         let listener = TcpListener::bind(socket_addr).await?;
 
         let tls_acceptor = if self.config.enable_https {

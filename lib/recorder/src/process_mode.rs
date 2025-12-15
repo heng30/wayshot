@@ -494,13 +494,23 @@ impl RecordingSession {
         );
 
         let stop_sig = self.stop_sig.clone();
+        let error_sender = self.config.async_error_sender.clone();
 
         let rt_handle_clone = rt_handle.clone();
         std::thread::spawn(move || {
             rt_handle_clone.block_on(async move {
                 match server.run().await {
                     Ok(_) => log::info!("WebRTCServer exit..."),
-                    Err(e) => log::warn!("WebRTCServer run failed: {e}"),
+                    Err(e) => {
+                        let err = format!("WebRTCServer run failed: {e}");
+                        log::warn!("{err}");
+
+                        if let Some(ref sender) = error_sender {
+                            if let Err(e) = sender.try_send(err) {
+                                log::warn!("async_error_sender try send failed: {e}");
+                            }
+                        }
+                    }
                 }
                 stop_sig.store(true, Ordering::Relaxed);
             });
@@ -534,7 +544,8 @@ impl RecordingSession {
                                     SHARE_SCREEN_CONNECTIONS_COUNT.store(connections.len() as u32, Ordering::Relaxed);
                                     log::info!("connections count: {}", connections.len());
                                 }
-                                _ => (),
+                                Ok(Event::PeerConnecting(addr)) => log::info!("{addr} is connecting"),
+                                Err(e) => log::warn!("event_receiver failed: {e}"),
                             }
                         }
                         _ = exit_notify.notified() => {

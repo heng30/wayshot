@@ -96,6 +96,7 @@ which = "8.0"
 ctrlc = "3.5"
 ashpd = "0.12"
 winapi = "0.3"
+rustls = "0.23"
 webrtc = "0.14"
 fdk-aac = "0.8"
 futures = "0.3"
@@ -124,8 +125,6 @@ fast_image_resize = "5.3"
 wayland-protocols = "0.32"
 wayland-protocols-wlr = "0.3"
 rodio = { version = "0.21", default-features = false }
-
-rustls = "0.23"
 
 mp4m = { path = "lib/mp4m" }
 wrtc = { path = "lib/wrtc" }

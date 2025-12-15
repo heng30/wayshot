@@ -15,8 +15,9 @@ use crate::{
 use anyhow::{Result, bail};
 use once_cell::sync::Lazy;
 use recorder::{
-    AudioRecorder, FPS, ProcessMode, RecorderConfig, RecordingSession, Resolution, SpeakerRecorder,
-    SpeakerRecorderConfig, bounded, platform_screen_capture, platform_speaker_recoder,
+    AsyncErrorChannel, AsyncErrorReceiver, AsyncErrorSender, AudioRecorder, FPS, ProcessMode,
+    RecorderConfig, RecordingSession, Resolution, SpeakerRecorder, SpeakerRecorderConfig, bounded,
+    platform_screen_capture, platform_speaker_recoder,
 };
 use screen_capture::{ScreenCapture, ScreenInfo};
 use slint::{
@@ -41,6 +42,8 @@ struct Cache {
     speaker_gain: Option<Arc<AtomicI32>>,
     speaker_stop_sig: Option<Arc<AtomicBool>>,
     speaker_device_info: Option<(u32, String)>,
+
+    async_error_sender: Option<AsyncErrorSender>,
 }
 
 static CACHE: Lazy<Mutex<Cache>> = Lazy::new(|| Mutex::new(Cache::default()));
@@ -119,6 +122,10 @@ fn inner_init(ui: &AppWindow) {
     store_sources!(ui).set_vec(vec![]);
     store_audio_sources!(ui).set_vec(vec![]);
     store_video_sources!(ui).set_vec(vec![]);
+
+    let (async_error_sender, async_error_receiver) = AsyncErrorChannel(16);
+    show_async_error_task(ui.as_weak(), async_error_receiver);
+    CACHE.lock().unwrap().async_error_sender = Some(async_error_sender);
 
     if let Err(e) = init_audio(&ui) {
         toast_warn!(ui, format!("{e}"));
@@ -597,6 +604,8 @@ fn inner_start_recording(
 
     let all_config = config::all();
     let save_mp4 = all_config.share_screen.save_mp4;
+    let async_error_sender = CACHE.lock().unwrap().async_error_sender.clone();
+
     let resolution = if matches!(all_config.recorder.resolution, UIResolution::Original) {
         Resolution::Original((
             screen_info.logical_size.width as u32,
@@ -618,6 +627,7 @@ fn inner_start_recording(
         RecorderConfig::make_filename(&all_config.recorder.save_dir),
     )
     .with_process_mode(process_mode)
+    .with_async_error_sender(async_error_sender)
     .with_include_cursor(all_config.recorder.include_cursor)
     .with_enable_denoise(all_config.recorder.enable_denoise)
     .with_convert_to_mono(all_config.recorder.convert_to_mono)
@@ -720,6 +730,16 @@ fn inner_start_recording(
     log::info!("Recording completed successfully!");
 
     Ok(())
+}
+
+fn show_async_error_task(ui_weak: Weak<AppWindow>, mut receiver: AsyncErrorReceiver) {
+    tokio::spawn(async move {
+        while let Some(err) = receiver.recv().await {
+            async_toast_warn(ui_weak.clone(), err);
+        }
+
+        log::info!("async_error_task exit...");
+    });
 }
 
 fn stop_recording(ui: &AppWindow) {
