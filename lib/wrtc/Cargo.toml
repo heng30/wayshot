@@ -26,7 +26,6 @@ thiserror.workspace = true
 derivative.workspace = true
 serde_json.workspace = true
 mp4-player.workspace = true
-tokio-rustls.workspace = true
 video-encoder.workspace = true
 derive_setters.workspace = true
 rustls-pemfile.workspace = true
@@ -34,6 +33,7 @@ rustls-pki-types.workspace = true
 tokio = { workspace = true, features = ["full"] }
 serde = { workspace = true, features = ["derive"] }
 reqwest = { workspace = true, features = ["json"] }
+tokio-rustls = { workspace = true, features = ["tls12"] }
 
 [dev-dependencies]
 image.workspace = true

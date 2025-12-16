@@ -81,7 +81,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         stop_sig.store(true, Ordering::Relaxed);
     });
 
-    session.start(screen_capturer)?;
+    let rt_handle = tokio::runtime::Handle::current();
+    session.start(rt_handle, screen_capturer)?;
     session.wait()?;
 
     log::debug!("Recording completed successfully!");

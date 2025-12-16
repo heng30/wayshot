@@ -57,6 +57,9 @@ This is a screen recording tool for `Linux` and `Windows`. It is based on `Rust`
         qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
     ```
 
+- `Windows` dependences:
+    - [ffmpeg](https://ffmpeg.org/download.html)
+
 - `Windows` compiles [`ffmpeg-next`](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building)
     - Install LLVM (through official installer, Visual Studio, Chocolatey, or any other means), and add LLVM's bin path to PATH, or set LIBCLANG_PATH to that (see clang-sys documentation for additional info).
     - Install FFmpeg (complete with headers) through any means, e.g. downloading a pre-built ["full_build-shared"](https://www.gyan.dev/ffmpeg/builds/) version from https://ffmpeg.org/download.html. Set FFMPEG_DIR to the directory containing include and lib.

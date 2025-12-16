@@ -28,6 +28,14 @@ component ProcessModePanel inherits HorizontalLayout {
     TabBtns {
         enable: Store.record-status == RecordStatus.Stopped;
 
+        init => {
+            if (Store.process-mode == ProcessMode.RecordScreen) {
+                self.update-selected-index(0)
+            } else if (Store.process-mode == ProcessMode.ShareScreen) {
+                self.update-selected-index(1)
+            }
+        }
+
         items: [
             { icon: Icons.video-recorder-light, text: Logic.tr("Record Screen") },
             { icon: Icons.share-screen-light, text: Logic.tr("Share Screen") },

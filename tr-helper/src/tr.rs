@@ -275,7 +275,7 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Show Statistic", "显示统计信息"),
             ("Hide Preview", "隐藏预览"),
             ("Show Preview", "显示预览"),
-            ("The password will be sent to the client. Please enable authentication and TLS, and ensure the client is trusted.", "密码会发送到客户端，请启用认证和TLS，并且保证客户端可信。"),
+            ("The password will be sent to the client. Please enable authentication and TLS, and ensure the client is trusted.", "密码会发送到客户端，最好启用认证和TLS，并且保证客户端可信。"),
             ("Auth", "身份验证"),
             ("Auth token (optional)", "身份验证令牌（可选）"),
             ("Certification", "证书"),
@@ -309,7 +309,7 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Token", "令牌"),
             ("URL", "网址"),
             ("User name (optional)", "用户名（可选）"),
-            ("Wayshot Screen Sharing", "Wayshot屏幕共享"),
+            ("Wayshot Screen Sharing", "Wayshot 屏幕共享"),
             ("connections", "连接"),
             ("share screen", "共享屏幕"),
             ])

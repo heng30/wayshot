@@ -22,7 +22,7 @@ export component ShareScreenPanel inherits Rectangle {
     private property <color> disabled-text-color: Theme.light-text-color.darker(80%);
     private property <SettingShareScreenClient> cache-setting;
     private property <length> video-player-normal-width: Math.max(root.width * Theme.golden-ratio, Theme.default-width - Theme.padding * 8);
-    private property <length> video-player-normal-height: Math.min(root.video-player-normal-width * 9 / 16, root.height * Theme.golden-ratio);
+    private property <length> video-player-normal-height: root.video-player-normal-width * 9 / 16;
 
     init => {
         cache-setting = Logic.get-setting-share-screen-client();

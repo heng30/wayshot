@@ -51,6 +51,9 @@
         qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
 
 
+- `Windows`编译依赖：
+    - [ffmpeg](https://ffmpeg.org/download.html)
+
 - `Windows` 编译 [`ffmpeg-next`](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building)
     - 安装LLVM（可通过官方安装程序、Visual Studio、Chocolatey或任何其他方式），并将LLVM的bin路径添加到PATH环境变量中，或者将LIBCLANG_PATH设置为该路径（更多信息请参阅clang-sys文档）。
     - 通过任意方式安装FFmpeg（需包含头文件），例如从 https://ffmpeg.org/download.html 下载预编译的["full_build-shared"](https://www.gyan.dev/ffmpeg/builds/)版本。将FFMPEG_DIR设置为包含include和lib的目录。

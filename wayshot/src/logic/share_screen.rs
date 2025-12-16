@@ -214,19 +214,25 @@ fn share_screen_client_connect(ui: &AppWindow, setting: UISettingShareScreenClie
             config = config.with_auth_token(setting.auth_token.into());
         }
 
-        let client =
-            match WHEPClient::new(config, Some(video_tx), Some(audio_tx), exit_notify).await {
-                Ok(c) => c,
-                Err(e) => {
-                    if let Some(sender) = error_sender
-                        && let Err(e) =
-                            sender.try_send(format!("Create share screen client failed: {e}"))
-                    {
-                        log::warn!("try send async error failed: {e}");
-                    }
-                    return;
+        let client = match WHEPClient::new(config, Some(video_tx), Some(audio_tx), exit_notify)
+            .await
+        {
+            Ok(c) => c,
+            Err(e) => {
+                if let Some(sender) = error_sender
+                    && let Err(e) =
+                        sender.try_send(format!("Create share screen client failed: {e}"))
+                {
+                    log::warn!("try send async error failed: {e}");
                 }
-            };
+
+                _ = ui_weak.clone().upgrade_in_event_loop(move |ui| {
+                    global_store!(ui)
+                        .set_share_screen_client_connection_status(ConnectionStatus::Disconnected);
+                });
+                return;
+            }
+        };
 
         let ui_weak_clone = ui_weak.clone();
         let media_info = client.media_info.clone();
