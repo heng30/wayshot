@@ -5,6 +5,7 @@ import {
     Logic,
     Store,
     SettingShareScreenClient,
+    ConnectionStatus,
 } from "../def.slint";
 import {
     VideoPlayer,
@@ -21,7 +22,7 @@ export component ShareScreenPanel inherits Rectangle {
     private property <color> disabled-text-color: Theme.light-text-color.darker(80%);
     private property <SettingShareScreenClient> cache-setting;
     private property <length> video-player-normal-width: Math.max(root.width * Theme.golden-ratio, Theme.default-width - Theme.padding * 8);
-    private property <length> video-player-normal-height: Math.min(root.video-player-normal-width * Theme.golden-ratio, root.height * Theme.golden-ratio);
+    private property <length> video-player-normal-height: Math.min(root.video-player-normal-width * 9 / 16, root.height * Theme.golden-ratio);
 
     init => {
         cache-setting = Logic.get-setting-share-screen-client();
@@ -29,10 +30,10 @@ export component ShareScreenPanel inherits Rectangle {
 
     Timer {
         interval: 1s;
-        running: Store.share-screen-player-is-playing;
+        running: Store.share-screen-client-connection-status == ConnectionStatus.Connected;
 
         triggered() => {
-            if (Store.share-screen-player-is-playing) {
+            if (vp.is-playing) {
                 play-time += 1;
             } else {
                 play-time = 0;
@@ -46,14 +47,14 @@ export component ShareScreenPanel inherits Rectangle {
         alignment: center;
         spacing: Theme.spacing * 10;
 
-        if !vp.is-full-screen:VerticalLayout {
+        if !vp.is-full-screen: VerticalLayout {
             spacing: Theme.spacing * 8;
 
             HorizontalLayout {
                 alignment: center;
 
                 Label {
-                    font-size: 40px;
+                    font-size: 36px;
                     font-weight: Theme.bold-font-weight;
                     text: Logic.tr("Wayshot Screen Sharing");
                     color: root.text-color;
@@ -126,7 +127,7 @@ export component ShareScreenPanel inherits Rectangle {
                     addr-li := LineInput {
                         width: min(vp.width * 0.2, 200px);
                         text: cache-setting.server-addr;
-                        placeholder-text: "eg: 192.168.0.10:9090";
+                        placeholder-text: "http://192.168.0.10:9090";
                         text-color: root.text-color;
                         border-color: self.has-focus ? Theme.thirdly-brand-color : root.disabled-text-color.darker(30%);
                         placeholder-text-color: root.disabled-text-color.darker(50%);
@@ -141,17 +142,17 @@ export component ShareScreenPanel inherits Rectangle {
                         hpadding: Theme.padding * 4;
                         text-color: Theme.light-text-color;
                         font-weight: Theme.bold-font-weight;
-                        text: Store.share-screen-player-is-connected ? Logic.tr("Disconnect") : Logic.tr("Connect");
-                        background: Store.share-screen-player-is-connected ? Theme.danger-color : Theme.thirdly-brand-color;
+                        text: Store.share-screen-client-connection-status == ConnectionStatus.Disconnected ? Logic.tr("Connect") : (Store.share-screen-client-connection-status == ConnectionStatus.Connected ? Logic.tr("Disconnect") : Logic.tr("Connecting"));
+                        background: Store.share-screen-client-connection-status == ConnectionStatus.Disconnected ? Theme.thirdly-brand-color : (Store.share-screen-client-connection-status == ConnectionStatus.Connected ? Theme.danger-color : Theme.warning-color);
 
                         clicked => {
-                            if (Store.share-screen-player-is-connected) {
-                                Logic.share-screen-client-disconnect();
-                            } else {
+                            if (Store.share-screen-client-connection-status == ConnectionStatus.Disconnected) {
                                 cache-setting.auth-token = token-li.text;
                                 cache-setting.server-addr = addr-li.text;
                                 Logic.set-setting-share-screen-client(cache-setting);
                                 Logic.share-screen-client-connect(cache-setting);
+                            } else {
+                                Logic.share-screen-client-disconnect();
                             }
                         }
                     }
@@ -170,42 +171,39 @@ export component ShareScreenPanel inherits Rectangle {
                 show-speed-btn: false;
                 show-progress-bar: false;
                 show-subtitle-btn: false;
+                current-sound: 50;
                 player-image: Store.share-screen-player-image;
-                current-sound: Store.share-screen-player-sound;
-                is-playing: Store.share-screen-player-is-playing;
                 time-label: Logic.convert-to-meida-time(root.play-time);
+                is-real-time-player-mode: true;
+                is-loading: ConnectionStatus.Connecting == Store.share-screen-client-connection-status;
 
-                private property <bool> store-is-playing: Store.share-screen-player-is-playing;
+                private property <ConnectionStatus> connection-status: Store.share-screen-client-connection-status;
 
-                changed is-playing => {
-                    Store.share-screen-player-is-playing = self.is-playing;
-                }
-
-                changed store-is-playing => {
-                    self.is-playing = Store.share-screen-player-is-playing;
-                    if (!self.is-playing) {
-                        play-time = 0;
-                    }
+                changed connection-status => {
+                    self.is-playing = self.connection-status == ConnectionStatus.Connected;
+                    play-time = 0;
                 }
 
                 play() => {
-                    if (Store.share-screen-player-is-connected) {
+                    if (Store.share-screen-client-connection-status == ConnectionStatus.Connected) {
+                        vp.is-playing = true;
                         Logic.share-screen-player-play();
+                    } else {
+                        vp.is-playing = false;
                     }
                 }
 
                 stop() => {
-                    if (Store.share-screen-player-is-connected) {
+                    if (Store.share-screen-client-connection-status == ConnectionStatus.Connected) {
+                        vp.is-playing = false;
                         Logic.share-screen-player-stop();
+                    } else {
+                        vp.is-playing = false;
                     }
                 }
 
                 sound-changed(sound) => {
-                    Store.share-screen-player-sound = sound;
-
-                    if (Store.share-screen-player-is-connected) {
-                        Logic.share-screen-player-sound-changed(sound);
-                    }
+                    Logic.share-screen-player-sound-changed(sound);
                 }
             }
         }

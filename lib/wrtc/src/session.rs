@@ -42,7 +42,6 @@ pub enum HttpStream {
 pub struct WebRTCServerSessionConfig {
     pub media_info: MediaInfo,
     pub host_ips: Vec<String>,
-    pub disable_host_ipv6: bool,
 }
 
 #[non_exhaustive]
@@ -81,6 +80,7 @@ pub struct MediaInfo {
     pub video: VideoInfo,
     pub audio: Option<AudioInfo>,
     pub ice_servers: Vec<RTCIceServer>,
+    pub disable_host_ipv6: bool,
 
     #[setters(skip)]
     _private: (),
@@ -91,6 +91,7 @@ impl Default for MediaInfo {
         Self {
             video: VideoInfo::default(),
             audio: Some(AudioInfo::default()),
+            disable_host_ipv6: false,
             ice_servers: vec![RTCIceServer {
                 urls: ICE_SERVERS
                     .iter()

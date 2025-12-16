@@ -197,6 +197,12 @@ export component ShareScreen inherits SettingDetail {
                         }
                     }
                 }
+
+                Label {
+                    wrap: word-wrap;
+                    color: Theme.danger-color;
+                    text: Logic.tr("The password will be sent to the client. Please enable authentication and TLS, and ensure the client is trusted.");
+                }
             }
         }
 
@@ -275,6 +281,12 @@ export component ShareScreen inherits SettingDetail {
                             cache-setting.turn-server.credential = self.text;
                         }
                     }
+                }
+
+                Label {
+                    wrap: word-wrap;
+                    color: Theme.danger-color;
+                    text: Logic.tr("The password will be sent to the client. Please enable authentication and TLS, and ensure the client is trusted.");
                 }
             }
         }

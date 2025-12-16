@@ -1,5 +1,4 @@
 use anyhow::Result;
-use crossbeam::channel::bounded;
 use hound::{WavSpec, WavWriter};
 use image::{ImageBuffer, Rgb};
 use log::{info, trace, warn};
@@ -10,7 +9,10 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use tokio::{sync::Notify, time::sleep};
+use tokio::{
+    sync::{Notify, mpsc::channel},
+    time::sleep,
+};
 use wrtc::client::{AudioSamples, RGBFrame, WHEPClient, WHEPClientConfig};
 
 #[tokio::main]
@@ -41,26 +43,22 @@ async fn main() -> Result<()> {
     let video_counter = Arc::new(Mutex::new(0u32));
     let audio_duration = Arc::new(Mutex::new(0f64));
     let audio_samples_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
-    let (video_tx, video_rx) = bounded::<RGBFrame>(1024);
-    let (audio_tx, audio_rx) = bounded::<AudioSamples>(1024);
+    let (video_tx, mut video_rx) = channel::<RGBFrame>(1024);
+    let (audio_tx, mut audio_rx) = channel::<AudioSamples>(1024);
 
-    let client = WHEPClient::new(
-        WHEPClientConfig::new(server_url)
-            .with_auth_token("123".to_string())
-            .with_host_ips(vec!["192.168.10.8".to_string()])
-            .with_disable_host_ipv6(true),
-        Some(video_tx),
-        Some(audio_tx),
-        exit_notify.clone(),
-    )
-    .await?;
+    let config = WHEPClientConfig::new(server_url)
+        .with_auth_token("123".to_string())
+        .with_host_ips(vec!["192.168.10.8".to_string()]);
+
+    let client =
+        WHEPClient::new(config, Some(video_tx), Some(audio_tx), exit_notify.clone()).await?;
 
     let video_counter_clone = video_counter.clone();
     let output_dir_clone = output_dir.to_string();
 
     tokio::spawn(async move {
         let mut frame_count = 0;
-        while let Ok((width, height, rgb_data)) = video_rx.recv() {
+        while let Some((width, height, rgb_data)) = video_rx.recv().await {
             frame_count += 1;
 
             trace!(
@@ -100,7 +98,7 @@ async fn main() -> Result<()> {
         tokio::spawn(async move {
             let mut packet_count = 0;
 
-            while let Ok(samples) = audio_rx.recv() {
+            while let Some(samples) = audio_rx.recv().await {
                 packet_count += 1;
                 let duration_ms = (samples.len() as f64
                     / audio_info.channels as f64

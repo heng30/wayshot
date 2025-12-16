@@ -58,7 +58,7 @@ impl From<WebRTCServerSessionConfig> for WhepConfig {
     fn from(config: WebRTCServerSessionConfig) -> Self {
         Self {
             host_ips: config.host_ips,
-            disable_host_ipv6: config.disable_host_ipv6,
+            disable_host_ipv6: config.media_info.disable_host_ipv6,
             ice_servers: config.media_info.ice_servers,
             socket_addr: SocketAddr::from_str("0.0.0.0:9090").unwrap(),
         }

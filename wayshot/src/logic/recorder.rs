@@ -732,6 +732,10 @@ fn inner_start_recording(
     Ok(())
 }
 
+pub fn get_async_error_sender() -> Option<AsyncErrorSender> {
+    CACHE.lock().unwrap().async_error_sender.clone()
+}
+
 fn show_async_error_task(ui_weak: Weak<AppWindow>, mut receiver: AsyncErrorReceiver) {
     tokio::spawn(async move {
         while let Some(err) = receiver.recv().await {

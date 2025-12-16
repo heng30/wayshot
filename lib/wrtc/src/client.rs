@@ -5,7 +5,6 @@ use crate::{
     whep::ICE_SERVERS,
 };
 use audiopus::Channels;
-use crossbeam::channel::Sender;
 use derive_setters::Setters;
 use http::{
     header::{AUTHORIZATION, CONTENT_TYPE},
@@ -15,7 +14,7 @@ use log::{debug, info, trace, warn};
 use openh264::decoder::Decoder;
 use std::sync::Arc;
 use tokio::{
-    sync::{Mutex, Notify},
+    sync::{Mutex, Notify, mpsc::Sender},
     time::Duration,
 };
 use webrtc::{
@@ -53,7 +52,6 @@ pub struct WHEPClientConfig {
 
     pub ice_servers: Vec<RTCIceServer>,
     pub host_ips: Vec<String>,
-    pub disable_host_ipv6: bool,
 }
 
 impl WHEPClientConfig {
@@ -62,7 +60,6 @@ impl WHEPClientConfig {
             server_url,
             auth_token: None,
             host_ips: vec![],
-            disable_host_ipv6: false,
             ice_servers: vec![RTCIceServer {
                 urls: ICE_SERVERS
                     .iter()
@@ -91,6 +88,8 @@ impl WHEPClient {
         audio_sender: Option<Sender<AudioSamples>>,
         exit_notify: Arc<Notify>,
     ) -> ClientResult<WHEPClient> {
+        info!("config: {:#?}", config);
+
         let media_info =
             match fetch_media_info(&config.server_url, config.auth_token.as_ref()).await {
                 Ok(info) => info,
@@ -102,12 +101,7 @@ impl WHEPClient {
                 }
             };
 
-        info!(
-            "Fetched media info: video {}x{} @ {}fps, audio {:?}",
-            media_info.video.width, media_info.video.height, media_info.video.fps, media_info.audio,
-        );
-
-        info!("ice servers: {:#?}", media_info.ice_servers);
+        info!("ice servers: {:#?}", media_info);
 
         Ok(Self {
             config,
@@ -158,22 +152,20 @@ impl WHEPClient {
         let mut registry = Registry::new();
         registry = register_default_interceptors(registry, &mut m)?;
 
-        let mut api = APIBuilder::new()
-            .with_media_engine(m)
-            .with_interceptor_registry(registry);
-
+        let mut setting_engine = SettingEngine::default();
+        if self.media_info.disable_host_ipv6 {
+            setting_engine.set_network_types(vec![NetworkType::Tcp4, NetworkType::Udp4]);
+        }
         if !self.config.host_ips.is_empty() {
-            let mut setting_engine = SettingEngine::default();
-
-            if self.config.disable_host_ipv6 {
-                setting_engine.set_network_types(vec![NetworkType::Tcp4, NetworkType::Udp4]);
-            }
-
             setting_engine
                 .set_nat_1to1_ips(self.config.host_ips.clone(), RTCIceCandidateType::Host);
-            api = api.with_setting_engine(setting_engine);
         }
-        let api = api.build();
+
+        let api = APIBuilder::new()
+            .with_media_engine(m)
+            .with_interceptor_registry(registry)
+            .with_setting_engine(setting_engine)
+            .build();
 
         let ice_servers = if self.media_info.ice_servers.is_empty() {
             self.config.ice_servers.clone()
@@ -488,7 +480,7 @@ async fn process_audio_track(
 
                     match opus_decoder.decode(&payload) {
                         Ok(audio_samples) => {
-                            if let Err(e) = audio_sender.send(audio_samples) {
+                            if let Err(e) = audio_sender.try_send(audio_samples) {
                                 warn!("audio_sender try send failed: {e}");
                             }
                         }

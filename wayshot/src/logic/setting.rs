@@ -120,7 +120,6 @@ pub fn init(ui: &AppWindow) {
         config.into()
     });
 
-    let ui_weak = ui.as_weak();
     global_logic!(ui).on_set_setting_share_screen_client(move |setting| {
         let mut all = config::all();
         all.share_screen_client = setting.into();

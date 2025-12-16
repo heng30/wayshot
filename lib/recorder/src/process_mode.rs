@@ -455,7 +455,8 @@ impl RecordingSession {
 
         let mut media_info = MediaInfo::default()
             .with_audio(audio_info)
-            .with_video(video_info);
+            .with_video(video_info)
+            .with_disable_host_ipv6(self.config.share_screen_config.disable_host_ipv6);
 
         if self.config.share_screen_config.stun_server.is_some()
             || self.config.share_screen_config.turn_server.is_some()
@@ -482,8 +483,7 @@ impl RecordingSession {
 
         let session_config = WebRTCServerSessionConfig::default()
             .with_media_info(media_info)
-            .with_host_ips(self.config.share_screen_config.host_ips.clone())
-            .with_disable_host_ipv6(self.config.share_screen_config.disable_host_ipv6);
+            .with_host_ips(self.config.share_screen_config.host_ips.clone());
 
         let mut server = WebRTCServer::new(
             config,

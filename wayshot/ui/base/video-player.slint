@@ -10,11 +10,14 @@ import { Playlist } from "playlist.slint";
 import { PlaylistItem, AppPosType } from "def.slint";
 import { TextBtnWithoutIcon } from "btn.slint";
 import { Select } from "select.slint";
+import { Loading } from "loading.slint";
 
 export component VideoPlayer inherits Rectangle {
     in-out property player-image <=> img.source;
     in-out property <bool> is-playing;
+    in-out property <bool> is-loading;
     in-out property <bool> is-full-screen;
+    in-out property <bool> is-real-time-player-mode;
     in-out property <float> current-sound: 50;
     in-out property <float> current-speed: 1.0;
     in-out property <float> progress: 0;
@@ -90,7 +93,7 @@ export component VideoPlayer inherits Rectangle {
                     root.exit-full-screen();
                 }
             } else if (event.text == Key.Space) {
-                if (valid-playlist-index()) {
+                if (valid-playlist-index() || is-real-time-player-mode) {
                     root.is-playing = !root.is-playing;
                     if (root.is-playing) {
                         root.play();
@@ -167,7 +170,7 @@ export component VideoPlayer inherits Rectangle {
                 clicked => {
                     root.focus();
 
-                    if (valid-playlist-index()) {
+                    if (valid-playlist-index() || is-real-time-player-mode) {
                         root.is-playing = !root.is-playing;
                         if (root.is-playing) {
                             root.play();
@@ -250,7 +253,7 @@ export component VideoPlayer inherits Rectangle {
                 }
             }
 
-            if !root.is-playing: Rectangle {
+            if !root.is-playing && !is-loading: Rectangle {
                 opacity: root.center-icon-opacity;
                 background: Theme.dark-bg-color;
 
@@ -267,6 +270,17 @@ export component VideoPlayer inherits Rectangle {
                         colorize: Theme.dark-bg-color;
                         image-fit: ImageFit.contain;
                     }
+                }
+            }
+
+            if !root.is-playing && is-loading: Rectangle {
+                opacity: root.center-icon-opacity;
+                background: Theme.dark-bg-color;
+
+                Loading {
+                    loading-text: "";
+                    icon-size: Math.min(parent.width, parent.height) * 0.2;
+                    colorize: Theme.thirdly-brand-color.darker(30%);
                 }
             }
         }
@@ -384,7 +398,7 @@ export component VideoPlayer inherits Rectangle {
                             clicked => {
                                 root.show-sound-slider = false;
 
-                                if (valid-playlist-index()) {
+                                if (valid-playlist-index() || is-real-time-player-mode) {
                                     root.is-playing = !root.is-playing;
                                     if (root.is-playing) {
                                         root.play();

@@ -38,14 +38,17 @@ cutil = { workspace = true, features = ["str", "time", "number", "fs"] }
 
 [target.'cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))'.dependencies]
 open.workspace = true
+wrtc.workspace = true
 tempfile.workspace = true
 recorder.workspace = true
 clipboard.workspace = true
+crossbeam.workspace = true
 env_logger.workspace = true
 mp4-player.workspace = true
 native-dialog.workspace = true
 platform-dirs.workspace = true
 screen-capture.workspace = true
+rodio = { workspace = true, features = ["playback"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 duct.workspace = true
