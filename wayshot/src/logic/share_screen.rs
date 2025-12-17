@@ -9,6 +9,7 @@ use crate::{
     toast_warn,
 };
 use once_cell::sync::Lazy;
+use rand;
 use recorder::{RTCIceServer, ShareScreenConfig};
 use slint::{ComponentHandle, Model, ModelRc, SharedPixelBuffer, SharedString, VecModel, Weak};
 use std::{
@@ -206,14 +207,22 @@ fn share_screen_client_connect(ui: &AppWindow, setting: UISettingShareScreenClie
     tokio::spawn(async move {
         log::info!("Connecting to WHEP server at: {}", setting.server_addr);
 
-        let (audio_tx, mut audio_rx) = channel::<AudioSamples>(10); // 200ms
+        // for real-time, only play the last frame
+        let (audio_tx, mut audio_rx) = channel::<AudioSamples>(1);
+        let (video_tx, mut video_rx) = channel::<RGBFrame>(1);
+
         let mut config = WHEPClientConfig::new(setting.server_addr.trim().to_string().into());
         if setting.enable_auth {
             config = config.with_auth_token(setting.auth_token.into());
         }
 
-        let mut client = match WHEPClient::new(config, None, Some(audio_tx), exit_notify_clone)
-            .await
+        let client = match WHEPClient::new(
+            config,
+            Some(video_tx),
+            Some(audio_tx),
+            exit_notify_clone,
+        )
+        .await
         {
             Ok(c) => c,
             Err(e) => {
@@ -231,10 +240,6 @@ fn share_screen_client_connect(ui: &AppWindow, setting: UISettingShareScreenClie
                 return;
             }
         };
-
-        let (video_tx, mut video_rx) =
-            channel::<RGBFrame>(((client.media_info.video.fps as f32 * 0.2) as usize).max(1)); // 200ms
-        client.update_video_sender(video_tx);
 
         let ui_weak_clone = ui_weak.clone();
         let media_info = client.media_info.clone();
@@ -265,16 +270,13 @@ fn share_screen_client_connect(ui: &AppWindow, setting: UISettingShareScreenClie
                                         (samples.len() as f64 / audio_info.channels as f64 / audio_info.sample_rate as f64) * 1000.0
                                     );
 
-                                    if let Some(ref sink) = audio_sink {
+                                    if let Some(ref sink) = audio_sink && !smart_audio_drop(sink, &samples) {
                                         sink.append(rodio::buffer::SamplesBuffer::new(
                                                 audio_info.channels,
                                                 audio_info.sample_rate,
                                                 samples,
                                         ));
-
                                         sink.play();
-                                    } else {
-                                        log::warn!("Audio sink not initialized - cannot play audio");
                                     }
                                 }
                             }
@@ -424,4 +426,25 @@ impl From<config::RTCIceServer> for RTCIceServer {
             credential: c.credential,
         }
     }
+}
+
+fn smart_audio_drop(sink: &rodio::Sink, samples: &[f32]) -> bool {
+    let buffer_len = sink.len();
+
+    match buffer_len {
+        len if len <= 3 => false,
+        len if len >= 18 => true,
+        len if len >= 12 => calculate_amplitude(samples) < 0.1 || rand::random::<f32>() < 0.3,
+        len if len >= 9 => calculate_amplitude(samples) < 0.05 || rand::random::<f32>() < 0.2,
+        _len => calculate_amplitude(samples) < 0.025 || rand::random::<f32>() < 0.1,
+    }
+}
+
+fn calculate_amplitude(samples: &[f32]) -> f32 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+
+    let sum_squares: f32 = samples.iter().map(|&sample| sample * sample).sum();
+    (sum_squares / samples.len() as f32).sqrt()
 }

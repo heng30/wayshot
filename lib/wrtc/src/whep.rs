@@ -79,21 +79,19 @@ pub async fn handle_whep(
 
     log::info!("host_ips: {:?}", config.host_ips);
 
-    let mut api = APIBuilder::new()
-        .with_media_engine(m)
-        .with_interceptor_registry(registry);
-
-    if !config.host_ips.is_empty() {
-        let mut setting_engine = SettingEngine::default();
-
-        if config.disable_host_ipv6 {
-            setting_engine.set_network_types(vec![NetworkType::Tcp4, NetworkType::Udp4]);
-        }
-
-        setting_engine.set_nat_1to1_ips(config.host_ips, RTCIceCandidateType::Host);
-        api = api.with_setting_engine(setting_engine);
+    let mut setting_engine = SettingEngine::default();
+    if config.disable_host_ipv6 {
+        setting_engine.set_network_types(vec![NetworkType::Tcp4, NetworkType::Udp4]);
     }
-    let api = api.build();
+    if !config.host_ips.is_empty() {
+        setting_engine.set_nat_1to1_ips(config.host_ips, RTCIceCandidateType::Host);
+    }
+
+    let api = APIBuilder::new()
+        .with_media_engine(m)
+        .with_interceptor_registry(registry)
+        .with_setting_engine(setting_engine)
+        .build();
 
     let ice_servers = if config.ice_servers.is_empty() {
         vec![RTCIceServer {

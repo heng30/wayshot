@@ -9154,6 +9154,7 @@ dependencies = [
  "image",
  "log",
  "mp4-player",
+ "mp4m",
  "native-dialog",
  "once_cell",
  "open",
