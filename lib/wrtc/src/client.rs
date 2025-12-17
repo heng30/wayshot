@@ -112,9 +112,12 @@ impl WHEPClient {
             session_url: Arc::new(Mutex::new(None)),
         })
     }
-}
 
-impl WHEPClient {
+    // it should called after `new()` and before `connect()`
+    pub fn update_video_sender(&mut self, sender: Sender<RGBFrame>) {
+        self.video_sender = Some(sender);
+    }
+
     pub async fn connect(&self) -> ClientResult<()> {
         let mut m = MediaEngine::default();
         m.register_codec(

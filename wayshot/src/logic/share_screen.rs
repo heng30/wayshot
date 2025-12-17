@@ -206,15 +206,13 @@ fn share_screen_client_connect(ui: &AppWindow, setting: UISettingShareScreenClie
     tokio::spawn(async move {
         log::info!("Connecting to WHEP server at: {}", setting.server_addr);
 
-        let (video_tx, mut video_rx) = channel::<RGBFrame>(64);
-        let (audio_tx, mut audio_rx) = channel::<AudioSamples>(64);
-
+        let (audio_tx, mut audio_rx) = channel::<AudioSamples>(10); // 200ms
         let mut config = WHEPClientConfig::new(setting.server_addr.trim().to_string().into());
         if setting.enable_auth {
             config = config.with_auth_token(setting.auth_token.into());
         }
 
-        let client = match WHEPClient::new(config, Some(video_tx), Some(audio_tx), exit_notify)
+        let mut client = match WHEPClient::new(config, None, Some(audio_tx), exit_notify_clone)
             .await
         {
             Ok(c) => c,
@@ -234,110 +232,128 @@ fn share_screen_client_connect(ui: &AppWindow, setting: UISettingShareScreenClie
             }
         };
 
+        let (video_tx, mut video_rx) =
+            channel::<RGBFrame>(((client.media_info.video.fps as f32 * 0.2) as usize).max(1)); // 200ms
+        client.update_video_sender(video_tx);
+
         let ui_weak_clone = ui_weak.clone();
         let media_info = client.media_info.clone();
+        let exit_notify_clone = exit_notify.clone();
+        let player_stop_sig_clone = player_stop_sig.clone();
 
         tokio::spawn(async move {
-            match client.connect().await {
-                Ok(_) => log::info!("WHEP client connection completed successfully"),
-                Err(e) => {
-                    let err = format!("Failed to connect to WHEP server: {e}");
-                    log::warn!("{err}");
+            loop {
+                tokio::select! {
+                    _ = exit_notify_clone.notified() => {
+                        log::info!("share screen video and audio loop exit...");
+                        break;
+                    }
 
-                    if let Some(sender) = error_sender
-                        && let Err(e) = sender.try_send(err)
-                    {
-                        log::warn!("error send try send failed: {e}");
+                    samples = audio_rx.recv() => {
+                        match samples  {
+                            Some(samples) => {
+                                if player_stop_sig_clone.load(Ordering::Relaxed) {
+                                    continue;
+                                }
+
+                                if let Some(ref audio_info) = media_info.audio {
+                                    log::trace!(
+                                        "Received audio packet: {} Hz, {} channels, {} samples ({:.2}ms)",
+                                        audio_info.sample_rate,
+                                        audio_info.channels,
+                                        samples.len(),
+                                        (samples.len() as f64 / audio_info.channels as f64 / audio_info.sample_rate as f64) * 1000.0
+                                    );
+
+                                    if let Some(ref sink) = audio_sink {
+                                        sink.append(rodio::buffer::SamplesBuffer::new(
+                                                audio_info.channels,
+                                                audio_info.sample_rate,
+                                                samples,
+                                        ));
+
+                                        sink.play();
+                                    } else {
+                                        log::warn!("Audio sink not initialized - cannot play audio");
+                                    }
+                                }
+                            }
+                            None =>  {
+                                log::info!("share screen audio receiver exit...");
+                                break;
+                            }
+                        }
                     }
                 }
             }
-
-            _ = ui_weak_clone.upgrade_in_event_loop(move |ui| {
-                global_store!(ui)
-                    .set_share_screen_client_connection_status(ConnectionStatus::Disconnected);
-            });
         });
 
-        loop {
-            tokio::select! {
-                _ = exit_notify_clone.notified() => {
-                    log::info!("share screen video and audio loop exit...");
-                    break;
-                }
-
-                frame = video_rx.recv() => {
-                    match frame {
-                        Some((width, height, rgb_data)) => {
-                            log::trace!(
-                                "Received video frame: {}x{} ({} bytes)",
-                                width,
-                                height,
-                                rgb_data.len()
-                            );
-
-                            if player_stop_sig.load(Ordering::Relaxed) {
-                                continue;
-                            }
-
-                            let player_stop_sig_clone = player_stop_sig.clone();
-                            _ = ui_weak.upgrade_in_event_loop(move |ui| {
-                                if player_stop_sig_clone.load(Ordering::Relaxed) {
-                                    return;
-                                }
-
-                                let buffer = SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(
-                                    &rgb_data, width, height,
-                                );
-                                let img = slint::Image::from_rgb8(buffer);
-
-                                global_store!(ui).set_share_screen_player_image(img);
-                                global_store!(ui).set_share_screen_client_connection_status(ConnectionStatus::Connected);
-                            });
-                        }
-                        None =>  {
-                            log::info!("share screen video receiver exit...");
-                            break;
-                        }
+        let exit_notify_clone = exit_notify.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = exit_notify_clone.notified() => {
+                        log::info!("share screen video and audio loop exit...");
+                        break;
                     }
-                }
 
-                samples = audio_rx.recv() => {
-                    match samples  {
-                        Some(samples) => {
-                            if player_stop_sig.load(Ordering::Relaxed) {
-                                continue;
-                            }
-
-                            if let Some(ref audio_info) = media_info.audio {
+                    frame = video_rx.recv() => {
+                        match frame {
+                            Some((width, height, rgb_data)) => {
                                 log::trace!(
-                                    "Received audio packet: {} Hz, {} channels, {} samples ({:.2}ms)",
-                                    audio_info.sample_rate,
-                                    audio_info.channels,
-                                    samples.len(),
-                                    (samples.len() as f64 / audio_info.channels as f64 / audio_info.sample_rate as f64) * 1000.0
+                                    "Received video frame: {}x{} ({} bytes)",
+                                    width,
+                                    height,
+                                    rgb_data.len()
                                 );
 
-                                if let Some(ref sink) = audio_sink {
-                                    sink.append(rodio::buffer::SamplesBuffer::new(
-                                            audio_info.channels,
-                                            audio_info.sample_rate,
-                                            samples,
-                                    ));
-
-                                    sink.play();
-                                } else {
-                                    log::warn!("Audio sink not initialized - cannot play audio");
+                                if player_stop_sig.load(Ordering::Relaxed) {
+                                    continue;
                                 }
+
+                                let player_stop_sig_clone = player_stop_sig.clone();
+                                _ = ui_weak.upgrade_in_event_loop(move |ui| {
+                                    if player_stop_sig_clone.load(Ordering::Relaxed) {
+                                        return;
+                                    }
+
+                                    let buffer = SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(
+                                        &rgb_data, width, height,
+                                    );
+                                    let img = slint::Image::from_rgb8(buffer);
+
+                                    global_store!(ui).set_share_screen_player_image(img);
+                                    global_store!(ui).set_share_screen_client_connection_status(ConnectionStatus::Connected);
+                                });
+                            }
+                            None =>  {
+                                log::info!("share screen video receiver exit...");
+                                break;
                             }
                         }
-                        None =>  {
-                            log::info!("share screen audio receiver exit...");
-                            break;
-                        }
                     }
+                }
+            }
+        });
+
+        match client.connect().await {
+            Ok(_) => log::info!("WHEP client connection completed successfully"),
+            Err(e) => {
+                let err = format!("Failed to connect to WHEP server: {e}");
+                log::warn!("{err}");
+
+                if let Some(sender) = error_sender
+                    && let Err(e) = sender.try_send(err)
+                {
+                    log::warn!("error send try send failed: {e}");
                 }
             }
         }
+
+        _ = ui_weak_clone.upgrade_in_event_loop(move |ui| {
+            global_store!(ui)
+                .set_share_screen_client_connection_status(ConnectionStatus::Disconnected);
+        });
     });
 }
 
