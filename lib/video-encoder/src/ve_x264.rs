@@ -23,18 +23,27 @@ impl X264VideoEncoder {
         } = config;
 
         assert!(width > 0 && height > 0);
+        let is_real_time = annexb;
 
         let encoder = Setup::preset(
-            Preset::Superfast, // Use faster preset to avoid potential encoder issues
-            Tune::None,        // Use no specific tuning for screen recording
-            true,              // fast_decode: Standard decoding
-            true,              // zero_latency: Minimal internal buffering
+            if is_real_time {
+                Preset::Faster
+            } else {
+                Preset::Superfast
+            },
+            Tune::None,
+            true,
+            true,
         )
+        .max_keyframe_interval(if is_real_time {
+            fps as i32 * 5
+        } else {
+            fps as i32
+        })
         .fps(fps, 1)
-        .max_keyframe_interval(fps as i32) // Simpler keyframe interval
-        .scenecut_threshold(0) // Disable scene detection to guarantee keyframes at max interval
-        .annexb(annexb) // Use Annex B format if true (start codes), or AVCC format if false (length prefixes, MP4 compatible)
-        .baseline() // Use Baseline profile for maximum compatibility
+        .scenecut_threshold(0)
+        .annexb(annexb)
+        .baseline()
         .build(Colorspace::I420, width as i32, height as i32)
         .map_err(|e| {
             EncoderError::VideoEncodingFailed(format!("Failed to create x264 encoder: {e:?}"))

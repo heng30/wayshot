@@ -85,15 +85,13 @@ pub fn rgb_to_i420_yuv(rgb_data: &[u8], width: u32, height: u32) -> Result<Vec<u
     };
     let frame_size = (width * height) as usize;
 
-    // Allocate YUV planar image
     let mut planar_image =
         YuvPlanarImageMut::<u8>::alloc(width, height, YuvChromaSubsampling::Yuv420);
 
-    // Convert RGB to YUV420
     rgb_to_yuv420(
         &mut planar_image,
         rgb_data,
-        width * 3, // RGB stride (3 bytes per pixel)
+        width * 3,
         YuvRange::Limited,
         YuvStandardMatrix::Bt601,
         YuvConversionMode::Balanced,

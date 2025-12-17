@@ -50,9 +50,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     log::info!("Recording configuration: {:#?}", config);
 
+    let rt_handle = tokio::runtime::Handle::current();
     let (frame_sender, frame_receiver) = bounded(32);
     let mut session = RecordingSession::new(config).with_frame_sender_user(Some(frame_sender));
-    session.start(screen_capturer)?;
+    session.start(rt_handle, screen_capturer)?;
 
     let stop_sig = session.get_stop_sig().clone();
     thread::spawn(move || {

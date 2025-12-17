@@ -38,19 +38,23 @@ impl FfmpegVideoEncoder {
         encoder.set_frame_rate(Some(Rational::new(config.fps as i32, 1)));
         encoder.set_time_base((1, config.fps as i32));
 
+        let fps = if config.annexb {
+            config.fps * 5
+        } else {
+            config.fps
+        };
+
         let mut opts = Dictionary::new();
-        opts.set("preset", "superfast");
+        opts.set("preset", if config.annexb { "faster" } else { "superfast" });
         opts.set("profile", "baseline");
         opts.set("crf", "23");
-        opts.set("g", format!("{}", config.fps).as_str()); // max_keyframe_interval
+        opts.set("g", &fps.to_string()); // max_keyframe_interval
         opts.set("tune", "zerolatency");
         opts.set("forced-idr", "1"); // Force keyframes more regularly
 
         let x264_params = format!(
-            "annexb={}:bframes=0:cabac=0:scenecut=0:keyint={}:keyint_min={}:rc_lookahead=0",
+            "annexb={}:bframes=0:cabac=0:scenecut=0:keyint={fps}:keyint_min={fps}:rc_lookahead=0",
             if config.annexb { 1 } else { 0 },
-            config.fps,
-            config.fps
         );
         opts.set("x264-params", x264_params.as_str());
 
