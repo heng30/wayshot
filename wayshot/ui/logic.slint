@@ -169,8 +169,6 @@ export global Logic {
     callback share-screen-client-disconnect();
     callback share-screen-client-connect(setting: SettingShareScreenClient);
 
-    pure callback convert-to-meida-time(duration: int) -> string;
-
     pure public function fps-to-int(fps: Fps) -> int {
         if (fps == Fps.Fps24) {
             return 24;

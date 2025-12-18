@@ -39,7 +39,7 @@ impl FfmpegVideoEncoder {
         encoder.set_time_base((1, config.fps as i32));
 
         let fps = if config.annexb {
-            config.fps * 5
+            config.fps * 3
         } else {
             config.fps
         };

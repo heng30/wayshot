@@ -17,7 +17,7 @@ import {
 } from "../../base/widgets.slint";
 
 export component ShareScreenPanel inherits Rectangle {
-    private property <int> play-time;
+    private property playing-duration <=> Store.share-screen-playing-duration;
     private property <color> text-color: Theme.light-text-color.darker(30%);
     private property <color> disabled-text-color: Theme.light-text-color.darker(80%);
     private property <SettingShareScreenClient> cache-setting;
@@ -30,14 +30,10 @@ export component ShareScreenPanel inherits Rectangle {
 
     Timer {
         interval: 1s;
-        running: Store.share-screen-client-connection-status == ConnectionStatus.Connected;
+        running: Store.share-screen-client-connection-status == ConnectionStatus.Connected && vp.is-playing;
 
         triggered() => {
-            if (vp.is-playing) {
-                play-time += 1;
-            } else {
-                play-time = 0;
-            }
+            playing-duration += 1;
         }
     }
 
@@ -173,7 +169,7 @@ export component ShareScreenPanel inherits Rectangle {
                 show-subtitle-btn: false;
                 current-sound: 50;
                 player-image: Store.share-screen-player-image;
-                time-label: Logic.convert-to-meida-time(root.play-time);
+                time-label: Util.seconds-to-media-timestamp(root.playing-duration);
                 is-real-time-player-mode: true;
                 is-loading: ConnectionStatus.Connecting == Store.share-screen-client-connection-status;
 
@@ -181,7 +177,15 @@ export component ShareScreenPanel inherits Rectangle {
 
                 changed connection-status => {
                     self.is-playing = self.connection-status == ConnectionStatus.Connected;
-                    play-time = 0;
+                    playing-duration = 0;
+                }
+
+                changed is-playing => {
+                    Store.share-screen-is-playing-cache = self.is-playing;
+                }
+
+                init => {
+                    self.is-playing = Store.share-screen-is-playing-cache;
                 }
 
                 play() => {

@@ -82,6 +82,7 @@ pub struct MediaInfo {
     pub ice_servers: Vec<RTCIceServer>,
     pub disable_host_ipv6: bool,
 
+    #[serde(skip)]
     #[setters(skip)]
     _private: (),
 }

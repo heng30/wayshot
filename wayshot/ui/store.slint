@@ -250,6 +250,7 @@ export global Store {
     in-out property <string> save-dir;
     in-out property <bool> never-recording-once: true;
 
+    in-out property <int> record-duration;
     in-out property <string> final-video-path;
     in-out property <image> preview-image;
     in-out property <int> audio-db: -60;
@@ -326,6 +327,8 @@ export global Store {
     ];
 
     in-out property <image> share-screen-player-image;
+    in-out property <int> share-screen-playing-duration;
+    in-out property <bool> share-screen-is-playing-cache;
     in-out property <ConnectionStatus> share-screen-client-connection-status: ConnectionStatus.Disconnected;
 
     //////////////////////////////// Logic End  ////////////////////////////////

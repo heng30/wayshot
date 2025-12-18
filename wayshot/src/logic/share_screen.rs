@@ -9,7 +9,6 @@ use crate::{
     toast_warn,
 };
 use once_cell::sync::Lazy;
-use rand;
 use recorder::{RTCIceServer, ShareScreenConfig};
 use slint::{ComponentHandle, Model, ModelRc, SharedPixelBuffer, SharedString, VecModel, Weak};
 use std::{
@@ -20,7 +19,10 @@ use std::{
     },
 };
 use tokio::sync::{Notify, mpsc::channel};
-use wrtc::client::{AudioSamples, RGBFrame, WHEPClient, WHEPClientConfig};
+use wrtc::{
+    client::{AudioSamples, RGBFrame, WHEPClient, WHEPClientConfig},
+    session::AudioInfo,
+};
 
 #[derive(Default)]
 struct Cache {
@@ -57,7 +59,6 @@ pub fn init(ui: &AppWindow) {
     logic_cb!(share_screen_player_sound_changed, ui, progress);
     logic_cb!(share_screen_client_disconnect, ui);
     logic_cb!(share_screen_client_connect, ui, setting);
-    logic_cb!(convert_to_meida_time, ui, duration);
 }
 
 fn inner_init(ui: &AppWindow) {
@@ -270,13 +271,16 @@ fn share_screen_client_connect(ui: &AppWindow, setting: UISettingShareScreenClie
                                         (samples.len() as f64 / audio_info.channels as f64 / audio_info.sample_rate as f64) * 1000.0
                                     );
 
-                                    if let Some(ref sink) = audio_sink && !smart_audio_drop(sink, &samples) {
-                                        sink.append(rodio::buffer::SamplesBuffer::new(
-                                                audio_info.channels,
-                                                audio_info.sample_rate,
-                                                samples,
-                                        ));
-                                        sink.play();
+                                    if let Some(ref sink) = audio_sink {
+                                        if let Some(samples) = handle_auddio_lagging(sink, audio_info, samples) {
+                                            sink.append(rodio::buffer::SamplesBuffer::new(
+                                                    audio_info.channels,
+                                                    audio_info.sample_rate,
+                                                    samples,
+                                            ));
+
+                                            sink.play();
+                                        }
                                     }
                                 }
                             }
@@ -359,10 +363,6 @@ fn share_screen_client_connect(ui: &AppWindow, setting: UISettingShareScreenClie
     });
 }
 
-fn convert_to_meida_time(_ui: &AppWindow, duration: i32) -> SharedString {
-    cutil::time::seconds_to_media_timestamp(duration.max(0) as f64).into()
-}
-
 pub fn picker_file(
     ui: Weak<AppWindow>,
     title: &str,
@@ -428,15 +428,80 @@ impl From<config::RTCIceServer> for RTCIceServer {
     }
 }
 
-fn smart_audio_drop(sink: &rodio::Sink, samples: &[f32]) -> bool {
+fn resample_linear(samples: &[f32], channels: u16, speed: f32) -> Vec<f32> {
+    if (speed - 1.0).abs() < 0.001 {
+        return samples.to_vec();
+    }
+
+    let input_frames = samples.len() / channels as usize;
+    let output_frames = (input_frames as f32 / speed).ceil() as usize;
+    let mut output = Vec::with_capacity(output_frames * channels as usize);
+
+    for i in 0..output_frames {
+        let input_idx_f = i as f32 * speed;
+        let idx_floor = (input_idx_f.floor() as usize).min(input_frames - 1);
+        let idx_ceil = (idx_floor + 1).min(input_frames - 1);
+        let fraction = input_idx_f - idx_floor as f32;
+
+        for c in 0..channels {
+            let s1 = samples[idx_floor * channels as usize + c as usize];
+            let s2 = samples[idx_ceil * channels as usize + c as usize];
+            let val = s1 + (s2 - s1) * fraction;
+            output.push(val);
+        }
+    }
+
+    output
+}
+
+fn handle_auddio_lagging(
+    sink: &rodio::Sink,
+    audio_info: &AudioInfo,
+    mut samples: Vec<f32>,
+) -> Option<Vec<f32>> {
     let buffer_len = sink.len();
 
-    match buffer_len {
-        len if len <= 3 => false,
-        len if len >= 18 => true,
-        len if len >= 12 => calculate_amplitude(samples) < 0.1 || rand::random::<f32>() < 0.3,
-        len if len >= 9 => calculate_amplitude(samples) < 0.05 || rand::random::<f32>() < 0.2,
-        _len => calculate_amplitude(samples) < 0.025 || rand::random::<f32>() < 0.1,
+    if buffer_len > 25 {
+        sink.clear();
+        log::warn!("Audio buffer too large ({buffer_len}), cleared for sync.");
+
+        apply_fade_in(
+            &mut samples,
+            audio_info.channels,
+            audio_info.sample_rate,
+            (audio_info.frame_duration_ms / 2).min(10),
+        );
+
+        Some(samples)
+    } else {
+        // remove silent audio
+        if buffer_len >= 20 && calculate_amplitude(&samples) < 0.01 {
+            return None;
+        }
+
+        let speed = if buffer_len >= 15 {
+            1.05
+        } else if buffer_len >= 5 {
+            1.02
+        } else {
+            1.0
+        };
+
+        Some(resample_linear(&samples, audio_info.channels, speed))
+    }
+}
+
+fn apply_fade_in(samples: &mut [f32], channels: u16, sample_rate: u32, duration_ms: u32) {
+    let fade_frames = (sample_rate as f32 * duration_ms as f32 / 1000.0) as usize;
+    let total_frames = samples.len() / channels as usize;
+    let frames_to_process = fade_frames.min(total_frames);
+
+    for i in 0..frames_to_process {
+        let gain = i as f32 / fade_frames as f32;
+        for c in 0..channels {
+            let idx = i * channels as usize + c as usize;
+            samples[idx] *= gain;
+        }
     }
 }
 

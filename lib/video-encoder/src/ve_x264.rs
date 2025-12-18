@@ -36,7 +36,7 @@ impl X264VideoEncoder {
             true,
         )
         .max_keyframe_interval(if is_real_time {
-            fps as i32 * 5
+            fps as i32 * 3
         } else {
             fps as i32
         })

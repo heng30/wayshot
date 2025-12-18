@@ -192,7 +192,7 @@ component PreviewPanel inherits Rectangle {
 component ControlPanel inherits HorizontalLayout {
     padding: Theme.padding;
 
-    private property <int> record-duration: 0;
+    private property record-duration <=> Store.record-duration;
     property <length> slider-width: Theme.default-height * 0.25;
 
     Timer {
@@ -428,10 +428,6 @@ component ControlPanel inherits HorizontalLayout {
                 if Store.record-status == RecordStatus.Recording: HorizontalLayout {
                     alignment: center;
                     spacing: Theme.spacing * 2;
-
-                    init => {
-                        record-duration = 0;
-                    }
 
                     Label {
                         text: Util.seconds-to-media-timestamp(root.record-duration);
