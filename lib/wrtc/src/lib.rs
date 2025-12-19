@@ -109,6 +109,9 @@ pub enum SessionError {
 
     #[error("Channel receive error")]
     ChannelRecvError,
+
+    #[error("SDP parse error: {0}")]
+    SdpParseError(String),
 }
 
 #[derive(Debug, thiserror::Error)]

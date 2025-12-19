@@ -186,7 +186,7 @@ impl WebRTCServerSession {
 
         let request_data = self.reader.extract_remaining_bytes();
 
-        log::debug!("{}", std::str::from_utf8(&request_data)?);
+        log::info!("request_data:\n{}", std::str::from_utf8(&request_data)?);
 
         if let Some(http_request) = HttpRequest::unmarshal(std::str::from_utf8(&request_data)?) {
             let request_method = http_request.method.as_str();
@@ -247,10 +247,13 @@ impl WebRTCServerSession {
                         return Err(SessionError::HttpRequestEmptySdp);
                     };
 
+                    let sdp_data = String::from_utf8(sdp_data.to_vec())
+                        .map_err(|e| SessionError::SdpParseError(e.to_string()))?;
+
+                    // log::info!("sdp request:\n{sdp_data}");
+
                     self.session_id = Some(Uuid::new(RandomDigitCount::Zero));
-                    let offer = RTCSessionDescription::offer(
-                        String::from_utf8(sdp_data.clone()).unwrap_or_default(),
-                    )?;
+                    let offer = RTCSessionDescription::offer(sdp_data)?;
 
                     let path = format!(
                         "{}?{}session_id={}",

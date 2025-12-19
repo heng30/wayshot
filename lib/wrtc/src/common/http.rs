@@ -76,7 +76,7 @@ pub fn parse_content_length(request_data: &str) -> Option<u32> {
     let start = "content-length:";
 
     if let Some(header_end_idx) = request_data.find("\r\n\r\n") {
-        let headers_only = &request_data[..header_end_idx];
+        let headers_only = &request_data[..header_end_idx + 4];
         let headers_lower = headers_only.to_ascii_lowercase();
 
         let start_index = headers_lower.find(start)?;

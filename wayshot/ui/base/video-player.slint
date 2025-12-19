@@ -319,7 +319,7 @@ export component VideoPlayer inherits Rectangle {
 
             progress-bar := Slider {
                 visible: root.show-progress-bar;
-                y: Theme.padding * 2;
+                y: self.visible ? Theme.padding * 2 : 0;
                 x: Theme.padding * 2;
                 width: parent.width - Theme.padding * 4;
                 height: self.visible ? Theme.default-font-size * 0.33 : 0;
@@ -347,7 +347,7 @@ export component VideoPlayer inherits Rectangle {
             }
 
             controls := HorizontalLayout {
-                y: Theme.padding * 2 + Theme.default-font-size * 0.33 + Theme.padding * 2;
+                y: progress-bar.y + Theme.default-font-size * 0.33 + Theme.padding * 2;
                 height: control-height - (Theme.padding * 2 + Theme.default-font-size * 0.33 + Theme.padding * 2);
                 padding-left: Theme.padding * 4;
                 padding-right: Theme.padding * 4;

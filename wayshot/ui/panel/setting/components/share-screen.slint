@@ -123,9 +123,7 @@ export component ShareScreen inherits SettingDetail {
                 }
 
                 accepted => {
-                    if (!self.text.is-empty) {
-                        cache-setting.auth_token = self.text;
-                    }
+                    cache-setting.auth_token = self.text;
                 }
             }
         }
@@ -156,9 +154,7 @@ export component ShareScreen inherits SettingDetail {
                     border-color: self.text != cache-setting.stun-server.url ? Theme.danger-color : self.default-border-color;
 
                     accepted => {
-                        if (!self.text.is-empty) {
-                            cache-setting.stun-server.url = self.text;
-                        }
+                        cache-setting.stun-server.url = self.text;
                     }
                 }
             }
@@ -174,9 +170,7 @@ export component ShareScreen inherits SettingDetail {
                     border-color: self.text != cache-setting.stun-server.username ? Theme.danger-color : self.default-border-color;
 
                     accepted => {
-                        if (!self.text.is-empty) {
-                            cache-setting.stun-server.username = self.text;
-                        }
+                        cache-setting.stun-server.username = self.text;
                     }
                 }
             }
@@ -201,9 +195,7 @@ export component ShareScreen inherits SettingDetail {
                     }
 
                     accepted => {
-                        if (!self.text.is-empty) {
-                            cache-setting.stun-server.credential = self.text;
-                        }
+                        cache-setting.stun-server.credential = self.text;
                     }
                 }
 
@@ -241,9 +233,7 @@ export component ShareScreen inherits SettingDetail {
                     border-color: self.text != cache-setting.turn-server.url ? Theme.danger-color : self.default-border-color;
 
                     accepted => {
-                        if (!self.text.is-empty) {
-                            cache-setting.turn-server.url = self.text;
-                        }
+                        cache-setting.turn-server.url = self.text;
                     }
                 }
             }
@@ -259,9 +249,7 @@ export component ShareScreen inherits SettingDetail {
                     border-color: self.text != cache-setting.turn-server.username ? Theme.danger-color : self.default-border-color;
 
                     accepted => {
-                        if (!self.text.is-empty) {
-                            cache-setting.turn-server.username = self.text;
-                        }
+                        cache-setting.turn-server.username = self.text;
                     }
                 }
             }
@@ -286,9 +274,7 @@ export component ShareScreen inherits SettingDetail {
                     }
 
                     accepted => {
-                        if (!self.text.is-empty) {
-                            cache-setting.turn-server.credential = self.text;
-                        }
+                        cache-setting.turn-server.credential = self.text;
                     }
                 }
 

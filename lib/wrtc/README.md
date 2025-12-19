@@ -27,7 +27,9 @@ Fork [xiu](https://github.com/harlanc/xiu)
     verbose
     ```
 
-- test `turnserver`
+- test `stun` server: `stunclient 192.168.10.8 3478`
+
+- test `turn` server
     -  turnserver -c /etc/turnserver.conf -v
     -  visit [Trickle ICE](https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/)
     - `turn` server uri format: `turn:ip:3478`
