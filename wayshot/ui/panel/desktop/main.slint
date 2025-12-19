@@ -439,6 +439,7 @@ component ControlPanel inherits HorizontalLayout {
                         colorize: Theme.light-text-color;
 
                         clicked => {
+                            record-duration = 0;
                             Logic.stop-recording();
                         }
                     }

@@ -436,6 +436,8 @@ export component VideoPlayer inherits Rectangle {
                         spacing: Theme.padding * 2;
 
                         sound-btn := IconBtn {
+                            private property <int> current-sound-cache;
+
                             icon: root.current-sound <= 0 ? Icons.sound-off-fill : Icons.sound-on-fill;
                             show-icon-hover-background: false;
                             icon-size: Theme.icon-size;
@@ -444,10 +446,18 @@ export component VideoPlayer inherits Rectangle {
                             changed has-hover => {
                                 mouse-on-controls = true;
                                 root.show-controls = true;
+                                root.show-sound-slider = true;
                             }
 
                             clicked => {
-                                show-sound-slider = !show-sound-slider;
+                                if (root.current-sound == 0) {
+                                    root.current-sound = current-sound-cache;
+                                    sound-slider.value = current-sound-cache;
+                                } else {
+                                    current-sound-cache = root.current-sound;
+                                    root.current-sound = 0;
+                                    sound-slider.value = 0;
+                                }
                             }
                         }
 
@@ -477,6 +487,7 @@ export component VideoPlayer inherits Rectangle {
                             changed has-hover => {
                                 mouse-on-controls = true;
                                 root.show-controls = true;
+                                root.show-sound-slider = true;
                             }
 
                             released(v) => {
