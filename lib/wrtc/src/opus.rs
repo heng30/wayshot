@@ -1,13 +1,9 @@
-use audiopus::{
-    coder::{Decoder, Encoder},
-    error::Error as OpusError,
-    {Application as Bitrate, Channels, SampleRate},
-};
 use mp4m::AudioProcessor;
+use opus::{Application as Bitrate, Channels, Decoder, Encoder, Error as OpusError};
 use std::time::Duration;
 use thiserror::Error;
 
-pub const OPUS_SAMPLE_RATE: u64 = 48000;
+pub const OPUS_SAMPLE_RATE: u32 = 48000;
 
 #[derive(Debug, Error)]
 pub enum OpusCoderError {
@@ -34,8 +30,8 @@ pub struct OpusCoder {
 
 impl OpusCoder {
     pub fn new(sample_rate: u32, channels: Channels) -> Result<Self, OpusCoderError> {
-        let encoder = Encoder::new(SampleRate::Hz48000, channels, Bitrate::Voip)?;
-        let decoder = Decoder::new(SampleRate::Hz48000, channels)?;
+        let encoder = Encoder::new(OPUS_SAMPLE_RATE, channels, Bitrate::Voip)?;
+        let decoder = Decoder::new(OPUS_SAMPLE_RATE, channels)?;
         let frame_size = OPUS_SAMPLE_RATE as usize * 20 / 1000; // 960 samples for 20ms at 48kHz
 
         Ok(Self {
@@ -53,11 +49,11 @@ impl OpusCoder {
             return Err(OpusCoderError::InvalidInput);
         }
 
-        let input = if self.sample_rate != SampleRate::Hz48000 as u32 {
+        let input = if self.sample_rate != OPUS_SAMPLE_RATE {
             let samples = AudioProcessor::<f32>::resample_audio(
                 input,
                 self.sample_rate,
-                SampleRate::Hz48000 as u32,
+                OPUS_SAMPLE_RATE,
                 self.channels as u16,
             )
             .map_err(|e| OpusCoderError::ResampleError(e.to_string()))?;
@@ -89,18 +85,11 @@ impl OpusCoder {
         Ok(output)
     }
 
-    // only support Hz48000 sample rate
+    // only support HzOPUS_SAMPLE_RATE sample rate
     pub fn decode(&mut self, input: &[u8]) -> Result<Vec<f32>, OpusCoderError> {
-        let packet =
-            audiopus::packet::Packet::try_from(input).map_err(|_| OpusCoderError::InvalidInput)?;
-
-        let frame_size = (SampleRate::Hz48000 as usize * 20) / 1000; // 20ms frames
-        let mut i16_output = vec![0i16; frame_size * self.channels as usize];
-        let mut_signals: audiopus::MutSignals<i16> = i16_output
-            .as_mut_slice()
-            .try_into()
-            .map_err(|_| OpusCoderError::InvalidOutput)?;
-        let decoded_samples_per_channel = self.decoder.decode(Some(packet), mut_signals, false)?;
+        let frame_size = (OPUS_SAMPLE_RATE * 20) / 1000; // 20ms frames
+        let mut i16_output = vec![0i16; frame_size as usize * self.channels as usize];
+        let decoded_samples_per_channel = self.decoder.decode(input, &mut i16_output, false)?;
         let decoded_len = decoded_samples_per_channel * self.channels as usize;
 
         let mut f32_output: Vec<f32> = Vec::with_capacity(decoded_len);

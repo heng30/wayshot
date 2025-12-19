@@ -4,7 +4,6 @@ use crate::{
     session::MediaInfo,
     whep::ICE_SERVERS,
 };
-use audiopus::Channels;
 use derive_setters::Setters;
 use http::{
     header::{AUTHORIZATION, CONTENT_TYPE},
@@ -12,6 +11,7 @@ use http::{
 };
 use log::{debug, info, trace, warn};
 use openh264::decoder::Decoder;
+use opus::Channels;
 use std::sync::Arc;
 use tokio::{
     sync::{Mutex, Notify, mpsc::Sender},

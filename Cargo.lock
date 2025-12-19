@@ -679,15 +679,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "audiopus"
-version = "0.3.0-rc.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab55eb0e56d7c6de3d59f544e5db122d7725ec33be6a276ee8241f3be6473955"
-dependencies = [
- "audiopus_sys",
-]
-
-[[package]]
 name = "audiopus_sys"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5647,6 +5638,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
+name = "opus"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6526409b274a7e98e55ff59d96aafd38e6cd34d46b7dbbc32ce126dffcd75e8e"
+dependencies = [
+ "audiopus_sys",
+ "libc",
+]
+
+[[package]]
 name = "orbclient"
 version = "0.3.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6414,7 +6415,6 @@ dependencies = [
 name = "recorder"
 version = "0.1.0"
 dependencies = [
- "audiopus",
  "chrono",
  "cpal",
  "crossbeam",
@@ -10210,7 +10210,6 @@ name = "wrtc"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "audiopus",
  "byteorder",
  "bytes",
  "bytesio",
@@ -10226,6 +10225,7 @@ dependencies = [
  "mp4m",
  "once_cell",
  "openh264",
+ "opus",
  "rand 0.9.2",
  "reqwest",
  "rustls",

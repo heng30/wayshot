@@ -183,9 +183,9 @@ fn wav_stream_thread(packet_sender: Sender<PacketData>, audio_file: String) {
             let spec = reader.spec();
 
             let channels = if spec.channels == 1 {
-                audiopus::Channels::Mono
+                opus::Channels::Mono
             } else if spec.channels == 2 {
-                audiopus::Channels::Stereo
+                opus::Channels::Stereo
             } else {
                 log::error!(
                     "Only mono and stereo audio are supported, got {} channels",

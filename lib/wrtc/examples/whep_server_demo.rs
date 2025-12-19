@@ -163,7 +163,8 @@ fn ogg_stream_thread(packet_sender: Sender<PacketData>, audio_file: String) {
             while let Ok((page_data, page_header)) = ogg.parse_next_page() {
                 let sample_count = page_header.granule_position - last_granule;
                 last_granule = page_header.granule_position;
-                let sample_duration = Duration::from_millis(sample_count * 1000 / OPUS_SAMPLE_RATE);
+                let sample_duration =
+                    Duration::from_millis(sample_count * 1000 / OPUS_SAMPLE_RATE as u64);
 
                 if let Err(e) = packet_sender.send(PacketData::Audio {
                     timestamp: Instant::now(),

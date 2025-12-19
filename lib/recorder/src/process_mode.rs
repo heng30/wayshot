@@ -21,7 +21,7 @@ use std::{
 use tokio::sync::{Notify, broadcast};
 use wrtc::client::convert_annexb_to_length_prefixes;
 use wrtc::{
-    Event, PacketData, PacketDataSender, WebRTCServer, WebRTCServerConfig,
+    Event, OpusChannels, PacketData, PacketDataSender, WebRTCServer, WebRTCServerConfig,
     opus::OpusCoder,
     session::{AudioInfo, MediaInfo, VideoInfo, WebRTCServerSessionConfig},
 };
@@ -284,11 +284,11 @@ impl RecordingSession {
                 && let Some(sample_rate) = mix_audio_sample_rate
             {
                 let channels = if channels == 1 {
-                    audiopus::Channels::Mono
+                    OpusChannels::Mono
                 } else if channels == 2 {
-                    audiopus::Channels::Stereo
+                    OpusChannels::Stereo
                 } else {
-                    unreachable!("mix channels count greater than 2");
+                    unreachable!("audio mixer channels count greater than 2");
                 };
 
                 Some(OpusCoder::new(sample_rate, channels).unwrap())

@@ -26,9 +26,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 2. Initialize Opus coder
     info!("Initializing Opus coder...");
     let channels = if spec.channels == 1 {
-        audiopus::Channels::Mono
+        opus::Channels::Mono
     } else if spec.channels == 2 {
-        audiopus::Channels::Stereo
+        opus::Channels::Stereo
     } else {
         error!(
             "Only mono and stereo audio are supported, got {} channels",

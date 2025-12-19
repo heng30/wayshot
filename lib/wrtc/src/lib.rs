@@ -8,6 +8,7 @@ pub mod session;
 pub mod whep;
 pub mod wrtc;
 
+pub use ::opus::Channels as OpusChannels;
 pub use webrtc::ice_transport::ice_server::RTCIceServer;
 pub use wrtc::{WebRTCServer, WebRTCServerConfig};
 
