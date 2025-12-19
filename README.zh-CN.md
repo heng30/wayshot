@@ -68,6 +68,8 @@
     make desktop-build-release desktop-features=desktop-windows
     ```
 
+- `Windows`编译`audiopus_sys`失败，可以尝试添加环境变量：`export CMAKE_POLICY_VERSION_MINIMUM=3.5`
+
 ----
 
 ### 如何配置`STUN`和`TURN`服务器

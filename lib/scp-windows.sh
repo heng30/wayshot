@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
-scp -r ./recorder 192.168.10.14:C:/Users/blue/Desktop/wayshot/lib
+scp -r ./wrtc 192.168.10.15:C:/Users/blue/Desktop/wayshot/lib
 

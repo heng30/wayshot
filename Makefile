@@ -9,6 +9,10 @@ android-build-env = SLINT_STYLE=material $(build-env)
 desktop-build-env = SLINT_STYLE=fluent $(build-env)
 web-build-env = SLINT_STYLE=fluent $(build-env) RUSTFLAGS='--cfg getrandom_backend="wasm_js"'
 
+ifeq ($(OS),Windows_NT)
+    desktop-build-env := $(desktop-build-env) CMAKE_POLICY_VERSION_MINIMUM=3.5
+endif
+
 run-env = RUST_LOG=debug
 proj-features = --features=${desktop-features},database,qrcode,center-window
 desktop-features ?= desktop-wayland-wlr
