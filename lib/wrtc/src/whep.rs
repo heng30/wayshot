@@ -28,10 +28,7 @@ use webrtc::{
 };
 
 pub type Result<T> = std::result::Result<T, WebRTCError>;
-pub const ICE_SERVERS: [&str; 2] = [
-    "stun:stun.nextcloud.com:443",
-    "stun:stun.l.google.com:19302",
-];
+pub const ICE_SERVERS: [&str; 1] = ["stun:stun.l.google.com:19302"];
 
 #[non_exhaustive]
 #[derive(Debug, Setters, Clone)]
@@ -77,7 +74,7 @@ pub async fn handle_whep(
     let mut registry = Registry::new();
     registry = register_default_interceptors(registry, &mut m)?;
 
-    log::info!("host_ips: {:?}", config.host_ips);
+    log::info!("whep config: {:#?}", config);
 
     let mut setting_engine = SettingEngine::default();
     if config.disable_host_ipv6 {

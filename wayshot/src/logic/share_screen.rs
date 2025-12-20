@@ -394,11 +394,11 @@ impl From<config::ShareScreen> for ShareScreenConfig {
     fn from(c: config::ShareScreen) -> ShareScreenConfig {
         ShareScreenConfig::new(c.listen_addr)
             .with_save_mp4(c.save_mp4)
+            .with_host_ips(c.host_ips)
             .with_disable_host_ipv6(c.disable_host_ipv6)
             .with_enable_https(c.enable_https)
             .with_cert_file(Some(c.cert_file))
             .with_key_file(Some(c.key_file))
-            .with_host_ips(c.host_ips)
             .with_auth_token(if c.auth_token.trim().is_empty() {
                 None
             } else {
@@ -414,7 +414,6 @@ impl From<config::ShareScreen> for ShareScreenConfig {
             } else {
                 None
             })
-            .with_host_ips(vec!["192.168.10.8".to_string()])
     }
 }
 

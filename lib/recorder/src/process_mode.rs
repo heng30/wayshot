@@ -458,10 +458,8 @@ impl RecordingSession {
             .with_video(video_info)
             .with_disable_host_ipv6(self.config.share_screen_config.disable_host_ipv6);
 
-        if self.config.share_screen_config.stun_server.is_some()
-            || self.config.share_screen_config.turn_server.is_some()
-        {
-            media_info.ice_servers.clear();
+        if self.config.share_screen_config.stun_server.is_some() {
+            media_info.ice_servers.clear(); // contain default stun serever
         }
 
         if let Some(ref stun) = self.config.share_screen_config.stun_server {

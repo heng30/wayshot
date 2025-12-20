@@ -101,7 +101,7 @@ impl WHEPClient {
                 }
             };
 
-        info!("ice servers: {:#?}", media_info);
+        info!("media_info: {:#?}", media_info);
 
         Ok(Self {
             config,
@@ -182,16 +182,13 @@ impl WHEPClient {
         };
 
         let peer_connection = Arc::new(api.new_peer_connection(config).await?);
+        peer_connection
+            .add_transceiver_from_kind(RTPCodecType::Video, None)
+            .await?;
 
         if self.media_info.audio.is_some() {
             peer_connection
                 .add_transceiver_from_kind(RTPCodecType::Audio, None)
-                .await?;
-        }
-
-        if self.media_info.audio.is_some() {
-            peer_connection
-                .add_transceiver_from_kind(RTPCodecType::Video, None)
                 .await?;
         }
 
