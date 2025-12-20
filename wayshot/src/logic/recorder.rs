@@ -710,21 +710,20 @@ fn inner_start_recording(
         log::info!("exit frame_receiver_user");
     });
 
-    let final_video_path = if matches!(process_mode, ProcessMode::RecordScreen)
-        || (matches!(process_mode, ProcessMode::ShareScreen) && save_mp4)
-    {
-        session.save_path()
-    } else {
-        Default::default()
-    };
+    let final_video_path = session.save_path();
 
     session.wait()?;
 
     _ = ui_weak.upgrade_in_event_loop(move |ui| {
         global_store!(ui).set_start_recording_timer(false);
         global_store!(ui).set_record_status(UIRecordStatus::Stopped);
-        global_store!(ui).set_final_video_path(final_video_path.display().to_shared_string());
-        global_logic!(ui).invoke_add_history(final_video_path.display().to_shared_string());
+
+        if matches!(process_mode, ProcessMode::RecordScreen)
+            || (matches!(process_mode, ProcessMode::ShareScreen) && save_mp4)
+        {
+            global_store!(ui).set_final_video_path(final_video_path.display().to_shared_string());
+            global_logic!(ui).invoke_add_history(final_video_path.display().to_shared_string());
+        }
     });
 
     log::info!("Recording completed successfully!");
