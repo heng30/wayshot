@@ -5,11 +5,12 @@
 [English Documentation](./README.md)
 
 ### 简介
-这是一个针对`Linux` `wayland`的录屏工具。基于`Rust`和`Slint` GUI框架。适用的桌面环境：`Sway`, `Hyprland`, `Ubuntu` 和 `KDE`等。
+`录屏`和`屏幕共享`工具。基于`Rust`和`Slint` GUI框架。适用的操作系统`Linux`和`Windows`。
 
 ----
 
 ### 功能
+- 屏幕共享（WebRTC）
 - 单个屏幕录制
 - 单个输入设备录音
 - 桌面音频录制
@@ -17,7 +18,6 @@
 - 光标跟随
 - 管理录制视频历史
 - 播放录制的历史视频
-- 支持屏幕共享（WebRTC）
 
 ----
 

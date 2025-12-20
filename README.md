@@ -5,11 +5,12 @@
 [中文文档](./README.zh-CN.md)
 
 ### Introduction
-This is a screen recording tool for `Linux` and `Windows`. It is based on `Rust` and the `Slint` GUI framework. Compatible `Linux` desktop environments include `Sway`, `Hyprland`, `Ubuntu`, `KDE`, and others.
+`Screen recording` and `Share screen` tool, based on `Rust` and the `Slint` GUI framework. Support operating systems: `Windows` and `Linux`.
 
 ----
 
 ### Features
+- Share screen via WebRTC
 - Single screen recording
 - Single input device audio recording
 - Desktop audio recording
@@ -17,7 +18,6 @@ This is a screen recording tool for `Linux` and `Windows`. It is based on `Rust`
 - Cursor tracking
 - Manage recorded video history
 - Play recorded historical videos
-- Share screen with WebRTC
 
 ----
 
