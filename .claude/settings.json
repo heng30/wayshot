@@ -1,0 +1,8 @@
+{
+  "enabledPlugins": {
+    "claude-mem@thedotmack": true,
+    "context7@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "rust-analyzer-lsp@claude-plugins-official": true
+  }
+}

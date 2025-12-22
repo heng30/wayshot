@@ -74,9 +74,6 @@
     make desktop-build-release desktop-features=desktop-windows
     ```
 
-- `Windows` compiles `audiopus_sys`
-    - If compilation of `audiopus_sys` fails on `Windows`, you can try adding the environment variable:``export CMAKE_POLICY_VERSION_MINIMUM=3.5`
-
 ----
 
 ### How to Configure `STUN` and `TURN` Servers

@@ -35,7 +35,6 @@ serde = { workspace = true, features = ["derive"] }
 reqwest = { workspace = true, features = ["json"] }
 tokio-rustls = { workspace = true, features = ["tls12"] }
 
-[target.'cfg(target_os = "windows")'.dependencies]
 cmake = "0.1.57" # for `audiopus_sys`
 
 [dev-dependencies]
