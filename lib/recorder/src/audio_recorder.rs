@@ -98,7 +98,7 @@ impl AudioRecorder {
 
     fn get_device_info(&self, device: &Device) -> Result<AudioDeviceInfo, AudioRecorderError> {
         let name = device
-            .name()
+            .id()
             .map_err(|e| AudioRecorderError::DeviceError(e.to_string()))?;
 
         let default_config = device
@@ -112,7 +112,7 @@ impl AudioRecorder {
             .unwrap_or_else(|_| vec![]);
 
         Ok(AudioDeviceInfo {
-            name,
+            name: name.to_string(),
             default_config,
             supported_formats,
         })
@@ -157,7 +157,11 @@ impl AudioRecorder {
             .host
             .input_devices()
             .map_err(|e| AudioRecorderError::HostError(e.to_string()))?
-            .find(|d| d.name().map(|name| name == device_name).unwrap_or(false))
+            .find(|d| {
+                d.id()
+                    .map(|name| name.to_string() == device_name)
+                    .unwrap_or(false)
+            })
             .ok_or_else(|| {
                 AudioRecorderError::DeviceError(format!("Device '{}' not found", device_name))
             })?;
@@ -183,7 +187,7 @@ impl AudioRecorder {
 
         Ok(WavSpec {
             channels: stream_config.channels,
-            sample_rate: stream_config.sample_rate.0,
+            sample_rate: stream_config.sample_rate,
             bits_per_sample: 32,
             sample_format: hound::SampleFormat::Float,
         })

@@ -1,0 +1,34 @@
+[package]
+name = "srtmp"
+license.workspace = true
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[dependencies]
+log.workspace = true
+mp4m.workspace = true
+bytes.workspace = true
+fdk-aac.workspace = true
+rml_rtmp.workspace = true
+thiserror.workspace = true
+crossbeam.workspace = true
+derivative.workspace = true
+derive_setters.workspace = true
+
+[dev-dependencies]
+image.workspace = true
+anyhow.workspace = true
+env_logger.workspace = true
+spin_sleep.workspace = true
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+video-encoder = { workspace = true, features = ["x264"] }
+
+[target.'cfg(target_os = "windows")'.dev-dependencies]
+video-encoder = { workspace = true, features = ["ffmpeg"] }

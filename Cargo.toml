@@ -91,7 +91,7 @@ x264 = "0.5"
 http = "1.4"
 rdev = "0.5"
 open = "5.3"
-cpal = "0.16"
+cpal = "0.17"
 hound = "3.5"
 which = "8.0"
 ctrlc = "3.5"
@@ -126,8 +126,11 @@ rodio = { version = "0.21", default-features = false }
 rustls = { version = "0.23", default-features = false }
 tokio-rustls = { version = "0.26", default-features = false }
 
+rml_rtmp = "0.8"
+
 mp4m = { path = "lib/mp4m" }
 wrtc = { path = "lib/wrtc" }
+srtmp = { path = "lib/srtmp" }
 cutil = { path = "lib/cutil" }
 sqldb = { path = "lib/sqldb" }
 pmacro = { path = "lib/pmacro" }

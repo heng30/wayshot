@@ -1,0 +1,7 @@
+/target
+/tmp
+/.claude
+/examples/live
+/live
+
+.mcp.json

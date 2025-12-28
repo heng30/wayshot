@@ -426,7 +426,7 @@ impl Mp4Processor {
         let duration = VIDEO_TIMESCALE / self.config.video_config.fps;
 
         // Detect if this is a keyframe (I-frame) by checking for SPS/PPS or start code
-        let is_sync = self.is_keyframe(&data);
+        let is_sync = Self::is_keyframe(&data);
 
         let sample = Mp4Sample {
             start_time: *video_timestamp,
@@ -443,7 +443,7 @@ impl Mp4Processor {
         *video_timestamp += duration as u64;
     }
 
-    fn is_keyframe(&self, data: &[u8]) -> bool {
+    pub fn is_keyframe(data: &[u8]) -> bool {
         // Since we're using length-prefixed NAL units (not Annex B),
         // we need to parse the NAL units differently
         let mut i = 0;
