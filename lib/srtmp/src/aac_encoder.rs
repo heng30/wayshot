@@ -66,8 +66,8 @@ impl AacEncoderConfig {
 }
 
 pub struct AacEncoder {
+    config: AacEncoderConfig,
     encoder: Encoder,
-    channels: u8,
 }
 
 impl AacEncoder {
@@ -82,8 +82,11 @@ impl AacEncoder {
             bit_rate: BitRate::Cbr(config.bitrate),
             sample_rate: config.sample_rate,
             channels: channel_mode,
-            transport: config.transport,
             audio_object_type: Mpeg4LowComplexity,
+            transport: match config.transport {
+                Transport::Adts => Transport::Adts,
+                Transport::Raw => Transport::Raw,
+            },
         };
 
         let encoder = Encoder::new(params)
@@ -99,10 +102,7 @@ impl AacEncoder {
             );
         }
 
-        Ok(Self {
-            encoder,
-            channels: config.channels,
-        })
+        Ok(Self { config, encoder })
     }
 
     // Encode PCM audio data (f32 samples in range [-1.0, 1.0]) to AAC format
@@ -118,14 +118,16 @@ impl AacEncoder {
         // AAC typically compresses to about 1/8 to 1/4 of PCM size, but allocate more for safety
         let mut output_buffer = vec![0u8; pcm_i16.len() * 4];
 
-        self.encoder
+        let encode_info = self
+            .encoder
             .encode(&pcm_i16, &mut output_buffer)
             .map_err(|e| AacEncoderError::EncodingError(e.to_string()))?;
 
+        // Return only the actual encoded data, not the entire buffer
+        output_buffer.truncate(encode_info.output_size);
         Ok(output_buffer)
     }
 
-    /// Get the required input frame size in samples per channel
     /// FDK-AAC requires specific frame sizes (typically 1024 samples per channel)
     pub fn input_frame_size(&self) -> usize {
         if let Ok(info) = self.encoder.info() {
@@ -136,7 +138,11 @@ impl AacEncoder {
     }
 
     pub fn channels(&self) -> u8 {
-        self.channels
+        self.config.channels
+    }
+
+    pub fn sample_rate(&self) -> u32 {
+        self.config.sample_rate
     }
 
     pub fn valid_sample_rates() -> &'static [u32] {
@@ -166,20 +172,28 @@ impl AacEncoder {
     /// This is required for RTMP streaming and MP4 format
     /// Format: 5 bits audio_object_type, 4 bits sample_rate_index, 4 bits channel_config
     ///
-    /// Note: This uses the default sample rate from the encoder config.
-    /// The InfoStruct doesn't expose sampleRate, so we use 44100 as default.
+    /// AudioSpecificConfig bit layout (ISO/IEC 14496-3):
+    /// [5 bits: audio_object_type][4 bits: sample_rate_index][4 bits: channel_config][...]
+    ///
+    /// For AAC-LC (AOT=2), 44100Hz (index=4), stereo (channel=2):
+    /// - AOT (5 bits): 00010
+    /// - sample_index (4 bits): 0100
+    /// - channel_config (4 bits): 0010
+    /// Byte 1: [AOT(5) | sample_index(高3位)] = 00010 010 = 0x12
+    /// Byte 2: [sample_index(低1位) | channel_config(4) | 000]
     pub fn audio_specific_config(&self) -> Vec<u8> {
-        // Use default sample rate since InfoStruct doesn't expose it
-        let sample_rate = 44100;
-
         let audio_object_type = 2; // AAC-LC
-        let sample_rate_index = Self::sample_rate_index(sample_rate);
-        let channel_config = self.channels;
+        let channel_config = self.config.channels;
+        let sample_rate_index = Self::sample_rate_index(self.config.sample_rate);
 
         // AudioSpecificConfig is typically 2 bytes for standard AAC-LC
-        // Byte 1: (audio_object_type << 3) | ((sample_rate_index >> 1) & 0x1)
+        //
+        // Byte 1: (audio_object_type << 3) | (sample_rate_index >> 1)
+        //   [AOT (5 bits) | sample_rate_index (高3位)]
+        //
         // Byte 2: ((sample_rate_index & 0x1) << 7) | (channel_config << 3)
-        let byte1 = (audio_object_type << 3) | ((sample_rate_index >> 1) & 0x1);
+        //   [sample_rate_index (低1位) | channel_config (4 bits) | 000 (保留位)]
+        let byte1 = (audio_object_type << 3) | (sample_rate_index >> 1);
         let byte2 = ((sample_rate_index & 0x1) << 7) | (channel_config << 3);
 
         vec![byte1, byte2]

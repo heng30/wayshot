@@ -1,11 +1,8 @@
-use anyhow::Result;
+use anyhow::{Result, bail};
 use crossbeam::channel::{Receiver, Sender, unbounded};
 use image::{ImageBuffer, Rgb};
 use spin_sleep::SpinSleeper;
-use srtmp::{
-    AacEncoderConfig, AudioData, RtmpClient, RtmpClientConfig, VideoData,
-    annexb_to_avc_decoder_config,
-};
+use srtmp::{AacEncoderConfig, AudioData, RtmpClient, RtmpClientConfig, VideoData};
 use std::{
     sync::{Arc, atomic::AtomicBool},
     thread,
@@ -37,8 +34,7 @@ fn main() -> Result<()> {
 
     let exit_sig = Arc::new(AtomicBool::new(false));
 
-    let config =
-        RtmpClientConfig::new(rtmp_url.clone(), stream_key.clone()).with_app(app_name.clone());
+    let config = RtmpClientConfig::new(rtmp_url.clone(), app_name.clone(), stream_key.clone());
     let aac_config = AacEncoderConfig::default()
         .with_sample_rate(44100)
         .with_channels(2);
@@ -71,6 +67,7 @@ fn main() -> Result<()> {
     let elapsed = start.elapsed();
     log::info!("Streaming completed in {:.2}s", elapsed.as_secs_f64());
 
+    client.stop();
     _ = video_handle.join();
     _ = audio_handle.join();
 
@@ -81,7 +78,7 @@ fn main() -> Result<()> {
 fn spawn_video_generator(
     packet_sender: Sender<VideoData>,
     exit_sig: Arc<AtomicBool>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let fps = 25;
     let mut next_frame_timestamp = 0;
     let frame_interval = 1000 / fps as u32;
@@ -106,25 +103,9 @@ fn spawn_video_generator(
             &headers_data[..headers_data.len().min(40)]
         );
 
-        // Convert annexb format to AVCDecoderConfigurationRecord for RTMP/FLV
-        match annexb_to_avc_decoder_config(&headers_data) {
-            Ok(avc_config) => {
-                log::info!(
-                    "Successfully converted to AVC decoder config: {} bytes, first 20: {:02x?}",
-                    avc_config.len(),
-                    &avc_config[..avc_config.len().min(20)]
-                );
-                if let Err(e) =
-                    packet_sender.send(VideoData::new_with_sequence_header(avc_config.into()))
-                {
-                    log::warn!("send h264 sequence header failed: {e}");
-                }
-            }
-            Err(e) => {
-                log::error!("Failed to convert annexb to AVC decoder config: {:?}", e);
-                // Cannot proceed without valid sequence header
-                return Err(e.into());
-            }
+        let packet = VideoData::new_with_sequence_header(headers_data)?;
+        if let Err(e) = packet_sender.send(packet) {
+            bail!("send h264 sequence header failed: {}", e.to_string());
         }
 
         for frame_num in 0.. {
@@ -203,7 +184,7 @@ fn spawn_pcm_audio_generator(packet_sender: Sender<AudioData>, exit_sig: Arc<Ato
 
         for i in 0..frame_samples {
             let t = (frame_count as usize * frame_samples + i) as f32 / sample_rate as f32;
-            let sample_value = (2.0 * std::f32::consts::PI * frequency * t).sin() * 0.3; // 30% volume
+            let sample_value = (2.0 * std::f32::consts::PI * frequency * t).sin() * 0.05; // 10% volume
 
             // Stereo: same value for both channels
             pcm_data.push(sample_value);

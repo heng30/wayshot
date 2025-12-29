@@ -27,18 +27,21 @@ use thiserror::Error;
 #[non_exhaustive]
 pub struct RtmpClientConfig {
     /// RTMP server URL (e.g., "rtmp://localhost:1935")
+    #[setters(skip)]
     pub rtmp_url: String,
 
-    /// Stream key/name (e.g., "stream_key")
+    /// app name (e.g., "live")
+    #[setters(skip)]
+    pub app: String,
+
+    /// Stream key (e.g., "stream_key")
+    #[setters(skip)]
     pub stream_key: String,
 
     #[derivative(Default(value = "1935"))]
     pub port: u16,
 
-    #[derivative(Default(value = "\"live\".to_string()"))]
-    pub app: String,
-
-    /// Audio sample rate (44100 or 48000)
+    /// Audio sample rate (e.g., 44100, 48000)
     #[derivative(Default(value = "44100"))]
     pub audio_sample_rate: u32,
 
@@ -60,7 +63,7 @@ pub struct RtmpClientConfig {
 
     /// Maximum allowed frame backlog before dropping frames
     /// If channel backlog exceeds this value, old frames will be dropped to maintain low latency
-    #[derivative(Default(value = "30"))]
+    #[derivative(Default(value = "5"))]
     pub max_frame_backlog: usize,
 
     // 100M
@@ -69,9 +72,10 @@ pub struct RtmpClientConfig {
 }
 
 impl RtmpClientConfig {
-    pub fn new(rtmp_url: String, stream_key: String) -> Self {
+    pub fn new(rtmp_url: String, app: String, stream_key: String) -> Self {
         Self {
             rtmp_url,
+            app,
             stream_key,
             ..Default::default()
         }
@@ -110,7 +114,7 @@ pub struct VideoData {
 
 impl VideoData {
     pub fn new(timestamp: u32, data: Vec<u8>) -> Self {
-        let is_keyframe = mp4m::Mp4Processor::is_keyframe(&data);
+        let is_keyframe = mp4m::Mp4Processor::is_keyframe_annexb(&data);
 
         Self {
             timestamp,
@@ -120,13 +124,53 @@ impl VideoData {
         }
     }
 
-    pub fn new_with_sequence_header(data: Vec<u8>) -> Self {
-        Self {
+    // Convert annexb format to AVCDecoderConfigurationRecord for RTMP/FLV
+    pub fn new_with_sequence_header(data: Vec<u8>) -> Result<Self, RtmpClientError> {
+        let data = match annexb_to_avc_decoder_config(&data) {
+            Ok(avc_config) => {
+                log::info!(
+                    "Successfully converted to AVC decoder config: {} bytes, first 20: {:02x?}",
+                    avc_config.len(),
+                    &avc_config[..avc_config.len().min(20)]
+                );
+
+                avc_config
+            }
+            Err(e) => {
+                log::error!("Failed to convert annexb to AVC decoder config: {:?}", e);
+                return Err(e.into());
+            }
+        };
+
+        Ok(Self {
             timestamp: 0,
             data,
             is_keyframe: true,
             is_sequence_header: true,
-        }
+        })
+    }
+
+    // Add FLV video tag prefix
+    // Format: [FrameType(4) | CodecID(4)] [PacketType] [CompositionTime(3 bytes)] [Data]
+    // FrameType: 1 = keyframe, 2 = inter frame
+    // CodecID: 7 = AVC/H.264
+    // PacketType: 0x00 = sequence header, 0x01 = AVC NALU
+    // CompositionTime: 0x00 0x00 0x00 for now
+    pub fn tagged_video(&self) -> Vec<u8> {
+        let mut tagged_video = if self.is_sequence_header {
+            // Sequence header: keyframe + AVC + sequence header
+            vec![0x17, 0x00, 0x00, 0x00, 0x00]
+        } else if self.is_keyframe {
+            // Keyframe: keyframe + AVC + NALU
+            vec![0x17, 0x01, 0x00, 0x00, 0x00]
+        } else {
+            // Inter frame: inter frame + AVC + NALU
+            vec![0x27, 0x01, 0x00, 0x00, 0x00]
+        };
+
+        tagged_video.extend_from_slice(&self.data);
+
+        tagged_video
     }
 }
 
@@ -142,6 +186,62 @@ pub struct AudioData {
 impl AudioData {
     pub fn new(timestamp: u32, data: Vec<f32>) -> Self {
         Self { timestamp, data }
+    }
+
+    /// Get FLV audio tag sound format byte based on sample rate and channels
+    /// FLV audio tag format: [SoundFormat(4) | SoundRate(2) | SoundSize(1) | SoundType(1)]
+    /// - SoundFormat: 10 = AAC
+    /// - SoundRate: 00=5.5kHz, 01=11kHz, 10=22kHz, 11=44kHz
+    /// - SoundSize: 0=8-bit, 1=16-bit (always 1 for AAC)
+    /// - SoundType: 0=Mono, 1=Stereo
+    fn get_sound_format_byte(sample_rate: u32, channels: u8) -> u8 {
+        // SoundFormat: AAC = 10 (binary) = 0xA0
+        let sound_format = 0xA0;
+
+        // SoundRate mapping (FLV only has 4 rate categories):
+        // 0 -> 5.5kHz: 8000
+        // 1 -> 11kHz: 11025, 12000
+        // 2 -> 22kHz: 16000, 22050, 24000
+        // 3 -> 44kHz: 32000, 44100, 48000, 64000, 88200, 96000
+        let rate_bits = match sample_rate {
+            8000 => 0b00,
+            11025 | 12000 => 0b01,
+            16000 | 22050 | 24000 => 0b10,
+            32000 | 44100 | 48000 | 64000 | 88200 | 96000 => 0b11,
+            _ => 0b11, // Default to 44kHz for unknown rates
+        };
+
+        // SoundSize: always 16-bit for AAC = 1 << 1 = 0x02
+        let sound_size = 0b10;
+
+        // SoundType: 0 = Mono, 1 = Stereo (channels - 1)
+        let sound_type = if channels == 0 { 0 } else { 1 };
+
+        sound_format | (rate_bits << 2) | sound_size | sound_type
+    }
+
+    // Send AAC AudioSpecificConfig as sequence header first
+    // FLV audio tag format: [SoundType(1) | SoundSize(1) | SoundRate(2) | SoundFormat(4)]
+    // Followed by packet type: 0x00 = sequence header, 0x01 = raw data
+    pub fn tagged_aac_sequence_header(
+        header_data: &[u8],
+        sample_rate: u32,
+        channels: u8,
+    ) -> Vec<u8> {
+        let sound_byte = Self::get_sound_format_byte(sample_rate, channels);
+        let mut tagged_header = vec![sound_byte, 0x00];
+        tagged_header.extend_from_slice(header_data);
+        tagged_header
+    }
+
+    // Add FLV audio tag prefix: [sound_byte] 0x01 [AAC data]
+    // sound_byte encodes sample rate, channels, codec (AAC), and bit depth (16-bit)
+    // 0x01 = AAC raw data (not sequence header)
+    pub fn tagged_aac_data(aac_data: &[u8], sample_rate: u32, channels: u8) -> Vec<u8> {
+        let sound_byte = Self::get_sound_format_byte(sample_rate, channels);
+        let mut tagged_audio = vec![sound_byte, 0x01];
+        tagged_audio.extend_from_slice(aac_data);
+        tagged_audio
     }
 }
 
@@ -183,7 +283,7 @@ pub enum RtmpClientError {
     #[error("RTMP handshake error: {0}")]
     RtmpHandshakeError(#[from] rml_rtmp::handshake::HandshakeError),
 
-    #[error("Annexb to AVC error: {0}")]
+    #[error("Annexb to AVC decoder config error: {0}")]
     AnnexbToAvc(String),
 }
 
@@ -407,8 +507,8 @@ impl RtmpClient {
             stream_name.to_string(),
             rml_rtmp::sessions::PublishRequestType::Live,
         )?;
-        self.cache_session_results(&[publish_result])?;
 
+        self.cache_session_results(&[publish_result])?;
         loop {
             match self.try_flush_buffer(stream)? {
                 true => break, // Buffer fully flushed
@@ -446,7 +546,6 @@ impl RtmpClient {
 
         let metadata_result = client_session.publish_metadata(&metadata)?;
         self.cache_session_results(&[metadata_result])?;
-
         loop {
             match self.try_flush_buffer(stream)? {
                 true => break, // Buffer fully flushed
@@ -576,14 +675,20 @@ impl RtmpClient {
         let max_backlog = self.config.max_frame_backlog;
         let max_write_buffer = self.config.max_write_buffer.max(10 * 1024 * 1024);
 
-        // Send AAC AudioSpecificConfig as sequence header first
-        // FLV audio tag format: [SoundType(1) | SoundSize(1) | SoundRate(2) | SoundFormat(4)]
-        // AAC at 44100Hz stereo 16-bit: 0xAF
-        // Followed by packet type: 0x00 = sequence header, 0x01 = raw data
         log::info!("Sending AAC AudioSpecificConfig as sequence header");
         let audio_config = self.aac_encoder.audio_specific_config();
-        let mut aac_sequence_header = vec![0xAF, 0x00];
-        aac_sequence_header.extend_from_slice(&audio_config);
+        let aac_sequence_header = AudioData::tagged_aac_sequence_header(
+            &audio_config,
+            self.aac_encoder.sample_rate(),
+            self.aac_encoder.channels(),
+        );
+
+        log::info!("AudioSpecificConfig: {:02x?}", audio_config);
+        log::info!(
+            "AAC sequence header with FLV tag: {:02x?}",
+            aac_sequence_header
+        );
+
         let result = client_session.publish_audio_data(
             Bytes::from(aac_sequence_header),
             RtmpTimestamp::new(0),
@@ -640,25 +745,7 @@ impl RtmpClient {
                                     dropped_before_keyframe, (backlog as u64).max(dropped_before_keyframe));
                             }
 
-                            // Add FLV video tag prefix
-                            // Format: [FrameType(4) | CodecID(4)] [PacketType] [CompositionTime(3 bytes)] [Data]
-                            // FrameType: 1 = keyframe, 2 = inter frame
-                            // CodecID: 7 = AVC/H.264
-                            // PacketType: 0x00 = sequence header, 0x01 = AVC NALU
-                            // CompositionTime: 0x00 0x00 0x00 for now
-                            let mut tagged_video = if video_data.is_sequence_header {
-                                // Sequence header: keyframe + AVC + sequence header
-                                vec![0x17, 0x00, 0x00, 0x00, 0x00]
-                            } else if video_data.is_keyframe {
-                                // Keyframe: keyframe + AVC + NALU
-                                vec![0x17, 0x01, 0x00, 0x00, 0x00]
-                            } else {
-                                // Inter frame: inter frame + AVC + NALU
-                                vec![0x27, 0x01, 0x00, 0x00, 0x00]
-                            };
-
-                            tagged_video.extend_from_slice(&video_data.data);
-
+                            let tagged_video = video_data.tagged_video();
                             let result = client_session.publish_video_data(
                                 Bytes::from(tagged_video),
                                 RtmpTimestamp::new(video_data.timestamp),
@@ -680,11 +767,24 @@ impl RtmpClient {
                         Ok(audio_data) => {
                             match self.aac_encoder.encode(&audio_data.data) {
                                 Ok(aac_data) => {
-                                    // Add FLV audio tag prefix: 0xAF 0x01 [AAC data]
-                                    // 0xAF = AAC, 44100Hz, stereo, 16-bit
-                                    // 0x01 = AAC raw data (not sequence header)
-                                    let mut tagged_audio = vec![0xAF, 0x01];
-                                    tagged_audio.extend_from_slice(&aac_data);
+                                    // Log first AAC frame for debugging
+                                    if total_audio_packet_count == 0 {
+                                        log::info!("First AAC encoded data: {} bytes, first 20: {:02x?}",
+                                            aac_data.len(), &aac_data[..aac_data.len().min(20)]);
+                                    }
+
+                                    let tagged_audio = AudioData::tagged_aac_data(
+                                        &aac_data,
+                                        self.aac_encoder.sample_rate(),
+                                        self.aac_encoder.channels()
+                                    );
+
+                                    if total_audio_packet_count < 5 {
+                                        log::info!("Audio packet {} with FLV tag: {} bytes, first 20: {:02x?}",
+                                            total_audio_packet_count, tagged_audio.len(),
+                                            &tagged_audio[..tagged_audio.len().min(20)]);
+                                    }
+
                                     let result = client_session.publish_audio_data(
                                         Bytes::from(tagged_audio),
                                         RtmpTimestamp::new(audio_data.timestamp),
@@ -775,9 +875,9 @@ impl Drop for RtmpClient {
 }
 
 /// Convert H.264 annexb format to AVCDecoderConfigurationRecord
+// Find SPS (NAL type 7) and PPS (NAL type 8) in annexb data
+// Annexb format: [start code 0x00000001] [NAL header] [data] [start code] ...
 pub fn annexb_to_avc_decoder_config(annexb_data: &[u8]) -> Result<Vec<u8>, RtmpClientError> {
-    // Find SPS (NAL type 7) and PPS (NAL type 8) in annexb data
-    // Annexb format: [start code 0x00000001] [NAL header] [data] [start code] ...
     let mut sps_data: Option<Vec<u8>> = None;
     let mut pps_data: Option<Vec<u8>> = None;
 
@@ -844,7 +944,6 @@ pub fn annexb_to_avc_decoder_config(annexb_data: &[u8]) -> Result<Vec<u8>, RtmpC
     // SPS length and data
     avc_config.extend_from_slice(&(sps.len() as u16).to_be_bytes());
     avc_config.extend_from_slice(&sps);
-
     avc_config.push(0x01); // Number of PPS (with reserved bits = 00000001)
 
     // PPS length and data

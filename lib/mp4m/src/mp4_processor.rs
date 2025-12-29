@@ -426,7 +426,7 @@ impl Mp4Processor {
         let duration = VIDEO_TIMESCALE / self.config.video_config.fps;
 
         // Detect if this is a keyframe (I-frame) by checking for SPS/PPS or start code
-        let is_sync = Self::is_keyframe(&data);
+        let is_sync = Self::is_keyframe_length_prefixed(&data);
 
         let sample = Mp4Sample {
             start_time: *video_timestamp,
@@ -443,9 +443,7 @@ impl Mp4Processor {
         *video_timestamp += duration as u64;
     }
 
-    pub fn is_keyframe(data: &[u8]) -> bool {
-        // Since we're using length-prefixed NAL units (not Annex B),
-        // we need to parse the NAL units differently
+    pub fn is_keyframe_length_prefixed(data: &[u8]) -> bool {
         let mut i = 0;
         while i + 4 <= data.len() {
             // Read NAL unit length (big-endian)
@@ -472,6 +470,45 @@ impl Mp4Processor {
 
             i += 4 + nal_length as usize;
         }
+        false
+    }
+
+    pub fn is_keyframe_annexb(data: &[u8]) -> bool {
+        if data.len() < 4 {
+            return false;
+        }
+
+        let mut i = 0;
+        while i < data.len() {
+            // Look for start code: 0x00 0x00 0x01 or 0x00 0x00 0x00 0x01
+            let start_code_len = if data.get(i..i + 3) == Some(&[0x00, 0x00, 0x01]) {
+                3
+            } else if data.get(i..i + 4) == Some(&[0x00, 0x00, 0x00, 0x01]) {
+                4
+            } else {
+                i += 1;
+                continue;
+            };
+
+            // Move past the start code
+            i += start_code_len;
+
+            // Check if we have at least one byte for NAL header
+            if i >= data.len() {
+                break;
+            }
+
+            // Extract NAL unit type from the first byte of NAL header
+            let nal_header = data[i];
+            let nal_unit_type = nal_header & 0x1F;
+
+            // NAL unit type 5 = IDR frame (keyframe)
+            // Also check for SPS (7) and PPS (8) which are often in keyframe data
+            if nal_unit_type == 5 || nal_unit_type == 7 || nal_unit_type == 8 {
+                return true;
+            }
+        }
+
         false
     }
 
