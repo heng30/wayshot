@@ -140,6 +140,20 @@ pub fn init(ui: &AppWindow) {
         toast_success!(ui_weak.unwrap(), tr("save configuration successfully"));
     });
 
+    global_logic!(ui).on_get_setting_push_stream(move || {
+        let config = config::all().push_stream;
+        config.into()
+    });
+
+    let ui_weak = ui.as_weak();
+    global_logic!(ui).on_set_setting_push_stream(move |setting| {
+        let mut all = config::all();
+        all.push_stream = setting.into();
+        _ = config::save(all);
+
+        toast_success!(ui_weak.unwrap(), tr("save configuration successfully"));
+    });
+
     let ui_weak = ui.as_weak();
     global_logic!(ui).on_remove_caches(move || {
         let ui = ui_weak.unwrap();

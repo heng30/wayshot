@@ -17,6 +17,7 @@ import {
     HistoryEntry,
     ProcessMode,
     SettingShareScreenClient,
+    SettingPushStream,
 } from "store.slint";
 
 import { PlaylistItem } from "base/def.slint";
@@ -114,6 +115,9 @@ export global Logic {
     callback get-setting-share-screen-client() -> SettingShareScreenClient;
     callback set-setting-share-screen-client(setting: SettingShareScreenClient);
 
+    callback get-setting-push-stream() -> SettingPushStream;
+    callback set-setting-push-stream(setting: SettingPushStream);
+
     callback init-sources-dialog();
     callback choose-save-dir();
     callback update-sources(setting: SettingControl);
@@ -168,6 +172,8 @@ export global Logic {
     callback share-screen-player-sound-changed(progress: float);
     callback share-screen-client-disconnect();
     callback share-screen-client-connect(setting: SettingShareScreenClient);
+
+    callback push-stream-verify-setting(setting: SettingPushStream) -> string;
 
     pure public function fps-to-int(fps: Fps) -> int {
         if (fps == Fps.Fps24) {

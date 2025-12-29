@@ -41,6 +41,9 @@ pub enum RecorderError {
     #[error("Mp4 processor failed: {0}")]
     Mp4ProcessorError(#[from] mp4m::mp4_processor::Mp4ProcessorError),
 
+    #[error("Rtmp Client Error failed: {0}")]
+    RtmpClientError(#[from] srtmp::RtmpClientError),
+
     #[error("Denoise failed: {0}")]
     DenoiseError(String),
 

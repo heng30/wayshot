@@ -21,6 +21,8 @@ use std::{
 };
 use thiserror::Error;
 
+// rtmp://[域名或IP]:[端口]/[应用名]/[流名称]?[查询参数]
+// rtmp://[IP]:[port]/[app]/[stream_key]?[query_parameter]
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -38,16 +40,13 @@ pub struct RtmpClientConfig {
     #[setters(skip)]
     pub stream_key: String,
 
+    /// Query parameters to append to stream name (e.g., "key=value&token=abc")
+    /// These will be appended to the stream key during publishing
+    #[derivative(Default(value = "String::new()"))]
+    pub query_params: String,
+
     #[derivative(Default(value = "1935"))]
     pub port: u16,
-
-    /// Audio sample rate (e.g., 44100, 48000)
-    #[derivative(Default(value = "44100"))]
-    pub audio_sample_rate: u32,
-
-    /// Audio channels (1 = mono, 2 = stereo)
-    #[derivative(Default(value = "2"))]
-    pub audio_channels: u8,
 
     /// Video width in pixels
     #[derivative(Default(value = "1920"))]
@@ -92,6 +91,58 @@ impl RtmpClientConfig {
             }
         }
         Ok(parts[0].to_string())
+    }
+
+    /// Format: rtmp://[host]:[port]/[app]/[stream_key]?[query_params]
+    pub fn parse_url(url: &str) -> Result<Self, RtmpClientError> {
+        let without_scheme = url
+            .strip_prefix("rtmp://")
+            .ok_or_else(|| RtmpClientError::InvalidUrl(url.to_string()))?;
+
+        let (authority, path_and_query) = without_scheme
+            .split_once('/')
+            .ok_or_else(|| RtmpClientError::InvalidUrl(url.to_string()))?;
+
+        let port = if let Some(port_str) = authority.split(':').nth(1) {
+            port_str
+                .parse::<u16>()
+                .map_err(|_| RtmpClientError::InvalidUrl(url.to_string()))?
+        } else {
+            1935
+        };
+
+        let (path, query) = path_and_query
+            .split_once('?')
+            .unwrap_or((path_and_query, ""));
+
+        // Parse path components: /app/stream_key
+        let path_parts: Vec<&str> = path.trim_start_matches('/').split('/').collect();
+        let (app, stream_key) = match path_parts.as_slice() {
+            [app, stream_key, ..] => (app.to_string(), stream_key.to_string()),
+            [app] if !app.is_empty() => (app.to_string(), String::new()),
+            _ => return Err(RtmpClientError::InvalidUrl(url.to_string())),
+        };
+
+        Ok(Self {
+            rtmp_url: format!("rtmp://{}", authority),
+            app,
+            stream_key,
+            query_params: query.to_string(),
+            port,
+            ..Default::default()
+        })
+    }
+
+    pub fn from_url(url: &str) -> Result<Self, RtmpClientError> {
+        Self::parse_url(url)
+    }
+
+    pub fn build_stream_name(&self) -> String {
+        if self.query_params.is_empty() {
+            self.stream_key.clone()
+        } else {
+            format!("{}?{}", self.stream_key, self.query_params)
+        }
     }
 }
 
@@ -292,20 +343,26 @@ pub struct RtmpClient {
     video_receiver: Receiver<VideoData>,
     audio_receiver: Receiver<AudioData>,
     exit_sig: Arc<AtomicBool>,
-    aac_encoder: AacEncoder,
+    aac_encoder: Option<AacEncoder>,
     write_buffer: Vec<u8>,
 }
 
 impl RtmpClient {
     pub fn new(
         config: RtmpClientConfig,
-        aac_encoder_config: AacEncoderConfig,
+        mut aac_encoder_config: Option<AacEncoderConfig>,
         video_receiver: Receiver<VideoData>,
         audio_receiver: Receiver<AudioData>,
         exit_sig: Arc<AtomicBool>,
     ) -> Result<Self, RtmpClientError> {
-        let aac_encoder = AacEncoder::new(aac_encoder_config)
-            .map_err(|e| RtmpClientError::AacEncoderError(e.to_string()))?;
+        let aac_encoder = if let Some(aac_encoder_config) = aac_encoder_config.take() {
+            Some(
+                AacEncoder::new(aac_encoder_config)
+                    .map_err(|e| RtmpClientError::AacEncoderError(e.to_string()))?,
+            )
+        } else {
+            None
+        };
 
         Ok(Self {
             config,
@@ -328,11 +385,13 @@ impl RtmpClient {
             format!("{}:{}", host, self.config.port)
         };
 
-        let app_name = self.config.app.clone();
-        let stream_name = self.config.stream_key.clone();
-
-        log::info!("RTMP Target: {}", address);
-        log::info!("App: {}, Stream: {}", app_name, stream_name);
+        log::info!(
+            "RTMP server: {}, App: {}, Stream: {}, Query params: {}",
+            address,
+            self.config.app,
+            self.config.stream_key,
+            self.config.query_params
+        );
 
         let mut stream = TcpStream::connect(&address).map_err(|e| {
             RtmpClientError::ConnectionError(format!("Failed to connect to {}: {}", address, e))
@@ -353,7 +412,7 @@ impl RtmpClient {
         self.cache_session_results(&initial_results)?;
         self.try_flush_buffer(&mut stream)?;
 
-        self.establish_rtmp_session(&mut stream, &mut client_session, &app_name, &stream_name)?;
+        self.establish_rtmp_session(&mut stream, &mut client_session)?;
         log::info!("RTMP session established and publishing started");
 
         self.forward_data(&mut stream, &mut client_session)?;
@@ -477,13 +536,11 @@ impl RtmpClient {
         &mut self,
         stream: &mut TcpStream,
         client_session: &mut ClientSession,
-        app_name: &str,
-        stream_name: &str,
     ) -> Result<(), RtmpClientError> {
         log::info!("Establishing RTMP session...");
 
-        log::info!("Phase 1: Requesting connection to app: {}", app_name);
-        let connect_result = client_session.request_connection(app_name.to_string())?;
+        log::info!("Phase 1: Requesting connection to app: {}", self.config.app);
+        let connect_result = client_session.request_connection(self.config.app.to_string())?;
         self.cache_session_results(&[connect_result])?;
 
         loop {
@@ -502,9 +559,12 @@ impl RtmpClient {
         }
         log::info!("✓ Connection confirmed accepted");
 
-        log::info!("Phase 2: Requesting publish to stream: {}", stream_name);
+        // Build full stream name with query parameters
+        let full_stream_name = self.config.build_stream_name();
+        log::info!("Phase 2: Requesting publish to stream: {full_stream_name}",);
+
         let publish_result = client_session.request_publishing(
-            stream_name.to_string(),
+            full_stream_name,
             rml_rtmp::sessions::PublishRequestType::Live,
         )?;
 
@@ -541,7 +601,11 @@ impl RtmpClient {
             Amf0Value::Number(self.config.framerate),
         );
         metadata_props.insert("videocodecid".to_string(), Amf0Value::Number(7.0)); // H.264
-        metadata_props.insert("audiocodecid".to_string(), Amf0Value::Number(10.0)); // AAC
+
+        if self.aac_encoder.is_some() {
+            metadata_props.insert("audiocodecid".to_string(), Amf0Value::Number(10.0)); // AAC
+        }
+
         metadata.apply_metadata_values(metadata_props);
 
         let metadata_result = client_session.publish_metadata(&metadata)?;
@@ -675,26 +739,28 @@ impl RtmpClient {
         let max_backlog = self.config.max_frame_backlog;
         let max_write_buffer = self.config.max_write_buffer.max(10 * 1024 * 1024);
 
-        log::info!("Sending AAC AudioSpecificConfig as sequence header");
-        let audio_config = self.aac_encoder.audio_specific_config();
-        let aac_sequence_header = AudioData::tagged_aac_sequence_header(
-            &audio_config,
-            self.aac_encoder.sample_rate(),
-            self.aac_encoder.channels(),
-        );
+        if let Some(ref aac_encoder) = self.aac_encoder {
+            log::info!("Sending AAC AudioSpecificConfig as sequence header");
+            let audio_config = aac_encoder.audio_specific_config();
+            let aac_sequence_header = AudioData::tagged_aac_sequence_header(
+                &audio_config,
+                aac_encoder.sample_rate(),
+                aac_encoder.channels(),
+            );
 
-        log::info!("AudioSpecificConfig: {:02x?}", audio_config);
-        log::info!(
-            "AAC sequence header with FLV tag: {:02x?}",
-            aac_sequence_header
-        );
+            log::info!("AudioSpecificConfig: {:02x?}", audio_config);
+            log::info!(
+                "AAC sequence header with FLV tag: {:02x?}",
+                aac_sequence_header
+            );
 
-        let result = client_session.publish_audio_data(
-            Bytes::from(aac_sequence_header),
-            RtmpTimestamp::new(0),
-            true,
-        )?;
-        self.cache_session_results(&[result])?;
+            let result = client_session.publish_audio_data(
+                Bytes::from(aac_sequence_header),
+                RtmpTimestamp::new(0),
+                true,
+            )?;
+            self.cache_session_results(&[result])?;
+        }
 
         loop {
             if self.exit_sig.load(std::sync::atomic::Ordering::Relaxed) {
@@ -763,9 +829,13 @@ impl RtmpClient {
                     }
                 }
                 recv(self.audio_receiver) -> msg => {
+                    let Some(ref mut aac_encoder) = self.aac_encoder else {
+                        continue;
+                    };
+
                     match msg {
                         Ok(audio_data) => {
-                            match self.aac_encoder.encode(&audio_data.data) {
+                            match aac_encoder.encode(&audio_data.data) {
                                 Ok(aac_data) => {
                                     // Log first AAC frame for debugging
                                     if total_audio_packet_count == 0 {
@@ -775,8 +845,8 @@ impl RtmpClient {
 
                                     let tagged_audio = AudioData::tagged_aac_data(
                                         &aac_data,
-                                        self.aac_encoder.sample_rate(),
-                                        self.aac_encoder.channels()
+                                        aac_encoder.sample_rate(),
+                                        aac_encoder.channels()
                                     );
 
                                     if total_audio_packet_count < 5 {
@@ -864,6 +934,12 @@ impl RtmpClient {
         log::info!("Stopping RTMP client");
         self.exit_sig
             .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub fn aac_encoder_input_frame_size(&self) -> usize {
+        self.aac_encoder
+            .as_ref()
+            .map_or(1024, |encoder| encoder.input_frame_size())
     }
 }
 

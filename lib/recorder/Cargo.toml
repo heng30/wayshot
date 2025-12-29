@@ -15,6 +15,7 @@ log.workspace = true
 cpal.workspace = true
 mp4m.workspace = true
 wrtc.workspace = true
+srtmp.workspace = true
 hound.workspace = true
 image.workspace = true
 chrono.workspace = true

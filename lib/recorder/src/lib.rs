@@ -11,7 +11,7 @@ mod speaker_recorder;
 
 pub use audio_level::*;
 pub use audio_recorder::{AudioDeviceInfo, AudioRecorder, AudioRecorderError};
-pub use config::{FPS, RecorderConfig, ShareScreenConfig, SimpleFpsCounter};
+pub use config::{FPS, PushStreamConfig, RecorderConfig, ShareScreenConfig, SimpleFpsCounter};
 pub use crossbeam::channel::{Receiver, Sender, bounded};
 pub use cursor_tracker::{CursorTracker, CursorTrackerConfig, TransitionType};
 pub use denoise::*;
@@ -38,6 +38,7 @@ pub enum ProgressState {
 pub enum ProcessMode {
     RecordScreen,
     ShareScreen,
+    PushStream,
 }
 
 #[derive(Debug, Clone)]

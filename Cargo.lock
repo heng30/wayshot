@@ -6535,6 +6535,7 @@ dependencies = [
  "screen-capture-wayland-wlr",
  "screen-capture-windows",
  "spin_sleep",
+ "srtmp",
  "thiserror 2.0.17",
  "tokio",
  "video-encoder",

@@ -75,6 +75,7 @@ pub struct RecorderConfig {
     pub zoom_out_transition_type: TransitionType,
 
     pub share_screen_config: ShareScreenConfig,
+    pub push_stream_config: PushStreamConfig,
 }
 
 impl RecorderConfig {
@@ -115,6 +116,7 @@ impl RecorderConfig {
             zoom_out_transition_type: TransitionType::EaseOut,
 
             share_screen_config: ShareScreenConfig::default(),
+            push_stream_config: PushStreamConfig::default(),
         }
     }
 
@@ -151,6 +153,35 @@ pub struct ShareScreenConfig {
 impl ShareScreenConfig {
     pub fn new(listen_addr: String) -> Self {
         ShareScreenConfig::default().with_listen_addr(listen_addr)
+    }
+}
+
+#[non_exhaustive]
+#[derive(Debug, Default, Clone, Setters)]
+#[setters(prefix = "with_")]
+pub struct PushStreamConfig {
+    #[setters[skip]]
+    pub server_addr: String,
+
+    #[setters[skip]]
+    pub app: String,
+
+    #[setters[skip]]
+    pub stream_key: String,
+
+    pub query_params: String,
+    pub save_mp4: bool,
+}
+
+impl PushStreamConfig {
+    pub fn new(server_addr: String, app: String, stream_key: String) -> Self {
+        PushStreamConfig {
+            server_addr,
+            app,
+            stream_key,
+            query_params: String::new(),
+            save_mp4: true,
+        }
     }
 }
 

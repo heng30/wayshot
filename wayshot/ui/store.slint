@@ -35,6 +35,7 @@ export enum SettingDetailIndex {
     Recorder,
     CursorTracking,
     ShareScreen,
+    PushStream,
 }
 
 export enum MobileTabIndex {
@@ -94,6 +95,7 @@ export enum TransitionType {
 export enum ProcessMode {
     RecordScreen,
     ShareScreen,
+    PushStream,
 }
 
 export struct SettingCursorTracker {
@@ -154,23 +156,31 @@ export struct RTCIceServer {
 }
 
 export struct SettingShareScreen {
-    save_mp4: bool,
+    save-mp4: bool,
 
-    listen_addr: string,
-    auth_token: string,
+    listen-addr: string,
+    auth-token: string,
 
     enable-turn-server: bool,
-    turn_server: RTCIceServer,
+    turn-server: RTCIceServer,
 
     enable-stun-server: bool,
-    stun_server: RTCIceServer,
+    stun-server: RTCIceServer,
 
-    host_ips: [string],
-    disable_host_ipv6: bool,
+    host-ips: [string],
+    disable-host-ipv6: bool,
 
-    enable_https: bool,
-    cert_file: string,
-    key_file: string,
+    enable-https: bool,
+    cert-file: string,
+    key-file: string,
+}
+
+export struct SettingPushStream {
+    save-mp4: bool,
+    server-addr: string,
+    app: string,
+    stream-key: string,
+    query-params: string,
 }
 
 export struct StatsInfo {
@@ -290,6 +300,8 @@ export global Store {
     in-out property <SettingShareScreen> setting-share-screen;
     in-out property <string> setting-share-screen-cert-file;
     in-out property <string> setting-share-screen-key-file;
+
+    in-out property <SettingPushStream> setting-push-stream;
 
     in-out property <[HistoryEntry]> history-entries: [
         {

@@ -63,6 +63,7 @@ pub struct RecordingSession {
     pub(crate) audio_mixer_worker: Option<JoinHandle<()>>,
     pub(crate) mp4_writer_worker: Option<JoinHandle<()>>,
     pub(crate) share_screen_worker: Option<JoinHandle<()>>,
+    pub(crate) push_stream_worker: Option<JoinHandle<()>>,
     pub(crate) h264_frame_sender: Option<Sender<VideoFrameType>>,
 
     pub(crate) crop_region_receiver: Option<Receiver<Rectangle>>,
@@ -101,6 +102,7 @@ impl RecordingSession {
 
             mp4_writer_worker: None,
             share_screen_worker: None,
+            push_stream_worker: None,
             h264_frame_sender: None,
 
             crop_region_receiver: None,
@@ -151,7 +153,7 @@ impl RecordingSession {
             .with_fps(self.config.fps.to_u32())
             .with_annexb(match self.config.process_mode {
                 ProcessMode::RecordScreen => false,
-                ProcessMode::ShareScreen => true,
+                ProcessMode::ShareScreen | ProcessMode::PushStream => true,
             });
 
         let mut video_encoder = video_encoder::new(video_encoder_config)?;
@@ -173,6 +175,13 @@ impl RecordingSession {
                 mix_audio_sample_rate,
             )?,
             ProcessMode::ShareScreen => self.share_screen_worker(
+                rt_handle,
+                Some(headers_data.clone()),
+                mix_audio_receiver,
+                mix_audio_channels,
+                mix_audio_sample_rate,
+            )?,
+            ProcessMode::PushStream => self.push_stream_worker(
                 rt_handle,
                 Some(headers_data.clone()),
                 mix_audio_receiver,
@@ -830,6 +839,14 @@ impl RecordingSession {
                 log::warn!("join share screen worker failed: {:?}", e);
             } else {
                 log::info!("join share screen worker successfully");
+            }
+        }
+
+        if let Some(handle) = self.push_stream_worker.take() {
+            if let Err(e) = handle.join() {
+                log::warn!("join push stream worker failed: {:?}", e);
+            } else {
+                log::info!("join push stream worker successfully");
             }
         }
 

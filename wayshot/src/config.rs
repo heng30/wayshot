@@ -1,7 +1,8 @@
 use crate::slint_generatedAppWindow::{
     Fps as UIFps, RTCIceServer as UIRTCIceServer, Resolution as UIResolution,
     SettingControl as UISettingControl, SettingCursorTracker as UISettingCursorTracker,
-    SettingRecorder as UISettingRecorder, SettingShareScreen as UISettingShareScreen,
+    SettingPushStream as UISettingPushStream, SettingRecorder as UISettingRecorder,
+    SettingShareScreen as UISettingShareScreen,
     SettingShareScreenClient as UISettingShareScreenClient, TransitionType as UITransitionType,
 };
 use anyhow::{Context, Result, bail};
@@ -17,15 +18,9 @@ use uuid::Uuid;
 #[cfg(feature = "desktop")]
 use platform_dirs::AppDirs;
 
-/// Embedded Cargo.toml file content for package metadata
 const CARGO_TOML: &str = include_str!("../Cargo.toml");
-
-/// Global configuration instance protected by a mutex
 static CONFIG: Lazy<Mutex<Config>> = Lazy::new(|| Mutex::new(Config::default()));
 
-/// Android-specific application directories structure
-///
-/// Provides platform-specific directory paths for Android applications.
 #[cfg(feature = "android")]
 pub struct AppDirs {
     /// Configuration directory path
@@ -36,14 +31,6 @@ pub struct AppDirs {
 
 #[cfg(feature = "android")]
 impl AppDirs {
-    /// Creates new Android application directories
-    ///
-    /// # Parameters
-    /// - `name`: Application package name
-    /// - `_`: Compatibility parameter (unused)
-    ///
-    /// # Returns
-    /// - `Some(AppDirs)` if successful, `None` otherwise
     pub fn new(name: Option<&str>, _: bool) -> Option<Self> {
         let root_dir = "/data/data";
         let name = name.unwrap();
@@ -85,6 +72,9 @@ pub struct Config {
 
     #[serde(default)]
     pub share_screen_client: ShareScreenClient,
+
+    #[serde(default)]
+    pub push_stream: PushStream,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative)]
@@ -242,6 +232,25 @@ pub struct ShareScreen {
     pub enable_https: bool,
     pub cert_file: String,
     pub key_file: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
+#[derivative(Default)]
+#[from("UISettingPushStream")]
+pub struct PushStream {
+    #[derivative(Default(value = "true"))]
+    pub save_mp4: bool,
+
+    #[derivative(Default(value = "\"rtmp://localhost:1935\".to_string()"))]
+    pub server_addr: String,
+
+    #[derivative(Default(value = "\"live\".to_string()"))]
+    pub app: String,
+
+    #[derivative(Default(value = "\"stream\".to_string()"))]
+    pub stream_key: String,
+
+    pub query_params: String,
 }
 
 crate::impl_slint_enum_serde!(UIFps, Fps24, Fps25, Fps30, Fps60);

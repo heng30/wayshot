@@ -262,6 +262,53 @@ impl RecordingSession {
         Ok(Some(h264_frame_sender))
     }
 
+    pub(crate) fn push_stream_worker(
+        &mut self,
+        _rt_handle: tokio::runtime::Handle,
+        video_encoder_header_data: Option<Vec<u8>>,
+        mix_audio_receiver: Option<Receiver<Vec<f32>>>,
+        mix_audio_channels: Option<u16>,
+        mix_audio_sample_rate: Option<u32>,
+    ) -> Result<Option<Sender<VideoFrameType>>, RecorderError> {
+        let (mp4_mix_audio_sender, mp4_mix_audio_receiver) =
+            if self.config.push_stream_config.save_mp4
+                && mix_audio_sample_rate.is_some()
+                && mix_audio_channels.is_some()
+            {
+                let (tx, rx) = bounded::<Vec<f32>>(AUDIO_MIXER_CHANNEL_SIZE);
+                (Some(tx), Some(rx))
+            } else {
+                (None, None)
+            };
+
+        let mp4_h264_frame_sender = if self.config.push_stream_config.save_mp4 {
+            log::info!("start mp4_worker...");
+            let converted_header_data = video_encoder_header_data
+                .clone()
+                .map(|data| convert_annexb_to_length_prefixes(&data));
+
+            self.mp4_worker(
+                converted_header_data,
+                mp4_mix_audio_receiver,
+                mix_audio_channels,
+                mix_audio_sample_rate,
+            )?
+        } else {
+            None
+        };
+
+        let h264_frame_sender = self.start_push_stream(
+            video_encoder_header_data,
+            mp4_h264_frame_sender,
+            mp4_mix_audio_sender,
+            mix_audio_receiver,
+            mix_audio_channels,
+            mix_audio_sample_rate,
+        )?;
+
+        Ok(Some(h264_frame_sender))
+    }
+
     fn send_share_screen_packets(
         &mut self,
         packet_sender: PacketDataSender,
@@ -556,5 +603,193 @@ impl RecordingSession {
                 }
             });
         });
+    }
+
+    fn start_push_stream(
+        &mut self,
+        mut video_encoder_header_data: Option<Vec<u8>>,
+        mp4_h264_frame_sender: Option<Sender<VideoFrameType>>,
+        mp4_mix_audio_sender: Option<Sender<Vec<f32>>>,
+        mix_audio_receiver: Option<Receiver<Vec<f32>>>,
+        mix_audio_channels: Option<u16>,
+        mix_audio_sample_rate: Option<u32>,
+    ) -> Result<Sender<VideoFrameType>, RecorderError> {
+        use srtmp::{AacEncoderConfig, AudioData, RtmpClient, RtmpClientConfig, VideoData};
+
+        let stop_sig = self.stop_sig.clone();
+        let (h264_frame_sender, h264_frame_receiver) =
+            bounded::<VideoFrameType>(ENCODER_WORKER_CHANNEL_SIZE);
+
+        let (video_tx, video_rx): (Sender<VideoData>, Receiver<VideoData>) =
+            bounded(ENCODER_WORKER_CHANNEL_SIZE);
+        let (audio_tx, audio_rx): (Sender<AudioData>, Receiver<AudioData>) =
+            bounded(ENCODER_WORKER_CHANNEL_SIZE);
+
+        let (encoder_width, encoder_height) = self.config.resolution.dimensions(
+            self.config.screen_size.width as u32,
+            self.config.screen_size.height as u32,
+        );
+
+        let config = RtmpClientConfig::new(
+            self.config.push_stream_config.server_addr.clone(),
+            self.config.push_stream_config.app.clone(),
+            self.config.push_stream_config.stream_key.clone(),
+        )
+        .with_query_params(self.config.push_stream_config.query_params.clone())
+        .with_video_width(encoder_width)
+        .with_video_height(encoder_height)
+        .with_framerate(self.config.fps.to_u32() as f64);
+
+        let aac_config = if let Some(sample_rate) = mix_audio_sample_rate
+            && let Some(channels) = mix_audio_channels
+        {
+            Some(
+                AacEncoderConfig::default()
+                    .with_sample_rate(sample_rate)
+                    .with_channels(channels as u8),
+            )
+        } else {
+            None
+        };
+
+        let error_sender = self.config.async_error_sender.clone();
+        let mut client = RtmpClient::new(config, aac_config, video_rx, audio_rx, stop_sig.clone())?;
+        let audio_input_frame_size = client.aac_encoder_input_frame_size();
+
+        thread::spawn(move || match client.start() {
+            Ok(_) => log::info!("Streaming completed successfully"),
+            Err(e) => {
+                let err = format!("Push Stream error: {e}");
+                log::warn!("{err}");
+
+                if let Some(sender) = error_sender {
+                    if let Err(e) = sender.try_send(err) {
+                        log::warn!("async_error_sender try send failed: {e}");
+                    }
+                }
+            }
+        });
+
+        if let Some(headers_data) = video_encoder_header_data.take() {
+            let packet = VideoData::new_with_sequence_header(headers_data)?;
+            if let Err(e) = video_tx.send(packet) {
+                return Err(RecorderError::Other(format!(
+                    "send h264 sequence header failed: {e:?}"
+                )));
+            }
+        }
+
+        let handle = thread::spawn(move || {
+            let mut no_data = true;
+            let mut next_audio_timestamp = 0;
+            let mut mix_audio_samples = vec![];
+            let start_time = Instant::now();
+
+            loop {
+                if stop_sig.load(Ordering::Relaxed) {
+                    if let Some(ref sender) = mp4_h264_frame_sender
+                        && let Err(e) = sender.try_send(VideoFrameType::End)
+                    {
+                        log::warn!("mp4_h264_frame_sender try send `End` failed: {e}");
+                    }
+
+                    break;
+                }
+
+                if let Some(ref receiver) = mix_audio_receiver
+                    && let Ok(data) = receiver.try_recv()
+                {
+                    if let Some(ref sender) = mp4_mix_audio_sender
+                        && let Err(e) = sender.try_send(data.clone())
+                    {
+                        log::warn!("try send audio data to mp4_worker failed: {e}");
+                    }
+
+                    if let Some(sample_rate) = mix_audio_sample_rate
+                        && let Some(channels) = mix_audio_channels
+                        && channels > 0
+                    {
+                        let mut sent_frame_count = 0;
+                        let samples_per_frame = audio_input_frame_size * channels as usize;
+
+                        mix_audio_samples.extend_from_slice(&data);
+                        for frame in mix_audio_samples.chunks_exact(samples_per_frame) {
+                            sent_frame_count += 1;
+
+                            if let Err(e) = audio_tx
+                                .try_send(AudioData::new(next_audio_timestamp, frame.to_vec()))
+                            {
+                                log::warn!("try send audio data failed: {e}");
+                            }
+
+                            next_audio_timestamp +=
+                                (audio_input_frame_size * 1000 / sample_rate as usize) as u32;
+                        }
+
+                        mix_audio_samples.drain(0..sent_frame_count * samples_per_frame);
+                    }
+                }
+
+                if let Some(ref c) = mix_audio_receiver {
+                    no_data = c.is_empty();
+                }
+
+                if let Ok(data) = h264_frame_receiver.try_recv() {
+                    log::trace!(
+                        "receiver h264 frame: {} bytes",
+                        match data {
+                            VideoFrameType::Frame(ref content) => content.len(),
+                            _ => 0,
+                        }
+                    );
+                    no_data = false;
+
+                    if let Some(ref sender) = mp4_h264_frame_sender {
+                        let converted_data = match data {
+                            VideoFrameType::Frame(ref content) => {
+                                VideoFrameType::Frame(convert_annexb_to_length_prefixes(&content))
+                            }
+                            VideoFrameType::End => VideoFrameType::End,
+                        };
+
+                        if let Err(e) = sender.try_send(converted_data) {
+                            log::warn!("try send h264 frame to mp4_worker failed: {e}");
+                        }
+                    }
+
+                    if let VideoFrameType::Frame(data) = data
+                        && let Err(e) = video_tx.try_send(VideoData::new(
+                            start_time.elapsed().as_millis() as u32,
+                            data,
+                        ))
+                    {
+                        log::warn!("push stream try send h264 nal data failed: {e}");
+                    };
+                }
+
+                if no_data {
+                    no_data = h264_frame_receiver.is_empty();
+                }
+
+                log::trace!(
+                    "h264_frame_receiver: {}, mix_audio_receiver: {:?}",
+                    h264_frame_receiver.len(),
+                    if let Some(ref c) = mix_audio_receiver {
+                        Some(c.len())
+                    } else {
+                        None
+                    }
+                );
+
+                if no_data {
+                    thread::sleep(Duration::from_millis(10));
+                }
+            }
+
+            log::info!("push_stream_worker exit...");
+        });
+        self.push_stream_worker = Some(handle);
+
+        Ok(h264_frame_sender)
     }
 }

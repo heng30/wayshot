@@ -1,5 +1,5 @@
 use anyhow::{Result, bail};
-use crossbeam::channel::{Receiver, Sender, unbounded};
+use crossbeam::channel::{Receiver, Sender, bounded};
 use image::{ImageBuffer, Rgb};
 use spin_sleep::SpinSleeper;
 use srtmp::{AacEncoderConfig, AudioData, RtmpClient, RtmpClientConfig, VideoData};
@@ -11,33 +11,68 @@ use std::{
 
 const IMG_WIDTH: u32 = 1920;
 const IMG_HEIGHT: u32 = 1080;
+const AUDIO_SAMPLE_RATE: u32 = 44100;
+const AUDIO_CHANNELS: u8 = 2;
 
+// Usage: rtmp-client-demo [rtmp_url] [app_name] [stream_key] [query_params]
+// Or: rtmp-client-demo [full_url]
+//
+// Examples:
+//   rtmp-client-demo rtmp://localhost:1935 live stream "key=value&token=abc"
+//   rtmp-client-demo "rtmp://localhost:1935/live/stream?key=value&token=abc"
 fn main() -> Result<()> {
     env_logger::init();
 
     let args: Vec<String> = std::env::args().collect();
-    let rtmp_url = args
-        .get(1)
-        .cloned()
-        .unwrap_or_else(|| "rtmp://localhost:1935".to_string());
-    let app_name = args.get(2).cloned().unwrap_or_else(|| "live".to_string());
-    let stream_key = args.get(3).cloned().unwrap_or_else(|| "stream".to_string());
+
+    let config = if args.len() > 1 && args[1].contains("rtmp://") {
+        if args.len() == 2 {
+            log::info!("Parsing RTMP URL...");
+            RtmpClientConfig::from_url(&args[1])?
+        } else {
+            let rtmp_url = args
+                .get(1)
+                .cloned()
+                .unwrap_or_else(|| "rtmp://localhost:1935".to_string());
+            let app_name = args.get(2).cloned().unwrap_or_else(|| "live".to_string());
+            let stream_key = args.get(3).cloned().unwrap_or_else(|| "stream".to_string());
+            let query_params = args.get(4).cloned().unwrap_or_default();
+
+            let mut config =
+                RtmpClientConfig::new(rtmp_url.clone(), app_name.clone(), stream_key.clone());
+            if !query_params.is_empty() {
+                config = config.with_query_params(query_params.clone());
+            }
+            config
+        }
+    } else {
+        RtmpClientConfig::new(
+            "rtmp://localhost:1935".to_string(),
+            "live".to_string(),
+            "stream".to_string(),
+        )
+    };
 
     log::info!("RTMP Client Demo with AAC Encoding");
     log::info!("===================================");
-    log::info!("RTMP URL: {}", rtmp_url);
-    log::info!("App name: {}", app_name);
-    log::info!("Stream Key: {}", stream_key);
-
-    let (video_tx, video_rx): (Sender<VideoData>, Receiver<VideoData>) = unbounded();
-    let (audio_tx, audio_rx): (Sender<AudioData>, Receiver<AudioData>) = unbounded();
+    log::info!("RTMP URL: {}", config.rtmp_url);
+    log::info!("App name: {}", config.app);
+    log::info!("Stream Key: {}", config.stream_key);
+    if !config.query_params.is_empty() {
+        log::info!("Query Params: {}", config.query_params);
+    }
 
     let exit_sig = Arc::new(AtomicBool::new(false));
+    let (video_tx, video_rx): (Sender<VideoData>, Receiver<VideoData>) = bounded(60);
+    let (audio_tx, audio_rx): (Sender<AudioData>, Receiver<AudioData>) = bounded(128);
 
-    let config = RtmpClientConfig::new(rtmp_url.clone(), app_name.clone(), stream_key.clone());
-    let aac_config = AacEncoderConfig::default()
-        .with_sample_rate(44100)
-        .with_channels(2);
+    // let aac_config = None;
+    let aac_config = Some(
+        AacEncoderConfig::default()
+            .with_sample_rate(AUDIO_SAMPLE_RATE)
+            .with_channels(2),
+    );
+
     let mut client = RtmpClient::new(config, aac_config, video_rx, audio_rx, exit_sig.clone())?;
 
     let exit_sig_video = exit_sig.clone();
@@ -103,6 +138,7 @@ fn spawn_video_generator(
             &headers_data[..headers_data.len().min(40)]
         );
 
+        // must be sent
         let packet = VideoData::new_with_sequence_header(headers_data)?;
         if let Err(e) = packet_sender.send(packet) {
             bail!("send h264 sequence header failed: {}", e.to_string());
@@ -161,8 +197,8 @@ fn spawn_video_generator(
 }
 
 fn spawn_pcm_audio_generator(packet_sender: Sender<AudioData>, exit_sig: Arc<AtomicBool>) {
-    let sample_rate = 44100u32;
-    let channels = 2u8;
+    let sample_rate = AUDIO_SAMPLE_RATE;
+    let channels = AUDIO_CHANNELS;
     let frame_samples = 1024usize; // AAC frame size (samples per channel)
     let total_samples = frame_samples * channels as usize;
     let frame_duration_ms = (frame_samples * 1000 / sample_rate as usize) as u64;
@@ -184,7 +220,7 @@ fn spawn_pcm_audio_generator(packet_sender: Sender<AudioData>, exit_sig: Arc<Ato
 
         for i in 0..frame_samples {
             let t = (frame_count as usize * frame_samples + i) as f32 / sample_rate as f32;
-            let sample_value = (2.0 * std::f32::consts::PI * frequency * t).sin() * 0.05; // 10% volume
+            let sample_value = (2.0 * std::f32::consts::PI * frequency * t).sin() * 0.05; // 5% volume
 
             // Stereo: same value for both channels
             pcm_data.push(sample_value);
