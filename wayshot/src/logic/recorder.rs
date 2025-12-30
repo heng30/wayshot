@@ -609,7 +609,8 @@ fn inner_start_recording(
     log::debug!("screen_info: {screen_info:?}");
 
     let all_config = config::all();
-    let save_mp4 = all_config.share_screen.save_mp4 || all_config.push_stream.save_mp4;
+    let share_screen_save_mp4 = all_config.share_screen.save_mp4;
+    let push_strem_save_mp4 = all_config.push_stream.save_mp4;
     let async_error_sender = CACHE.lock().unwrap().async_error_sender.clone();
 
     let resolution = if matches!(all_config.recorder.resolution, UIResolution::Original) {
@@ -726,8 +727,8 @@ fn inner_start_recording(
         global_store!(ui).set_record_status(UIRecordStatus::Stopped);
 
         if matches!(process_mode, ProcessMode::RecordScreen)
-            || (matches!(process_mode, ProcessMode::ShareScreen)
-                || matches!(process_mode, ProcessMode::PushStream) && save_mp4)
+            || (matches!(process_mode, ProcessMode::ShareScreen) && share_screen_save_mp4)
+            || (matches!(process_mode, ProcessMode::PushStream) && push_strem_save_mp4)
         {
             global_store!(ui).set_final_video_path(final_video_path.display().to_shared_string());
             global_logic!(ui).invoke_add_history(final_video_path.display().to_shared_string());
