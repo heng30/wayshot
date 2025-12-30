@@ -31,6 +31,7 @@ import { Preference } from "components/preference.slint";
 import { Donate } from "components/donate.slint";
 import { Recorder } from "components/recorder.slint";
 import { ShareScreen } from "components/share-screen.slint";
+import { PushStream } from "components/push-stream.slint";
 import { CursorTracker } from "components/cursor-tracker.slint";
 import { HelpDetail } from "components/help-detail.slint";
 import { Backup } from "components/backup.slint";
@@ -47,6 +48,8 @@ component SettingBody inherits Rectangle {
             cursor-tracker.apply();
         } else if (Store.current-setting-detail-index == SettingDetailIndex.ShareScreen) {
             share-screen.apply();
+        } else if (Store.current-setting-detail-index == SettingDetailIndex.PushStream) {
+            push-stream.apply();
         }
     }
 
@@ -105,6 +108,22 @@ component SettingBody inherits Rectangle {
             }
         }
     }
+
+    push-stream := PushStream {
+        visible: Store.current-setting-detail-index == SettingDetailIndex.PushStream;
+        is-show-header: false;
+
+        public function apply() {
+            let setting = self.get();
+            let err = Logic.push-stream-verify-setting(setting);
+
+            if (err.is-empty) {
+                Logic.set-setting-push-stream(setting);
+            } else {
+                Util.show-toast(err, ToastStatus.Warning);
+            }
+        }
+    }
 }
 
 component Setting inherits Rectangle {
@@ -125,6 +144,7 @@ component Setting inherits Rectangle {
                     { icon: Icons.monitor-recorder-light, text: Logic.tr("Recorder") },
                     { icon: Icons.monitor-recorder-light, text: Logic.tr("Cursor Tracking") },
                     { icon: Icons.share-screen-light, text: Logic.tr("Share Screen") },
+                    { icon: Icons.push-light, text: Logic.tr("Push Stream") },
                 ];
 
                 clicked(index) => {
@@ -136,6 +156,8 @@ component Setting inherits Rectangle {
                         Logic.switch-setting-detail(SettingDetailIndex.CursorTracking);
                     } else if (index == 3) {
                         Logic.switch-setting-detail(SettingDetailIndex.ShareScreen);
+                    } else if (index == 4) {
+                        Logic.switch-setting-detail(SettingDetailIndex.PushStream);
                     }
                 }
             }

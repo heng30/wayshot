@@ -312,6 +312,14 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Wayshot Screen Sharing", "Wayshot 屏幕共享"),
             ("connections", "连接"),
             ("share screen", "共享屏幕"),
+            ("RTMP URL format", "RTMP地址格式"),
+            ("rtmp://[ip]:[port]/[app]/[stream_key]?[query_parameter]", "rtmp://[域名或IP]:[端口]/[应用名]/[流名称]?[查询参数]"),
+            ("APP name", "APP名称"),
+            ("Invalid RTMP server url format. Should start with `rtmp://`", "RTMP服务器URL格式无效，应以`rtmp://`开头"),
+            ("Push Stream", "推流"),
+            ("Query parameter", "查询参数"),
+            ("RTMP server address", "RTMP服务器地址"),
+            ("Stream key", "流名称"),
             ])
     })
 }

@@ -1,5 +1,5 @@
 use anyhow::{Result, bail};
-use crossbeam::channel::{Receiver, Sender, bounded};
+use crossbeam::channel::{Sender, bounded};
 use image::{ImageBuffer, Rgb};
 use spin_sleep::SpinSleeper;
 use srtmp::{AacEncoderConfig, AudioData, RtmpClient, RtmpClientConfig, VideoData};
@@ -63,8 +63,8 @@ fn main() -> Result<()> {
     }
 
     let exit_sig = Arc::new(AtomicBool::new(false));
-    let (video_tx, video_rx): (Sender<VideoData>, Receiver<VideoData>) = bounded(60);
-    let (audio_tx, audio_rx): (Sender<AudioData>, Receiver<AudioData>) = bounded(128);
+    let (video_tx, video_rx) = bounded(16);
+    let (audio_tx, audio_rx) = bounded(32);
 
     // let aac_config = None;
     let aac_config = Some(

@@ -48,7 +48,7 @@ export component ShareScreen inherits SettingDetail {
 
             LineInput {
                 text: cache-setting.listen-addr;
-                placeholder-text: "eg: 0.0.0.0:9090";
+                placeholder-text: "e.g., 0.0.0.0:9090";
                 border-color: self.text != cache-setting.listen-addr ? Theme.danger-color : self.default-border-color;
 
                 accepted => {
@@ -71,7 +71,7 @@ export component ShareScreen inherits SettingDetail {
                 LineInput {
                     is-show-icon: true;
                     icon: Icons.add-with-rect-light;
-                    placeholder-text: "eg: 192.168.0.1";
+                    placeholder-text: "e.g., 192.168.0.1";
 
                     accepted => {
                         self.clicked();
@@ -113,7 +113,7 @@ export component ShareScreen inherits SettingDetail {
 
                 is-show-icon: true;
                 text: cache-setting.auth_token;
-                placeholder-text: "eg: 123456";
+                placeholder-text: "e.g., 123456";
                 border-color: self.text != cache-setting.auth-token ? Theme.danger-color : self.default-border-color;
                 icon: show-password ? Icons.eye-light : Icons.close-eye-light;
                 input-type: show-password ? InputType.text : InputType.password;
@@ -150,7 +150,7 @@ export component ShareScreen inherits SettingDetail {
 
                 LineInput {
                     text: cache-setting.stun_server.url;
-                    placeholder-text: "eg: stun:192.168.0.1:3478";
+                    placeholder-text: "e.g., stun:192.168.0.1:3478";
                     border-color: self.text != cache-setting.stun-server.url ? Theme.danger-color : self.default-border-color;
 
                     accepted => {
@@ -229,7 +229,7 @@ export component ShareScreen inherits SettingDetail {
 
                 LineInput {
                     text: cache-setting.turn_server.url;
-                    placeholder-text: "eg: turn:192.168.0.1:3478";
+                    placeholder-text: "e.g., turn:192.168.0.1:3478";
                     border-color: self.text != cache-setting.turn-server.url ? Theme.danger-color : self.default-border-color;
 
                     accepted => {

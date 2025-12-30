@@ -65,8 +65,8 @@ pub struct RtmpClientConfig {
     #[derivative(Default(value = "5"))]
     pub max_frame_backlog: usize,
 
-    // 100M
-    #[derivative(Default(value = "104857600"))]
+    // 50M
+    #[derivative(Default(value = "50 * 1024 * 1024"))]
     pub max_write_buffer: usize,
 }
 
@@ -791,7 +791,6 @@ impl RtmpClient {
                             if backlog > max_backlog && !video_data.is_keyframe {
                                 let mut dropped_before_keyframe = 0;
 
-                                // drop half queued frames
                                 while self.video_receiver.len() > backlog / 2 {
                                     match self.video_receiver.try_recv() {
                                         Ok(frame) => {

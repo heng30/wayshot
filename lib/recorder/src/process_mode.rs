@@ -620,10 +620,8 @@ impl RecordingSession {
         let (h264_frame_sender, h264_frame_receiver) =
             bounded::<VideoFrameType>(ENCODER_WORKER_CHANNEL_SIZE);
 
-        let (video_tx, video_rx): (Sender<VideoData>, Receiver<VideoData>) =
-            bounded(ENCODER_WORKER_CHANNEL_SIZE);
-        let (audio_tx, audio_rx): (Sender<AudioData>, Receiver<AudioData>) =
-            bounded(ENCODER_WORKER_CHANNEL_SIZE);
+        let (video_tx, video_rx) = bounded(ENCODER_WORKER_CHANNEL_SIZE / 2);
+        let (audio_tx, audio_rx) = bounded(ENCODER_WORKER_CHANNEL_SIZE);
 
         let (encoder_width, encoder_height) = self.config.resolution.dimensions(
             self.config.screen_size.width as u32,
@@ -681,7 +679,6 @@ impl RecordingSession {
 
         let handle = thread::spawn(move || {
             let mut no_data = true;
-            let mut next_audio_timestamp = 0;
             let mut mix_audio_samples = vec![];
             let start_time = Instant::now();
 
@@ -699,34 +696,31 @@ impl RecordingSession {
                 if let Some(ref receiver) = mix_audio_receiver
                     && let Ok(data) = receiver.try_recv()
                 {
-                    if let Some(ref sender) = mp4_mix_audio_sender
-                        && let Err(e) = sender.try_send(data.clone())
-                    {
-                        log::warn!("try send audio data to mp4_worker failed: {e}");
-                    }
-
-                    if let Some(sample_rate) = mix_audio_sample_rate
-                        && let Some(channels) = mix_audio_channels
+                    if let Some(channels) = mix_audio_channels
                         && channels > 0
                     {
                         let mut sent_frame_count = 0;
                         let samples_per_frame = audio_input_frame_size * channels as usize;
-
                         mix_audio_samples.extend_from_slice(&data);
+
                         for frame in mix_audio_samples.chunks_exact(samples_per_frame) {
                             sent_frame_count += 1;
 
-                            if let Err(e) = audio_tx
-                                .try_send(AudioData::new(next_audio_timestamp, frame.to_vec()))
-                            {
+                            if let Err(e) = audio_tx.try_send(AudioData::new(
+                                start_time.elapsed().as_millis() as u32,
+                                frame.to_vec(),
+                            )) {
                                 log::warn!("try send audio data failed: {e}");
                             }
-
-                            next_audio_timestamp +=
-                                (audio_input_frame_size * 1000 / sample_rate as usize) as u32;
                         }
 
                         mix_audio_samples.drain(0..sent_frame_count * samples_per_frame);
+                    }
+
+                    if let Some(ref sender) = mp4_mix_audio_sender
+                        && let Err(e) = sender.try_send(data)
+                    {
+                        log::warn!("try send audio data to mp4_worker failed: {e}");
                     }
                 }
 
@@ -735,13 +729,6 @@ impl RecordingSession {
                 }
 
                 if let Ok(data) = h264_frame_receiver.try_recv() {
-                    log::trace!(
-                        "receiver h264 frame: {} bytes",
-                        match data {
-                            VideoFrameType::Frame(ref content) => content.len(),
-                            _ => 0,
-                        }
-                    );
                     no_data = false;
 
                     if let Some(ref sender) = mp4_h264_frame_sender {

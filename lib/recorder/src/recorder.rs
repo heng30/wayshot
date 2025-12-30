@@ -861,6 +861,8 @@ impl RecordingSession {
         if matches!(self.config.process_mode, ProcessMode::RecordScreen)
             || (matches!(self.config.process_mode, ProcessMode::ShareScreen)
                 && self.config.share_screen_config.save_mp4)
+            || (matches!(self.config.process_mode, ProcessMode::PushStream)
+                && self.config.push_stream_config.save_mp4)
         {
             if self.config.save_path.exists() {
                 log::info!("Successfully save: {}", self.config.save_path.display())

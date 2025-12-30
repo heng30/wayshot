@@ -1,0 +1,98 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    SettingPushStream,
+} from "../../def.slint";
+import {
+    SettingDetail,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+    Label,
+    SettingDetailSwitch,
+} from "../../../base/widgets.slint";
+
+export component PushStream inherits SettingDetail {
+    callback confirmed();
+
+    private property <SettingPushStream> cache-setting;
+
+    init => {
+        root.set(Logic.get-setting-push-stream());
+    }
+
+    public function get() -> SettingPushStream {
+        cache-setting.server-addr = server-addr-li.text;
+        cache-setting.app = app-name-li.text;
+        cache-setting.stream-key = stream-key-li.text;
+        cache-setting.query-params = query-params-li.text;
+
+        return root.cache-setting;
+    }
+
+    public function set(setting: SettingPushStream) {
+        cache-setting = setting;
+    }
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("RTMP server address");
+                tip: Logic.tr("RTMP URL format") + ": " + Logic.tr("rtmp://[ip]:[port]/[app]/[stream_key]?[query_parameter]");
+            }
+
+            server-addr-li := LineInput {
+                text: cache-setting.server-addr;
+                placeholder-text: "e.g., rtmp://127.0.0.1:1935";
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("APP name");
+            }
+
+            app-name-li := LineInput {
+                text: cache-setting.app;
+                placeholder-text: "e.g., live";
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Stream key");
+            }
+
+            stream-key-li := LineInput {
+                text: cache-setting.stream-key;
+                placeholder-text: "e.g., stream";
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Query parameter");
+            }
+
+            query-params-li := LineInput {
+                text: cache-setting.query-params;
+                placeholder-text: "e.g., key1=value1&key2=value2";
+            }
+        }
+
+        SettingDetailInnerVbox {
+            save-mp4-swicth := SettingDetailSwitch {
+                icon: Icons.save-archive-light;
+                text: self.checked ? Logic.tr("Save mp4") : Logic.tr("Don't save mp4");
+                checked: cache-setting.save-mp4;
+
+                toggled => {
+                    cache-setting.save-mp4 = self.checked;
+                }
+            }
+        }
+    }
+}

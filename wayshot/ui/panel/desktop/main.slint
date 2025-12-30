@@ -31,13 +31,16 @@ component ProcessModePanel inherits HorizontalLayout {
         init => {
             if (Store.process-mode == ProcessMode.RecordScreen) {
                 self.update-selected-index(0)
-            } else if (Store.process-mode == ProcessMode.ShareScreen) {
+            } else if (Store.process-mode == ProcessMode.PushStream) {
                 self.update-selected-index(1)
+            } else if (Store.process-mode == ProcessMode.ShareScreen) {
+                self.update-selected-index(2)
             }
         }
 
         items: [
             { icon: Icons.video-recorder-light, text: Logic.tr("Record Screen") },
+            { icon: Icons.push-light, text: Logic.tr("Push Stream") },
             { icon: Icons.share-screen-light, text: Logic.tr("Share Screen") },
         ];
 
@@ -45,6 +48,8 @@ component ProcessModePanel inherits HorizontalLayout {
             if (index == 0) {
                 Logic.switch-process-mode(ProcessMode.RecordScreen);
             } else if (index == 1) {
+                Logic.switch-process-mode(ProcessMode.PushStream);
+            } else if (index == 2) {
                 Logic.switch-process-mode(ProcessMode.ShareScreen);
             }
         }
