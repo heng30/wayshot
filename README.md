@@ -5,13 +5,14 @@
 [中文文档](./README.zh-CN.md)
 
 ### Introduction
-`Screen recording` and `Share screen` tool, based on `Rust` and the `Slint` GUI framework. Support operating systems: `Windows` and `Linux`.
+`Screen recording`, `Share screen` and `Push stream` tool, based on `Rust` and the `Slint` GUI framework. Support operating systems: `Windows` and `Linux`.
 
 ----
 
 ### Features
 - Share screen via WebRTC
 - Single screen recording
+- Push stream via RTMP
 - Single input device audio recording
 - Desktop audio recording
 - Microphone noise reduction

@@ -5,7 +5,7 @@
 [English Documentation](./README.md)
 
 ### 简介
-`录屏`和`屏幕共享`工具。基于`Rust`和`Slint` GUI框架。适用的操作系统`Linux`和`Windows`。
+`录屏`、`屏幕共享`和`推流`工具。基于`Rust`和`Slint` GUI框架。适用的操作系统`Linux`和`Windows`。
 
 ----
 
@@ -18,6 +18,7 @@
 - 光标跟随
 - 管理录制视频历史
 - 播放录制的历史视频
+- 支持RTMP推流
 
 ----
 
