@@ -1,5 +1,6 @@
-use crate::{Effect, ImageEffectResult};
+use crate::Effect;
 use image::RgbaImage;
+use photon_rs::{effects, monochrome, Rgb, PhotonImage};
 
 /// Duotone effect configuration
 #[derive(Debug, Clone, Copy)]
@@ -48,21 +49,15 @@ impl DuotoneConfig {
 }
 
 impl Effect for DuotoneConfig {
-    fn apply(&self, image: &mut RgbaImage) -> ImageEffectResult<()> {
-        for pixel in image.pixels_mut() {
-            // Calculate luminance
-            let gray = (pixel[0] as f32 * 0.299 + pixel[1] as f32 * 0.587 + pixel[2] as f32 * 0.114) / 255.0;
+    fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
+        let mut photon_img = PhotonImage::new(image.to_vec(), image.width(), image.height());
 
-            // Blend between primary and secondary colors based on luminance
-            let r = (self.primary_r as f32 * (1.0 - gray) + self.secondary_r as f32 * gray) as u8;
-            let g = (self.primary_g as f32 * (1.0 - gray) + self.secondary_g as f32 * gray) as u8;
-            let b = (self.primary_b as f32 * (1.0 - gray) + self.secondary_b as f32 * gray) as u8;
+        let color_a = Rgb::new(self.primary_r, self.primary_g, self.primary_b);
+        let color_b = Rgb::new(self.secondary_r, self.secondary_g, self.secondary_b);
 
-            pixel[0] = r;
-            pixel[1] = g;
-            pixel[2] = b;
-        }
-        Ok(())
+        effects::duotone(&mut photon_img, color_a, color_b);
+
+        RgbaImage::from_raw(image.width(), image.height(), photon_img.get_raw_pixels())
     }
 }
 
@@ -76,7 +71,7 @@ pub struct SolarizationConfig {
 impl Default for SolarizationConfig {
     fn default() -> Self {
         Self {
-            mode: SolarizationMode::RG,
+            mode: SolarizationMode::RGB,
             threshold: 128,
         }
     }
@@ -110,46 +105,48 @@ impl SolarizationConfig {
 }
 
 impl Effect for SolarizationConfig {
-    fn apply(&self, image: &mut RgbaImage) -> ImageEffectResult<()> {
-        let threshold = self.threshold;
+    fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
+        // photon-rs solarize only affects red channel with fixed threshold
+        // For more control, we implement custom solarization
+        let mut result = image.clone();
 
-        for pixel in image.pixels_mut() {
+        for pixel in result.pixels_mut() {
             match self.mode {
                 SolarizationMode::Red => {
-                    if pixel[0] > threshold {
+                    if pixel[0] > self.threshold {
                         pixel[0] = 255 - pixel[0];
                     }
                 }
                 SolarizationMode::Green => {
-                    if pixel[1] > threshold {
+                    if pixel[1] > self.threshold {
                         pixel[1] = 255 - pixel[1];
                     }
                 }
                 SolarizationMode::Blue => {
-                    if pixel[2] > threshold {
+                    if pixel[2] > self.threshold {
                         pixel[2] = 255 - pixel[2];
                     }
                 }
                 SolarizationMode::RG => {
-                    if pixel[0] > threshold { pixel[0] = 255 - pixel[0]; }
-                    if pixel[1] > threshold { pixel[1] = 255 - pixel[1]; }
+                    if pixel[0] > self.threshold { pixel[0] = 255 - pixel[0]; }
+                    if pixel[1] > self.threshold { pixel[1] = 255 - pixel[1]; }
                 }
                 SolarizationMode::RB => {
-                    if pixel[0] > threshold { pixel[0] = 255 - pixel[0]; }
-                    if pixel[2] > threshold { pixel[2] = 255 - pixel[2]; }
+                    if pixel[0] > self.threshold { pixel[0] = 255 - pixel[0]; }
+                    if pixel[2] > self.threshold { pixel[2] = 255 - pixel[2]; }
                 }
                 SolarizationMode::GB => {
-                    if pixel[1] > threshold { pixel[1] = 255 - pixel[1]; }
-                    if pixel[2] > threshold { pixel[2] = 255 - pixel[2]; }
+                    if pixel[1] > self.threshold { pixel[1] = 255 - pixel[1]; }
+                    if pixel[2] > self.threshold { pixel[2] = 255 - pixel[2]; }
                 }
                 SolarizationMode::RGB => {
-                    if pixel[0] > threshold { pixel[0] = 255 - pixel[0]; }
-                    if pixel[1] > threshold { pixel[1] = 255 - pixel[1]; }
-                    if pixel[2] > threshold { pixel[2] = 255 - pixel[2]; }
+                    if pixel[0] > self.threshold { pixel[0] = 255 - pixel[0]; }
+                    if pixel[1] > self.threshold { pixel[1] = 255 - pixel[1]; }
+                    if pixel[2] > self.threshold { pixel[2] = 255 - pixel[2]; }
                 }
             }
         }
-        Ok(())
+        Some(result)
     }
 }
 
@@ -177,18 +174,10 @@ impl ThresholdConfig {
 }
 
 impl Effect for ThresholdConfig {
-    fn apply(&self, image: &mut RgbaImage) -> ImageEffectResult<()> {
-        for pixel in image.pixels_mut() {
-            // Calculate luminance
-            let gray = (pixel[0] as f32 * 0.299 + pixel[1] as f32 * 0.587 + pixel[2] as f32 * 0.114) as u8;
-
-            // Apply threshold
-            let val = if gray > self.threshold { 255 } else { 0 };
-            pixel[0] = val;
-            pixel[1] = val;
-            pixel[2] = val;
-        }
-        Ok(())
+    fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
+        let mut photon_img = PhotonImage::new(image.to_vec(), image.width(), image.height());
+        monochrome::threshold(&mut photon_img, self.threshold as u32);
+        RgbaImage::from_raw(image.width(), image.height(), photon_img.get_raw_pixels())
     }
 }
 
@@ -219,18 +208,19 @@ impl LevelConfig {
 }
 
 impl Effect for LevelConfig {
-    fn apply(&self, image: &mut RgbaImage) -> ImageEffectResult<()> {
+    fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
+        let mut result = image.clone();
         let input_range = (self.input_white - self.input_black) as f32;
         let output_range = (self.output_white - self.output_black) as f32;
 
-        for pixel in image.pixels_mut() {
+        for pixel in result.pixels_mut() {
             for i in 0..3 {
                 let val = pixel[i] as f32;
                 let adjusted = ((val - self.input_black as f32) / input_range * output_range + self.output_black as f32).clamp(0.0, 255.0) as u8;
                 pixel[i] = adjusted;
             }
         }
-        Ok(())
+        Some(result)
     }
 }
 
@@ -274,12 +264,14 @@ impl ColorBalanceConfig {
 }
 
 impl Effect for ColorBalanceConfig {
-    fn apply(&self, image: &mut RgbaImage) -> ImageEffectResult<()> {
-        for pixel in image.pixels_mut() {
+    fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
+        let mut result = image.clone();
+
+        for pixel in result.pixels_mut() {
             pixel[0] = (pixel[0] as i32 + self.red_shift).clamp(0, 255) as u8;
             pixel[1] = (pixel[1] as i32 + self.green_shift).clamp(0, 255) as u8;
             pixel[2] = (pixel[2] as i32 + self.blue_shift).clamp(0, 255) as u8;
         }
-        Ok(())
+        Some(result)
     }
 }

@@ -1,9 +1,10 @@
-use crate::{Effect, ImageEffectResult};
+use crate::Effect;
 use derivative::Derivative;
 use derive_setters::Setters;
 use image::RgbaImage;
+use photon_rs::{effects, monochrome, PhotonImage};
 
-/// Sepia tone configuration (using photon-rs)
+/// Sepia tone configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -20,26 +21,34 @@ impl SepiaConfig {
 }
 
 impl Effect for SepiaConfig {
-    fn apply(&self, image: &mut RgbaImage) -> ImageEffectResult<()> {
-        // Manual sepia implementation to avoid photon-rs issues
-        for pixel in image.pixels_mut() {
-            let r = pixel[0] as f32;
-            let g = pixel[1] as f32;
-            let b = pixel[2] as f32;
+    fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
+        // Use photon-rs sepia effect
+        let mut photon_img = PhotonImage::new(image.to_vec(), image.width(), image.height());
+        monochrome::sepia(&mut photon_img);
+        let sepia_pixels = photon_img.get_raw_pixels();
 
-            // Sepia tone transformation
-            let tr = (0.393 * r + 0.769 * g + 0.189 * b).min(255.0);
-            let tg = (0.349 * r + 0.686 * g + 0.168 * b).min(255.0);
-            let tb = (0.272 * r + 0.534 * g + 0.131 * b).min(255.0);
+        // If intensity is not 1.0, blend with original
+        if self.intensity < 1.0 {
+            let original_pixels = image.to_vec();
+            let mut blended_pixels = Vec::with_capacity(sepia_pixels.len());
 
-            // Blend with original based on intensity
-            let intensity = self.intensity.clamp(0.0, 1.0);
-            pixel[0] = (r * (1.0 - intensity) + tr * intensity) as u8;
-            pixel[1] = (g * (1.0 - intensity) + tg * intensity) as u8;
-            pixel[2] = (b * (1.0 - intensity) + tb * intensity) as u8;
+            for (original, sepia) in original_pixels.chunks(4).zip(sepia_pixels.chunks(4)) {
+                blended_pixels.push((
+                    original[0] as f32 * (1.0 - self.intensity) + sepia[0] as f32 * self.intensity
+                ) as u8);
+                blended_pixels.push((
+                    original[1] as f32 * (1.0 - self.intensity) + sepia[1] as f32 * self.intensity
+                ) as u8);
+                blended_pixels.push((
+                    original[2] as f32 * (1.0 - self.intensity) + sepia[2] as f32 * self.intensity
+                ) as u8);
+                blended_pixels.push(original[3]); // Keep alpha
+            }
+
+            RgbaImage::from_raw(image.width(), image.height(), blended_pixels)
+        } else {
+            RgbaImage::from_raw(image.width(), image.height(), sepia_pixels)
         }
-
-        Ok(())
     }
 }
 
@@ -57,25 +66,25 @@ impl TemperatureConfig {
     pub fn new() -> Self {
         Self::default()
     }
+}
 
-    pub fn apply_warm(&self, image: &mut RgbaImage) -> ImageEffectResult<()> {
-        // Adjust color temperature towards warm (increase red, decrease blue)
-        for pixel in image.pixels_mut() {
-            pixel[0] = (pixel[0] as f32 * (1.0 + self.amount * 0.1)).min(255.0) as u8;
-            pixel[2] = (pixel[2] as f32 * (1.0 - self.amount * 0.1)).max(0.0) as u8;
+impl Effect for TemperatureConfig {
+    fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
+        let mut photon_img = PhotonImage::new(image.to_vec(), image.width(), image.height());
+
+        // Use photon-rs tint for temperature adjustment
+        // Positive amount = warm (more red/yellow)
+        // Negative amount = cool (more blue)
+        if self.amount > 0.0 {
+            // Warm: increase red, decrease blue
+            effects::tint(&mut photon_img, (self.amount * 20.0) as u32, (self.amount * 10.0) as u32, 0);
+        } else {
+            // Cool: decrease red, increase blue
+            let cool_amount = -self.amount;
+            effects::tint(&mut photon_img, 0, 0, (cool_amount * 20.0) as u32);
         }
 
-        Ok(())
-    }
-
-    pub fn apply_cool(&self, image: &mut RgbaImage) -> ImageEffectResult<()> {
-        // Adjust color temperature towards cool (increase blue, decrease red)
-        for pixel in image.pixels_mut() {
-            pixel[0] = (pixel[0] as f32 * (1.0 - self.amount * 0.1)).max(0.0) as u8;
-            pixel[2] = (pixel[2] as f32 * (1.0 + self.amount * 0.1)).min(255.0) as u8;
-        }
-
-        Ok(())
+        RgbaImage::from_raw(image.width(), image.height(), photon_img.get_raw_pixels())
     }
 }
 
@@ -106,17 +115,14 @@ impl ColorTintConfig {
 }
 
 impl Effect for ColorTintConfig {
-    fn apply(&self, image: &mut RgbaImage) -> ImageEffectResult<()> {
-        // Apply color tint by blending
-        for pixel in image.pixels_mut() {
-            // Blend the tint color with the original pixel
-            let blend_ratio = 0.3; // 30% tint
-            pixel[0] = (pixel[0] as f32 * (1.0 - blend_ratio) + self.r as f32 * blend_ratio) as u8;
-            pixel[1] = (pixel[1] as f32 * (1.0 - blend_ratio) + self.g as f32 * blend_ratio) as u8;
-            pixel[2] = (pixel[2] as f32 * (1.0 - blend_ratio) + self.b as f32 * blend_ratio) as u8;
-        }
+    fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
+        let mut photon_img = PhotonImage::new(image.to_vec(), image.width(), image.height());
 
-        Ok(())
+        // Use photon-rs tint function to add color
+        // The tint function adds to existing colors, so we scale the RGB values
+        effects::tint(&mut photon_img, self.r as u32 / 3, self.g as u32 / 3, self.b as u32 / 3);
+
+        RgbaImage::from_raw(image.width(), image.height(), photon_img.get_raw_pixels())
     }
 }
 
@@ -140,30 +146,35 @@ impl VignetteConfig {
 }
 
 impl Effect for VignetteConfig {
-    fn apply(&self, image: &mut RgbaImage) -> ImageEffectResult<()> {
+    fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
         let width = image.width();
         let height = image.height();
         let center_x = width as f32 / 2.0;
         let center_y = height as f32 / 2.0;
         let max_distance = (center_x * center_x + center_y * center_y).sqrt();
 
-        for (y, row) in image.rows_mut().enumerate() {
-            for (x, pixel) in row.enumerate() {
-                let dx = x as f32 - center_x;
-                let dy = y as f32 - center_y;
-                let distance = (dx * dx + dy * dy).sqrt();
+        let mut pixels = image.to_vec();
 
-                // Calculate vignette factor
-                let normalized_distance = distance / max_distance;
-                let vignette_factor = 1.0 - (normalized_distance * self.strength).min(self.strength);
+        for (i, chunk) in pixels.chunks_mut(4).enumerate() {
+            // Calculate position from pixel index
+            let x = (i % width as usize) as f32;
+            let y = (i / width as usize) as f32;
 
-                // Apply vignette
-                pixel[0] = (pixel[0] as f32 * vignette_factor) as u8;
-                pixel[1] = (pixel[1] as f32 * vignette_factor) as u8;
-                pixel[2] = (pixel[2] as f32 * vignette_factor) as u8;
-            }
+            let dx = x - center_x;
+            let dy = y - center_y;
+            let distance = (dx * dx + dy * dy).sqrt();
+
+            // Calculate vignette factor based on radius and strength
+            let normalized_distance = distance / (max_distance * self.radius);
+            let vignette_factor = 1.0 - (normalized_distance * self.strength).min(self.strength).max(0.0);
+
+            // Apply vignette to RGB channels
+            chunk[0] = (chunk[0] as f32 * vignette_factor) as u8;
+            chunk[1] = (chunk[1] as f32 * vignette_factor) as u8;
+            chunk[2] = (chunk[2] as f32 * vignette_factor) as u8;
+            // Alpha channel remains unchanged
         }
 
-        Ok(())
+        RgbaImage::from_raw(width, height, pixels)
     }
 }

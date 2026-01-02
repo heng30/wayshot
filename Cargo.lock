@@ -4308,7 +4308,6 @@ dependencies = [
  "derivative",
  "derive_setters",
  "env_logger",
- "fast_image_resize",
  "image 0.25.8",
  "imageproc 0.25.0",
  "log",

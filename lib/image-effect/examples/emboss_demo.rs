@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use image_effect::stylized_effect::EmbossConfig;
 
     let effect = ImageEffect::Emboss(EmbossConfig::new());
-    effect.apply(&mut img)?;
+    img = effect.apply(img).expect("Effect failed");
 
     img.save(output_dir.join("emboss_effect.png"))?;
 

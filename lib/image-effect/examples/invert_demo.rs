@@ -6,18 +6,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output_dir = Path::new("tmp");
     std::fs::create_dir_all(output_dir)?;
 
-    // Create test image with various colors
-    // Load test image
     let img_path = Path::new("data/test.png");
-    let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
+    let img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
-    // Save original
-
-    // Apply invert effect
-    let effect = ImageEffect::Invert;
-    effect.apply(&mut img)?;
-
-    // Save result
+    let img = ImageEffect::Invert.apply(img).expect("Effect failed");
     img.save(output_dir.join("invert_effect.png"))?;
 
     println!("✓ Invert effect applied successfully!");

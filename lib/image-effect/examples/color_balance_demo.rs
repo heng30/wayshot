@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .with_blue_shift(b)
         );
 
-        effect.apply(&mut test_img)?;
+test_img = effect.apply(test_img).expect("Effect failed");
 
         let filename = format!("color_balance_{}.png", name);
         test_img.save(output_dir.join(&filename))?;

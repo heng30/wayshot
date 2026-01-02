@@ -1,6 +1,5 @@
-/// Sepia tone effect example
-/// Demonstrates vintage sepia effect
-
+/// Pink noise effect example
+/// Demonstrates pink noise (1/f noise) addition to images
 
 use image::ImageReader;
 use image_effect::{Effect, ImageEffect};
@@ -14,16 +13,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img_path = Path::new("data/test.png");
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
-    // Apply sepia effect
-    use image_effect::filter_effect::SepiaConfig;
-
-    let effect = ImageEffect::Sepia(SepiaConfig::new());
+    // Apply pink noise effect
+    let effect = ImageEffect::PinkNoise(image_effect::noise_effect::PinkNoiseConfig::new());
     img = effect.apply(img).expect("Effect failed");
 
-    img.save(output_dir.join("sepia_effect.png"))?;
+    img.save(output_dir.join("pink_noise_effect.png"))?;
 
-    println!("✓ Sepia effect applied successfully!");
-    println!("  Effect:   tmp/sepia_effect.png");
+    println!("✓ Pink noise effect applied successfully!");
+    println!("  Effect:   tmp/pink_noise_effect.png");
 
     Ok(())
 }

@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use image_effect::stylized_effect::SharpenConfig;
 
     let effect = ImageEffect::Sharpen(SharpenConfig::new());
-    effect.apply(&mut img)?;
+    img = effect.apply(img).expect("Effect failed");
 
     img.save(output_dir.join("sharpen_effect.png"))?;
 

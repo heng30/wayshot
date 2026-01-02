@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .with_secondary_rgb(secondary.0, secondary.1, secondary.2)
         );
 
-        effect.apply(&mut test_img)?;
+test_img = effect.apply(test_img).expect("Effect failed");
 
         let filename = format!("duotone_{}.png", name);
         test_img.save(output_dir.join(&filename))?;

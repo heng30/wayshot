@@ -1,5 +1,5 @@
 /// Edge detection effect example
-/// Demonstrates Sobel and Laplacian edge detection
+/// Demonstrates various edge detection modes
 
 
 use image::ImageReader;
@@ -12,11 +12,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Load test image
     let img_path = Path::new("data/test.png");
-    let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
+    let img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
     use image_effect::stylized_effect::{EdgeDetectionConfig, EdgeDetectionMode};
 
-    let modes = [EdgeDetectionMode::Sobel, EdgeDetectionMode::Laplacian];
+    let modes = [
+        EdgeDetectionMode::Standard,
+        EdgeDetectionMode::SobelHorizontal,
+        EdgeDetectionMode::SobelVertical,
+        EdgeDetectionMode::SobelGlobal,
+    ];
 
     for mode in modes {
         let mut test_img = img.clone();
@@ -24,7 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             EdgeDetectionConfig::new().with_mode(mode)
         );
 
-        effect.apply(&mut test_img)?;
+        test_img = effect.apply(test_img).expect("Effect failed");
 
         let filename = format!("edge_detection_{:?}.png", mode).to_lowercase();
         test_img.save(output_dir.join(&filename))?;

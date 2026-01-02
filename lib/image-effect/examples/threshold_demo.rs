@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ThresholdConfig::new().with_threshold(threshold)
         );
 
-        effect.apply(&mut test_img)?;
+test_img = effect.apply(test_img).expect("Effect failed");
 
         let filename = format!("threshold_{}.png", threshold);
         test_img.save(output_dir.join(&filename))?;

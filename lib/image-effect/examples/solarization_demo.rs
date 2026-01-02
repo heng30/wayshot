@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .with_threshold(128)
         );
 
-        effect.apply(&mut test_img)?;
+test_img = effect.apply(test_img).expect("Effect failed");
 
         let filename = format!("solarization_{:?}_128.png", mode).to_lowercase();
         test_img.save(output_dir.join(&filename))?;
@@ -48,7 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .with_threshold(threshold)
         );
 
-        effect.apply(&mut test_img)?;
+test_img = effect.apply(test_img).expect("Effect failed");
 
         let filename = format!("solarization_rgb_{}.png", threshold);
         test_img.save(output_dir.join(&filename))?;

@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Load test image
     let img_path = Path::new("data/test.png");
-    let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
+    let img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
     use image_effect::filter_effect::ColorTintConfig;
 
@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ColorTintConfig::from_rgb(r, g, b)
         );
 
-        effect.apply(&mut test_img)?;
+test_img = effect.apply(test_img).expect("Effect failed");
         let filename = format!("color_tint_{}.png", name);
         test_img.save(output_dir.join(&filename))?;
         println!("✓ Generated {}", filename);

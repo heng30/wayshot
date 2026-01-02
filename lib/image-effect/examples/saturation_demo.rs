@@ -7,7 +7,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output_dir = Path::new("tmp");
     std::fs::create_dir_all(output_dir)?;
 
-    // Load test image
     let img_path = Path::new("data/test.png");
     let img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
@@ -17,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut test_img = img.clone();
         let effect = ImageEffect::Saturation(SaturationConfig::new().with_amount(level));
 
-        effect.apply(&mut test_img)?;
+test_img = effect.apply(test_img).expect("Effect failed");
 
         let filename = if level >= 0.0 {
             format!("saturation_+{}.png", level)

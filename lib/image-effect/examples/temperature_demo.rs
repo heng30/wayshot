@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Load test image
     let img_path = Path::new("data/test.png");
-    let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
+    let img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
     use image_effect::filter_effect::TemperatureConfig;
 
@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             TemperatureConfig::new().with_amount(level)
         );
 
-        effect.apply(&mut test_img)?;
+test_img = effect.apply(test_img).expect("Effect failed");
         let filename = format!("warm_filter_{:.1}.png", level);
         test_img.save(output_dir.join(&filename))?;
         println!("✓ Generated {}", filename);
@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             TemperatureConfig::new().with_amount(level)
         );
 
-        effect.apply(&mut test_img)?;
+test_img = effect.apply(test_img).expect("Effect failed");
         let filename = format!("cool_filter_{:.1}.png", level);
         test_img.save(output_dir.join(&filename))?;
         println!("✓ Generated {}", filename);

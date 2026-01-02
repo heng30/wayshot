@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Load test image
     let img_path = Path::new("data/test.png");
-    let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
+    let img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
     use image_effect::stylized_effect::PixelateConfig;
 
@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             PixelateConfig::new().with_block_size(block_size)
         );
 
-        effect.apply(&mut test_img)?;
+test_img = effect.apply(test_img).expect("Effect failed");
 
         let filename = format!("pixelate_b{}.png", block_size);
         test_img.save(output_dir.join(&filename))?;
