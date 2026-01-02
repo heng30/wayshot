@@ -9,16 +9,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img_path = Path::new("data/test.png");
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
-    let effect = ImageEffect::AlterRedChannel(
-        image_effect::channel_effect::AlterRedChannelConfig::new().with_amount(50),
+    let effect = ImageEffect::IncBrightness(
+        image_effect::special_effect::IncBrightnessConfig::new(),
     );
     img = effect.apply(img).expect("Effect failed");
 
-    img.save(output_dir.join("alter_red_channel_effect.png"))?;
+    img.save(output_dir.join("inc_brightness_effect.png"))?;
 
-    println!("✓ Alter red channel effect applied successfully!");
-    println!("  Amount: +50");
-    println!("  Effect: tmp/alter_red_channel_effect.png");
+    println!("✓ Increase brightness effect applied successfully!");
+    println!("  Effect: tmp/inc_brightness_effect.png");
 
     Ok(())
 }

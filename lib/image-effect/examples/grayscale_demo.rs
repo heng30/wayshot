@@ -1,7 +1,7 @@
 use image::ImageReader;
 use image_effect::{
     Effect, ImageEffect,
-    base_effect::{GrayscaleConfig, GrayscaleMode},
+    monochrome_effect::{GrayscaleConfig, GrayscaleMode},
 };
 use std::path::Path;
 

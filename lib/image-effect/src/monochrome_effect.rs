@@ -1,29 +1,83 @@
 use crate::Effect;
+use derivative::Derivative;
+use derive_setters::Setters;
 use image::RgbaImage;
-use photon_rs::{effects, monochrome, Rgb, PhotonImage};
+use photon_rs::{PhotonImage, Rgb, effects, monochrome};
 
-/// Duotone effect configuration
 #[derive(Debug, Clone, Copy)]
-pub struct DuotoneConfig {
-    pub primary_r: u8,
-    pub primary_g: u8,
-    pub primary_b: u8,
-    pub secondary_r: u8,
-    pub secondary_g: u8,
-    pub secondary_b: u8,
+pub enum GrayscaleMode {
+    Average,
+    Luminance,
+    RedChannel,
+    GreenChannel,
+    BlueChannel,
 }
 
-impl Default for DuotoneConfig {
-    fn default() -> Self {
-        Self {
-            primary_r: 0,
-            primary_g: 0,
-            primary_b: 255,
-            secondary_r: 128,
-            secondary_g: 128,
-            secondary_b: 128,
+#[derive(Debug, Clone, Derivative, Setters)]
+#[derivative(Default)]
+#[setters(prefix = "with_")]
+#[non_exhaustive]
+pub struct GrayscaleConfig {
+    #[derivative(Default(value = "GrayscaleMode::Luminance"))]
+    mode: GrayscaleMode,
+}
+
+impl GrayscaleConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Effect for GrayscaleConfig {
+    fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
+        let (width, height) = (image.width(), image.height());
+        match self.mode {
+            GrayscaleMode::Luminance => {
+                let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+                monochrome::grayscale_human_corrected(&mut photon_img);
+                RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
+            }
+            GrayscaleMode::Average => {
+                let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+                monochrome::grayscale(&mut photon_img);
+                RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
+            }
+            GrayscaleMode::RedChannel => {
+                let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+                monochrome::r_grayscale(&mut photon_img);
+                RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
+            }
+            GrayscaleMode::GreenChannel => {
+                let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+                monochrome::g_grayscale(&mut photon_img);
+                RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
+            }
+            GrayscaleMode::BlueChannel => {
+                let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+                monochrome::b_grayscale(&mut photon_img);
+                RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
+            }
         }
     }
+}
+
+#[derive(Debug, Clone, Derivative, Setters)]
+#[derivative(Default)]
+#[setters(prefix = "with_")]
+#[non_exhaustive]
+pub struct DuotoneConfig {
+    #[derivative(Default(value = "0"))]
+    primary_r: u8,
+    #[derivative(Default(value = "0"))]
+    primary_g: u8,
+    #[derivative(Default(value = "255"))]
+    primary_b: u8,
+    #[derivative(Default(value = "128"))]
+    secondary_r: u8,
+    #[derivative(Default(value = "128"))]
+    secondary_g: u8,
+    #[derivative(Default(value = "128"))]
+    secondary_b: u8,
 }
 
 impl DuotoneConfig {
@@ -61,22 +115,6 @@ impl Effect for DuotoneConfig {
     }
 }
 
-/// Solarization effect configuration
-#[derive(Debug, Clone, Copy)]
-pub struct SolarizationConfig {
-    pub mode: SolarizationMode,
-    pub threshold: u8,
-}
-
-impl Default for SolarizationConfig {
-    fn default() -> Self {
-        Self {
-            mode: SolarizationMode::RGB,
-            threshold: 128,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 pub enum SolarizationMode {
     Red,
@@ -88,19 +126,20 @@ pub enum SolarizationMode {
     RGB,
 }
 
+#[derive(Debug, Clone, Derivative, Setters)]
+#[derivative(Default)]
+#[setters(prefix = "with_")]
+#[non_exhaustive]
+pub struct SolarizationConfig {
+    #[derivative(Default(value = "SolarizationMode::RGB"))]
+    mode: SolarizationMode,
+    #[derivative(Default(value = "128"))]
+    threshold: u8,
+}
+
 impl SolarizationConfig {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn with_mode(mut self, mode: SolarizationMode) -> Self {
-        self.mode = mode;
-        self
-    }
-
-    pub fn with_threshold(mut self, threshold: u8) -> Self {
-        self.threshold = threshold;
-        self
     }
 }
 
@@ -128,21 +167,39 @@ impl Effect for SolarizationConfig {
                     }
                 }
                 SolarizationMode::RG => {
-                    if pixel[0] > self.threshold { pixel[0] = 255 - pixel[0]; }
-                    if pixel[1] > self.threshold { pixel[1] = 255 - pixel[1]; }
+                    if pixel[0] > self.threshold {
+                        pixel[0] = 255 - pixel[0];
+                    }
+                    if pixel[1] > self.threshold {
+                        pixel[1] = 255 - pixel[1];
+                    }
                 }
                 SolarizationMode::RB => {
-                    if pixel[0] > self.threshold { pixel[0] = 255 - pixel[0]; }
-                    if pixel[2] > self.threshold { pixel[2] = 255 - pixel[2]; }
+                    if pixel[0] > self.threshold {
+                        pixel[0] = 255 - pixel[0];
+                    }
+                    if pixel[2] > self.threshold {
+                        pixel[2] = 255 - pixel[2];
+                    }
                 }
                 SolarizationMode::GB => {
-                    if pixel[1] > self.threshold { pixel[1] = 255 - pixel[1]; }
-                    if pixel[2] > self.threshold { pixel[2] = 255 - pixel[2]; }
+                    if pixel[1] > self.threshold {
+                        pixel[1] = 255 - pixel[1];
+                    }
+                    if pixel[2] > self.threshold {
+                        pixel[2] = 255 - pixel[2];
+                    }
                 }
                 SolarizationMode::RGB => {
-                    if pixel[0] > self.threshold { pixel[0] = 255 - pixel[0]; }
-                    if pixel[1] > self.threshold { pixel[1] = 255 - pixel[1]; }
-                    if pixel[2] > self.threshold { pixel[2] = 255 - pixel[2]; }
+                    if pixel[0] > self.threshold {
+                        pixel[0] = 255 - pixel[0];
+                    }
+                    if pixel[1] > self.threshold {
+                        pixel[1] = 255 - pixel[1];
+                    }
+                    if pixel[2] > self.threshold {
+                        pixel[2] = 255 - pixel[2];
+                    }
                 }
             }
         }
@@ -150,26 +207,18 @@ impl Effect for SolarizationConfig {
     }
 }
 
-/// Threshold effect configuration
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Derivative, Setters)]
+#[derivative(Default)]
+#[setters(prefix = "with_")]
+#[non_exhaustive]
 pub struct ThresholdConfig {
-    pub threshold: u8,
-}
-
-impl Default for ThresholdConfig {
-    fn default() -> Self {
-        Self { threshold: 128 }
-    }
+    #[derivative(Default(value = "128"))]
+    threshold: u8,
 }
 
 impl ThresholdConfig {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn with_threshold(mut self, threshold: u8) -> Self {
-        self.threshold = threshold;
-        self
     }
 }
 
@@ -181,24 +230,19 @@ impl Effect for ThresholdConfig {
     }
 }
 
-/// Level adjustment configuration
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Derivative, Setters)]
+#[derivative(Default)]
+#[setters(prefix = "with_")]
+#[non_exhaustive]
 pub struct LevelConfig {
-    pub input_black: i32,
-    pub input_white: i32,
-    pub output_black: i32,
-    pub output_white: i32,
-}
-
-impl Default for LevelConfig {
-    fn default() -> Self {
-        Self {
-            input_black: 0,
-            input_white: 255,
-            output_black: 0,
-            output_white: 255,
-        }
-    }
+    #[derivative(Default(value = "0"))]
+    input_black: i32,
+    #[derivative(Default(value = "255"))]
+    input_white: i32,
+    #[derivative(Default(value = "0"))]
+    output_black: i32,
+    #[derivative(Default(value = "255"))]
+    output_white: i32,
 }
 
 impl LevelConfig {
@@ -216,7 +260,9 @@ impl Effect for LevelConfig {
         for pixel in result.pixels_mut() {
             for i in 0..3 {
                 let val = pixel[i] as f32;
-                let adjusted = ((val - self.input_black as f32) / input_range * output_range + self.output_black as f32).clamp(0.0, 255.0) as u8;
+                let adjusted = ((val - self.input_black as f32) / input_range * output_range
+                    + self.output_black as f32)
+                    .clamp(0.0, 255.0) as u8;
                 pixel[i] = adjusted;
             }
         }
@@ -224,42 +270,22 @@ impl Effect for LevelConfig {
     }
 }
 
-/// Color balance configuration
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Derivative, Setters)]
+#[derivative(Default)]
+#[setters(prefix = "with_")]
+#[non_exhaustive]
 pub struct ColorBalanceConfig {
-    pub red_shift: i32,
-    pub green_shift: i32,
-    pub blue_shift: i32,
-}
-
-impl Default for ColorBalanceConfig {
-    fn default() -> Self {
-        Self {
-            red_shift: 0,
-            green_shift: 0,
-            blue_shift: 0,
-        }
-    }
+    #[derivative(Default(value = "0"))]
+    red_shift: i32,
+    #[derivative(Default(value = "0"))]
+    green_shift: i32,
+    #[derivative(Default(value = "0"))]
+    blue_shift: i32,
 }
 
 impl ColorBalanceConfig {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn with_red_shift(mut self, shift: i32) -> Self {
-        self.red_shift = shift;
-        self
-    }
-
-    pub fn with_green_shift(mut self, shift: i32) -> Self {
-        self.green_shift = shift;
-        self
-    }
-
-    pub fn with_blue_shift(mut self, shift: i32) -> Self {
-        self.blue_shift = shift;
-        self
     }
 }
 

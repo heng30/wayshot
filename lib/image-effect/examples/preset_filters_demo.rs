@@ -1,5 +1,5 @@
 /// Preset filters demo
-/// Demonstrates all 15 preset filters from photon-rs
+/// Demonstrates all 22 preset filters from photon-rs
 
 use image::ImageReader;
 use image_effect::{Effect, ImageEffect};
@@ -16,6 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use image_effect::preset_filter_effect::{PresetFilterConfig, PresetFilter};
 
     let filters = [
+        // Original 15 filters
         PresetFilter::Oceanic,
         PresetFilter::Islands,
         PresetFilter::Marine,
@@ -31,6 +32,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         PresetFilter::Vintage,
         PresetFilter::Perfume,
         PresetFilter::Serenity,
+        // Additional 7 filters
+        PresetFilter::Golden,
+        PresetFilter::PastelPink,
+        PresetFilter::Cali,
+        PresetFilter::Dramatic,
+        PresetFilter::Firenze,
+        PresetFilter::Obsidian,
+        PresetFilter::Lofi,
     ];
 
     for filter in filters {
@@ -46,7 +55,7 @@ test_img = effect.apply(test_img).expect("Effect failed");
         println!("✓ Generated {}", filename);
     }
 
-    println!("\n✓ All preset filters applied successfully!");
+    println!("\n✓ All 22 preset filters applied successfully!");
     println!("  Images saved to: tmp/");
 
     Ok(())

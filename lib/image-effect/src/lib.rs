@@ -1,4 +1,3 @@
-pub mod base_effect;
 pub mod blur_effect;
 pub mod channel_effect;
 pub mod colour_space_effect;
@@ -17,14 +16,6 @@ pub trait Effect {
 
 #[derive(Debug, Clone)]
 pub enum ImageEffect {
-    // Base effects
-    Invert,
-    Grayscale(base_effect::GrayscaleConfig),
-    Brightness(base_effect::BrightnessConfig),
-    Contrast(base_effect::ContrastConfig),
-    Saturation(base_effect::SaturationConfig),
-    HueRotate(base_effect::HueRotateConfig),
-
     // Blur effects
     GaussianBlur(blur_effect::GaussianBlurConfig),
     BoxBlur(blur_effect::BoxBlurConfig),
@@ -35,6 +26,7 @@ pub enum ImageEffect {
     PinkNoise(noise_effect::PinkNoiseConfig),
 
     // Channel effects
+    Invert,
     AlterRedChannel(channel_effect::AlterRedChannelConfig),
     AlterGreenChannel(channel_effect::AlterGreenChannelConfig),
     AlterBlueChannel(channel_effect::AlterBlueChannelConfig),
@@ -50,6 +42,8 @@ pub enum ImageEffect {
     SelectiveGrayscale(channel_effect::SelectiveGrayscaleConfig),
 
     // Colour space effects
+    Saturation(colour_space_effect::SaturationConfig),
+    HueRotate(colour_space_effect::HueRotateConfig),
     GammaCorrection(colour_space_effect::GammaCorrectionConfig),
     HueRotateHsl(colour_space_effect::HueRotateHslConfig),
     HueRotateHsv(colour_space_effect::HueRotateHsvConfig),
@@ -69,6 +63,8 @@ pub enum ImageEffect {
     DesaturateHsluv(colour_space_effect::DesaturateHsluvConfig),
 
     // Special effects
+    Brightness(special_effect::BrightnessConfig),
+    Contrast(special_effect::ContrastConfig),
     Offset(special_effect::OffsetConfig),
     OffsetRed(special_effect::OffsetRedConfig),
     OffsetGreen(special_effect::OffsetGreenConfig),
@@ -88,15 +84,15 @@ pub enum ImageEffect {
     Normalize(special_effect::NormalizeConfig),
     Dither(special_effect::DitherConfig),
 
+    // Preset filters (15 filters from photon-rs)
+    PresetFilter(preset_filter_effect::PresetFilterConfig),
+
     // Filter effects
     Sepia(filter_effect::SepiaConfig),
     WarmFilter(filter_effect::TemperatureConfig),
     CoolFilter(filter_effect::TemperatureConfig),
     ColorTint(filter_effect::ColorTintConfig),
     Vignette(filter_effect::VignetteConfig),
-
-    // Preset filters (15 filters from photon-rs)
-    PresetFilter(preset_filter_effect::PresetFilterConfig),
 
     // Stylized effects
     EdgeDetection(stylized_effect::EdgeDetectionConfig),
@@ -106,6 +102,7 @@ pub enum ImageEffect {
     Posterize(stylized_effect::PosterizeConfig),
 
     // Monochrome effects
+    Grayscale(monochrome_effect::GrayscaleConfig),
     Duotone(monochrome_effect::DuotoneConfig),
     Solarization(monochrome_effect::SolarizationConfig),
     Threshold(monochrome_effect::ThresholdConfig),
@@ -116,14 +113,6 @@ pub enum ImageEffect {
 impl Effect for ImageEffect {
     fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
         match self {
-            // Base effects
-            ImageEffect::Invert => base_effect::Invert.apply(image),
-            ImageEffect::Grayscale(config) => config.apply(image),
-            ImageEffect::Brightness(config) => config.apply(image),
-            ImageEffect::Contrast(config) => config.apply(image),
-            ImageEffect::Saturation(config) => config.apply(image),
-            ImageEffect::HueRotate(config) => config.apply(image),
-
             // Blur effects
             ImageEffect::GaussianBlur(config) => config.apply(image),
             ImageEffect::BoxBlur(config) => config.apply(image),
@@ -134,6 +123,7 @@ impl Effect for ImageEffect {
             ImageEffect::PinkNoise(config) => config.apply(image),
 
             // Channel effects
+            ImageEffect::Invert => channel_effect::Invert.apply(image),
             ImageEffect::AlterRedChannel(config) => config.apply(image),
             ImageEffect::AlterGreenChannel(config) => config.apply(image),
             ImageEffect::AlterBlueChannel(config) => config.apply(image),
@@ -149,6 +139,8 @@ impl Effect for ImageEffect {
             ImageEffect::SelectiveGrayscale(config) => config.apply(image),
 
             // Colour space effects
+            ImageEffect::Saturation(config) => config.apply(image),
+            ImageEffect::HueRotate(config) => config.apply(image),
             ImageEffect::GammaCorrection(config) => config.apply(image),
             ImageEffect::HueRotateHsl(config) => config.apply(image),
             ImageEffect::HueRotateHsv(config) => config.apply(image),
@@ -168,6 +160,8 @@ impl Effect for ImageEffect {
             ImageEffect::DesaturateHsluv(config) => config.apply(image),
 
             // Special effects
+            ImageEffect::Brightness(config) => config.apply(image),
+            ImageEffect::Contrast(config) => config.apply(image),
             ImageEffect::Offset(config) => config.apply(image),
             ImageEffect::OffsetRed(config) => config.apply(image),
             ImageEffect::OffsetGreen(config) => config.apply(image),
@@ -205,6 +199,7 @@ impl Effect for ImageEffect {
             ImageEffect::PresetFilter(config) => config.apply(image),
 
             // Monochrome effects
+            ImageEffect::Grayscale(config) => config.apply(image),
             ImageEffect::Duotone(config) => config.apply(image),
             ImageEffect::Solarization(config) => config.apply(image),
             ImageEffect::Threshold(config) => config.apply(image),

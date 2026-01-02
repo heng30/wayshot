@@ -9,16 +9,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img_path = Path::new("data/test.png");
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
-    let effect = ImageEffect::AlterRedChannel(
-        image_effect::channel_effect::AlterRedChannelConfig::new().with_amount(50),
+    let effect = ImageEffect::HorizontalStrips(
+        image_effect::special_effect::HorizontalStripsConfig::new(),
     );
     img = effect.apply(img).expect("Effect failed");
 
-    img.save(output_dir.join("alter_red_channel_effect.png"))?;
+    img.save(output_dir.join("horizontal_strips_effect.png"))?;
 
-    println!("✓ Alter red channel effect applied successfully!");
-    println!("  Amount: +50");
-    println!("  Effect: tmp/alter_red_channel_effect.png");
+    println!("✓ Horizontal strips effect applied successfully!");
+    println!("  Effect: tmp/horizontal_strips_effect.png");
 
     Ok(())
 }

@@ -1,16 +1,56 @@
-//! Special effects for image processing
-//!
-//! Provides various artistic and manipulation effects like offset, strips, oil painting, etc.
-
 use crate::Effect;
 use derivative::Derivative;
 use derive_setters::Setters;
 use image::RgbaImage;
-use photon_rs::{effects, PhotonImage};
+use photon_rs::{PhotonImage, effects};
 
-// ============================================================================
-// Offset Effects
-// ============================================================================
+#[derive(Debug, Clone, Derivative, Setters)]
+#[derivative(Default)]
+#[setters(prefix = "with_")]
+#[non_exhaustive]
+pub struct BrightnessConfig {
+    #[derivative(Default(value = "10"))]
+    brightness: i32, // [-255, 255]
+}
+
+impl BrightnessConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Effect for BrightnessConfig {
+    fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
+        let (width, height) = (image.width(), image.height());
+        let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+        effects::adjust_brightness(&mut photon_img, self.brightness as i16);
+        RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
+    }
+}
+
+#[derive(Debug, Clone, Derivative, Setters)]
+#[derivative(Default)]
+#[setters(prefix = "with_")]
+#[non_exhaustive]
+pub struct ContrastConfig {
+    #[derivative(Default(value = "10.0"))]
+    contrast: f32, // [-255.0, 255.0]
+}
+
+impl ContrastConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Effect for ContrastConfig {
+    fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
+        let (width, height) = (image.width(), image.height());
+        let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+        effects::adjust_contrast(&mut photon_img, self.contrast);
+        RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
+    }
+}
 
 /// Offset effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]

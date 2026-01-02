@@ -9,16 +9,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img_path = Path::new("data/test.png");
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
-    let effect = ImageEffect::AlterRedChannel(
-        image_effect::channel_effect::AlterRedChannelConfig::new().with_amount(50),
+    let effect = ImageEffect::OffsetRed(
+        image_effect::special_effect::OffsetRedConfig::new().with_offset_amt(10),
     );
     img = effect.apply(img).expect("Effect failed");
 
-    img.save(output_dir.join("alter_red_channel_effect.png"))?;
+    img.save(output_dir.join("offset_red_effect.png"))?;
 
-    println!("✓ Alter red channel effect applied successfully!");
-    println!("  Amount: +50");
-    println!("  Effect: tmp/alter_red_channel_effect.png");
+    println!("✓ Offset red effect applied successfully!");
+    println!("  Offset: 10 pixels");
+    println!("  Effect: tmp/offset_red_effect.png");
 
     Ok(())
 }

@@ -9,16 +9,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img_path = Path::new("data/test.png");
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
-    let effect = ImageEffect::AlterRedChannel(
-        image_effect::channel_effect::AlterRedChannelConfig::new().with_amount(50),
+    let effect = ImageEffect::DarkenHsv(
+        image_effect::colour_space_effect::DarkenHsvConfig::new().with_level(0.25),
     );
     img = effect.apply(img).expect("Effect failed");
 
-    img.save(output_dir.join("alter_red_channel_effect.png"))?;
+    img.save(output_dir.join("darken_hsv_effect.png"))?;
 
-    println!("✓ Alter red channel effect applied successfully!");
-    println!("  Amount: +50");
-    println!("  Effect: tmp/alter_red_channel_effect.png");
+    println!("✓ Darken HSV effect applied successfully!");
+    println!("  Amount: 25.0");
+    println!("  Effect: tmp/darken_hsv_effect.png");
 
     Ok(())
 }

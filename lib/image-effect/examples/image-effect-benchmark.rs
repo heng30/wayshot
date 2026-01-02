@@ -1,5 +1,5 @@
 /// Image Effect Performance Benchmark
-/// Tests all 88 effects and measures execution time
+/// Tests all 95 effects and measures execution time
 use image::ImageReader;
 use image_effect::{Effect, ImageEffect};
 use std::path::Path;
@@ -48,9 +48,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ===== BASE EFFECTS (6) =====
     println!("🎨 Testing Base Effects...");
 
-    use image_effect::base_effect::{
-        BrightnessConfig, ContrastConfig, GrayscaleConfig, HueRotateConfig, SaturationConfig,
-    };
+    use image_effect::colour_space_effect::{HueRotateConfig, SaturationConfig};
+    use image_effect::monochrome_effect::GrayscaleConfig;
+    use image_effect::special_effect::{BrightnessConfig, ContrastConfig};
 
     results.push(benchmark_effect(
         "Grayscale (Luminance)",
@@ -182,12 +182,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &img,
     ));
 
-    // ===== PRESET FILTERS (15) =====
+    // ===== PRESET FILTERS (22) =====
     println!("🌈 Testing Preset Filters...");
 
     use image_effect::preset_filter_effect::PresetFilter;
 
     let preset_filters = [
+        // Original 15 filters
         ("Oceanic", PresetFilter::Oceanic),
         ("Islands", PresetFilter::Islands),
         ("Marine", PresetFilter::Marine),
@@ -203,6 +204,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("Vintage", PresetFilter::Vintage),
         ("Perfume", PresetFilter::Perfume),
         ("Serenity", PresetFilter::Serenity),
+        // Additional 7 filters
+        ("Golden", PresetFilter::Golden),
+        ("PastelPink", PresetFilter::PastelPink),
+        ("Cali", PresetFilter::Cali),
+        ("Dramatic", PresetFilter::Dramatic),
+        ("Firenze", PresetFilter::Firenze),
+        ("Obsidian", PresetFilter::Obsidian),
+        ("Lofi", PresetFilter::Lofi),
     ];
 
     for (name, filter) in preset_filters {
@@ -747,15 +756,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "Filter"
         } else if i < 19 {
             "Stylized"
-        } else if i < 34 {
-            "Preset"
-        } else if i < 39 {
-            "Monochrome"
         } else if i < 41 {
+            "Preset"
+        } else if i < 46 {
+            "Monochrome"
+        } else if i < 48 {
             "Noise"
-        } else if i < 54 {
+        } else if i < 61 {
             "Channel"
-        } else if i < 71 {
+        } else if i < 78 {
             "ColourSpace"
         } else {
             "Special"
@@ -853,6 +862,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "Vintage",
             "Perfume",
             "Serenity",
+            "Golden",
+            "PastelPink",
+            "Cali",
+            "Dramatic",
+            "Firenze",
+            "Obsidian",
+            "Lofi",
         ]
         .contains(&n.as_str())
     }) {

@@ -1,12 +1,7 @@
-//! Noise effects for image processing
-//!
-//! Provides various noise generation and application effects.
-
 use crate::Effect;
 use image::RgbaImage;
 use photon_rs::{PhotonImage, noise};
 
-/// Gaussian noise effect configuration
 #[derive(Debug, Clone, Copy)]
 pub struct GaussianNoiseConfig;
 
@@ -25,7 +20,6 @@ impl Effect for GaussianNoiseConfig {
     }
 }
 
-/// Pink noise effect configuration
 #[derive(Debug, Clone, Copy)]
 pub struct PinkNoiseConfig;
 

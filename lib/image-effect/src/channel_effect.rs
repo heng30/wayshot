@@ -1,18 +1,20 @@
-//! Channel manipulation effects
-//!
-//! Provides operations for modifying, removing, and swapping color channels.
-
 use crate::Effect;
 use derivative::Derivative;
 use derive_setters::Setters;
 use image::RgbaImage;
-use photon_rs::{channels, PhotonImage};
+use photon_rs::{PhotonImage, channels};
 
-// ============================================================================
-// Alter Channel Effects
-// ============================================================================
+pub struct Invert;
 
-/// Alter red channel effect configuration
+impl Effect for Invert {
+    fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
+        let (width, height) = (image.width(), image.height());
+        let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
+        channels::invert(&mut photon_img);
+        RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
+    }
+}
+
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -37,7 +39,6 @@ impl Effect for AlterRedChannelConfig {
     }
 }
 
-/// Alter green channel effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -62,7 +63,6 @@ impl Effect for AlterGreenChannelConfig {
     }
 }
 
-/// Alter blue channel effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -87,7 +87,6 @@ impl Effect for AlterBlueChannelConfig {
     }
 }
 
-/// Alter two channels effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -113,12 +112,17 @@ impl Effect for AlterTwoChannelsConfig {
     fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
         let (width, height) = (image.width(), image.height());
         let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
-        channels::alter_two_channels(&mut photon_img, self.channel1, self.amt1, self.channel2, self.amt2);
+        channels::alter_two_channels(
+            &mut photon_img,
+            self.channel1.clamp(0, 2),
+            self.amt1,
+            self.channel2.clamp(0, 2),
+            self.amt2,
+        );
         RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
     }
 }
 
-/// Alter multiple channels effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -147,11 +151,6 @@ impl Effect for AlterChannelsConfig {
     }
 }
 
-// ============================================================================
-// Remove Channel Effects
-// ============================================================================
-
-/// Remove red channel effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -176,7 +175,6 @@ impl Effect for RemoveRedChannelConfig {
     }
 }
 
-/// Remove green channel effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -201,7 +199,6 @@ impl Effect for RemoveGreenChannelConfig {
     }
 }
 
-/// Remove blue channel effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -226,11 +223,6 @@ impl Effect for RemoveBlueChannelConfig {
     }
 }
 
-// ============================================================================
-// Selective Effects
-// ============================================================================
-
-/// Selective hue rotate effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -262,7 +254,6 @@ impl Effect for SelectiveHueRotateConfig {
     }
 }
 
-/// Selective lighten effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -274,8 +265,8 @@ pub struct SelectiveLightenConfig {
     ref_g: u8,
     #[derivative(Default(value = "255"))]
     ref_b: u8,
-    #[derivative(Default(value = "20.0"))]
-    amt: f32,
+    #[derivative(Default(value = "0.2"))]
+    amt: f32, // [0, 1]
 }
 
 impl SelectiveLightenConfig {
@@ -294,7 +285,6 @@ impl Effect for SelectiveLightenConfig {
     }
 }
 
-/// Selective desaturate effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -307,7 +297,7 @@ pub struct SelectiveDesaturateConfig {
     #[derivative(Default(value = "255"))]
     ref_b: u8,
     #[derivative(Default(value = "0.2"))]
-    amt: f32,
+    amt: f32, // [0, 1]
 }
 
 impl SelectiveDesaturateConfig {
@@ -326,7 +316,6 @@ impl Effect for SelectiveDesaturateConfig {
     }
 }
 
-/// Selective saturate effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -339,7 +328,7 @@ pub struct SelectiveSaturateConfig {
     #[derivative(Default(value = "255"))]
     ref_b: u8,
     #[derivative(Default(value = "0.2"))]
-    amt: f32,
+    amt: f32, // [0, 1]
 }
 
 impl SelectiveSaturateConfig {
@@ -358,7 +347,6 @@ impl Effect for SelectiveSaturateConfig {
     }
 }
 
-/// Selective grayscale effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]

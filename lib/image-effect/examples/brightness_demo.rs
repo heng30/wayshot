@@ -1,5 +1,5 @@
 use image::ImageReader;
-use image_effect::base_effect::BrightnessConfig;
+use image_effect::special_effect::BrightnessConfig;
 use image_effect::{Effect, ImageEffect};
 use std::path::Path;
 
@@ -17,12 +17,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let effect = ImageEffect::Brightness(BrightnessConfig::new().with_brightness(level));
 
         let filename = if level >= 0 {
-            format!("contrast_+{}.png", level)
+            format!("brightness_+{}.png", level)
         } else {
-            format!("contrast_{}.png", level)
+            format!("brightness_{}.png", level)
         };
 
-test_img = effect.apply(test_img).expect("Effect failed");
+        test_img = effect.apply(test_img).expect("Effect failed");
         test_img.save(output_dir.join(&filename))?;
         println!("✓ Generated {}", filename);
     }
