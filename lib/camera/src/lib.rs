@@ -51,6 +51,13 @@ pub enum CameraError {
     NokhwaError(#[from] nokhwa::NokhwaError),
 }
 
+pub fn init() {
+    #[cfg(target_os = "macos")]
+    nokhwa_initialize(|granted| {
+        log::info!("User said {} for nokhwa", granted);
+    });
+}
+
 pub fn rgb_to_rgba(rgb_image: &image::RgbImage) -> RgbaImage {
     use image::{Rgba, RgbaImage};
 

@@ -7,6 +7,7 @@ use std::{thread, time::Duration};
 
 fn main() -> CameraResult<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    camera::init();
 
     let fps = 25;
     let cameras = query_available_cameras();
