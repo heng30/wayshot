@@ -1,0 +1,6 @@
+/tmp
+/target
+/.claude
+
+*.png
+.mcp.json

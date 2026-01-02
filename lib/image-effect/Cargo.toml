@@ -1,0 +1,24 @@
+[package]
+name = "image-effect"
+license.workspace = true
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[dependencies]
+log.workspace = true
+image.workspace = true
+imageproc.workspace = true
+photon-rs.workspace = true
+thiserror.workspace = true
+derivative.workspace = true
+derive_setters.workspace = true
+
+[dev-dependencies]
+anyhow.workspace = true
+env_logger.workspace = true
