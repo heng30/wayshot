@@ -4,6 +4,7 @@ use crate::{
     SpeakerRecorder, StatsUser, platform_speaker_recoder,
     process_mode::SHARE_SCREEN_CONNECTIONS_COUNT, speaker_recorder::SpeakerRecorderConfig,
 };
+use camera::{CameraClient, CameraConfig, mix_images_rgb, query_camera_id, query_first_camera};
 use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_setters::Setters;
 use fast_image_resize::images::Image;
@@ -27,7 +28,8 @@ use std::{
 };
 use video_encoder::{VideoEncoder, VideoEncoderConfig};
 
-type EncoderChannelData = (u64, ResizedImageBuffer);
+type CameraImage = image::RgbImage;
+type EncoderChannelData = (u64, ResizedImageBuffer, Option<CameraImage>);
 pub type ResizedImageBuffer = ImageBuffer<Rgb<u8>, Vec<u8>>;
 
 pub(crate) const USER_CHANNEL_SIZE: usize = 64;
@@ -69,6 +71,8 @@ pub struct RecordingSession {
     pub(crate) crop_region_receiver: Option<Receiver<Rectangle>>,
     pub(crate) video_encoder: Option<Box<dyn VideoEncoder>>,
 
+    pub(crate) camera_image_receiver: Option<Receiver<CameraImage>>,
+
     // statistic
     pub(crate) start_time: Instant,
     pub(crate) total_frame_count: Arc<AtomicU64>,
@@ -107,6 +111,8 @@ impl RecordingSession {
 
             crop_region_receiver: None,
             video_encoder: None,
+
+            camera_image_receiver: None,
 
             start_time: std::time::Instant::now(),
             total_frame_count: Arc::new(AtomicU64::new(0)),
@@ -276,6 +282,11 @@ impl RecordingSession {
                     self.enable_speaker_audio(speak_sender.clone())?;
                     log::info!("Enable speaker recording successfully");
                 };
+
+                if self.config.camera_mix_config.enable {
+                    self.enable_camera()?;
+                    log::info!("Enable camera mix successfully");
+                }
             }
         }
 
@@ -290,7 +301,7 @@ impl RecordingSession {
 
         loop {
             match encoder_receiver.recv() {
-                Ok((total_frame_index, img)) => {
+                Ok((total_frame_index, img, _)) => {
                     let now = std::time::Instant::now();
                     match self
                         .video_encoder
@@ -507,6 +518,55 @@ impl RecordingSession {
         Ok(())
     }
 
+    fn enable_camera(&mut self) -> Result<(), RecorderError> {
+        camera::init();
+
+        let camera_index = if let Some(ref camera_name) = self.config.camera_mix_config.camera_name
+        {
+            query_camera_id(camera_name)?
+        } else {
+            query_first_camera()?
+        };
+
+        let (camera_image_sender, camera_image_receiver) = bounded(5);
+        let camera_config = CameraConfig::default()
+            .with_pixel_format(camera::PixelFormat::RGB)
+            .with_fps(self.config.camera_mix_config.fps)
+            .with_width(self.config.camera_mix_config.width)
+            .with_height(self.config.camera_mix_config.height)
+            .with_mirror_horizontal(self.config.camera_mix_config.mirror_horizontal);
+
+        let mut camera_client = CameraClient::new(camera_index, camera_config)?;
+
+        let stop_sig = self.stop_sig.clone();
+        thread::spawn(move || {
+            if let Err(e) = camera_client.start() {
+                log::error!("Failed to start camera: {}", e);
+                return;
+            }
+
+            while !stop_sig.load(Ordering::Relaxed) {
+                if let Ok(frame) = camera_client.last_frame_rgb()
+                    && let Err(e) = camera_image_sender.try_send(frame)
+                {
+                    log::warn!("Failed to send camera frame: {}", e);
+                }
+
+                std::thread::sleep(Duration::from_millis(
+                    1000 / camera_client.frame_rate().max(24) as u64,
+                ));
+            }
+
+            if let Err(e) = camera_client.stop() {
+                log::error!("Failed to stop camera: {}", e);
+            }
+        });
+
+        self.camera_image_receiver = Some(camera_image_receiver);
+
+        Ok(())
+    }
+
     fn process_frame_workers(
         session: &RecordingSession,
         encoder_sender: Sender<EncoderChannelData>,
@@ -518,7 +578,13 @@ impl RecordingSession {
 
         handles.push(Self::process_forward_worker(session, frame_sender));
 
-        for i in 0..3 {
+        let worker_count = 3 + if session.config.camera_mix_config.enable {
+            1
+        } else {
+            0
+        };
+
+        for i in 0..worker_count {
             handles.push(Self::process_frame_worker(
                 session,
                 collect_sender.clone(),
@@ -537,12 +603,15 @@ impl RecordingSession {
 
     fn process_forward_worker(
         session: &RecordingSession,
-        sender: Sender<(u64, Frame)>,
+        sender: Sender<(u64, Frame, Option<CameraImage>)>,
     ) -> JoinHandle<()> {
         let start_time = session.start_time;
         let receiver = session.frame_receiver.clone();
         let loss_frame_count = session.loss_frame_count.clone();
         let total_frame_count = session.total_frame_count.clone();
+        let enable_camera_mix = session.config.camera_mix_config.enable;
+        let camera_image_receiver = session.camera_image_receiver.clone();
+        let mut last_camera_image: Option<CameraImage> = None;
 
         thread::spawn(move || {
             while let Ok(frame) = receiver.recv() {
@@ -559,7 +628,18 @@ impl RecordingSession {
                     receiver.capacity().unwrap_or_default() - receiver.len()
                 );
 
-                if let Err(e) = sender.try_send((total_frame_count, frame)) {
+                let camera_img = if enable_camera_mix {
+                    if let Some(ref receiver) = camera_image_receiver
+                        && let Ok(img) = receiver.try_recv()
+                    {
+                        last_camera_image = Some(img);
+                    }
+                    last_camera_image.clone()
+                } else {
+                    None
+                };
+
+                if let Err(e) = sender.try_send((total_frame_count, frame, camera_img)) {
                     loss_frame_count.fetch_add(1, Ordering::Relaxed);
                     log::warn!("process worker try send failed: {e}");
                 }
@@ -572,16 +652,18 @@ impl RecordingSession {
     fn process_frame_worker(
         session: &RecordingSession,
         sender: Sender<(usize, Instant, EncoderChannelData)>,
-        receiver: Receiver<(u64, Frame)>,
+        receiver: Receiver<(u64, Frame, Option<CameraImage>)>,
         thread_index: usize,
     ) -> JoinHandle<()> {
         let resolution = session.config.resolution.clone();
         let loss_frame_count = session.loss_frame_count.clone();
         let enable_cursor_tracking = session.config.enable_cursor_tracking;
         let crop_region_receiver = session.crop_region_receiver.clone();
+        let enable_camera_mix = session.config.camera_mix_config.enable;
+        let camera_shape = session.config.camera_mix_config.shape.clone();
 
         thread::spawn(move || {
-            while let Ok((total_frame_count, frame)) = receiver.recv() {
+            while let Ok((total_frame_count, frame, camera_img)) = receiver.recv() {
                 let now = Instant::now();
                 let frame_timestamp = frame.timestamp;
 
@@ -607,6 +689,12 @@ impl RecordingSession {
                     }
                 };
 
+                let img = if enable_camera_mix {
+                    Self::mix_screen_and_camera(img, camera_img, &camera_shape)
+                } else {
+                    img
+                };
+
                 log::debug!(
                     "{} frame spent: {:.2?}",
                     if enable_cursor_tracking {
@@ -617,9 +705,11 @@ impl RecordingSession {
                     now.elapsed()
                 );
 
-                if let Err(e) =
-                    sender.try_send((thread_index, frame_timestamp, (total_frame_count, img)))
-                {
+                if let Err(e) = sender.try_send((
+                    thread_index,
+                    frame_timestamp,
+                    (total_frame_count, img, None),
+                )) {
                     loss_frame_count.fetch_add(1, Ordering::Relaxed);
                     log::warn!("process worker try send failed: {e}");
                 }
@@ -655,7 +745,7 @@ impl RecordingSession {
             }
         }
 
-        if let Err(e) = encoder_sender.try_send((expect_total_frame_index, img)) {
+        if let Err(e) = encoder_sender.try_send((expect_total_frame_index, img, None)) {
             loss_frame_count.fetch_add(1, Ordering::Relaxed);
             log::warn!("collected thread try send to encoder reciever failed: {e}");
         }
@@ -673,10 +763,11 @@ impl RecordingSession {
         thread::spawn(move || {
             let mut expect_total_frame_index = 1;
             let mut disorder_frame_counts = 0;
-            let mut frame_cache: HashMap<u64, (u64, ResizedImageBuffer)> = HashMap::new();
+            let mut frame_cache: HashMap<u64, (u64, ResizedImageBuffer, Option<CameraImage>)> =
+                HashMap::new();
             let mut fps_counter = SimpleFpsCounter::new();
 
-            while let Ok((thread_index, frame_timestamp, (total_frame_index, img))) =
+            while let Ok((thread_index, frame_timestamp, (total_frame_index, img, _camera_img))) =
                 receiver.recv()
             {
                 // FIXME: no accuracy. because frame_timestamp may be disorder
@@ -718,7 +809,7 @@ impl RecordingSession {
                         "too late thread[{thread_index}] frame, frame index: {total_frame_index}, expected index: {expect_total_frame_index}"
                     );
                 } else {
-                    frame_cache.insert(total_frame_index, (total_frame_index, img));
+                    frame_cache.insert(total_frame_index, (total_frame_index, img, _camera_img));
                     disorder_frame_counts += 1;
 
                     if disorder_frame_counts > 5 {
@@ -1023,6 +1114,24 @@ impl RecordingSession {
             })?;
 
         Ok(img.convert())
+    }
+
+    fn mix_screen_and_camera(
+        screen_image: ResizedImageBuffer,
+        camera_img: Option<CameraImage>,
+        camera_shape: &camera::Shape,
+    ) -> ResizedImageBuffer {
+        if let Some(camera_img) = camera_img {
+            match mix_images_rgb(screen_image.clone(), camera_img, camera_shape.clone()) {
+                Ok(mixed_img) => mixed_img,
+                Err(e) => {
+                    log::warn!("Failed to mix camera image: {e}");
+                    screen_image
+                }
+            }
+        } else {
+            screen_image
+        }
     }
 
     pub fn save_path(&self) -> PathBuf {

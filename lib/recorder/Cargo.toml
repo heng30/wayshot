@@ -18,6 +18,7 @@ wrtc.workspace = true
 srtmp.workspace = true
 hound.workspace = true
 image.workspace = true
+camera.workspace = true
 chrono.workspace = true
 crossbeam.workspace = true
 thiserror.workspace = true

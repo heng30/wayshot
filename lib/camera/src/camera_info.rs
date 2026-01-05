@@ -40,6 +40,17 @@ pub fn query_camera_id(name: &str) -> CameraResult<CameraIndex> {
         .ok_or(CameraError::QueryError(format!("No found camera: {name}")))
 }
 
+/// Get the first available camera index
+pub fn query_first_camera() -> CameraResult<CameraIndex> {
+    let cameras = query(ApiBackend::Auto)?;
+
+    cameras
+        .into_iter()
+        .find(|camera| verify_camera(camera.index().clone()))
+        .map(|camera| camera.index().clone())
+        .ok_or(CameraError::QueryError("No available cameras found".to_string()))
+}
+
 fn verify_camera(index: CameraIndex) -> bool {
     let format = RequestedFormat::new::<nokhwa::pixel_format::RgbAFormat>(
         RequestedFormatType::AbsoluteHighestFrameRate,

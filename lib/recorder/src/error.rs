@@ -44,6 +44,9 @@ pub enum RecorderError {
     #[error("Rtmp Client Error failed: {0}")]
     RtmpClientError(#[from] srtmp::RtmpClientError),
 
+    #[error("Camera error failed: {0}")]
+    CameraError(#[from] camera::CameraError),
+
     #[error("Denoise failed: {0}")]
     DenoiseError(String),
 

@@ -1,6 +1,7 @@
 use crate::{
     AsyncErrorSender, ProcessMode, cursor_tracker::TransitionType, resolution::Resolution,
 };
+use camera::{Shape, ShapeCircle};
 use chrono::Local;
 use derive_setters::Setters;
 use screen_capture::LogicalSize;
@@ -76,6 +77,7 @@ pub struct RecorderConfig {
 
     pub share_screen_config: ShareScreenConfig,
     pub push_stream_config: PushStreamConfig,
+    pub camera_mix_config: CameraMixConfig,
 }
 
 impl RecorderConfig {
@@ -117,6 +119,7 @@ impl RecorderConfig {
 
             share_screen_config: ShareScreenConfig::default(),
             push_stream_config: PushStreamConfig::default(),
+            camera_mix_config: CameraMixConfig::default(),
         }
     }
 
@@ -181,6 +184,35 @@ impl PushStreamConfig {
             stream_key,
             query_params: String::new(),
             save_mp4: true,
+        }
+    }
+}
+
+#[non_exhaustive]
+#[derive(Debug, Clone, Setters)]
+#[setters(prefix = "with_")]
+pub struct CameraMixConfig {
+    pub enable: bool,
+    pub camera_name: Option<String>,
+    pub width: u32,
+    pub height: u32,
+    pub fps: u32,
+    pub pixel_format: camera::PixelFormat,
+    pub shape: Shape,
+    pub mirror_horizontal: bool,
+}
+
+impl Default for CameraMixConfig {
+    fn default() -> Self {
+        Self {
+            enable: false,
+            camera_name: None,
+            width: 640,
+            height: 480,
+            fps: 25,
+            pixel_format: camera::PixelFormat::RGBA,
+            shape: Shape::Circle(ShapeCircle::default()),
+            mirror_horizontal: false,
         }
     }
 }

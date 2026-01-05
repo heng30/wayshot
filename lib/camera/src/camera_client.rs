@@ -1,7 +1,7 @@
-use crate::{CameraError, CameraResult, rgb_to_rgba};
+use crate::{CameraError, CameraResult, rgb_to_rgba, rgba_to_rgb};
 use derivative::Derivative;
 use derive_setters::Setters;
-use image::RgbaImage;
+use image::{RgbImage, RgbaImage, imageops};
 use nokhwa::{
     CallbackCamera,
     pixel_format::{RgbAFormat, RgbFormat},
@@ -38,17 +38,22 @@ pub struct CameraConfig {
 
     #[derivative(Default(value = "PixelFormat::RGBA"))]
     pub pixel_format: PixelFormat,
+
+    #[derivative(Default(value = "false"))]
+    pub mirror_horizontal: bool,
 }
 
 pub struct CameraClient {
     camera: Option<CallbackCamera>,
     is_running: Arc<AtomicBool>,
     pixel_format: PixelFormat,
+    mirror_horizontal: bool,
 }
 
 impl CameraClient {
     pub fn new(camera_index: CameraIndex, config: CameraConfig) -> CameraResult<Self> {
         let pixel_format = config.pixel_format;
+        let mirror_horizontal = config.mirror_horizontal;
         let format_type = RequestedFormatType::AbsoluteHighestFrameRate;
         let format = match pixel_format {
             PixelFormat::RGBA => RequestedFormat::new::<RgbAFormat>(format_type),
@@ -75,6 +80,7 @@ impl CameraClient {
             camera: Some(camera),
             is_running: Arc::new(AtomicBool::new(false)),
             pixel_format,
+            mirror_horizontal,
         })
     }
 
@@ -104,21 +110,53 @@ impl CameraClient {
         }
     }
 
-    pub fn last_frame(&self) -> CameraResult<RgbaImage> {
+    pub fn last_frame_rgba(&self) -> CameraResult<RgbaImage> {
         match self.camera {
             Some(ref c) => {
                 let buffer = c.last_frame()?;
 
-                match self.pixel_format {
-                    PixelFormat::RGBA => Ok(buffer.decode_image::<RgbAFormat>()?),
+                let mut image = match self.pixel_format {
+                    PixelFormat::RGBA => buffer.decode_image::<RgbAFormat>()?,
                     PixelFormat::RGB => {
                         if let Ok(rgb_image) = buffer.decode_image::<RgbFormat>() {
-                            Ok(rgb_to_rgba(&rgb_image))
+                            rgb_to_rgba(rgb_image)
                         } else {
-                            Err(CameraError::NoFrameAvailable)
+                            return Err(CameraError::NoFrameAvailable);
                         }
                     }
+                };
+
+                if self.mirror_horizontal {
+                    imageops::flip_horizontal_in_place(&mut image);
                 }
+
+                Ok(image)
+            }
+            None => Err(CameraError::InitializationError("No camera".to_string())),
+        }
+    }
+
+    pub fn last_frame_rgb(&self) -> CameraResult<RgbImage> {
+        match self.camera {
+            Some(ref c) => {
+                let buffer = c.last_frame()?;
+
+                let mut image = match self.pixel_format {
+                    PixelFormat::RGB => buffer.decode_image::<RgbFormat>()?,
+                    PixelFormat::RGBA => {
+                        if let Ok(rgba_image) = buffer.decode_image::<RgbAFormat>() {
+                            rgba_to_rgb(rgba_image)
+                        } else {
+                            return Err(CameraError::NoFrameAvailable);
+                        }
+                    }
+                };
+
+                if self.mirror_horizontal {
+                    imageops::flip_horizontal_in_place(&mut image);
+                }
+
+                Ok(image)
             }
             None => Err(CameraError::InitializationError("No camera".to_string())),
         }
@@ -130,6 +168,12 @@ impl CameraClient {
 
     pub fn pixel_format(&self) -> PixelFormat {
         self.pixel_format
+    }
+
+    pub fn frame_rate(&self) -> u32 {
+        self.camera
+            .as_ref()
+            .map_or(24, |c| c.frame_rate().unwrap_or(24))
     }
 }
 

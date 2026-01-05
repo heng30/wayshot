@@ -3,9 +3,9 @@ pub mod camera_info;
 pub mod image_composition;
 
 pub use camera_client::{CameraClient, CameraConfig, PixelFormat};
-pub use camera_info::CameraInfo;
-pub use image::{Rgba, RgbaImage};
-pub use image_composition::{Shape, ShapeCircle, ShapeRectangle, mix_images};
+pub use camera_info::{CameraInfo, query_available_cameras, query_camera_id, query_first_camera};
+pub use image::{ImageBuffer, Rgb, Rgba, RgbaImage};
+pub use image_composition::{Shape, ShapeCircle, ShapeRectangle, mix_images, mix_images_rgb};
 
 pub type CameraResult<T> = Result<T, CameraError>;
 
@@ -58,21 +58,22 @@ pub fn init() {
     });
 }
 
-pub fn rgb_to_rgba(rgb_image: &image::RgbImage) -> RgbaImage {
-    use image::{Rgba, RgbaImage};
+pub fn rgb_to_rgba(rgb_image: image::RgbImage) -> RgbaImage {
+    use image::buffer::ConvertBuffer;
 
     let (width, height) = rgb_image.dimensions();
-    let mut rgba_img = RgbaImage::new(width, height);
+    let rgb_buffer: ImageBuffer<Rgb<u8>, Vec<u8>> =
+        ImageBuffer::from_raw(width, height, rgb_image.into_raw())
+            .expect("Failed to create RGB image buffer");
+    rgb_buffer.convert()
+}
 
-    for y in 0..height {
-        for x in 0..width {
-            let pixel = rgb_image.get_pixel(x, y);
-            let r = pixel[0];
-            let g = pixel[1];
-            let b = pixel[2];
-            rgba_img.put_pixel(x, y, Rgba([r, g, b, 255]));
-        }
-    }
+pub fn rgba_to_rgb(rgba_image: RgbaImage) -> image::RgbImage {
+    use image::buffer::ConvertBuffer;
 
-    rgba_img
+    let (width, height) = rgba_image.dimensions();
+    let rgba_buffer: ImageBuffer<Rgba<u8>, Vec<u8>> =
+        ImageBuffer::from_raw(width, height, rgba_image.into_raw())
+            .expect("Failed to create RGBA image buffer");
+    rgba_buffer.convert()
 }

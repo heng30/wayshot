@@ -1,14 +1,18 @@
+use crate::{CameraError, CameraResult};
 use derivative::Derivative;
 use derive_setters::Setters;
 use fast_image_resize::{PixelType, ResizeAlg, Resizer, images::Image as FastImage};
-use image::{ImageBuffer, Luma, Rgba, RgbaImage};
-
-use crate::{CameraError, CameraResult};
+use image::{ImageBuffer, Luma, Pixel, RgbImage, Rgba, RgbaImage};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Shape {
     Circle(ShapeCircle),
     Rectangle(ShapeRectangle),
+}
+
+enum BorderShape {
+    Circle,
+    Rectangle { width: u32, height: u32 },
 }
 
 #[derive(Debug, Clone, Copy, Derivative, Setters)]
@@ -66,17 +70,39 @@ pub fn mix_images(
     camera_image: RgbaImage,
     mix_area: Shape,
 ) -> CameraResult<RgbaImage> {
+    mix_images_impl(background_image, camera_image, mix_area)
+}
+
+pub fn mix_images_rgb(
+    background_image: RgbImage,
+    camera_image: RgbImage,
+    mix_area: Shape,
+) -> CameraResult<RgbImage> {
+    mix_images_impl(background_image, camera_image, mix_area)
+}
+
+fn mix_images_impl<P>(
+    background: ImageBuffer<P, Vec<u8>>,
+    camera_image: ImageBuffer<P, Vec<u8>>,
+    mix_area: Shape,
+) -> CameraResult<ImageBuffer<P, Vec<u8>>>
+where
+    P: Pixel<Subpixel = u8> + Copy,
+{
     match mix_area {
-        Shape::Circle(circle) => mix_images_circle(background_image, camera_image, circle),
-        Shape::Rectangle(rect) => mix_images_rectangle(background_image, camera_image, rect),
+        Shape::Circle(circle) => mix_images_circle_impl(background, camera_image, circle),
+        Shape::Rectangle(rect) => mix_images_rectangle_impl(background, camera_image, rect),
     }
 }
 
-fn mix_images_circle(
-    mut background: RgbaImage,
-    camera_image: RgbaImage,
+fn mix_images_circle_impl<P>(
+    mut background: ImageBuffer<P, Vec<u8>>,
+    camera_image: ImageBuffer<P, Vec<u8>>,
     circle: ShapeCircle,
-) -> CameraResult<RgbaImage> {
+) -> CameraResult<ImageBuffer<P, Vec<u8>>>
+where
+    P: Pixel<Subpixel = u8> + Copy,
+{
     let (bg_width, bg_height) = background.dimensions();
     let radius = circle.radius;
     let diameter = (radius * 2) as u32;
@@ -85,7 +111,7 @@ fn mix_images_circle(
     let center_y =
         ((circle.base.pos.1 * bg_height as f32) as u32).clamp(radius, bg_height as u32 - radius);
 
-    let croped_camera = crop_image(
+    let cropped_camera = crop_image_by_pixel_type(
         camera_image,
         diameter,
         diameter,
@@ -93,11 +119,10 @@ fn mix_images_circle(
         circle.base.clip_pos,
     )?;
 
-    // Calculate the top-left position where we'll draw
     let start_x = (center_x - radius).max(0) as u32;
     let start_y = (center_y - radius).max(0) as u32;
 
-    // Create circular mask
+    // Create circular mask (shared logic)
     let mut mask = ImageBuffer::new(diameter, diameter);
     let (cx, cy, r) = (radius as f32, radius as f32, radius as f32);
 
@@ -115,7 +140,6 @@ fn mix_images_circle(
         }
     }
 
-    // Blend the camera image onto the background using the mask
     for y in 0..diameter {
         for x in 0..diameter {
             let bg_x = start_x + x;
@@ -127,37 +151,41 @@ fn mix_images_circle(
 
             let mask_val = mask.get_pixel(x, y)[0];
             if mask_val == 255 {
-                let cam_pixel = croped_camera.get_pixel(x, y);
+                let cam_pixel = cropped_camera.get_pixel(x, y);
                 background.put_pixel(bg_x, bg_y, *cam_pixel);
             }
         }
     }
 
     if circle.base.border_width > 0 {
-        draw_circle_border(
+        draw_border_by_image_type(
             &mut background,
             center_x,
             center_y,
             radius,
             circle.base.border_width,
             circle.base.border_color,
+            BorderShape::Circle,
         );
     }
 
     Ok(background)
 }
 
-fn mix_images_rectangle(
-    mut background: RgbaImage,
-    camera_image: RgbaImage,
+fn mix_images_rectangle_impl<P>(
+    mut background: ImageBuffer<P, Vec<u8>>,
+    camera_image: ImageBuffer<P, Vec<u8>>,
     rect: ShapeRectangle,
-) -> CameraResult<RgbaImage> {
+) -> CameraResult<ImageBuffer<P, Vec<u8>>>
+where
+    P: Pixel<Subpixel = u8> + Copy,
+{
     let (bg_width, bg_height) = background.dimensions();
     let x = (rect.base.pos.0 * bg_width as f32) as u32;
     let y = (rect.base.pos.1 * bg_height as f32) as u32;
     let (width, height) = rect.size;
 
-    let croped_camera = crop_image(
+    let cropped_camera = crop_image_by_pixel_type(
         camera_image,
         width,
         height,
@@ -174,36 +202,67 @@ fn mix_images_rectangle(
                 continue;
             }
 
-            let cam_pixel = croped_camera.get_pixel(cam_x, cam_y);
+            let cam_pixel = cropped_camera.get_pixel(cam_x, cam_y);
             background.put_pixel(bg_x, bg_y, *cam_pixel);
         }
     }
 
     if rect.base.border_width > 0 {
-        draw_rectangle_border(
+        draw_border_by_image_type(
             &mut background,
             x,
             y,
             width,
-            height,
             rect.base.border_width,
             rect.base.border_color,
+            BorderShape::Rectangle { width, height },
         );
     }
 
     Ok(background)
 }
 
-/// Scale and crop an image with zoom level using fast_image_resize
-/// First scales by zoom factor, then crops from clip_pos to target size
-/// Does NOT maintain aspect ratio - crops to exact target dimensions
-fn crop_image(
-    image: RgbaImage,
+fn crop_image_by_pixel_type<P>(
+    image: ImageBuffer<P, Vec<u8>>,
     target_width: u32,
     target_height: u32,
     zoom: f32,
-    clip_pos: (f32, f32), // [0.0, 1.0]
-) -> CameraResult<RgbaImage> {
+    clip_pos: (f32, f32),
+) -> CameraResult<ImageBuffer<P, Vec<u8>>>
+where
+    P: Pixel<Subpixel = u8> + Copy,
+{
+    let pixel_type = if P::CHANNEL_COUNT == 3 {
+        PixelType::U8x3
+    } else if P::CHANNEL_COUNT == 4 {
+        PixelType::U8x4
+    } else {
+        return Err(CameraError::ImageError(
+            "Unsupported pixel type".to_string(),
+        ));
+    };
+
+    crop_image_generic(
+        image,
+        target_width,
+        target_height,
+        zoom,
+        clip_pos,
+        pixel_type,
+    )
+}
+
+fn crop_image_generic<P>(
+    image: ImageBuffer<P, Vec<u8>>,
+    target_width: u32,
+    target_height: u32,
+    zoom: f32,
+    clip_pos: (f32, f32),
+    pixel_type: PixelType,
+) -> CameraResult<ImageBuffer<P, Vec<u8>>>
+where
+    P: Pixel<Subpixel = u8> + Copy,
+{
     let (img_width, img_height) = image.dimensions();
     let scaled_width = ((img_width as f32) * zoom).round() as u32;
     let scaled_height = ((img_height as f32) * zoom).round() as u32;
@@ -212,16 +271,12 @@ fn crop_image(
         return Ok(image);
     }
 
-    let mut resized_src = vec![0u8; (scaled_width * scaled_height * 4) as usize];
-    let fast_image =
-        FastImage::from_vec_u8(img_width, img_height, image.into_raw(), PixelType::U8x4)?;
+    let channel_count = P::CHANNEL_COUNT as usize;
+    let mut resized_src = vec![0u8; (scaled_width * scaled_height * channel_count as u32) as usize];
+    let fast_image = FastImage::from_vec_u8(img_width, img_height, image.into_raw(), pixel_type)?;
 
-    let mut resized_image = FastImage::from_slice_u8(
-        scaled_width,
-        scaled_height,
-        &mut resized_src,
-        PixelType::U8x4,
-    )?;
+    let mut resized_image =
+        FastImage::from_slice_u8(scaled_width, scaled_height, &mut resized_src, pixel_type)?;
 
     let resize_options = fast_image_resize::ResizeOptions::new().resize_alg(
         ResizeAlg::Convolution(fast_image_resize::FilterType::Lanczos3),
@@ -229,30 +284,22 @@ fn crop_image(
 
     Resizer::new().resize(&fast_image, &mut resized_image, &resize_options)?;
 
-    let max_crop_x = if scaled_width > target_width {
-        scaled_width - target_width
-    } else {
-        0
-    };
+    let max_crop_x = scaled_width.saturating_sub(target_width);
+    let max_crop_y = scaled_height.saturating_sub(target_height);
 
-    let max_crop_y = if scaled_height > target_height {
-        scaled_height - target_height
-    } else {
-        0
-    };
-
-    let clip_x = clip_pos.0.max(0.0).min(1.0);
-    let clip_y = clip_pos.1.max(0.0).min(1.0);
+    let clip_x = clip_pos.0.clamp(0.0, 1.0);
+    let clip_y = clip_pos.1.clamp(0.0, 1.0);
     let crop_x = (scaled_width as f32 * clip_x).clamp(0.0, max_crop_x as f32) as u32;
     let crop_y = (scaled_height as f32 * clip_y).clamp(0.0, max_crop_y as f32) as u32;
 
     let actual_crop_width = target_width.min(scaled_width);
     let actual_crop_height = target_height.min(scaled_height);
-    let mut cropped_buffer = vec![0u8; (actual_crop_width * actual_crop_height * 4) as usize];
+    let mut cropped_buffer =
+        vec![0u8; (actual_crop_width * actual_crop_height * channel_count as u32) as usize];
 
-    let src_stride = scaled_width as usize * 4;
-    let dst_stride = actual_crop_width as usize * 4;
-    let crop_x_offset = crop_x as usize * 4;
+    let src_stride = scaled_width as usize * channel_count;
+    let dst_stride = actual_crop_width as usize * channel_count;
+    let crop_x_offset = crop_x as usize * channel_count;
     let crop_y_offset = crop_y as usize;
 
     for y in 0..actual_crop_height as usize {
@@ -270,95 +317,172 @@ fn crop_image(
         for y in 0..target_height {
             for x in 0..target_width {
                 if x < actual_crop_width && y < actual_crop_height {
-                    let idx = ((y * actual_crop_width + x) * 4) as usize;
-                    let r = cropped_buffer[idx];
-                    let g = cropped_buffer[idx + 1];
-                    let b = cropped_buffer[idx + 2];
-                    let a = cropped_buffer[idx + 3];
-                    result.put_pixel(x, y, Rgba([r, g, b, a]));
+                    let idx = (y * actual_crop_width + x) as usize * channel_count;
+                    let mut channels = [0u8; 4];
+                    for c in 0..channel_count {
+                        channels[c] = cropped_buffer[idx + c];
+                    }
+                    // Fill remaining channels with 255 (alpha) or 0
+                    for c in channel_count..4 {
+                        channels[c] = if c == 3 { 255 } else { 0 };
+                    }
+                    let pixel = P::from_slice(&channels[..channel_count]);
+                    result.put_pixel(x, y, *pixel);
                 } else {
-                    result.put_pixel(x, y, Rgba([0, 0, 0, 255]));
+                    let black = [0u8; 4];
+                    let pixel = P::from_slice(&black[..channel_count]);
+                    result.put_pixel(x, y, *pixel);
                 }
             }
         }
         Ok(result)
     } else {
-        RgbaImage::from_raw(actual_crop_width, actual_crop_height, cropped_buffer)
-            .ok_or(CameraError::ImageError("New RgbaImage failed".to_string()))
+        ImageBuffer::from_raw(actual_crop_width, actual_crop_height, cropped_buffer).ok_or(
+            CameraError::ImageError("New ImageBuffer failed".to_string()),
+        )
     }
 }
 
-fn draw_circle_border(
-    image: &mut RgbaImage,
-    center_x: u32,
-    center_y: u32,
-    radius: u32,
+fn draw_border_by_image_type<P>(
+    image: &mut ImageBuffer<P, Vec<u8>>,
+    x_or_center_x: u32,
+    y_or_center_y: u32,
+    radius_or_width: u32,
     border_width: u32,
     border_color: Rgba<u8>,
-) {
-    let (width, height) = image.dimensions();
+    shape: BorderShape,
+) where
+    P: Pixel<Subpixel = u8> + Copy,
+{
+    match shape {
+        BorderShape::Circle => {
+            let radius = radius_or_width;
+            let center_x = x_or_center_x;
+            let center_y = y_or_center_y;
+            let (width, height) = image.dimensions();
 
-    for r_offset in 0..border_width {
-        let current_radius = radius - r_offset;
-        if current_radius <= 0 {
-            break;
+            // Anti-aliased circle border using supersampling distance field
+            let outer_r = radius as f32;
+            let inner_r = (radius.saturating_sub(border_width)) as f32;
+
+            // Expand bounding box for anti-aliasing
+            let aa_offset = border_width.max(2);
+            let start_x = center_x.saturating_sub(radius + aa_offset);
+            let start_y = center_y.saturating_sub(radius + aa_offset);
+            let end_x = (center_x + radius + aa_offset + 1).min(width);
+            let end_y = (center_y + radius + aa_offset + 1).min(height);
+
+            let samples = 4.0;
+            let step = 1.0 / samples;
+
+            for y in start_y..end_y {
+                for x in start_x..end_x {
+                    // Supersample with 4x4 grid for smooth anti-aliasing
+                    let mut coverage = 0.0;
+
+                    for sy in 0..4 {
+                        for sx in 0..4 {
+                            let sample_x = x as f32 + (sx as f32 + 0.5) * step;
+                            let sample_y = y as f32 + (sy as f32 + 0.5) * step;
+
+                            let dx = sample_x - center_x as f32;
+                            let dy = sample_y - center_y as f32;
+                            let dist = (dx * dx + dy * dy).sqrt();
+
+                            // Check if sample point is in border ring
+                            if dist <= outer_r && dist >= inner_r {
+                                coverage += 1.0;
+                            }
+                        }
+                    }
+
+                    let alpha = coverage / (samples * samples);
+
+                    if alpha > 0.01 {
+                        let existing = *image.get_pixel(x, y);
+                        let border = create_border_pixel::<P>(border_color);
+                        let blended = blend_pixels::<P>(existing, border, alpha);
+                        image.put_pixel(x, y, blended);
+                    }
+                }
+            }
         }
+        BorderShape::Rectangle {
+            width: rect_width,
+            height: rect_height,
+        } => {
+            let x = x_or_center_x;
+            let y = y_or_center_y;
+            let (img_width, img_height) = image.dimensions();
+            let border_pixel = create_border_pixel::<P>(border_color);
 
-        for angle in 0..360 {
-            let rad = (angle as f32 * std::f32::consts::PI) / 180.0;
-            let x = center_x as i32 + (current_radius as f32 * rad.cos()).round() as i32;
-            let y = center_y as i32 + (current_radius as f32 * rad.sin()).round() as i32;
-
-            if x >= 0 && y >= 0 && (x as u32) < width && (y as u32) < height {
-                image.put_pixel(x as u32, y as u32, border_color);
+            for bw in 0..border_width {
+                // Top edge
+                for bx in x..=(x + rect_width - 1).min(img_width - 1) {
+                    let by = y + bw;
+                    if by < img_height {
+                        image.put_pixel(bx, by, border_pixel);
+                    }
+                }
+                // Bottom edge
+                for bx in x..=(x + rect_width - 1).min(img_width - 1) {
+                    if bw < rect_height {
+                        let by = y + rect_height - 1 - bw;
+                        if by < img_height && by > 0 {
+                            image.put_pixel(bx, by, border_pixel);
+                        }
+                    }
+                }
+                // Left edge
+                for by in y..=(y + rect_height - 1).min(img_height - 1) {
+                    let bx = x + bw;
+                    if bx < img_width {
+                        image.put_pixel(bx, by, border_pixel);
+                    }
+                }
+                // Right edge
+                for by in y..=(y + rect_height - 1).min(img_height - 1) {
+                    if bw < rect_width {
+                        let bx = x + rect_width - 1 - bw;
+                        if bx < img_width && bx > 0 {
+                            image.put_pixel(bx, by, border_pixel);
+                        }
+                    }
+                }
             }
         }
     }
 }
 
-fn draw_rectangle_border(
-    image: &mut RgbaImage,
-    x: u32,
-    y: u32,
-    width: u32,
-    height: u32,
-    border_width: u32,
-    border_color: Rgba<u8>,
-) {
-    let (img_width, img_height) = image.dimensions();
-
-    for bw in 0..border_width {
-        // Top edge
-        for bx in x..=(x + width - 1).min(img_width - 1) {
-            let by = y + bw;
-            if by < img_height {
-                image.put_pixel(bx, by, border_color);
-            }
-        }
-        // Bottom edge
-        for bx in x..=(x + width - 1).min(img_width - 1) {
-            if bw < height {
-                let by = y + height - 1 - bw;
-                if by < img_height && by > 0 {
-                    image.put_pixel(bx, by, border_color);
-                }
-            }
-        }
-        // Left edge
-        for by in y..=(y + height - 1).min(img_height - 1) {
-            let bx = x + bw;
-            if bx < img_width {
-                image.put_pixel(bx, by, border_color);
-            }
-        }
-        // Right edge
-        for by in y..=(y + height - 1).min(img_height - 1) {
-            if bw < width {
-                let bx = x + width - 1 - bw;
-                if bx < img_width && bx > 0 {
-                    image.put_pixel(bx, by, border_color);
-                }
-            }
-        }
+fn create_border_pixel<P>(color: Rgba<u8>) -> P
+where
+    P: Pixel<Subpixel = u8> + Copy,
+{
+    let channels = P::CHANNEL_COUNT;
+    let mut buffer = [0u8; 4];
+    buffer[0] = color[0];
+    buffer[1] = color[1];
+    buffer[2] = color[2];
+    if channels == 4 {
+        buffer[3] = color[3];
     }
+    *P::from_slice(&buffer[..channels as usize])
+}
+
+fn blend_pixels<P>(existing: P, new: P, alpha: f32) -> P
+where
+    P: Pixel<Subpixel = u8> + Copy,
+{
+    let channels = P::CHANNEL_COUNT;
+    let existing_channels = existing.channels();
+    let new_channels = new.channels();
+
+    let mut buffer = [0u8; 4];
+    for c in 0..channels as usize {
+        let e = existing_channels[c] as f32;
+        let n = new_channels[c] as f32;
+        buffer[c] = (e * (1.0 - alpha) + n * alpha).round() as u8;
+    }
+
+    *P::from_slice(&buffer[..channels as usize])
 }

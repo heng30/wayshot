@@ -24,9 +24,10 @@ fn main() -> CameraResult<()> {
 
     let config = CameraConfig::default()
         .with_pixel_format(PixelFormat::RGBA)
+        .with_fps(fps)
         .with_width(1280)
         .with_height(720)
-        .with_fps(fps);
+        .with_mirror_horizontal(true);
 
     let camera_id = query_camera_id(&cameras[0].name)?;
     let mut client = CameraClient::new(camera_id, config)?;
@@ -40,7 +41,7 @@ fn main() -> CameraResult<()> {
     for _ in 0..100 {
         thread::sleep(Duration::from_millis(1000 / fps as u64));
 
-        match client.last_frame() {
+        match client.last_frame_rgba() {
             Ok(frame) => {
                 if frame.is_empty() {
                     empty_frame_count += 1;
