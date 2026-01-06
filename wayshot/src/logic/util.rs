@@ -319,6 +319,9 @@ pub fn init(ui: &AppWindow) {
         cutil::time::seconds_to_media_timestamp(seconds as f64).into()
     });
 
+    global_util!(ui)
+        .on_color_to_hex(move |r, g, b, a| format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a).into());
+
     #[cfg(feature = "qrcode")]
     {
         init_qrcode(ui);

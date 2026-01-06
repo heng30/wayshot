@@ -18,6 +18,7 @@ import {
     ProcessMode,
     SettingShareScreenClient,
     SettingPushStream,
+    SettingCamera,
 } from "store.slint";
 
 import { PlaylistItem } from "base/def.slint";
@@ -118,6 +119,9 @@ export global Logic {
     callback get-setting-push-stream() -> SettingPushStream;
     callback set-setting-push-stream(setting: SettingPushStream);
 
+    callback get-setting-camera() -> SettingCamera;
+    callback set-setting-camera(setting: SettingCamera);
+
     callback init-sources-dialog();
     callback choose-save-dir();
     callback update-sources(setting: SettingControl);
@@ -175,6 +179,10 @@ export global Logic {
 
     callback push-stream-verify-setting(setting: SettingPushStream) -> string;
 
+    callback camera-setting-dialog-start-playing(camera: string, setting: SettingCamera);
+    callback camera-setting-dialog-stop-playing();
+    callback camera-setting-dialog-zoom-image();
+
     pure public function fps-to-int(fps: Fps) -> int {
         if (fps == Fps.Fps24) {
             return 24;
@@ -206,6 +214,8 @@ export global Logic {
     pure public function resolution-to-string(res: Resolution) -> string {
         if (res == Resolution.Original) {
             return "Original";
+        } else if (res == Resolution.P480) {
+            return "480P";
         } else if (res == Resolution.P720) {
             return "720P";
         } else if (res == Resolution.P1080) {
@@ -222,6 +232,8 @@ export global Logic {
     pure public function resolution-from-string(res: string) -> Resolution {
         if (res == "Original") {
             return Resolution.Original;
+        } else if (res == "480P") {
+            return Resolution.P480;
         } else if (res == "720P") {
             return Resolution.P720;
         } else if (res == "1080P") {

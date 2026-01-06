@@ -21,6 +21,8 @@ use std::fmt;
 pub enum Resolution {
     /// Keep original resolution with specified dimensions
     Original((u32, u32)),
+    /// 480p resolution (480x640 pixels)
+    P480,
     /// 720p resolution (1280x720 pixels)
     P720,
     /// 1080p resolution (1920x1080 pixels)
@@ -64,6 +66,10 @@ impl Resolution {
     pub fn dimensions(&self, original_width: u32, original_height: u32) -> (u32, u32) {
         match self {
             Resolution::Original(_) => (original_width, original_height),
+            Resolution::P480 => Self::calculate_scaled_dimensions(
+                (original_width, original_height),
+                Resolution::P480.to_dimension(),
+            ),
             Resolution::P720 => Self::calculate_scaled_dimensions(
                 (original_width, original_height),
                 Resolution::P720.to_dimension(),
@@ -174,14 +180,16 @@ impl Resolution {
     /// assert!(matches!(res, Resolution::Original((800, 600))));
     /// ```
     pub fn preference_resolution(width: u32, height: u32) -> Self {
-        if width >= 2160 {
+        if height >= 2160 {
             Resolution::P4K
-        } else if width >= 1440 {
+        } else if height >= 1440 {
             Resolution::P2K
-        } else if width >= 1080 {
+        } else if height >= 1080 {
             Resolution::P1080
-        } else if width >= 720 {
+        } else if height >= 720 {
             Resolution::P720
+        } else if height >= 480 {
+            Resolution::P480
         } else {
             Resolution::Original((width, height))
         }
@@ -210,6 +218,7 @@ impl Resolution {
             Resolution::P2K => (2560, 1440),
             Resolution::P1080 => (1920, 1080),
             Resolution::P720 => (1280, 720),
+            Resolution::P480 => (640, 480),
         }
     }
 }
@@ -231,6 +240,7 @@ impl fmt::Display for Resolution {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Resolution::Original((w, h)) => write!(f, "Original({}x{})", w, h),
+            Resolution::P480 => write!(f, "480p (640x480)"),
             Resolution::P720 => write!(f, "720p (1280x720)"),
             Resolution::P1080 => write!(f, "1080p (1920x1080)"),
             Resolution::P2K => write!(f, "2K (2560x1440)"),

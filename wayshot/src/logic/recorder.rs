@@ -79,6 +79,17 @@ macro_rules! store_video_sources {
 }
 
 #[macro_export]
+macro_rules! store_camera_sources {
+    ($ui:expr) => {
+        crate::global_store!($ui)
+            .get_camera_sources()
+            .as_any()
+            .downcast_ref::<VecModel<SharedString>>()
+            .expect("We know we set a VecModel<SharedString> earlier")
+    };
+}
+
+#[macro_export]
 macro_rules! store_sources {
     ($ui:expr) => {
         crate::global_store!($ui)
@@ -389,7 +400,6 @@ fn inner_init_sources_dialog(ui: &AppWindow) -> Result<()> {
         );
         names.push(device.name.to_shared_string());
     }
-    store_audio_sources!(ui).set_vec(vec![]);
     store_audio_sources!(ui).set_vec(names);
 
     let mut names = vec![];
@@ -404,9 +414,10 @@ fn inner_init_sources_dialog(ui: &AppWindow) -> Result<()> {
         log::info!("screen_infos: {sinfo:?}");
         names.push(sinfo.name.to_shared_string());
     }
-
-    store_video_sources!(ui).set_vec(vec![]);
     store_video_sources!(ui).set_vec(names);
+
+    let names = crate::logic::camera::available_cameras();
+    store_camera_sources!(ui).set_vec(names);
 
     Ok(())
 }
@@ -423,6 +434,13 @@ fn update_sources(ui: &AppWindow, setting: UISettingControl) {
         ty: SourceType::Video,
         name: setting.screen,
     });
+
+    if setting.enable_camera {
+        store_sources!(ui).push(UISource {
+            ty: SourceType::Camera,
+            name: setting.camera,
+        });
+    }
 }
 
 fn choose_save_dir(ui: &AppWindow) {
@@ -856,6 +874,7 @@ pub fn picker_directory(ui: Weak<AppWindow>, title: &str, filename: &str) -> Opt
 impl From<UIResolution> for Resolution {
     fn from(entry: UIResolution) -> Self {
         match entry {
+            UIResolution::P480 => Resolution::P480,
             UIResolution::P720 => Resolution::P720,
             UIResolution::P1080 => Resolution::P1080,
             UIResolution::P2K => Resolution::P2K,

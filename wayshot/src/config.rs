@@ -1,8 +1,8 @@
 use crate::slint_generatedAppWindow::{
     Fps as UIFps, RTCIceServer as UIRTCIceServer, Resolution as UIResolution,
-    SettingControl as UISettingControl, SettingCursorTracker as UISettingCursorTracker,
-    SettingPushStream as UISettingPushStream, SettingRecorder as UISettingRecorder,
-    SettingShareScreen as UISettingShareScreen,
+    SettingCamera as UISettingCamera, SettingControl as UISettingControl,
+    SettingCursorTracker as UISettingCursorTracker, SettingPushStream as UISettingPushStream,
+    SettingRecorder as UISettingRecorder, SettingShareScreen as UISettingShareScreen,
     SettingShareScreenClient as UISettingShareScreenClient, TransitionType as UITransitionType,
 };
 use anyhow::{Context, Result, bail};
@@ -152,6 +152,15 @@ pub struct Control {
     #[serde(default = "true_func")]
     #[derivative(Default(value = "true"))]
     pub enable_preview: bool,
+
+    #[serde(default)]
+    pub camera: String,
+
+    #[serde(default)]
+    pub enable_camera: bool,
+
+    #[serde(default)]
+    pub camera_setting: Camera,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
@@ -253,8 +262,59 @@ pub struct PushStream {
     pub query_params: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
+#[derivative(Default)]
+#[from("UISettingCamera")]
+pub struct Camera {
+    pub mirror_horizontal: bool,
+
+    #[derivative(Default(value = "25"))]
+    pub fps: i32,
+
+    #[derivative(Default(value = "UIResolution::P480"))]
+    pub resolution: UIResolution,
+
+    #[derivative(Default(value = "0.8"))]
+    pub camera_x: f32,
+
+    #[derivative(Default(value = "0.8"))]
+    pub camera_y: f32,
+
+    #[derivative(Default(value = "3"))]
+    pub border_size: i32,
+
+    pub border_color_index: i32,
+
+    #[derivative(Default(value = "true"))]
+    pub is_circle_shape: bool,
+
+    #[derivative(Default(value = "300"))]
+    pub rect_cropping_width: i32,
+
+    #[derivative(Default(value = "300"))]
+    pub rect_cropping_height: i32,
+
+    #[derivative(Default(value = "0.5"))]
+    pub rect_cropping_x: f32,
+
+    #[derivative(Default(value = "0.5"))]
+    pub rect_cropping_y: f32,
+
+    #[derivative(Default(value = "150"))]
+    pub circle_cropping_radius: i32,
+
+    #[derivative(Default(value = "0.5"))]
+    pub circle_cropping_x: f32,
+
+    #[derivative(Default(value = "0.5"))]
+    pub circle_cropping_y: f32,
+
+    #[derivative(Default(value = "1.0"))]
+    pub cropping_zoom: f32,
+}
+
 crate::impl_slint_enum_serde!(UIFps, Fps24, Fps25, Fps30, Fps60);
-crate::impl_slint_enum_serde!(UIResolution, Original, P720, P1080, P2K, P4K);
+crate::impl_slint_enum_serde!(UIResolution, Original, P480, P720, P1080, P2K, P4K);
 crate::impl_slint_enum_serde!(UITransitionType, Linear, EaseIn, EaseOut);
 crate::impl_c_like_enum_convert!(UITransitionType, TransitionType, Linear, EaseIn, EaseOut);
 

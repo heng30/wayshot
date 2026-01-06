@@ -248,7 +248,7 @@ component ControlPanel inherits HorizontalLayout {
 
                         IconBtn {
                             enabled-toucharea: false;
-                            icon: item.ty == SourceType.Audio ? Icons.audio-fill : Icons.screen-fill;
+                            icon: item.ty == SourceType.Audio ? Icons.audio-fill : (item.ty == SourceType.Video ? Icons.screen-fill : Icons.camera-fill);
                             show-icon-hover-background: false;
                         }
 

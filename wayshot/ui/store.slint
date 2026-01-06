@@ -80,6 +80,7 @@ export enum Fps {
 
 export enum Resolution {
     Original,
+    P480,
     P720,
     P1080,
     P2K,
@@ -122,6 +123,29 @@ export struct SettingRecorder {
     resolution: Resolution,
 }
 
+export struct SettingCamera {
+    fps: int,
+    resolution: Resolution,
+    camera-x: float,
+    camera-y: float,
+    border-size: int,
+    border-color-index: int,
+    mirror-horizontal: bool,
+
+    is-circle-shape: bool,
+
+    rect-cropping-width: int,
+    rect-cropping-height: int,
+    rect-cropping-x: float,
+    rect-cropping-y: float,
+
+    circle-cropping-radius: int,
+    circle-cropping-x: float,
+    circle-cropping-y: float,
+
+    cropping-zoom: float,
+}
+
 export struct SettingControl {
     screen: string,
 
@@ -131,6 +155,10 @@ export struct SettingControl {
 
     speaker-gain: float,
     enable-speaker: bool,
+
+    camera: string,
+    enable-camera: bool,
+    camera-setting: SettingCamera,
 
     enable-stats: bool,
     enable-preview: bool,
@@ -198,6 +226,7 @@ export enum RecordStatus{
 export enum SourceType {
     Audio,
     Video,
+    Camera,
 }
 
 export struct Source{
@@ -277,9 +306,15 @@ export global Store {
         "eDP-2",
     ];
 
+    in-out property <[string]> camera-sources: [
+        "camera-1",
+        "camera-2",
+    ];
+
     in-out property <[Source]> sources: [
         { ty: SourceType.Audio, name: "sound-card-2" },
         { ty: SourceType.Video, name: "eDP-1" },
+        { ty: SourceType.Camera, name: "camera-2" },
     ];
 
     in-out property <StatsInfo> stats-info: {
@@ -295,6 +330,19 @@ export global Store {
         enable-audio: true,
         speaker-gain: 2,
         enable-speaker: true,
+        camera: sources[2].name,
+        enable-camera: true,
+        camera-setting: {
+            border-size: 3,
+            is-circle-shape: false,
+            rect-cropping-width: 150,
+            rect-cropping-height: 150,
+            rect-cropping-x: 0.3,
+            rect-cropping-y: 0.4,
+            circle-cropping-radius: 150,
+            circle-cropping-x: 0.5,
+            circle-cropping-y: 0.5,
+        }
     };
 
     in-out property <SettingShareScreen> setting-share-screen;
@@ -302,6 +350,21 @@ export global Store {
     in-out property <string> setting-share-screen-key-file;
 
     in-out property <SettingPushStream> setting-push-stream;
+
+    in-out property <bool> is-show-camera-setting-dialog: true;
+    in-out property <image> camera-setting-dialog-image: @image-url("./images/png/brand.png");
+    in-out property <[color]> camera-cropping-area-border-colors: [
+        Colors.white,
+        Colors.black,
+        Colors.gray,
+        Colors.red,
+        Colors.orange,
+        Colors.yellow,
+        Colors.green,
+        Colors.blue,
+        Colors.cyan,
+        Colors.pink
+    ];
 
     in-out property <[HistoryEntry]> history-entries: [
         {

@@ -32,6 +32,9 @@ mod share_screen;
 #[cfg(feature = "desktop")]
 mod push_stream;
 
+#[cfg(feature = "desktop")]
+mod camera;
+
 pub fn init(ui: &AppWindow) {
     #[cfg(any(feature = "desktop", feature = "mobile"))]
     {
@@ -52,6 +55,7 @@ pub fn init(ui: &AppWindow) {
         player::init(ui);
         share_screen::init(ui);
         push_stream::init(ui);
+        camera::init(ui);
     }
 }
 

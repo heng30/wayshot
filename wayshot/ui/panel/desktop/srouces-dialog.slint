@@ -1,7 +1,16 @@
 import { ListView } from "std-widgets.slint";
-import { Theme, Store, Logic, Util, Icons, PopupIndex } from "../def.slint";
 import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    PopupIndex,
+} from "../def.slint";
+import {
+    ToastStatus,
     Dialog,
+    SwitchBtn,
     NoDataImg,
     Label,
     SettingDetailLabel,
@@ -14,8 +23,12 @@ export component SourcesDialog inherits Dialog {
     title: Logic.tr("Select Sources");
     is-prevent-event-forward: true;
 
+    in property <length> inner-height: Theme.default-height * 0.8;
+
     private property <string> selected-screen: Store.setting-control.screen;
     private property <string> selected-audio: Store.setting-control.audio;
+    private property <string> selected-camera: Store.setting-control.camera;
+    private property <bool> enable-camera: Store.setting-control.enable-camera;
 
     init => {
         Logic.init-sources-dialog();
@@ -23,7 +36,7 @@ export component SourcesDialog inherits Dialog {
 
     VerticalLayout {
         spacing: Theme.spacing * 4;
-        height: Theme.default-height * 0.5;
+        height: inner-height;
 
         if Store.audio-sources.length == 0 && Store.video-sources.length == 0: CenterLayout {
             NoDataImg {
@@ -135,6 +148,88 @@ export component SourcesDialog inherits Dialog {
                 }
             }
         }
+
+        if Store.camera-sources.length != 0: VerticalLayout {
+            Rectangle {
+                background: Theme.thirdly-background;
+
+                HorizontalLayout {
+                    padding: Theme.padding * 2;
+                    alignment: space-between;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 2;
+                        alignment: start;
+
+                        IconBtn {
+                            enabled-toucharea: false;
+                            icon: Icons.camera-fill;
+                            show-icon-hover-background: false;
+                        }
+
+                        SettingDetailLabel {
+                            text: Logic.tr("Camera");
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+
+                        IconBtn {
+                            icon: Icons.setting-fill;
+
+                            clicked => {
+                                if (root.selected-camera.is-empty) {
+                                    Util.show-toast(Logic.tr("Please select available camera"), ToastStatus.Warning);
+                                    return;
+                                }
+                                root.confirmed();
+                                Store.is-show-camera-setting-dialog = true;
+                            }
+                        }
+
+                        SwitchBtn {
+                            checked: root.enable-camera;
+                            unchecked-background: Theme.is-dark ? Theme.secondary-background.brighter(50%) : Theme.secondary-background.darker(30%);
+
+                            toggled => {
+                                root.enable-camera = !root.enable-camera;
+                            }
+                        }
+                    }
+                }
+            }
+
+            ListView {
+                for item[index] in Store.camera-sources: Rectangle {
+                    background: camera-ta.has-hover ? Theme.checked-background : (Math.mod(index, 2) == 0 ? Theme.table-item-first : Theme.table-item-second);
+
+                    camera-ta := TouchArea {
+                        clicked => {
+                            root.selected-camera = item;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding: Theme.padding * 2;
+                        spacing: Theme.spacing * 2;
+                        alignment: start;
+
+                        RadioBtn {
+                            checked: root.selected-camera == item;
+                            check => {
+                                root.selected-camera = item;
+                            }
+                        }
+
+                        Label {
+                            text: item;
+                            overflow: elide;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     canceled => {
@@ -144,6 +239,7 @@ export component SourcesDialog inherits Dialog {
     confirmed => {
         let is-screen-changed = root.selected-screen != Store.setting-control.screen;
         let is-audio-changed = root.selected-audio != Store.setting-control.audio;
+        let is-camera-changed = root.selected-camera != Store.setting-control.camera || root.enable-camera != Store.setting-control.enable-camera;
 
         if (is-audio-changed) {
             Store.setting-control.audio = root.selected-audio;
@@ -151,7 +247,11 @@ export component SourcesDialog inherits Dialog {
         if (is-screen-changed) {
             Store.setting-control.screen = root.selected-screen;
         }
-        if (is-audio-changed || is-screen-changed) {
+        if (is-camera-changed) {
+            Store.setting-control.camera = root.selected-camera;
+            Store.setting-control.enable-camera = root.enable-camera;
+        }
+        if (is-audio-changed || is-screen-changed || is-camera-changed) {
             Logic.set-setting-control(Store.setting-control);
             Logic.update-sources(Store.setting-control);
         }

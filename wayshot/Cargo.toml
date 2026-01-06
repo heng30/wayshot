@@ -40,6 +40,7 @@ cutil = { workspace = true, features = ["str", "time", "number", "fs"] }
 open.workspace = true
 wrtc.workspace = true
 mp4m.workspace = true
+camera.workspace = true
 tempfile.workspace = true
 recorder.workspace = true
 clipboard.workspace = true

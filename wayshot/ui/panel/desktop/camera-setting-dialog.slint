@@ -1,0 +1,374 @@
+import {
+    Store,
+    Logic,
+    Util,
+    Theme,
+    Icons,
+    SettingCamera,
+} from "../def.slint";
+import {
+    SettingDetail,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+    Select,
+    CancelBtn,
+    ConfirmBtn,
+    Label,
+    SettingDetailSwitch,
+    Dialog,
+    TextBtnWithoutIcon,
+    Slider,
+} from "../../base/widgets.slint";
+
+export component CameraSettingDialog inherits Dialog {
+    title: Logic.tr("Camera Setting");
+    is-prevent-event-forward: true;
+    is-hide-close-btn: true;
+
+    in property <length> inner-height: Theme.default-height * 0.8;
+
+    private property <SettingCamera> cache-setting;
+    private property <bool> is-camera-playing: true;
+
+    public function get() -> SettingCamera {
+        cache-setting.border-size = bz-li.text.to-float();
+
+        return root.cache-setting;
+    }
+
+    init => {
+        cache-setting = Store.setting-control.camera-setting;
+    }
+
+    canceled => {
+        Store.is-show-camera-setting-dialog = false;
+    }
+
+    confirmed => {
+        let setting = root.get();
+
+        Store.setting-control.camera-setting = setting;
+        Logic.set-setting-camera(setting);
+        Store.is-show-camera-setting-dialog = false;
+    }
+
+    SettingDetailInner {
+        height: root.inner-height;
+        interactive: false;
+
+        HorizontalLayout {
+            alignment: center;
+            padding-top: Theme.padding * 2;
+
+            Rectangle {
+                background: Colors.black;
+                width: min(root.width * 0.8, 800px);
+                height: self.width / 16 * 9;
+                border-radius: Theme.border-radius;
+                clip: true;
+
+                private property <float> width-height-rate: self.width / self.height;
+
+                camera-img := Image {
+                    private property <float> img-width-height-rate: self.source.width / self.source.height;
+
+                    function update-size() {
+                        if (parent.width-height-rate > img-width-height-rate) {
+                            self.height = min(parent.height, self.source.height * 1px);
+                            self.width = self.height * img-width-height-rate;
+                        } else {
+                            self.width = min(parent.width, self.source.width * 1px);
+                            self.height = self.width / img-width-height-rate;
+                        }
+                    }
+
+                    source: Store.camera-setting-dialog-image;
+                    image-fit: ImageFit.contain;
+
+                    changed source => {
+                        update-size();
+                    }
+
+                    init => {
+                        update-size();
+                    }
+                }
+
+                TouchArea {
+                    clicked => {
+                        is-camera-playing = false;
+                        Logic.camera-setting-dialog-stop-playing();
+                    }
+                }
+
+                if is-camera-playing: Rectangle {
+                    background: Colors.black;
+                    opacity: 0.5;
+                }
+
+                if is-camera-playing && !cache-setting.is-circle-shape && camera-img.source.width > 0 && camera-img.source.height > 0: Rectangle {
+                    x: clamp(camera-img.x + camera-img.width * cache-setting.rect-cropping-x, camera-img.x, camera-img.x + camera-img.width - self.width);
+                    y: clamp(camera-img.y + camera-img.height * cache-setting.rect-cropping-y, camera-img.y, camera-img.y + camera-img.height - self.height);
+                    width: camera-img.width * cache-setting.rect-cropping-width / camera-img.source.width;
+                    height: camera-img.height * cache-setting.rect-cropping-height / camera-img.source.height;
+                    border-width: cache-setting.border-size * 1px;
+                    border-color: Store.camera-cropping-area-border-colors[cache-setting.border-color-index];
+
+                    TouchArea {
+                        mouse-cursor: move;
+
+                        moved => {
+                            parent.x = clamp(parent.x + self.mouse-x - self.pressed-x, camera-img.x, camera-img.x + camera-img.width - parent.width);
+                            parent.y = clamp(parent.y + self.mouse-y - self.pressed-y, camera-img.y, camera-img.y + camera-img.height - parent.height);
+
+                            cache-setting.rect-cropping-x = (parent.x - camera-img.x) / camera-img.width;
+                            cache-setting.rect-cropping-y = (parent.y - camera-img.y) / camera-img.height;
+                        }
+                    }
+                }
+
+                if is-camera-playing && cache-setting.is-circle-shape && camera-img.source.width > 0 && camera-img.source.height > 0: Rectangle {
+                    x: clamp(camera-img.x + camera-img.width * cache-setting.circle-cropping-x - self.width / 2, camera-img.x, camera-img.x + camera-img.width - self.width);
+                    y: clamp(camera-img.y + camera-img.height * cache-setting.circle-cropping-y - self.height / 2, camera-img.y, camera-img.y + camera-img.height - self.height);
+                    width: camera-img.width * cache-setting.circle-cropping-radius / camera-img.source.width;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    border-width: cache-setting.border-size * 1px;
+                    border-color: Store.camera-cropping-area-border-colors[cache-setting.border-color-index];
+
+                    TouchArea {
+                        mouse-cursor: move;
+
+                        moved => {
+                            parent.x = clamp(parent.x + self.mouse-x - self.pressed-x, camera-img.x, camera-img.x + camera-img.width - parent.width);
+                            parent.y = clamp(parent.y + self.mouse-y - self.pressed-y, camera-img.y, camera-img.y + camera-img.height - parent.height);
+
+                            cache-setting.circle-cropping-x = (parent.x - camera-img.x + self.width) / camera-img.width;
+                            cache-setting.circle-cropping-y = (parent.y - camera-img.y + self.height) / camera-img.height;
+                        }
+                    }
+                }
+
+                Rectangle {
+                    x: Theme.padding * 2;
+                    y: Theme.padding * 2;
+                    width: resolution-ll.preferred-width + Theme.padding * 4;
+                    height: resolution-ll.preferred-height + Theme.padding * 2;
+                    background: Theme.base-background;
+                    border-radius: Theme.border-radius;
+
+                    resolution-ll := Label {
+                        text: camera-img.source.width + " X " + camera-img.source.height;
+                    }
+                }
+
+                Slider {
+                    x: parent.width - self.width - Theme.padding * 4;
+                    indicator-size: Theme.icon-size;
+                    width: Theme.icon-size * 0.3;
+                    height: 80%;
+                    orientation: vertical;
+                    minimum: 0.1;
+                    maximum: 3;
+                    value: cache-setting.cropping-zoom;
+
+                    changed(value) => {
+                        cache-setting.cropping-zoom = value.to-fixed(2).to-float();
+                        Logic.camera-setting-dialog-zoom-image();
+                    }
+                }
+
+                if !root.is-camera-playing: Rectangle {
+                    opacity: Theme.golden-ratio;
+                    background: Theme.dark-bg-color;
+
+                    TouchArea {
+                        clicked => {
+                            is-camera-playing = true;
+                            Logic.camera-setting-dialog-start-playing(Store.setting-control.camera, cache-setting);
+                        }
+                    }
+                }
+
+                if !root.is-camera-playing: Rectangle {
+                    width: Math.min(parent.width, parent.height) * 0.2;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    background: Theme.light-text-color.darker(30%);
+
+                    Image {
+                        width: 100%;
+                        height: 100%;
+                        source: Icons.control-start-light;
+                        colorize: Theme.dark-bg-color;
+                        image-fit: ImageFit.contain;
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Resolution");
+            }
+
+            resolution-select := Select {
+                values: ["Original", "480P", "720P"];
+                current-value: Logic.resolution-to-string(cache-setting.resolution);
+                selected(_, value) => {
+                    cache-setting.resolution = Logic.resolution-from-string(value);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("fps");
+            }
+
+            fps-select := Select {
+                values: [24, 25, 30, 60];
+                current-value: cache-setting.fps == 0 ? self.values[1] : cache-setting.fps;
+
+                selected(_, value) => {
+                    cache-setting.fps = value.to-float();
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Cropping Area Shape");
+            }
+
+            Select {
+                values: [Logic.tr("Circle"), Logic.tr("Retangle")];
+                current-value: cache-setting.is-circle-shape ? self.values[0] : self.values[1];
+
+                selected(current-index, current-value) => {
+                    cache-setting.is-circle-shape = current-index == 0;
+                }
+            }
+        }
+
+        if !cache-setting.is-circle-shape: SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Cropping area (px)");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                LineInput {
+                    horizontal-stretch: 1;
+                    input-type: number;
+                    placeholder-text: Logic.tr("Area width");
+                    text: cache-setting.rect-cropping-width;
+                    border-color: self.text != cache-setting.rect-cropping-width ? Theme.danger-color : self.default-border-color;
+
+                    accepted => {
+                        cache-setting.rect-cropping-width = self.text.to-float();
+                    }
+                }
+
+                Label {
+                    text: "X";
+                }
+
+                LineInput {
+                    horizontal-stretch: 1;
+                    input-type: number;
+                    placeholder-text: Logic.tr("Area height");
+                    text: cache-setting.rect-cropping-height;
+                    border-color: self.text != cache-setting.rect-cropping-height ? Theme.danger-color : self.default-border-color;
+
+                    accepted => {
+                        cache-setting.rect-cropping-height = self.text.to-float();
+                    }
+                }
+            }
+        }
+
+        if cache-setting.is-circle-shape: SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Cropping Area (px)");
+            }
+
+            LineInput {
+                input-type: number;
+                text: cache-setting.circle-cropping-radius;
+                placeholder-text: "Area raduis";
+                border-color: self.text != cache-setting.circle-cropping-radius ? Theme.danger-color : self.default-border-color;
+
+                accepted => {
+                    cache-setting.circle-cropping-radius = self.text.to-float();
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Border size and color");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 8;
+
+                bz-li := LineInput {
+                    input-type: number;
+                    text: cache-setting.border-size;
+                    placeholder-text: "e.g., 5";
+
+                    accepted => {
+                        cache-setting.border-size = self.text.to-float();
+                    }
+                }
+
+                if bz-li.text.to-float() > 0: HorizontalLayout {
+                    padding-right: Theme.padding * 4;
+                    spacing: Theme.spacing * 4;
+
+                    for item[index] in Store.camera-cropping-area-border-colors: VerticalLayout {
+                        spacing: Theme.spacing;
+                        alignment: center;
+
+                        Rectangle {
+                            border-width: Theme.default-border-width;
+                            border-color: Theme.base-border-color;
+                            background: item;
+                            width: Theme.icon-size;
+                            height: self.width;
+                            border-radius: Theme.border-radius;
+
+                            TouchArea {
+                                clicked => {
+                                    cache-setting.border-color-index = index;
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            width: Theme.icon-size;
+                            height: 2px;
+                            background: index == cache-setting.border-color-index ? Theme.success-color : Colors.transparent;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailSwitch {
+                icon: Icons.mirror-horizontal-light;
+                text: self.checked ? Logic.tr("Mirror horizontal enabled") : Logic.tr("Mirror horizontal disabled");
+                checked: cache-setting.mirror-horizontal;
+
+                toggled => {
+                    cache-setting.mirror-horizontal = self.checked;
+                }
+            }
+        }
+    }
+}
