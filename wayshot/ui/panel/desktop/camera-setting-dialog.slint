@@ -29,7 +29,7 @@ export component CameraSettingDialog inherits Dialog {
 
     in property <length> inner-height: Theme.default-height * 0.8;
 
-    private property <SettingCamera> cache-setting;
+    private property cache-setting <=> Store.camera-setting-cache;
     private property <bool> is-camera-playing: true;
 
     public function get() -> SettingCamera {
@@ -113,8 +113,8 @@ export component CameraSettingDialog inherits Dialog {
                     y: clamp(camera-img.y + camera-img.height * cache-setting.rect-cropping-y, camera-img.y, camera-img.y + camera-img.height - self.height);
                     width: camera-img.width * cache-setting.rect-cropping-width / camera-img.source.width;
                     height: camera-img.height * cache-setting.rect-cropping-height / camera-img.source.height;
-                    border-width: cache-setting.border-size * 1px;
-                    border-color: Store.camera-cropping-area-border-colors[cache-setting.border-color-index];
+                    border-width: 2px;
+                    border-color: white;
 
                     TouchArea {
                         mouse-cursor: move;
@@ -135,8 +135,8 @@ export component CameraSettingDialog inherits Dialog {
                     width: camera-img.width * cache-setting.circle-cropping-radius / camera-img.source.width;
                     height: self.width;
                     border-radius: self.width / 2;
-                    border-width: cache-setting.border-size * 1px;
-                    border-color: Store.camera-cropping-area-border-colors[cache-setting.border-color-index];
+                    border-width: 2px;
+                    border-color: white;
 
                     TouchArea {
                         mouse-cursor: move;
@@ -187,7 +187,7 @@ export component CameraSettingDialog inherits Dialog {
                     TouchArea {
                         clicked => {
                             is-camera-playing = true;
-                            Logic.camera-setting-dialog-start-playing(Store.setting-control.camera, cache-setting);
+                            Logic.camera-setting-dialog-start-playing(Store.setting-control.camera);
                         }
                     }
                 }
