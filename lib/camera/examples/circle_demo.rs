@@ -1,7 +1,7 @@
 use anyhow::Result;
 use camera::{
     Rgba,
-    image_composition::{Shape, ShapeBase, ShapeCircle, mix_images},
+    image_composition::{Shape, ShapeBase, ShapeCircle, MixPositionWithPadding, mix_images},
 };
 use image::RgbaImage;
 
@@ -27,7 +27,7 @@ fn main() -> Result<()> {
     let circle1 = ShapeCircle::default().with_radius(100).with_base(
         ShapeBase::default()
             .with_border_width(3)
-            .with_pos((0.1, 0.1))
+            .with_pos(MixPositionWithPadding::TopLeft((30, 30)))
             .with_zoom(1.0)
             .with_border_color(Rgba([255, 0, 0, 255]))
             .with_clip_pos((0.5, 0.5)),

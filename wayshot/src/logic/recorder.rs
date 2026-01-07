@@ -643,7 +643,7 @@ fn inner_start_recording(
     let audio_name = if all_config.control.audio.is_empty() || !all_config.control.enable_audio {
         None
     } else {
-        Some(all_config.control.audio)
+        Some(all_config.control.audio.clone())
     };
 
     let config = RecorderConfig::new(
@@ -681,7 +681,8 @@ fn inner_start_recording(
     .with_zoom_out_transition_type(all_config.cursor_tracker.zoom_out_transition_type.into())
     .with_max_stable_region_duration(all_config.cursor_tracker.max_stable_region_duration as u64)
     .with_share_screen_config(all_config.share_screen.into())
-    .with_push_stream_config(all_config.push_stream.into());
+    .with_push_stream_config(all_config.push_stream.into())
+    .with_camera_mix_config(all_config.control.into());
 
     log::info!("Recording configuration: {:#?}", config);
 

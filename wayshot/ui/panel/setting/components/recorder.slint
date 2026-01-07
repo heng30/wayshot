@@ -105,7 +105,7 @@ export component Recorder inherits SettingDetail {
             include-cursor-swicth := SettingDetailSwitch {
                 icon: Icons.cursor-light;
                 icon-size: Theme.icon-size * 0.8;
-                text: self.checked ? Logic.tr("Enabled cursor capturing") : Logic.tr("Disabled cursor capturing");
+                text: self.checked ? Logic.tr("Cursor capturing enabled") : Logic.tr("Cursor capturing disabled");
                 checked: root.include-cursor;
 
                 toggled => {
@@ -120,7 +120,7 @@ export component Recorder inherits SettingDetail {
 
             SettingDetailSwitch {
                 icon: Icons.denoise-light;
-                text: self.checked ? Logic.tr("Enabled noise reduction") : Logic.tr("Disabled noise reduction");
+                text: self.checked ? Logic.tr("Noise reduction enabled") : Logic.tr("Noise reduction disabled");
                 checked: root.enable-denoise;
 
                 toggled => {

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use camera::{
     Rgba,
-    image_composition::{Shape, ShapeBase, ShapeRectangle, mix_images},
+    image_composition::{Shape, ShapeBase, ShapeRectangle, MixPositionWithPadding, mix_images},
 };
 use image::RgbaImage;
 
@@ -22,7 +22,7 @@ fn main() -> Result<()> {
     let rect1 = ShapeRectangle::default().with_size((100, 50)).with_base(
         ShapeBase::default()
             .with_border_width(3)
-            .with_pos((0.1, 0.1))
+            .with_pos(MixPositionWithPadding::TopLeft((40, 30)))
             .with_zoom(2.0)
             .with_border_color(Rgba([255, 0, 0, 255]))
             .with_clip_pos((0.1, 0.1)),
@@ -36,7 +36,7 @@ fn main() -> Result<()> {
     let rect2 = ShapeRectangle::default().with_size((100, 50)).with_base(
         ShapeBase::default()
             .with_border_width(3)
-            .with_pos((0.6, 0.6))
+            .with_pos(MixPositionWithPadding::TopLeft((240, 180)))
             .with_zoom(2.0)
             .with_border_color(Rgba([255, 0, 0, 255]))
             .with_clip_pos((0.25, 0.25)),

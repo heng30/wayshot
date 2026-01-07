@@ -38,7 +38,7 @@ export component SourcesDialog inherits Dialog {
         spacing: Theme.spacing * 4;
         height: inner-height;
 
-        if Store.audio-sources.length == 0 && Store.video-sources.length == 0: CenterLayout {
+        if Store.audio-sources.length == 0 && Store.video-sources.length == 0 && Store.camera-sources.length == 0: CenterLayout {
             NoDataImg {
                 width: Theme.default-width * 0.5;
                 text: Logic.tr("No Found Sources");
@@ -46,6 +46,8 @@ export component SourcesDialog inherits Dialog {
         }
 
         if Store.audio-sources.length != 0: VerticalLayout {
+            vertical-stretch: 2;
+
             Rectangle {
                 background: Theme.thirdly-background;
 
@@ -98,6 +100,8 @@ export component SourcesDialog inherits Dialog {
         }
 
         if Store.video-sources.length != 0: VerticalLayout {
+            vertical-stretch: 1;
+
             Rectangle {
                 background: Theme.thirdly-background;
 
@@ -150,6 +154,8 @@ export component SourcesDialog inherits Dialog {
         }
 
         if Store.camera-sources.length != 0: VerticalLayout {
+            vertical-stretch: 1;
+
             Rectangle {
                 background: Theme.thirdly-background;
 

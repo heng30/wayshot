@@ -50,6 +50,7 @@ mp4-player.workspace = true
 native-dialog.workspace = true
 platform-dirs.workspace = true
 screen-capture.workspace = true
+fast_image_resize.workspace = true
 rodio = { workspace = true, features = ["playback"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -73,7 +74,7 @@ embed-resource.workspace = true
 
 [features]
 default = ["desktop-wayland-wlr"]
-desktop = ["cutil/backup-recover", "database"]
+desktop = ["cutil/backup-recover", "database", "dep:image"]
 desktop-windows = ["desktop", "recorder/windows"]
 desktop-wayland-wlr = ["desktop", "recorder/wayland-wlr"]
 desktop-wayland-portal = ["desktop", "recorder/wayland-portal"]

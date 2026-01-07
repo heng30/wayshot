@@ -194,12 +194,14 @@ impl PushStreamConfig {
 pub struct CameraMixConfig {
     pub enable: bool,
     pub camera_name: Option<String>,
+
+    pub fps: u32,
     pub width: u32,
     pub height: u32,
-    pub fps: u32,
-    pub pixel_format: camera::PixelFormat,
-    pub shape: Shape,
     pub mirror_horizontal: bool,
+    pub pixel_format: camera::PixelFormat,
+
+    pub shape: Shape,
 }
 
 impl Default for CameraMixConfig {

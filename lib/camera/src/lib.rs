@@ -5,7 +5,10 @@ pub mod image_composition;
 pub use camera_client::{CameraClient, CameraConfig, PixelFormat};
 pub use camera_info::{CameraInfo, query_available_cameras, query_camera_id, query_first_camera};
 pub use image::{ImageBuffer, Rgb, Rgba, RgbaImage};
-pub use image_composition::{Shape, ShapeCircle, ShapeRectangle, mix_images, mix_images_rgb};
+pub use image_composition::{
+    MixPositionWithPadding, Shape, ShapeBase, ShapeCircle, ShapeRectangle, mix_images,
+    mix_images_rgb,
+};
 
 pub type CameraResult<T> = Result<T, CameraError>;
 

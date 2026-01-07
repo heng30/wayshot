@@ -57,7 +57,7 @@ export component CursorTracker inherits SettingDetail {
         SettingDetailInnerVbox {
             SettingDetailSwitch {
                 icon: Icons.tracker-light;
-                text: self.checked ? Logic.tr("Enabled cursor tracking") : Logic.tr("Disabled cursor tracking");
+                text: self.checked ? Logic.tr("Cursor tracking enabled") : Logic.tr("Cursor tracking disabled");
                 checked: root.setting.enable-tracking;
 
                 toggled => {

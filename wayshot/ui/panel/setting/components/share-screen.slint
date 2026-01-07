@@ -292,7 +292,7 @@ export component ShareScreen inherits SettingDetail {
             SettingDetailInnerVbox {
                 SettingDetailSwitch {
                     icon: Icons.https-light;
-                    text: self.checked ? Logic.tr("Enabled TLS") : Logic.tr("Disabled TLS");
+                    text: self.checked ? Logic.tr("TLS enabled") : Logic.tr("TLS disabled");
                     checked: cache-setting.enable-https;
 
                     toggled => {
@@ -351,7 +351,7 @@ export component ShareScreen inherits SettingDetail {
 
             SettingDetailSwitch {
                 icon: Icons.ipv6-light;
-                text: self.checked ? Logic.tr("Enabled IPV6") : Logic.tr("Disabled IPV6");
+                text: self.checked ? Logic.tr("IPV6 enabled") : Logic.tr("IPV6 disabled");
                 checked: !cache-setting.disable-host-ipv6;
 
                 toggled => {

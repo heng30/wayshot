@@ -1,7 +1,8 @@
 use camera::{
     Rgba,
     image_composition::{
-        Shape, ShapeBase, ShapeCircle, ShapeRectangle, mix_images, mix_images_rgb,
+        MixPositionWithPadding, Shape, ShapeBase, ShapeCircle, ShapeRectangle, mix_images,
+        mix_images_rgb,
     },
 };
 use image::{RgbImage, RgbaImage};
@@ -29,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("RGBA: Compositing with rectangle shape...");
     let rect = ShapeRectangle::default().with_size((300, 225)).with_base(
         ShapeBase::default()
-            .with_pos((0.3, 0.3))
+            .with_pos(MixPositionWithPadding::TopLeft((240, 180)))
             .with_border_width(10)
             .with_border_color(Rgba([255, 255, 255, 255])),
     );
@@ -44,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("RGBA: Compositing with circle shape...");
     let circle = ShapeCircle::default().with_radius(150).with_base(
         ShapeBase::default()
-            .with_pos((0.7, 0.6))
+            .with_pos(MixPositionWithPadding::TopRight((210, 90)))
             .with_border_width(8)
             .with_border_color(Rgba([255, 255, 255, 255])),
     );
@@ -77,7 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("RGB: Compositing with rectangle shape...");
     let rect_rgb = ShapeRectangle::default().with_size((300, 225)).with_base(
         ShapeBase::default()
-            .with_pos((0.3, 0.3))
+            .with_pos(MixPositionWithPadding::TopLeft((240, 180)))
             .with_border_width(10)
             .with_border_color(Rgba([255, 255, 255, 255])),
     );
@@ -92,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("RGB: Compositing with circle shape...");
     let circle_rgb = ShapeCircle::default().with_radius(150).with_base(
         ShapeBase::default()
-            .with_pos((0.7, 0.6))
+            .with_pos(MixPositionWithPadding::TopRight((210, 90)))
             .with_border_width(8)
             .with_border_color(Rgba([255, 255, 255, 255])),
     );
@@ -107,7 +108,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("RGB: Compositing with plain rectangle (no border)...");
     let plain_rect_rgb = ShapeRectangle::default().with_size((250, 200)).with_base(
         ShapeBase::default()
-            .with_pos((0.5, 0.5))
+            .with_pos(MixPositionWithPadding::TopLeft((400, 300)))
             .with_border_width(0)
             .with_border_color(Rgba([0, 0, 0, 0])),
     );
@@ -118,6 +119,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     result_plain_rgb.save("tmp/composition_rect_plain_rgb.png")?;
     log::info!("Saved RGB output to: tmp/composition_rect_plain_rgb.png");
+
+    log::info!("RGB: Compositing with plain circle (no border)...");
+    let plain_circle_rgb = ShapeCircle::default().with_radius(100).with_base(
+        ShapeBase::default()
+            .with_pos(MixPositionWithPadding::TopLeft((200, 300)))
+            .with_border_width(0)
+            .with_border_color(Rgba([0, 0, 0, 0])),
+    );
+    let result_plain_rgb = mix_images_rgb(
+        background_rgb.clone(),
+        camera_image_rgb.clone(),
+        Shape::Circle(plain_circle_rgb),
+    )?;
+    result_plain_rgb.save("tmp/composition_circle_plain_rgb.png")?;
+    log::info!("Saved RGB output to: tmp/composition_circle_plain_rgb.png");
 
     log::info!("");
     log::info!("All RGBA and RGB examples completed successfully!");

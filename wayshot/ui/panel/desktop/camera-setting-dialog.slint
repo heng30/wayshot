@@ -5,6 +5,7 @@ import {
     Theme,
     Icons,
     SettingCamera,
+    MixPositionWithPaddingTag,
 } from "../def.slint";
 import {
     SettingDetail,
@@ -23,20 +24,22 @@ import {
 } from "../../base/widgets.slint";
 
 export component CameraSettingDialog inherits Dialog {
-    title: Logic.tr("Camera Setting");
-    is-prevent-event-forward: true;
-    is-hide-close-btn: true;
-
     in property <length> inner-height: Theme.default-height * 0.8;
 
+    private property <bool> is-camera-playing;
     private property cache-setting <=> Store.camera-setting-cache;
-    private property <bool> is-camera-playing: true;
 
     public function get() -> SettingCamera {
         cache-setting.border-size = bz-li.text.to-float();
+        cache-setting.pos.padding1 = padding1-li.text.to-float();
+        cache-setting.pos.padding2 = padding2-li.text.to-float();
 
         return root.cache-setting;
     }
+
+    title: Logic.tr("Camera Setting");
+    is-prevent-event-forward: true;
+    is-hide-close-btn: true;
 
     init => {
         cache-setting = Store.setting-control.camera-setting;
@@ -44,14 +47,16 @@ export component CameraSettingDialog inherits Dialog {
 
     canceled => {
         Store.is-show-camera-setting-dialog = false;
+        Logic.camera-setting-dialog-stop-playing();
     }
 
     confirmed => {
         let setting = root.get();
-
         Store.setting-control.camera-setting = setting;
         Logic.set-setting-camera(setting);
         Store.is-show-camera-setting-dialog = false;
+
+        Logic.camera-setting-dialog-stop-playing();
     }
 
     SettingDetailInner {
@@ -108,13 +113,14 @@ export component CameraSettingDialog inherits Dialog {
                     opacity: 0.5;
                 }
 
-                if is-camera-playing && !cache-setting.is-circle-shape && camera-img.source.width > 0 && camera-img.source.height > 0: Rectangle {
-                    x: clamp(camera-img.x + camera-img.width * cache-setting.rect-cropping-x, camera-img.x, camera-img.x + camera-img.width - self.width);
-                    y: clamp(camera-img.y + camera-img.height * cache-setting.rect-cropping-y, camera-img.y, camera-img.y + camera-img.height - self.height);
-                    width: camera-img.width * cache-setting.rect-cropping-width / camera-img.source.width;
-                    height: camera-img.height * cache-setting.rect-cropping-height / camera-img.source.height;
+                if is-camera-playing && camera-img.source.width > 0 && camera-img.source.height > 0: Rectangle {
+                    x: clamp(camera-img.x + camera-img.width * cache-setting.cropping-x, camera-img.x, camera-img.x + camera-img.width - self.width);
+                    y: clamp(camera-img.y + camera-img.height * cache-setting.cropping-y, camera-img.y, camera-img.y + camera-img.height - self.height);
+                    width: cache-setting.is-circle-shape ? camera-img.width * cache-setting.circle-cropping-radius * 2 / camera-img.source.width : camera-img.width * cache-setting.rect-cropping-width / camera-img.source.width;
+                    height: cache-setting.is-circle-shape ? camera-img.height * cache-setting.circle-cropping-radius * 2 / camera-img.source.height : camera-img.height * cache-setting.rect-cropping-height / camera-img.source.height;
                     border-width: 2px;
                     border-color: white;
+                    border-radius: cache-setting.is-circle-shape ? self.width : 0;
 
                     TouchArea {
                         mouse-cursor: move;
@@ -123,30 +129,8 @@ export component CameraSettingDialog inherits Dialog {
                             parent.x = clamp(parent.x + self.mouse-x - self.pressed-x, camera-img.x, camera-img.x + camera-img.width - parent.width);
                             parent.y = clamp(parent.y + self.mouse-y - self.pressed-y, camera-img.y, camera-img.y + camera-img.height - parent.height);
 
-                            cache-setting.rect-cropping-x = (parent.x - camera-img.x) / camera-img.width;
-                            cache-setting.rect-cropping-y = (parent.y - camera-img.y) / camera-img.height;
-                        }
-                    }
-                }
-
-                if is-camera-playing && cache-setting.is-circle-shape && camera-img.source.width > 0 && camera-img.source.height > 0: Rectangle {
-                    x: clamp(camera-img.x + camera-img.width * cache-setting.circle-cropping-x - self.width / 2, camera-img.x, camera-img.x + camera-img.width - self.width);
-                    y: clamp(camera-img.y + camera-img.height * cache-setting.circle-cropping-y - self.height / 2, camera-img.y, camera-img.y + camera-img.height - self.height);
-                    width: camera-img.width * cache-setting.circle-cropping-radius / camera-img.source.width;
-                    height: self.width;
-                    border-radius: self.width / 2;
-                    border-width: 2px;
-                    border-color: white;
-
-                    TouchArea {
-                        mouse-cursor: move;
-
-                        moved => {
-                            parent.x = clamp(parent.x + self.mouse-x - self.pressed-x, camera-img.x, camera-img.x + camera-img.width - parent.width);
-                            parent.y = clamp(parent.y + self.mouse-y - self.pressed-y, camera-img.y, camera-img.y + camera-img.height - parent.height);
-
-                            cache-setting.circle-cropping-x = (parent.x - camera-img.x + self.width) / camera-img.width;
-                            cache-setting.circle-cropping-y = (parent.y - camera-img.y + self.height) / camera-img.height;
+                            cache-setting.cropping-x = ((parent.x - camera-img.x) / camera-img.width).to-fixed(2).to-float();
+                            cache-setting.cropping-y = ((parent.y - camera-img.y) / camera-img.height).to-fixed(2).to-float();
                         }
                     }
                 }
@@ -172,11 +156,10 @@ export component CameraSettingDialog inherits Dialog {
                     orientation: vertical;
                     minimum: 0.1;
                     maximum: 3;
-                    value: cache-setting.cropping-zoom;
+                    value: cache-setting.zoom;
 
                     changed(value) => {
-                        cache-setting.cropping-zoom = value.to-fixed(2).to-float();
-                        Logic.camera-setting-dialog-zoom-image();
+                        cache-setting.zoom = value.to-fixed(2).to-float();
                     }
                 }
 
@@ -204,6 +187,97 @@ export component CameraSettingDialog inherits Dialog {
                         source: Icons.control-start-light;
                         colorize: Theme.dark-bg-color;
                         image-fit: ImageFit.contain;
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Camera image position");
+                tip: Logic.tr("Mixed position of camera image and recorded screen image");
+            }
+
+            padding-sl := Select {
+                pure function tag-to-str(tag: MixPositionWithPaddingTag) -> string {
+                    if (tag == MixPositionWithPaddingTag.TopLeft) {
+                        return self.values[0];
+                    } else if (tag == MixPositionWithPaddingTag.TopRight) {
+                        return self.values[1];
+                    } else if (tag == MixPositionWithPaddingTag.BottomLeft) {
+                        return self.values[2];
+                    } else {
+                        return self.values[3];
+                    }
+                }
+
+                pure function index-to-tag(index: int) -> MixPositionWithPaddingTag {
+                    if (index == 0) {
+                        return MixPositionWithPaddingTag.TopLeft;
+                    } else if (index == 1) {
+                        return MixPositionWithPaddingTag.TopRight;
+                    } else if (index == 2) {
+                        return MixPositionWithPaddingTag.BottomLeft;
+                    } else {
+                        return MixPositionWithPaddingTag.BottomRight;
+                    }
+                }
+
+                pure function index-to-str(index: int) -> string {
+                    if (index == 0) {
+                        return Logic.tr("top x left");
+                    } else if (index == 1) {
+                        return Logic.tr("top x right");
+                    } else if (index == 2) {
+                        return Logic.tr("bottom x left");
+                    } else {
+                        return Logic.tr("bottom x right");
+                    }
+                }
+
+                values: [
+                    Logic.tr("Top Left"),
+                    Logic.tr("Top Right"),
+                    Logic.tr("Bottom Left"),
+                    Logic.tr("Bottom Right")
+                ];
+                current-value: tag-to-str(cache-setting.pos.tag);
+
+                selected(current-index, current-value) => {
+                    cache-setting.pos.tag = index-to-tag(current-index);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Camera image padding") + " (" + padding-sl.index-to-str(padding-sl.current-index) + ")";
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                padding1-li := LineInput {
+                    horizontal-stretch: 1;
+                    input-type: number;
+                    text: cache-setting.pos.padding1;
+
+                    accepted => {
+                        cache-setting.pos.padding1 = self.text.to-float();
+                    }
+                }
+
+                Label {
+                    text: "X";
+                }
+
+                padding2-li := LineInput {
+                    horizontal-stretch: 1;
+                    input-type: number;
+                    text: cache-setting.pos.padding2;
+
+                    accepted => {
+                        cache-setting.pos.padding2 = self.text.to-float();
                     }
                 }
             }
@@ -240,7 +314,7 @@ export component CameraSettingDialog inherits Dialog {
 
         SettingDetailInnerVbox {
             SettingDetailLabel {
-                text: Logic.tr("Cropping Area Shape");
+                text: Logic.tr("Cropping area shape");
             }
 
             Select {
@@ -255,7 +329,7 @@ export component CameraSettingDialog inherits Dialog {
 
         if !cache-setting.is-circle-shape: SettingDetailInnerVbox {
             SettingDetailLabel {
-                text: Logic.tr("Cropping area (px)");
+                text: Logic.tr("Cropping area size (px)");
             }
 
             HorizontalLayout {
@@ -293,7 +367,7 @@ export component CameraSettingDialog inherits Dialog {
 
         if cache-setting.is-circle-shape: SettingDetailInnerVbox {
             SettingDetailLabel {
-                text: Logic.tr("Cropping Area (px)");
+                text: Logic.tr("Cropping area raduis (px)");
             }
 
             LineInput {
@@ -345,6 +419,7 @@ export component CameraSettingDialog inherits Dialog {
                             TouchArea {
                                 clicked => {
                                     cache-setting.border-color-index = index;
+                                    cache-setting.border-color = Util.color-to-hex(item.red, item.green, item.blue, item.alpha);
                                 }
                             }
                         }

@@ -15,14 +15,23 @@ enum BorderShape {
     Rectangle { width: u32, height: u32 },
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum MixPositionWithPadding {
+    TopLeft((u32, u32)),     // top padding and left padding
+    TopRight((u32, u32)),    // top padding and right padding
+    BottomLeft((u32, u32)),  // bottom padding and left padding
+    BottomRight((u32, u32)), // bottom padding and right padding
+}
+
 #[derive(Debug, Clone, Copy, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
 #[non_exhaustive]
 pub struct ShapeBase {
-    /// Position in background_image [0, 1] range
-    #[derivative(Default(value = "(0.5, 0.5)"))]
-    pub pos: (f32, f32),
+    /// Position of the shape on the background image
+    /// Specifies padding from the background edges
+    #[derivative(Default(value = "MixPositionWithPadding::BottomRight((32, 32))"))]
+    pub pos: MixPositionWithPadding,
 
     /// Border width in pixels
     #[derivative(Default(value = "2"))]
@@ -60,7 +69,6 @@ pub struct ShapeCircle {
 pub struct ShapeRectangle {
     pub base: ShapeBase,
 
-    /// Size (width, height) in pixels
     #[derivative(Default(value = "(100, 100)"))]
     pub size: (u32, u32),
 }
@@ -106,10 +114,30 @@ where
     let (bg_width, bg_height) = background.dimensions();
     let radius = circle.radius;
     let diameter = (radius * 2) as u32;
-    let center_x =
-        ((circle.base.pos.0 * bg_width as f32) as u32).clamp(radius, bg_width as u32 - radius);
-    let center_y =
-        ((circle.base.pos.1 * bg_height as f32) as u32).clamp(radius, bg_height as u32 - radius);
+
+    // Calculate center position based on MixPositionWithPadding
+    let (center_x, center_y) = match circle.base.pos {
+        MixPositionWithPadding::TopLeft((pad_top, pad_left)) => {
+            let cx = (pad_left + radius).min(bg_width - radius);
+            let cy = (pad_top + radius).min(bg_height - radius);
+            (cx.max(radius), cy.max(radius))
+        }
+        MixPositionWithPadding::TopRight((pad_top, pad_right)) => {
+            let cx = bg_width.saturating_sub(pad_right + radius).max(radius);
+            let cy = (pad_top + radius).min(bg_height - radius);
+            (cx.min(bg_width - radius), cy.max(radius))
+        }
+        MixPositionWithPadding::BottomLeft((pad_bottom, pad_left)) => {
+            let cx = (pad_left + radius).min(bg_width - radius);
+            let cy = bg_height.saturating_sub(pad_bottom + radius).max(radius);
+            (cx.max(radius), cy.min(bg_height - radius))
+        }
+        MixPositionWithPadding::BottomRight((pad_bottom, pad_right)) => {
+            let cx = bg_width.saturating_sub(pad_right + radius).max(radius);
+            let cy = bg_height.saturating_sub(pad_bottom + radius).max(radius);
+            (cx.min(bg_width - radius), cy.min(bg_height - radius))
+        }
+    };
 
     let cropped_camera = crop_image_by_pixel_type(
         camera_image,
@@ -181,9 +209,30 @@ where
     P: Pixel<Subpixel = u8> + Copy,
 {
     let (bg_width, bg_height) = background.dimensions();
-    let x = (rect.base.pos.0 * bg_width as f32) as u32;
-    let y = (rect.base.pos.1 * bg_height as f32) as u32;
     let (width, height) = rect.size;
+
+    // Calculate top-left position based on MixPositionWithPadding
+    let (x, y) = match rect.base.pos {
+        MixPositionWithPadding::TopLeft((pad_top, pad_left)) => (
+            pad_left.min(bg_width.saturating_sub(width)),
+            pad_top.min(bg_height.saturating_sub(height)),
+        ),
+        MixPositionWithPadding::TopRight((pad_top, pad_right)) => {
+            let x = bg_width.saturating_sub(width + pad_right);
+            let y = pad_top.min(bg_height.saturating_sub(height));
+            (x, y)
+        }
+        MixPositionWithPadding::BottomLeft((pad_bottom, pad_left)) => {
+            let x = pad_left.min(bg_width.saturating_sub(width));
+            let y = bg_height.saturating_sub(height + pad_bottom);
+            (x, y)
+        }
+        MixPositionWithPadding::BottomRight((pad_bottom, pad_right)) => {
+            let x = bg_width.saturating_sub(width + pad_right);
+            let y = bg_height.saturating_sub(height + pad_bottom);
+            (x, y)
+        }
+    };
 
     let cropped_camera = crop_image_by_pixel_type(
         camera_image,
@@ -193,14 +242,13 @@ where
         rect.base.clip_pos,
     )?;
 
+    let width = width.min(bg_width.saturating_sub(x));
+    let height = height.min(bg_height.saturating_sub(y));
+
     for cam_y in 0..height {
         for cam_x in 0..width {
             let bg_x = x + cam_x;
             let bg_y = y + cam_y;
-
-            if bg_x >= bg_width || bg_y >= bg_height {
-                continue;
-            }
 
             let cam_pixel = cropped_camera.get_pixel(cam_x, cam_y);
             background.put_pixel(bg_x, bg_y, *cam_pixel);
@@ -314,25 +362,40 @@ where
     // If the cropped image is smaller than target, pad with black
     if actual_crop_width < target_width || actual_crop_height < target_height {
         let mut result = ImageBuffer::new(target_width, target_height);
+
+        // Calculate offset position in target canvas based on clip_pos
+        let offset_x =
+            ((target_width - actual_crop_width) as f32 * clip_pos.0.clamp(0.0, 1.0)).round() as u32;
+        let offset_y = ((target_height - actual_crop_height) as f32 * clip_pos.1.clamp(0.0, 1.0))
+            .round() as u32;
+
         for y in 0..target_height {
             for x in 0..target_width {
-                if x < actual_crop_width && y < actual_crop_height {
-                    let idx = (y * actual_crop_width + x) as usize * channel_count;
-                    let mut channels = [0u8; 4];
-                    for c in 0..channel_count {
-                        channels[c] = cropped_buffer[idx + c];
+                // Check if current pixel is within the image area (offset-adjusted)
+                let rel_x = x.checked_sub(offset_x);
+                let rel_y = y.checked_sub(offset_y);
+
+                if let (Some(rx), Some(ry)) = (rel_x, rel_y) {
+                    if rx < actual_crop_width && ry < actual_crop_height {
+                        let idx = (ry * actual_crop_width + rx) as usize * channel_count;
+                        let mut channels = [0u8; 4];
+                        for c in 0..channel_count {
+                            channels[c] = cropped_buffer[idx + c];
+                        }
+                        // Fill remaining channels with 255 (alpha) or 0
+                        for c in channel_count..4 {
+                            channels[c] = if c == 3 { 255 } else { 0 };
+                        }
+                        let pixel = P::from_slice(&channels[..channel_count]);
+                        result.put_pixel(x, y, *pixel);
+                        continue;
                     }
-                    // Fill remaining channels with 255 (alpha) or 0
-                    for c in channel_count..4 {
-                        channels[c] = if c == 3 { 255 } else { 0 };
-                    }
-                    let pixel = P::from_slice(&channels[..channel_count]);
-                    result.put_pixel(x, y, *pixel);
-                } else {
-                    let black = [0u8; 4];
-                    let pixel = P::from_slice(&black[..channel_count]);
-                    result.put_pixel(x, y, *pixel);
                 }
+
+                // Pad with black
+                let black = [0u8; 4];
+                let pixel = P::from_slice(&black[..channel_count]);
+                result.put_pixel(x, y, *pixel);
             }
         }
         Ok(result)

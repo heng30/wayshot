@@ -11,9 +11,10 @@
 
 ### Features
 - Share screen via WebRTC
-- Single screen recording
 - Push stream via RTMP
+- Single screen recording
 - Single input device audio recording
+- Capturing a single camera
 - Desktop audio recording
 - Microphone noise reduction
 - Cursor tracking

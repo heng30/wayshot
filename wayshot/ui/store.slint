@@ -123,27 +123,35 @@ export struct SettingRecorder {
     resolution: Resolution,
 }
 
+export enum MixPositionWithPaddingTag {
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+export struct MixPositionWithPadding {
+    tag:  MixPositionWithPaddingTag,
+    padding1: int,
+    padding2: int,
+}
+
 export struct SettingCamera {
     fps: int,
     resolution: Resolution,
-    camera-x: float,
-    camera-y: float,
+    zoom: float,
+    pos: MixPositionWithPadding,
     border-size: int,
     border-color-index: int,
+    border_color: string,
     mirror-horizontal: bool,
 
     is-circle-shape: bool,
-
+    cropping-x: float,
+    cropping-y: float,
     rect-cropping-width: int,
     rect-cropping-height: int,
-    rect-cropping-x: float,
-    rect-cropping-y: float,
-
     circle-cropping-radius: int,
-    circle-cropping-x: float,
-    circle-cropping-y: float,
-
-    cropping-zoom: float,
 }
 
 export struct SettingControl {
@@ -337,11 +345,9 @@ export global Store {
             is-circle-shape: false,
             rect-cropping-width: 150,
             rect-cropping-height: 150,
-            rect-cropping-x: 0.3,
-            rect-cropping-y: 0.4,
             circle-cropping-radius: 150,
-            circle-cropping-x: 0.5,
-            circle-cropping-y: 0.5,
+            cropping-x: 0.5,
+            cropping-y: 0.5,
         }
     };
 
@@ -351,9 +357,9 @@ export global Store {
 
     in-out property <SettingPushStream> setting-push-stream;
 
-    in-out property <bool> is-show-camera-setting-dialog: true;
+    in-out property <bool> is-show-camera-setting-dialog;
     in-out property <SettingCamera> camera-setting-cache;
-    in-out property <image> camera-setting-dialog-image: @image-url("./images/png/brand.png");
+    in-out property <image> camera-setting-dialog-image;
     in-out property <[color]> camera-cropping-area-border-colors: [
         Colors.white,
         Colors.black,

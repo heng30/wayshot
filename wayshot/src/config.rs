@@ -1,8 +1,10 @@
 use crate::slint_generatedAppWindow::{
-    Fps as UIFps, RTCIceServer as UIRTCIceServer, Resolution as UIResolution,
-    SettingCamera as UISettingCamera, SettingControl as UISettingControl,
-    SettingCursorTracker as UISettingCursorTracker, SettingPushStream as UISettingPushStream,
-    SettingRecorder as UISettingRecorder, SettingShareScreen as UISettingShareScreen,
+    Fps as UIFps, MixPositionWithPadding as UIMixPositionWithPadding,
+    MixPositionWithPaddingTag as UIMixPositionWithPaddingTag, RTCIceServer as UIRTCIceServer,
+    Resolution as UIResolution, SettingCamera as UISettingCamera,
+    SettingControl as UISettingControl, SettingCursorTracker as UISettingCursorTracker,
+    SettingPushStream as UISettingPushStream, SettingRecorder as UISettingRecorder,
+    SettingShareScreen as UISettingShareScreen,
     SettingShareScreenClient as UISettingShareScreenClient, TransitionType as UITransitionType,
 };
 use anyhow::{Context, Result, bail};
@@ -62,10 +64,17 @@ pub struct Config {
     #[serde(default = "appid_default")]
     pub appid: String,
 
+    #[serde(default)]
     pub preference: Preference,
+
+    #[serde(default)]
     pub recorder: Recorder,
-    pub control: Control,
+
+    #[serde(default)]
     pub cursor_tracker: CursorTracker,
+
+    #[serde(default)]
+    pub control: Control,
 
     #[serde(default)]
     pub share_screen: ShareScreen,
@@ -264,6 +273,7 @@ pub struct PushStream {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
 #[derivative(Default)]
+#[serde(default)]
 #[from("UISettingCamera")]
 pub struct Camera {
     pub mirror_horizontal: bool,
@@ -274,19 +284,24 @@ pub struct Camera {
     #[derivative(Default(value = "UIResolution::P480"))]
     pub resolution: UIResolution,
 
-    #[derivative(Default(value = "0.8"))]
-    pub camera_x: f32,
+    #[derivative(Default(value = "1.0"))]
+    pub zoom: f32,
 
-    #[derivative(Default(value = "0.8"))]
-    pub camera_y: f32,
+    pub pos: UIMixPositionWithPadding,
 
     #[derivative(Default(value = "3"))]
     pub border_size: i32,
 
     pub border_color_index: i32,
 
+    #[derivative(Default(value = "\"#ffffffff\".to_string()"))]
+    pub border_color: String,
+
     #[derivative(Default(value = "true"))]
     pub is_circle_shape: bool,
+
+    #[derivative(Default(value = "150"))]
+    pub circle_cropping_radius: i32,
 
     #[derivative(Default(value = "300"))]
     pub rect_cropping_width: i32,
@@ -295,27 +310,22 @@ pub struct Camera {
     pub rect_cropping_height: i32,
 
     #[derivative(Default(value = "0.5"))]
-    pub rect_cropping_x: f32,
+    pub cropping_x: f32,
 
     #[derivative(Default(value = "0.5"))]
-    pub rect_cropping_y: f32,
-
-    #[derivative(Default(value = "150"))]
-    pub circle_cropping_radius: i32,
-
-    #[derivative(Default(value = "0.5"))]
-    pub circle_cropping_x: f32,
-
-    #[derivative(Default(value = "0.5"))]
-    pub circle_cropping_y: f32,
-
-    #[derivative(Default(value = "1.0"))]
-    pub cropping_zoom: f32,
+    pub cropping_y: f32,
 }
 
 crate::impl_slint_enum_serde!(UIFps, Fps24, Fps25, Fps30, Fps60);
 crate::impl_slint_enum_serde!(UIResolution, Original, P480, P720, P1080, P2K, P4K);
 crate::impl_slint_enum_serde!(UITransitionType, Linear, EaseIn, EaseOut);
+crate::impl_slint_enum_serde!(
+    UIMixPositionWithPaddingTag,
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight
+);
 crate::impl_c_like_enum_convert!(UITransitionType, TransitionType, Linear, EaseIn, EaseOut);
 
 impl Config {
@@ -402,9 +412,10 @@ impl Config {
 
                     Ok(())
                 }
-                Err(_) => {
-                    self.is_first_run = true;
+                Err(e) => {
+                    log::warn!("Parse toml config failed. {e}");
 
+                    self.is_first_run = true;
                     if let Some(bak_file) = &self.config_path.as_os_str().to_str() {
                         _ = fs::copy(&self.config_path, format!("{}.bak", bak_file));
                     }

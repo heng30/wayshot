@@ -530,10 +530,10 @@ impl RecordingSession {
 
         let (camera_image_sender, camera_image_receiver) = bounded(5);
         let camera_config = CameraConfig::default()
-            .with_pixel_format(camera::PixelFormat::RGB)
             .with_fps(self.config.camera_mix_config.fps)
             .with_width(self.config.camera_mix_config.width)
             .with_height(self.config.camera_mix_config.height)
+            .with_pixel_format(self.config.camera_mix_config.pixel_format)
             .with_mirror_horizontal(self.config.camera_mix_config.mirror_horizontal);
 
         let mut camera_client = CameraClient::new(camera_index, camera_config)?;
