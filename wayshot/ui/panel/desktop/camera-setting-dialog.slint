@@ -211,6 +211,18 @@ export component CameraSettingDialog inherits Dialog {
                     }
                 }
 
+                pure function tag-to-index(tag: MixPositionWithPaddingTag) -> int {
+                    if (tag == MixPositionWithPaddingTag.TopLeft) {
+                        return 0;
+                    } else if (tag == MixPositionWithPaddingTag.TopRight) {
+                        return 1;
+                    } else if (tag == MixPositionWithPaddingTag.BottomLeft) {
+                        return 2;
+                    } else {
+                        return 3;
+                    }
+                }
+
                 pure function index-to-tag(index: int) -> MixPositionWithPaddingTag {
                     if (index == 0) {
                         return MixPositionWithPaddingTag.TopLeft;
@@ -242,6 +254,7 @@ export component CameraSettingDialog inherits Dialog {
                     Logic.tr("Bottom Right")
                 ];
                 current-value: tag-to-str(cache-setting.pos.tag);
+                current-index: tag-to-index(cache-setting.pos.tag);
 
                 selected(current-index, current-value) => {
                     cache-setting.pos.tag = index-to-tag(current-index);
