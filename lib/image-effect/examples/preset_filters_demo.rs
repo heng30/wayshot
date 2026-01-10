@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img_path = Path::new("data/test.png");
     let img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
-    use image_effect::preset_filter_effect::{PresetFilterConfig, PresetFilter};
+    use image_effect::preset_filter::{PresetFilterConfig, PresetFilter};
 
     let filters = [
         // Original 15 filters

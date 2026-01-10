@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
     let effect = ImageEffect::HueRotateHsluv(
-        image_effect::colour_space_effect::HueRotateHsluvConfig::new().with_degrees(30.0),
+        image_effect::colour_space::HueRotateHsluvConfig::new().with_degrees(30.0),
     );
     img = effect.apply(img).expect("Effect failed");
 

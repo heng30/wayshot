@@ -1,5 +1,5 @@
 use image::ImageReader;
-use image_effect::special_effect::ContrastConfig;
+use image_effect::special::ContrastConfig;
 use image_effect::{Effect, ImageEffect};
 use std::path::Path;
 

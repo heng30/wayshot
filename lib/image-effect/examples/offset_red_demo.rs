@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
     let effect = ImageEffect::OffsetRed(
-        image_effect::special_effect::OffsetRedConfig::new().with_offset_amt(10),
+        image_effect::special::OffsetRedConfig::new().with_offset_amt(10),
     );
     img = effect.apply(img).expect("Effect failed");
 

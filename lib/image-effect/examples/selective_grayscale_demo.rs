@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Convert purple colors (128, 0, 128) to grayscale
     let effect = ImageEffect::SelectiveGrayscale(
-        image_effect::channel_effect::SelectiveGrayscaleConfig::new()
+        image_effect::channel::SelectiveGrayscaleConfig::new()
             .with_ref_r(128)
             .with_ref_g(0)
             .with_ref_b(128),

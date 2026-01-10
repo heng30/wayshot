@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Apply gamma correction effect
     let effect = ImageEffect::GammaCorrection(
-        image_effect::colour_space_effect::GammaCorrectionConfig::new()
+        image_effect::colour_space::GammaCorrectionConfig::new()
             .with_red(2.2)
             .with_green(2.2)
             .with_blue(2.2),

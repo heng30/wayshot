@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
     let effect = ImageEffect::CoolFilter(
-        image_effect::filter_effect::TemperatureConfig::new().with_amount(-30.0),
+        image_effect::filter::TemperatureConfig::new().with_amount(-30.0),
     );
     img = effect.apply(img).expect("Effect failed");
 

@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Apply HSV hue rotate effect
     let effect = ImageEffect::HueRotateHsv(
-        image_effect::colour_space_effect::HueRotateHsvConfig::new().with_degrees(90.0),
+        image_effect::colour_space::HueRotateHsvConfig::new().with_degrees(90.0),
     );
     img = effect.apply(img).expect("Effect failed");
 

@@ -1,5 +1,5 @@
 use image::ImageReader;
-use image_effect::blur_effect::GaussianBlurConfig;
+use image_effect::blur::GaussianBlurConfig;
 use image_effect::{Effect, ImageEffect};
 use std::path::Path;
 

@@ -2,9 +2,8 @@ use crate::Effect;
 use derivative::Derivative;
 use derive_setters::Setters;
 use image::RgbaImage;
-use photon_rs::{effects, monochrome, PhotonImage};
+use photon_rs::{PhotonImage, effects, monochrome};
 
-/// Sepia tone configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -22,8 +21,8 @@ impl SepiaConfig {
 
 impl Effect for SepiaConfig {
     fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
-        // Use photon-rs sepia effect
-        let mut photon_img = PhotonImage::new(image.to_vec(), image.width(), image.height());
+        let (width, height) = (image.width(), image.height());
+        let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
         monochrome::sepia(&mut photon_img);
         let sepia_pixels = photon_img.get_raw_pixels();
 
@@ -33,26 +32,28 @@ impl Effect for SepiaConfig {
             let mut blended_pixels = Vec::with_capacity(sepia_pixels.len());
 
             for (original, sepia) in original_pixels.chunks(4).zip(sepia_pixels.chunks(4)) {
-                blended_pixels.push((
-                    original[0] as f32 * (1.0 - self.intensity) + sepia[0] as f32 * self.intensity
-                ) as u8);
-                blended_pixels.push((
-                    original[1] as f32 * (1.0 - self.intensity) + sepia[1] as f32 * self.intensity
-                ) as u8);
-                blended_pixels.push((
-                    original[2] as f32 * (1.0 - self.intensity) + sepia[2] as f32 * self.intensity
-                ) as u8);
+                blended_pixels.push(
+                    (original[0] as f32 * (1.0 - self.intensity) + sepia[0] as f32 * self.intensity)
+                        as u8,
+                );
+                blended_pixels.push(
+                    (original[1] as f32 * (1.0 - self.intensity) + sepia[1] as f32 * self.intensity)
+                        as u8,
+                );
+                blended_pixels.push(
+                    (original[2] as f32 * (1.0 - self.intensity) + sepia[2] as f32 * self.intensity)
+                        as u8,
+                );
                 blended_pixels.push(original[3]); // Keep alpha
             }
 
-            RgbaImage::from_raw(image.width(), image.height(), blended_pixels)
+            RgbaImage::from_raw(width, height, blended_pixels)
         } else {
-            RgbaImage::from_raw(image.width(), image.height(), sepia_pixels)
+            RgbaImage::from_raw(width, height, sepia_pixels)
         }
     }
 }
 
-/// Color temperature configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -70,25 +71,29 @@ impl TemperatureConfig {
 
 impl Effect for TemperatureConfig {
     fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
-        let mut photon_img = PhotonImage::new(image.to_vec(), image.width(), image.height());
+        let (width, height) = (image.width(), image.height());
+        let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
 
-        // Use photon-rs tint for temperature adjustment
         // Positive amount = warm (more red/yellow)
         // Negative amount = cool (more blue)
         if self.amount > 0.0 {
             // Warm: increase red, decrease blue
-            effects::tint(&mut photon_img, (self.amount * 20.0) as u32, (self.amount * 10.0) as u32, 0);
+            effects::tint(
+                &mut photon_img,
+                (self.amount * 20.0) as u32,
+                (self.amount * 10.0) as u32,
+                0,
+            );
         } else {
             // Cool: decrease red, increase blue
             let cool_amount = -self.amount;
             effects::tint(&mut photon_img, 0, 0, (cool_amount * 20.0) as u32);
         }
 
-        RgbaImage::from_raw(image.width(), image.height(), photon_img.get_raw_pixels())
+        RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
     }
 }
 
-/// Color tint configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -116,17 +121,20 @@ impl ColorTintConfig {
 
 impl Effect for ColorTintConfig {
     fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
-        let mut photon_img = PhotonImage::new(image.to_vec(), image.width(), image.height());
+        let (width, height) = (image.width(), image.height());
+        let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
 
-        // Use photon-rs tint function to add color
-        // The tint function adds to existing colors, so we scale the RGB values
-        effects::tint(&mut photon_img, self.r as u32 / 3, self.g as u32 / 3, self.b as u32 / 3);
+        effects::tint(
+            &mut photon_img,
+            self.r as u32 / 3,
+            self.g as u32 / 3,
+            self.b as u32 / 3,
+        );
 
-        RgbaImage::from_raw(image.width(), image.height(), photon_img.get_raw_pixels())
+        RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
     }
 }
 
-/// Vignette configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -166,13 +174,15 @@ impl Effect for VignetteConfig {
 
             // Calculate vignette factor based on radius and strength
             let normalized_distance = distance / (max_distance * self.radius);
-            let vignette_factor = 1.0 - (normalized_distance * self.strength).min(self.strength).max(0.0);
+            let vignette_factor = 1.0
+                - (normalized_distance * self.strength)
+                    .min(self.strength)
+                    .max(0.0);
 
             // Apply vignette to RGB channels
             chunk[0] = (chunk[0] as f32 * vignette_factor) as u8;
             chunk[1] = (chunk[1] as f32 * vignette_factor) as u8;
             chunk[2] = (chunk[2] as f32 * vignette_factor) as u8;
-            // Alpha channel remains unchanged
         }
 
         RgbaImage::from_raw(width, height, pixels)

@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Apply dither effect (1-bit per channel)
     let effect = ImageEffect::Dither(
-        image_effect::special_effect::DitherConfig::new().with_depth(1),
+        image_effect::special::DitherConfig::new().with_depth(1),
     );
     img = effect.apply(img).expect("Effect failed");
 

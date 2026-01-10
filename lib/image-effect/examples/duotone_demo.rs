@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img_path = Path::new("data/test.png");
     let img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
-    use image_effect::monochrome_effect::DuotoneConfig;
+    use image_effect::monochrome::DuotoneConfig;
 
     // Different duotone combinations
     let duotones = [

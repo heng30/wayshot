@@ -1,5 +1,5 @@
 use image::ImageReader;
-use image_effect::blur_effect::BoxBlurConfig;
+use image_effect::blur::BoxBlurConfig;
 use image_effect::{Effect, ImageEffect};
 use std::path::Path;
 

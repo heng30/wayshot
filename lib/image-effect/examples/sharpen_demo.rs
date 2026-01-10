@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img_path = Path::new("data/test.png");
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
-    use image_effect::stylized_effect::SharpenConfig;
+    use image_effect::stylized::SharpenConfig;
 
     let effect = ImageEffect::Sharpen(SharpenConfig::new());
     img = effect.apply(img).expect("Effect failed");

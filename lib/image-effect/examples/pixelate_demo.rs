@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img_path = Path::new("data/test.png");
     let img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
-    use image_effect::stylized_effect::PixelateConfig;
+    use image_effect::stylized::PixelateConfig;
 
     let block_sizes = [4, 8, 12, 16, 20, 30];
 

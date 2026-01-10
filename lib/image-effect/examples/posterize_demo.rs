@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img_path = Path::new("data/test.png");
     let img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
-    use image_effect::stylized_effect::PosterizeConfig;
+    use image_effect::stylized::PosterizeConfig;
 
     let levels = [2, 3, 4, 5, 6, 8];
 

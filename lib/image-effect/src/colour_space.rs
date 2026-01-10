@@ -1,7 +1,3 @@
-//! Colour space manipulation effects
-//!
-//! Provides operations for color manipulation in various color spaces (HSL, HSV, LCh, HSLuv).
-
 use crate::Effect;
 use derivative::Derivative;
 use derive_setters::Setters;
@@ -26,7 +22,7 @@ impl SaturationConfig {
 impl Effect for SaturationConfig {
     fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
         let (width, height) = (image.width(), image.height());
-        let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+        let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
         colour_spaces::saturate_hsl(&mut photon_img, self.amount);
         RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
     }
@@ -50,13 +46,12 @@ impl HueRotateConfig {
 impl Effect for HueRotateConfig {
     fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
         let (width, height) = (image.width(), image.height());
-        let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+        let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
         colour_spaces::hue_rotate_hsl(&mut photon_img, self.degrees as f32 / 360.0);
         RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
     }
 }
 
-/// Gamma correction effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -85,11 +80,6 @@ impl Effect for GammaCorrectionConfig {
     }
 }
 
-// ============================================================================
-// Hue Rotate Effects
-// ============================================================================
-
-/// Hue rotate in HSL effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -114,7 +104,6 @@ impl Effect for HueRotateHslConfig {
     }
 }
 
-/// Hue rotate in HSV effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -139,7 +128,6 @@ impl Effect for HueRotateHsvConfig {
     }
 }
 
-/// Hue rotate in LCh effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -164,7 +152,6 @@ impl Effect for HueRotateLchConfig {
     }
 }
 
-/// Hue rotate in HSLuv effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -189,11 +176,6 @@ impl Effect for HueRotateHsluvConfig {
     }
 }
 
-// ============================================================================
-// Saturation Effects
-// ============================================================================
-
-/// Saturate in LCh effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -218,7 +200,6 @@ impl Effect for SaturateLchConfig {
     }
 }
 
-/// Saturate in HSLuv effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -243,7 +224,6 @@ impl Effect for SaturateHsluvConfig {
     }
 }
 
-/// Saturate in HSV effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -268,11 +248,6 @@ impl Effect for SaturateHsvConfig {
     }
 }
 
-// ============================================================================
-// Lighten Effects
-// ============================================================================
-
-/// Lighten in LCh effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -297,7 +272,6 @@ impl Effect for LightenLchConfig {
     }
 }
 
-/// Lighten in HSLuv effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -322,7 +296,6 @@ impl Effect for LightenHsluvConfig {
     }
 }
 
-/// Lighten in HSV effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -347,11 +320,6 @@ impl Effect for LightenHsvConfig {
     }
 }
 
-// ============================================================================
-// Darken Effects
-// ============================================================================
-
-/// Darken in LCh effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -376,7 +344,6 @@ impl Effect for DarkenLchConfig {
     }
 }
 
-/// Darken in HSLuv effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -401,7 +368,6 @@ impl Effect for DarkenHsluvConfig {
     }
 }
 
-/// Darken in HSV effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -426,11 +392,6 @@ impl Effect for DarkenHsvConfig {
     }
 }
 
-// ============================================================================
-// Desaturate Effects
-// ============================================================================
-
-/// Desaturate in HSV effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -455,7 +416,6 @@ impl Effect for DesaturateHsvConfig {
     }
 }
 
-/// Desaturate in LCh effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -480,7 +440,6 @@ impl Effect for DesaturateLchConfig {
     }
 }
 
-/// Desaturate in HSLuv effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]

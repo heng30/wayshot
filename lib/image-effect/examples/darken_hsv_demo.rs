@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
     let effect = ImageEffect::DarkenHsv(
-        image_effect::colour_space_effect::DarkenHsvConfig::new().with_level(0.25),
+        image_effect::colour_space::DarkenHsvConfig::new().with_level(0.25),
     );
     img = effect.apply(img).expect("Effect failed");
 

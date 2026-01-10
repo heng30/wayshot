@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Desaturate green colors (0, 255, 0) by 40%
     let effect = ImageEffect::SelectiveDesaturate(
-        image_effect::channel_effect::SelectiveDesaturateConfig::new()
+        image_effect::channel::SelectiveDesaturateConfig::new()
             .with_ref_r(0)
             .with_ref_g(255)
             .with_ref_b(0)

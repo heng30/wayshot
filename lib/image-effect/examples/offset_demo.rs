@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Apply offset effect (red channel)
     let effect = ImageEffect::Offset(
-        image_effect::special_effect::OffsetConfig::new()
+        image_effect::special::OffsetConfig::new()
             .with_channel_index(0)
             .with_offset(15),
     );

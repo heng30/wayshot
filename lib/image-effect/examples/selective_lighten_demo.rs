@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Lighten blue colors (0, 0, 255) by 30%
     let effect = ImageEffect::SelectiveLighten(
-        image_effect::channel_effect::SelectiveLightenConfig::new()
+        image_effect::channel::SelectiveLightenConfig::new()
             .with_ref_r(0)
             .with_ref_g(0)
             .with_ref_b(255)

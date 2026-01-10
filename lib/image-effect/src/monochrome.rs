@@ -33,27 +33,27 @@ impl Effect for GrayscaleConfig {
         let (width, height) = (image.width(), image.height());
         match self.mode {
             GrayscaleMode::Luminance => {
-                let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+                let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
                 monochrome::grayscale_human_corrected(&mut photon_img);
                 RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
             }
             GrayscaleMode::Average => {
-                let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+                let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
                 monochrome::grayscale(&mut photon_img);
                 RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
             }
             GrayscaleMode::RedChannel => {
-                let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+                let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
                 monochrome::r_grayscale(&mut photon_img);
                 RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
             }
             GrayscaleMode::GreenChannel => {
-                let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+                let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
                 monochrome::g_grayscale(&mut photon_img);
                 RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
             }
             GrayscaleMode::BlueChannel => {
-                let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+                let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
                 monochrome::b_grayscale(&mut photon_img);
                 RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
             }
@@ -104,14 +104,15 @@ impl DuotoneConfig {
 
 impl Effect for DuotoneConfig {
     fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
-        let mut photon_img = PhotonImage::new(image.to_vec(), image.width(), image.height());
+        let (width, height) = (image.width(), image.height());
+        let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
 
         let color_a = Rgb::new(self.primary_r, self.primary_g, self.primary_b);
         let color_b = Rgb::new(self.secondary_r, self.secondary_g, self.secondary_b);
 
         effects::duotone(&mut photon_img, color_a, color_b);
 
-        RgbaImage::from_raw(image.width(), image.height(), photon_img.get_raw_pixels())
+        RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
     }
 }
 
@@ -224,9 +225,10 @@ impl ThresholdConfig {
 
 impl Effect for ThresholdConfig {
     fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
-        let mut photon_img = PhotonImage::new(image.to_vec(), image.width(), image.height());
+        let (width, height) = (image.width(), image.height());
+        let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
         monochrome::threshold(&mut photon_img, self.threshold as u32);
-        RgbaImage::from_raw(image.width(), image.height(), photon_img.get_raw_pixels())
+        RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
     }
 }
 

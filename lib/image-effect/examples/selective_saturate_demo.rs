@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Saturate yellow colors (255, 255, 0) by 50%
     let effect = ImageEffect::SelectiveSaturate(
-        image_effect::channel_effect::SelectiveSaturateConfig::new()
+        image_effect::channel::SelectiveSaturateConfig::new()
             .with_ref_r(255)
             .with_ref_g(255)
             .with_ref_b(0)

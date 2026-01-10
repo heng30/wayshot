@@ -1,5 +1,5 @@
 use image::ImageReader;
-use image_effect::blur_effect::MedianBlurConfig;
+use image_effect::blur::MedianBlurConfig;
 use image_effect::{Effect, ImageEffect};
 use std::path::Path;
 

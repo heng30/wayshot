@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img_path = Path::new("data/test.png");
     let img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
-    use image_effect::stylized_effect::{EdgeDetectionConfig, EdgeDetectionMode};
+    use image_effect::stylized::{EdgeDetectionConfig, EdgeDetectionMode};
 
     let modes = [
         EdgeDetectionMode::Standard,

@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
     let effect = ImageEffect::DecBrightness(
-        image_effect::special_effect::DecBrightnessConfig::new(),
+        image_effect::special::DecBrightnessConfig::new(),
     );
     img = effect.apply(img).expect("Effect failed");
 

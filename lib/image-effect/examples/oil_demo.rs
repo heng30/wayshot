@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Apply oil painting effect
     let effect = ImageEffect::Oil(
-        image_effect::special_effect::OilConfig::new()
+        image_effect::special::OilConfig::new()
             .with_radius(4)
             .with_intensity(55.0),
     );

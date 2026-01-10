@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
     let effect = ImageEffect::AlterChannels(
-        image_effect::channel_effect::AlterChannelsConfig::new()
+        image_effect::channel::AlterChannelsConfig::new()
             .with_r_amt(30)
             .with_g_amt(-20)
             .with_b_amt(40),

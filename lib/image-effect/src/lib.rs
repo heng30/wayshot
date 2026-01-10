@@ -1,12 +1,13 @@
-pub mod blur_effect;
-pub mod channel_effect;
-pub mod colour_space_effect;
-pub mod filter_effect;
-pub mod monochrome_effect;
-pub mod noise_effect;
-pub mod preset_filter_effect;
-pub mod special_effect;
-pub mod stylized_effect;
+pub mod blur;
+pub mod channel;
+pub mod colour_space;
+pub mod filter;
+pub mod monochrome;
+pub mod noise;
+pub mod preset_filter;
+pub mod realtime;
+pub mod special;
+pub mod stylized;
 
 use image::RgbaImage;
 
@@ -17,97 +18,97 @@ pub trait Effect {
 #[derive(Debug, Clone)]
 pub enum ImageEffect {
     // Blur effects
-    GaussianBlur(blur_effect::GaussianBlurConfig),
-    BoxBlur(blur_effect::BoxBlurConfig),
-    MedianBlur(blur_effect::MedianBlurConfig),
+    GaussianBlur(blur::GaussianBlurConfig),
+    BoxBlur(blur::BoxBlurConfig),
+    MedianBlur(blur::MedianBlurConfig),
 
     // Noise effects
-    GaussianNoise(noise_effect::GaussianNoiseConfig),
-    PinkNoise(noise_effect::PinkNoiseConfig),
+    GaussianNoise(noise::GaussianNoiseConfig),
+    PinkNoise(noise::PinkNoiseConfig),
 
     // Channel effects
     Invert,
-    AlterRedChannel(channel_effect::AlterRedChannelConfig),
-    AlterGreenChannel(channel_effect::AlterGreenChannelConfig),
-    AlterBlueChannel(channel_effect::AlterBlueChannelConfig),
-    AlterTwoChannels(channel_effect::AlterTwoChannelsConfig),
-    AlterChannels(channel_effect::AlterChannelsConfig),
-    RemoveRedChannel(channel_effect::RemoveRedChannelConfig),
-    RemoveGreenChannel(channel_effect::RemoveGreenChannelConfig),
-    RemoveBlueChannel(channel_effect::RemoveBlueChannelConfig),
-    SelectiveHueRotate(channel_effect::SelectiveHueRotateConfig),
-    SelectiveLighten(channel_effect::SelectiveLightenConfig),
-    SelectiveDesaturate(channel_effect::SelectiveDesaturateConfig),
-    SelectiveSaturate(channel_effect::SelectiveSaturateConfig),
-    SelectiveGrayscale(channel_effect::SelectiveGrayscaleConfig),
+    AlterRedChannel(channel::AlterRedChannelConfig),
+    AlterGreenChannel(channel::AlterGreenChannelConfig),
+    AlterBlueChannel(channel::AlterBlueChannelConfig),
+    AlterTwoChannels(channel::AlterTwoChannelsConfig),
+    AlterChannels(channel::AlterChannelsConfig),
+    RemoveRedChannel(channel::RemoveRedChannelConfig),
+    RemoveGreenChannel(channel::RemoveGreenChannelConfig),
+    RemoveBlueChannel(channel::RemoveBlueChannelConfig),
+    SelectiveHueRotate(channel::SelectiveHueRotateConfig),
+    SelectiveLighten(channel::SelectiveLightenConfig),
+    SelectiveDesaturate(channel::SelectiveDesaturateConfig),
+    SelectiveSaturate(channel::SelectiveSaturateConfig),
+    SelectiveGrayscale(channel::SelectiveGrayscaleConfig),
 
     // Colour space effects
-    Saturation(colour_space_effect::SaturationConfig),
-    HueRotate(colour_space_effect::HueRotateConfig),
-    GammaCorrection(colour_space_effect::GammaCorrectionConfig),
-    HueRotateHsl(colour_space_effect::HueRotateHslConfig),
-    HueRotateHsv(colour_space_effect::HueRotateHsvConfig),
-    HueRotateLch(colour_space_effect::HueRotateLchConfig),
-    HueRotateHsluv(colour_space_effect::HueRotateHsluvConfig),
-    SaturateLch(colour_space_effect::SaturateLchConfig),
-    SaturateHsluv(colour_space_effect::SaturateHsluvConfig),
-    SaturateHsv(colour_space_effect::SaturateHsvConfig),
-    LightenLch(colour_space_effect::LightenLchConfig),
-    LightenHsluv(colour_space_effect::LightenHsluvConfig),
-    LightenHsv(colour_space_effect::LightenHsvConfig),
-    DarkenLch(colour_space_effect::DarkenLchConfig),
-    DarkenHsluv(colour_space_effect::DarkenHsluvConfig),
-    DarkenHsv(colour_space_effect::DarkenHsvConfig),
-    DesaturateHsv(colour_space_effect::DesaturateHsvConfig),
-    DesaturateLch(colour_space_effect::DesaturateLchConfig),
-    DesaturateHsluv(colour_space_effect::DesaturateHsluvConfig),
+    Saturation(colour_space::SaturationConfig),
+    HueRotate(colour_space::HueRotateConfig),
+    GammaCorrection(colour_space::GammaCorrectionConfig),
+    HueRotateHsl(colour_space::HueRotateHslConfig),
+    HueRotateHsv(colour_space::HueRotateHsvConfig),
+    HueRotateLch(colour_space::HueRotateLchConfig),
+    HueRotateHsluv(colour_space::HueRotateHsluvConfig),
+    SaturateLch(colour_space::SaturateLchConfig),
+    SaturateHsluv(colour_space::SaturateHsluvConfig),
+    SaturateHsv(colour_space::SaturateHsvConfig),
+    LightenLch(colour_space::LightenLchConfig),
+    LightenHsluv(colour_space::LightenHsluvConfig),
+    LightenHsv(colour_space::LightenHsvConfig),
+    DarkenLch(colour_space::DarkenLchConfig),
+    DarkenHsluv(colour_space::DarkenHsluvConfig),
+    DarkenHsv(colour_space::DarkenHsvConfig),
+    DesaturateHsv(colour_space::DesaturateHsvConfig),
+    DesaturateLch(colour_space::DesaturateLchConfig),
+    DesaturateHsluv(colour_space::DesaturateHsluvConfig),
 
     // Special effects
-    Brightness(special_effect::BrightnessConfig),
-    Contrast(special_effect::ContrastConfig),
-    Offset(special_effect::OffsetConfig),
-    OffsetRed(special_effect::OffsetRedConfig),
-    OffsetGreen(special_effect::OffsetGreenConfig),
-    OffsetBlue(special_effect::OffsetBlueConfig),
-    MultipleOffsets(special_effect::MultipleOffsetsConfig),
-    Halftone(special_effect::HalftoneConfig),
-    Primary(special_effect::PrimaryConfig),
-    Colorize(special_effect::ColorizeConfig),
-    IncBrightness(special_effect::IncBrightnessConfig),
-    DecBrightness(special_effect::DecBrightnessConfig),
-    HorizontalStrips(special_effect::HorizontalStripsConfig),
-    ColorHorizontalStrips(special_effect::ColorHorizontalStripsConfig),
-    VerticalStrips(special_effect::VerticalStripsConfig),
-    ColorVerticalStrips(special_effect::ColorVerticalStripsConfig),
-    Oil(special_effect::OilConfig),
-    FrostedGlass(special_effect::FrostedGlassConfig),
-    Normalize(special_effect::NormalizeConfig),
-    Dither(special_effect::DitherConfig),
+    Brightness(special::BrightnessConfig),
+    Contrast(special::ContrastConfig),
+    Offset(special::OffsetConfig),
+    OffsetRed(special::OffsetRedConfig),
+    OffsetGreen(special::OffsetGreenConfig),
+    OffsetBlue(special::OffsetBlueConfig),
+    MultipleOffsets(special::MultipleOffsetsConfig),
+    Halftone(special::HalftoneConfig),
+    Primary(special::PrimaryConfig),
+    Colorize(special::ColorizeConfig),
+    IncBrightness(special::IncBrightnessConfig),
+    DecBrightness(special::DecBrightnessConfig),
+    HorizontalStrips(special::HorizontalStripsConfig),
+    ColorHorizontalStrips(special::ColorHorizontalStripsConfig),
+    VerticalStrips(special::VerticalStripsConfig),
+    ColorVerticalStrips(special::ColorVerticalStripsConfig),
+    Oil(special::OilConfig),
+    FrostedGlass(special::FrostedGlassConfig),
+    Normalize(special::NormalizeConfig),
+    Dither(special::DitherConfig),
 
     // Preset filters (15 filters from photon-rs)
-    PresetFilter(preset_filter_effect::PresetFilterConfig),
+    PresetFilter(preset_filter::PresetFilterConfig),
 
     // Filter effects
-    Sepia(filter_effect::SepiaConfig),
-    WarmFilter(filter_effect::TemperatureConfig),
-    CoolFilter(filter_effect::TemperatureConfig),
-    ColorTint(filter_effect::ColorTintConfig),
-    Vignette(filter_effect::VignetteConfig),
+    Sepia(filter::SepiaConfig),
+    WarmFilter(filter::TemperatureConfig),
+    CoolFilter(filter::TemperatureConfig),
+    ColorTint(filter::ColorTintConfig),
+    Vignette(filter::VignetteConfig),
 
     // Stylized effects
-    EdgeDetection(stylized_effect::EdgeDetectionConfig),
-    Emboss(stylized_effect::EmbossConfig),
-    Sharpen(stylized_effect::SharpenConfig),
-    Pixelate(stylized_effect::PixelateConfig),
-    Posterize(stylized_effect::PosterizeConfig),
+    EdgeDetection(stylized::EdgeDetectionConfig),
+    Emboss(stylized::EmbossConfig),
+    Sharpen(stylized::SharpenConfig),
+    Pixelate(stylized::PixelateConfig),
+    Posterize(stylized::PosterizeConfig),
 
     // Monochrome effects
-    Grayscale(monochrome_effect::GrayscaleConfig),
-    Duotone(monochrome_effect::DuotoneConfig),
-    Solarization(monochrome_effect::SolarizationConfig),
-    Threshold(monochrome_effect::ThresholdConfig),
-    Level(monochrome_effect::LevelConfig),
-    ColorBalance(monochrome_effect::ColorBalanceConfig),
+    Grayscale(monochrome::GrayscaleConfig),
+    Duotone(monochrome::DuotoneConfig),
+    Solarization(monochrome::SolarizationConfig),
+    Threshold(monochrome::ThresholdConfig),
+    Level(monochrome::LevelConfig),
+    ColorBalance(monochrome::ColorBalanceConfig),
 }
 
 impl Effect for ImageEffect {
@@ -123,7 +124,7 @@ impl Effect for ImageEffect {
             ImageEffect::PinkNoise(config) => config.apply(image),
 
             // Channel effects
-            ImageEffect::Invert => channel_effect::Invert.apply(image),
+            ImageEffect::Invert => channel::Invert.apply(image),
             ImageEffect::AlterRedChannel(config) => config.apply(image),
             ImageEffect::AlterGreenChannel(config) => config.apply(image),
             ImageEffect::AlterBlueChannel(config) => config.apply(image),

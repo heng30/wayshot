@@ -2,9 +2,8 @@ use crate::Effect;
 use derivative::Derivative;
 use derive_setters::Setters;
 use image::RgbaImage;
-use photon_rs::{conv, PhotonImage};
+use photon_rs::{PhotonImage, conv};
 
-/// Edge detection configuration using photon-rs
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -30,7 +29,8 @@ pub enum EdgeDetectionMode {
 
 impl Effect for EdgeDetectionConfig {
     fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
-        let mut photon_img = PhotonImage::new(image.to_vec(), image.width(), image.height());
+        let (width, height) = (image.width(), image.height());
+        let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
 
         match self.mode {
             EdgeDetectionMode::Standard => {
@@ -47,11 +47,10 @@ impl Effect for EdgeDetectionConfig {
             }
         }
 
-        RgbaImage::from_raw(image.width(), image.height(), photon_img.get_raw_pixels())
+        RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
     }
 }
 
-/// Emboss effect configuration using photon-rs
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
 pub struct EmbossConfig;
@@ -70,13 +69,13 @@ impl Default for EmbossConfig {
 
 impl Effect for EmbossConfig {
     fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
-        let mut photon_img = PhotonImage::new(image.to_vec(), image.width(), image.height());
+        let (width, height) = (image.width(), image.height());
+        let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
         conv::emboss(&mut photon_img);
-        RgbaImage::from_raw(image.width(), image.height(), photon_img.get_raw_pixels())
+        RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
     }
 }
 
-/// Sharpen effect configuration using photon-rs
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
 pub struct SharpenConfig;
@@ -95,13 +94,13 @@ impl Default for SharpenConfig {
 
 impl Effect for SharpenConfig {
     fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
-        let mut photon_img = PhotonImage::new(image.to_vec(), image.width(), image.height());
+        let (width, height) = (image.width(), image.height());
+        let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
         conv::sharpen(&mut photon_img);
-        RgbaImage::from_raw(image.width(), image.height(), photon_img.get_raw_pixels())
+        RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
     }
 }
 
-/// Pixelate effect configuration using photon-rs
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -119,14 +118,13 @@ impl PixelateConfig {
 
 impl Effect for PixelateConfig {
     fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
-        let mut photon_img = PhotonImage::new(image.to_vec(), image.width(), image.height());
+        let (width, height) = (image.width(), image.height());
+        let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
         photon_rs::effects::pixelize(&mut photon_img, self.block_size as i32);
-        RgbaImage::from_raw(image.width(), image.height(), photon_img.get_raw_pixels())
+        RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
     }
 }
 
-/// Posterize effect configuration
-/// Note: Manual implementation (photon-rs does not have a posterize function)
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -163,4 +161,3 @@ impl Effect for PosterizeConfig {
         Some(result)
     }
 }
-

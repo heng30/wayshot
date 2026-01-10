@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
     // Apply halftone effect
-    let effect = ImageEffect::Halftone(image_effect::special_effect::HalftoneConfig::new());
+    let effect = ImageEffect::Halftone(image_effect::special::HalftoneConfig::new());
     img = effect.apply(img).expect("Effect failed");
 
     img.save(output_dir.join("halftone_effect.png"))?;

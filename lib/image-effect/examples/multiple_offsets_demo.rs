@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
     let effect = ImageEffect::MultipleOffsets(
-        image_effect::special_effect::MultipleOffsetsConfig::new()
+        image_effect::special::MultipleOffsetsConfig::new()
             .with_channel_index(0)
             .with_channel_index2(2)
             .with_offset(10),

@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img_path = Path::new("data/test.png");
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
-    use image_effect::stylized_effect::EmbossConfig;
+    use image_effect::stylized::EmbossConfig;
 
     let effect = ImageEffect::Emboss(EmbossConfig::new());
     img = effect.apply(img).expect("Effect failed");

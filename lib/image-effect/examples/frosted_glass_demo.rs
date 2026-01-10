@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Apply frosted glass effect
     let effect = ImageEffect::FrostedGlass(
-        image_effect::special_effect::FrostedGlassConfig::new(),
+        image_effect::special::FrostedGlassConfig::new(),
     );
     img = effect.apply(img).expect("Effect failed");
 

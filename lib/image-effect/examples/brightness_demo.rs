@@ -1,5 +1,5 @@
 use image::ImageReader;
-use image_effect::special_effect::BrightnessConfig;
+use image_effect::special::BrightnessConfig;
 use image_effect::{Effect, ImageEffect};
 use std::path::Path;
 

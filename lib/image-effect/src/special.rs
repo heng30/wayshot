@@ -22,7 +22,7 @@ impl BrightnessConfig {
 impl Effect for BrightnessConfig {
     fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
         let (width, height) = (image.width(), image.height());
-        let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+        let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
         effects::adjust_brightness(&mut photon_img, self.brightness as i16);
         RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
     }
@@ -46,13 +46,12 @@ impl ContrastConfig {
 impl Effect for ContrastConfig {
     fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
         let (width, height) = (image.width(), image.height());
-        let mut photon_img = PhotonImage::new(image.to_vec(), width, height);
+        let mut photon_img = PhotonImage::new(image.into_raw(), width, height);
         effects::adjust_contrast(&mut photon_img, self.contrast);
         RgbaImage::from_raw(width, height, photon_img.get_raw_pixels())
     }
 }
 
-/// Offset effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -104,7 +103,6 @@ impl Effect for OffsetRedConfig {
     }
 }
 
-/// Offset green channel effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -129,7 +127,6 @@ impl Effect for OffsetGreenConfig {
     }
 }
 
-/// Offset blue channel effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -154,7 +151,6 @@ impl Effect for OffsetBlueConfig {
     }
 }
 
-/// Multiple offsets effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -188,11 +184,6 @@ impl Effect for MultipleOffsetsConfig {
     }
 }
 
-// ============================================================================
-// Artistic Effects
-// ============================================================================
-
-/// Halftone effect configuration
 #[derive(Debug, Clone, Copy)]
 pub struct HalftoneConfig;
 
@@ -211,7 +202,6 @@ impl Effect for HalftoneConfig {
     }
 }
 
-/// Primary color effect configuration
 #[derive(Debug, Clone, Copy)]
 pub struct PrimaryConfig;
 
@@ -230,7 +220,6 @@ impl Effect for PrimaryConfig {
     }
 }
 
-/// Colorize effect configuration
 #[derive(Debug, Clone, Copy)]
 pub struct ColorizeConfig;
 
@@ -249,11 +238,6 @@ impl Effect for ColorizeConfig {
     }
 }
 
-// ============================================================================
-// Brightness Effects
-// ============================================================================
-
-/// Increase brightness effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -278,7 +262,6 @@ impl Effect for IncBrightnessConfig {
     }
 }
 
-/// Decrease brightness effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -303,11 +286,6 @@ impl Effect for DecBrightnessConfig {
     }
 }
 
-// ============================================================================
-// Strips Effects
-// ============================================================================
-
-/// Horizontal strips effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -332,7 +310,6 @@ impl Effect for HorizontalStripsConfig {
     }
 }
 
-/// Color horizontal strips effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -364,7 +341,6 @@ impl Effect for ColorHorizontalStripsConfig {
     }
 }
 
-/// Vertical strips effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -389,7 +365,6 @@ impl Effect for VerticalStripsConfig {
     }
 }
 
-/// Color vertical strips effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -421,11 +396,6 @@ impl Effect for ColorVerticalStripsConfig {
     }
 }
 
-// ============================================================================
-// Special Effects
-// ============================================================================
-
-/// Oil painting effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -452,7 +422,6 @@ impl Effect for OilConfig {
     }
 }
 
-/// Frosted glass effect configuration
 #[derive(Debug, Clone, Copy)]
 pub struct FrostedGlassConfig;
 
@@ -471,7 +440,6 @@ impl Effect for FrostedGlassConfig {
     }
 }
 
-/// Normalize effect configuration
 #[derive(Debug, Clone, Copy)]
 pub struct NormalizeConfig;
 
@@ -490,7 +458,6 @@ impl Effect for NormalizeConfig {
     }
 }
 
-/// Dither effect configuration
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]

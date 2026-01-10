@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
     // Apply normalize effect
-    let effect = ImageEffect::Normalize(image_effect::special_effect::NormalizeConfig::new());
+    let effect = ImageEffect::Normalize(image_effect::special::NormalizeConfig::new());
     img = effect.apply(img).expect("Effect failed");
 
     img.save(output_dir.join("normalize_effect.png"))?;

@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Rotate hue for red colors (255, 0, 0) by 90 degrees
     let effect = ImageEffect::SelectiveHueRotate(
-        image_effect::channel_effect::SelectiveHueRotateConfig::new()
+        image_effect::channel::SelectiveHueRotateConfig::new()
             .with_ref_r(255)
             .with_ref_g(0)
             .with_ref_b(0)

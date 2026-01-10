@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
     let effect = ImageEffect::RemoveBlueChannel(
-        image_effect::channel_effect::RemoveBlueChannelConfig::new().with_min_filter(200),
+        image_effect::channel::RemoveBlueChannelConfig::new().with_min_filter(200),
     );
     img = effect.apply(img).expect("Effect failed");
 

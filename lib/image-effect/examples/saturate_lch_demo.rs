@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Apply LCh saturate effect
     let effect = ImageEffect::SaturateLch(
-        image_effect::colour_space_effect::SaturateLchConfig::new().with_level(0.3),
+        image_effect::colour_space::SaturateLchConfig::new().with_level(0.3),
     );
     img = effect.apply(img).expect("Effect failed");
 

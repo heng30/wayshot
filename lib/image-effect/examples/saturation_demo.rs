@@ -1,5 +1,5 @@
 use image::ImageReader;
-use image_effect::colour_space_effect::SaturationConfig;
+use image_effect::colour_space::SaturationConfig;
 use image_effect::{Effect, ImageEffect};
 use std::path::Path;
 

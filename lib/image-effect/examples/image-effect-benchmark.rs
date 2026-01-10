@@ -48,9 +48,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ===== BASE EFFECTS (6) =====
     println!("🎨 Testing Base Effects...");
 
-    use image_effect::colour_space_effect::{HueRotateConfig, SaturationConfig};
-    use image_effect::monochrome_effect::GrayscaleConfig;
-    use image_effect::special_effect::{BrightnessConfig, ContrastConfig};
+    use image_effect::colour_space::{HueRotateConfig, SaturationConfig};
+    use image_effect::monochrome::GrayscaleConfig;
+    use image_effect::special::{BrightnessConfig, ContrastConfig};
 
     results.push(benchmark_effect(
         "Grayscale (Luminance)",
@@ -87,7 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ===== BLUR EFFECTS (3) =====
     println!("🔵 Testing Blur Effects...");
 
-    use image_effect::blur_effect::{BoxBlurConfig, GaussianBlurConfig, MedianBlurConfig};
+    use image_effect::blur::{BoxBlurConfig, GaussianBlurConfig, MedianBlurConfig};
 
     results.push(benchmark_effect(
         "GaussianBlur (radius=3)",
@@ -110,7 +110,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ===== FILTER EFFECTS (5) =====
     println!("🎭 Testing Filter Effects...");
 
-    use image_effect::filter_effect::{
+    use image_effect::filter::{
         ColorTintConfig, SepiaConfig, TemperatureConfig, VignetteConfig,
     };
 
@@ -147,7 +147,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ===== STYLIZED EFFECTS (5) =====
     println!("✨ Testing Stylized Effects...");
 
-    use image_effect::stylized_effect::{
+    use image_effect::stylized::{
         EdgeDetectionConfig, EdgeDetectionMode, EmbossConfig, PixelateConfig, PosterizeConfig,
         SharpenConfig,
     };
@@ -185,7 +185,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ===== PRESET FILTERS (22) =====
     println!("🌈 Testing Preset Filters...");
 
-    use image_effect::preset_filter_effect::PresetFilter;
+    use image_effect::preset_filter::PresetFilter;
 
     let preset_filters = [
         // Original 15 filters
@@ -218,7 +218,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         results.push(benchmark_effect(
             name,
             &ImageEffect::PresetFilter(
-                image_effect::preset_filter_effect::PresetFilterConfig::new().with_filter(filter),
+                image_effect::preset_filter::PresetFilterConfig::new().with_filter(filter),
             ),
             &img,
         ));
@@ -227,7 +227,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ===== MONOCHROME EFFECTS (5) =====
     println!("🖤 Testing Monochrome Effects...");
 
-    use image_effect::monochrome_effect::{
+    use image_effect::monochrome::{
         ColorBalanceConfig, DuotoneConfig, SolarizationConfig, SolarizationMode, ThresholdConfig,
     };
 
@@ -257,7 +257,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     results.push(benchmark_effect(
         "Level",
-        &ImageEffect::Level(image_effect::monochrome_effect::LevelConfig::new()),
+        &ImageEffect::Level(image_effect::monochrome::LevelConfig::new()),
         &img,
     ));
 
@@ -275,7 +275,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ===== NOISE EFFECTS (2) =====
     println!("🔊 Testing Noise Effects...");
 
-    use image_effect::noise_effect::{GaussianNoiseConfig, PinkNoiseConfig};
+    use image_effect::noise::{GaussianNoiseConfig, PinkNoiseConfig};
 
     results.push(benchmark_effect(
         "GaussianNoise",
@@ -292,7 +292,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ===== CHANNEL EFFECTS (13) =====
     println!("🎚️ Testing Channel Effects...");
 
-    use image_effect::channel_effect::{
+    use image_effect::channel::{
         AlterBlueChannelConfig, AlterChannelsConfig, AlterGreenChannelConfig, AlterRedChannelConfig,
         AlterTwoChannelsConfig, RemoveBlueChannelConfig, RemoveGreenChannelConfig,
         RemoveRedChannelConfig, SelectiveDesaturateConfig, SelectiveGrayscaleConfig,
@@ -420,7 +420,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ===== COLOUR SPACE EFFECTS (17) =====
     println!("🌈 Testing Colour Space Effects...");
 
-    use image_effect::colour_space_effect::{
+    use image_effect::colour_space::{
         DarkenHsluvConfig, DarkenHsvConfig, DarkenLchConfig, DesaturateHsluvConfig,
         DesaturateHsvConfig, DesaturateLchConfig, GammaCorrectionConfig, HueRotateHslConfig,
         HueRotateHsluvConfig, HueRotateHsvConfig, HueRotateLchConfig, LightenHsluvConfig,
@@ -538,7 +538,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ===== SPECIAL EFFECTS (18) =====
     println!("✨ Testing Special Effects...");
 
-    use image_effect::special_effect::{
+    use image_effect::special::{
         ColorHorizontalStripsConfig, ColorVerticalStripsConfig, DecBrightnessConfig, DitherConfig,
         FrostedGlassConfig, HalftoneConfig, HorizontalStripsConfig, IncBrightnessConfig,
         MultipleOffsetsConfig, NormalizeConfig, OilConfig, OffsetBlueConfig, OffsetConfig,
@@ -594,7 +594,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     results.push(benchmark_effect(
         "Colorize",
-        &ImageEffect::Colorize(image_effect::special_effect::ColorizeConfig::new()),
+        &ImageEffect::Colorize(image_effect::special::ColorizeConfig::new()),
         &img,
     ));
 

@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut img = ImageReader::open(img_path)?.decode()?.to_rgba8();
 
     // Apply sepia effect
-    use image_effect::filter_effect::SepiaConfig;
+    use image_effect::filter::SepiaConfig;
 
     let effect = ImageEffect::Sepia(SepiaConfig::new());
     img = effect.apply(img).expect("Effect failed");
