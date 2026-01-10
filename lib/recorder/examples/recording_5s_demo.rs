@@ -1,8 +1,16 @@
+use image_effect::realtime::RealTimeEffect;
 use recorder::{
     AudioRecorder, FPS, RecorderConfig, RecordingSession, bounded, platform_screen_capture,
 };
 use screen_capture::ScreenCapture;
-use std::{sync::atomic::Ordering, thread, time::Duration};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicU8, Ordering},
+    },
+    thread,
+    time::Duration,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -45,6 +53,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         screen_infos[0].logical_size.width as u32,
         screen_infos[0].logical_size.height as u32,
     )))
+    .with_image_effect(Some(Arc::new(AtomicU8::new(
+        RealTimeEffect::Grayscale.into(),
+    ))))
     .with_enable_cursor_tracking(true)
     .with_fps(FPS::Fps30);
 

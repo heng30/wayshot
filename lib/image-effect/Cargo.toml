@@ -13,6 +13,7 @@ description.workspace = true
 [dependencies]
 log.workspace = true
 image.workspace = true
+num_enum.workspace = true
 imageproc.workspace = true
 photon-rs.workspace = true
 thiserror.workspace = true

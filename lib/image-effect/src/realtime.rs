@@ -7,11 +7,13 @@ use crate::{
     stylized::{PixelateConfig, PosterizeConfig},
 };
 use image::RgbaImage;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
 #[non_exhaustive]
+#[repr(u8)]
 pub enum RealTimeEffect {
-    Grayscale,
+    Grayscale = 0,
     Invert,
     Rosetint,
     Twenties,

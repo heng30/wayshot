@@ -9,6 +9,7 @@ use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_setters::Setters;
 use fast_image_resize::images::Image;
 use image::{ImageBuffer, Rgb, Rgba, buffer::ConvertBuffer};
+use image_effect::realtime::RealTimeEffect;
 use mp4m::VideoFrameType;
 use once_cell::sync::Lazy;
 use screen_capture::{
@@ -578,11 +579,17 @@ impl RecordingSession {
 
         handles.push(Self::process_forward_worker(session, frame_sender));
 
-        let worker_count = 3 + if session.config.camera_mix_config.enable {
-            1
-        } else {
-            0
-        };
+        // Base worker count + camera mix workers + image effect workers
+        let worker_count =
+            3 + if session.config.camera_mix_config.enable {
+                1
+            } else {
+                0
+            } + if session.config.image_effect.is_some() {
+                2
+            } else {
+                0
+            };
 
         for i in 0..worker_count {
             handles.push(Self::process_frame_worker(
@@ -661,6 +668,7 @@ impl RecordingSession {
         let crop_region_receiver = session.crop_region_receiver.clone();
         let enable_camera_mix = session.config.camera_mix_config.enable;
         let camera_shape = session.config.camera_mix_config.shape.clone();
+        let image_effect = session.config.image_effect.clone();
 
         thread::spawn(move || {
             while let Ok((total_frame_count, frame, camera_img)) = receiver.recv() {
@@ -689,21 +697,21 @@ impl RecordingSession {
                     }
                 };
 
+                let img = if let Some(ref effect) = image_effect
+                    && let Ok(ref effect) = RealTimeEffect::try_from(effect.load(Ordering::Relaxed))
+                {
+                    Self::apply_image_effect(img, effect)
+                } else {
+                    img
+                };
+
                 let img = if enable_camera_mix {
                     Self::mix_screen_and_camera(img, camera_img, &camera_shape)
                 } else {
                     img
                 };
 
-                log::debug!(
-                    "{} frame spent: {:.2?}",
-                    if enable_cursor_tracking {
-                        "crop"
-                    } else {
-                        "resize"
-                    },
-                    now.elapsed()
-                );
+                log::debug!("process frame spent: {:.2?}", now.elapsed());
 
                 if let Err(e) = sender.try_send((
                     thread_index,
@@ -1131,6 +1139,29 @@ impl RecordingSession {
             }
         } else {
             screen_image
+        }
+    }
+
+    fn apply_image_effect(
+        rgb_image: ResizedImageBuffer,
+        effect: &RealTimeEffect,
+    ) -> ResizedImageBuffer {
+        let (width, height) = rgb_image.dimensions();
+        let raw_data = rgb_image.into_raw();
+
+        let rgb_buffer: ImageBuffer<Rgb<u8>, Vec<u8>> =
+            ImageBuffer::from_raw(width, height, raw_data)
+                .expect("Failed to reconstruct RGB buffer");
+
+        let rgba_image: ImageBuffer<Rgba<u8>, Vec<u8>> = rgb_buffer.convert();
+        let result = effect.apply(rgba_image);
+
+        match result {
+            Some(processed_rgba) => processed_rgba.convert(),
+            None => {
+                log::warn!("Image effect returned None, using original image");
+                ImageBuffer::new(width, height)
+            }
         }
     }
 

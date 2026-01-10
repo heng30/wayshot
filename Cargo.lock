@@ -397,9 +397,12 @@ checksum = "c3d036a3c4ab069c7b410a2ce876bd74808d2d0888a82667669f8e783a898bf1"
 
 [[package]]
 name = "arc-swap"
-version = "1.7.1"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69f7f8c3906b62b754cd5326047894316021dcfe5a194c8ea52bdd94934a3457"
+checksum = "51d03449bb8ca2cc2ef70869af31463d1ae5ccc8fa3e334b307203fbf815207e"
+dependencies = [
+ "rustversion",
+]
 
 [[package]]
 name = "arg_enum_proc_macro"
@@ -4407,6 +4410,7 @@ dependencies = [
  "image 0.25.8",
  "imageproc 0.26.0",
  "log",
+ "num_enum",
  "photon-rs",
  "thiserror 2.0.17",
 ]
@@ -7367,6 +7371,7 @@ dependencies = [
  "fast_image_resize",
  "hound",
  "image 0.25.8",
+ "image-effect",
  "log",
  "mp4m",
  "nnnoiseless",

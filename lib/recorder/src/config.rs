@@ -8,7 +8,10 @@ use screen_capture::LogicalSize;
 use std::{
     collections::VecDeque,
     path::{Path, PathBuf},
-    sync::{Arc, atomic::AtomicI32},
+    sync::{
+        Arc,
+        atomic::{AtomicI32, AtomicU8},
+    },
     time::{Duration, Instant},
 };
 use wrtc::RTCIceServer;
@@ -78,6 +81,7 @@ pub struct RecorderConfig {
     pub share_screen_config: ShareScreenConfig,
     pub push_stream_config: PushStreamConfig,
     pub camera_mix_config: CameraMixConfig,
+    pub image_effect: Option<Arc<AtomicU8>>,
 }
 
 impl RecorderConfig {
@@ -120,6 +124,7 @@ impl RecorderConfig {
             share_screen_config: ShareScreenConfig::default(),
             push_stream_config: PushStreamConfig::default(),
             camera_mix_config: CameraMixConfig::default(),
+            image_effect: None,
         }
     }
 
@@ -128,7 +133,6 @@ impl RecorderConfig {
     }
 
     pub fn make_filename(dir: impl AsRef<Path>) -> PathBuf {
-        // let mut filename = Local::now().format("%Y-%m-%d_%H:%M:%S").to_string();
         let mut filename = Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
         filename.push_str(".mp4");
         dir.as_ref().to_path_buf().join(filename)
