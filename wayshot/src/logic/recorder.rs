@@ -1,6 +1,7 @@
 use crate::{
     config, global_logic, global_store,
     logic::{
+        realtime_image_effect::get_realtime_image_effect,
         toast::{self, async_toast_warn},
         tr::tr,
     },
@@ -48,6 +49,7 @@ struct Cache {
 
 static CACHE: Lazy<Mutex<Cache>> = Lazy::new(|| Mutex::new(Cache::default()));
 
+crate::impl_c_like_enum_convert!(UIFps, FPS, Fps24, Fps25, Fps30, Fps60);
 crate::impl_c_like_enum_convert!(
     UIProcessMode,
     ProcessMode,
@@ -682,7 +684,8 @@ fn inner_start_recording(
     .with_max_stable_region_duration(all_config.cursor_tracker.max_stable_region_duration as u64)
     .with_share_screen_config(all_config.share_screen.into())
     .with_push_stream_config(all_config.push_stream.into())
-    .with_camera_mix_config(all_config.control.into());
+    .with_camera_mix_config(all_config.control.into())
+    .with_realtime_image_effect(get_realtime_image_effect());
 
     log::info!("Recording configuration: {:#?}", config);
 
@@ -881,17 +884,6 @@ impl From<UIResolution> for Resolution {
             UIResolution::P2K => Resolution::P2K,
             UIResolution::P4K => Resolution::P4K,
             _ => unreachable!(),
-        }
-    }
-}
-
-impl From<UIFps> for FPS {
-    fn from(entry: UIFps) -> Self {
-        match entry {
-            UIFps::Fps24 => FPS::Fps24,
-            UIFps::Fps25 => FPS::Fps25,
-            UIFps::Fps30 => FPS::Fps30,
-            UIFps::Fps60 => FPS::Fps60,
         }
     }
 }

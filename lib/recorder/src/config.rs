@@ -4,6 +4,7 @@ use crate::{
 use camera::{Shape, ShapeCircle};
 use chrono::Local;
 use derive_setters::Setters;
+use image_effect::realtime::RealTimeImageEffect;
 use screen_capture::LogicalSize;
 use std::{
     collections::VecDeque,
@@ -81,7 +82,7 @@ pub struct RecorderConfig {
     pub share_screen_config: ShareScreenConfig,
     pub push_stream_config: PushStreamConfig,
     pub camera_mix_config: CameraMixConfig,
-    pub image_effect: Option<Arc<AtomicU8>>,
+    pub realtime_image_effect: Arc<AtomicU8>,
 }
 
 impl RecorderConfig {
@@ -124,7 +125,7 @@ impl RecorderConfig {
             share_screen_config: ShareScreenConfig::default(),
             push_stream_config: PushStreamConfig::default(),
             camera_mix_config: CameraMixConfig::default(),
-            image_effect: None,
+            realtime_image_effect: Arc::new(AtomicU8::new(RealTimeImageEffect::None.into())),
         }
     }
 

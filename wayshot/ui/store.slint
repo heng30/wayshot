@@ -99,6 +99,25 @@ export enum ProcessMode {
     PushStream,
 }
 
+export enum RealTimeImageEffect {
+    None,
+    Grayscale,
+    Invert,
+    Rosetint,
+    Twenties,
+    Mauve,
+    Radio,
+    Bluechrome,
+    Dramatic,
+    PastelPink,
+    Obsidian,
+    Pixelate,
+    Posterize,
+    Sepia,
+    Vignette,
+    Temperature,
+}
+
 export struct SettingCursorTracker {
     enable-tracking: bool,
     region-width: int,
@@ -170,6 +189,8 @@ export struct SettingControl {
 
     enable-stats: bool,
     enable-preview: bool,
+
+    realtime_image-effect: RealTimeImageEffect,
 }
 
 export struct SettingPlayer {

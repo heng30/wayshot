@@ -1,13 +1,14 @@
 use crate::slint_generatedAppWindow::{
     Fps as UIFps, MixPositionWithPadding as UIMixPositionWithPadding,
     MixPositionWithPaddingTag as UIMixPositionWithPaddingTag, RTCIceServer as UIRTCIceServer,
-    Resolution as UIResolution, SettingCamera as UISettingCamera,
-    SettingControl as UISettingControl, SettingCursorTracker as UISettingCursorTracker,
-    SettingPushStream as UISettingPushStream, SettingRecorder as UISettingRecorder,
-    SettingShareScreen as UISettingShareScreen,
+    RealTimeImageEffect as UIRealTimeImageEffect, Resolution as UIResolution,
+    SettingCamera as UISettingCamera, SettingControl as UISettingControl,
+    SettingCursorTracker as UISettingCursorTracker, SettingPushStream as UISettingPushStream,
+    SettingRecorder as UISettingRecorder, SettingShareScreen as UISettingShareScreen,
     SettingShareScreenClient as UISettingShareScreenClient, TransitionType as UITransitionType,
 };
 use anyhow::{Context, Result, bail};
+use image_effect::realtime::RealTimeImageEffect;
 use log::debug;
 use once_cell::sync::Lazy;
 use pmacro::SlintFromConvert;
@@ -136,6 +137,7 @@ pub struct Recorder {
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
 #[derivative(Default)]
 #[from("UISettingControl")]
+#[serde(default)]
 pub struct Control {
     pub screen: String,
     pub audio: String,
@@ -162,13 +164,10 @@ pub struct Control {
     #[derivative(Default(value = "true"))]
     pub enable_preview: bool,
 
-    #[serde(default)]
+    pub realtime_image_effect: UIRealTimeImageEffect,
+
     pub camera: String,
-
-    #[serde(default)]
     pub enable_camera: bool,
-
-    #[serde(default)]
     pub camera_setting: Camera,
 }
 
@@ -326,7 +325,47 @@ crate::impl_slint_enum_serde!(
     BottomLeft,
     BottomRight
 );
+crate::impl_slint_enum_serde!(
+    UIRealTimeImageEffect,
+    None,
+    Grayscale,
+    Invert,
+    Rosetint,
+    Twenties,
+    Mauve,
+    Radio,
+    Bluechrome,
+    Dramatic,
+    PastelPink,
+    Obsidian,
+    Pixelate,
+    Posterize,
+    Sepia,
+    Vignette,
+    Temperature
+);
+
 crate::impl_c_like_enum_convert!(UITransitionType, TransitionType, Linear, EaseIn, EaseOut);
+crate::impl_c_like_enum_convert!(
+    UIRealTimeImageEffect,
+    RealTimeImageEffect,
+    None,
+    Grayscale,
+    Invert,
+    Rosetint,
+    Twenties,
+    Mauve,
+    Radio,
+    Bluechrome,
+    Dramatic,
+    PastelPink,
+    Obsidian,
+    Pixelate,
+    Posterize,
+    Sepia,
+    Vignette,
+    Temperature
+);
 
 impl Config {
     /// Initializes the configuration

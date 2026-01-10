@@ -1,4 +1,4 @@
-use image_effect::realtime::RealTimeEffect;
+use image_effect::realtime::RealTimeImageEffect;
 use recorder::{
     AudioRecorder, FPS, RecorderConfig, RecordingSession, bounded, platform_screen_capture,
 };
@@ -53,9 +53,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         screen_infos[0].logical_size.width as u32,
         screen_infos[0].logical_size.height as u32,
     )))
-    .with_image_effect(Some(Arc::new(AtomicU8::new(
-        RealTimeEffect::Grayscale.into(),
-    ))))
+    .with_realtime_image_effect(Arc::new(AtomicU8::new(
+        RealTimeImageEffect::Grayscale.into(),
+    )))
     .with_enable_cursor_tracking(true)
     .with_fps(FPS::Fps30);
 

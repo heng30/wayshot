@@ -19,6 +19,7 @@ import {
     SettingShareScreenClient,
     SettingPushStream,
     SettingCamera,
+    RealTimeImageEffect,
 } from "store.slint";
 
 import { PlaylistItem } from "base/def.slint";
@@ -182,6 +183,8 @@ export global Logic {
     callback camera-setting-dialog-start-playing(camera: string);
     callback camera-setting-dialog-stop-playing();
 
+    callback realtime-image-effect-changed(effect: RealTimeImageEffect);
+
     pure public function fps-to-int(fps: Fps) -> int {
         if (fps == Fps.Fps24) {
             return 24;
@@ -243,6 +246,43 @@ export global Logic {
             return Resolution.P4K;
         } else {
             return Resolution.Original;
+        }
+    }
+
+    pure public function image-effect-to-string(effect: RealTimeImageEffect) -> string {
+
+        if (effect == RealTimeImageEffect.Grayscale) {
+            return "Grayscale";
+        } else if (effect == RealTimeImageEffect.Invert) {
+            return "Invert";
+        } else if (effect == RealTimeImageEffect.Rosetint) {
+            return "Rosetint";
+        } else if (effect == RealTimeImageEffect.Twenties) {
+            return "Twenties";
+        } else if (effect == RealTimeImageEffect.Mauve) {
+            return "Mauve";
+        } else if (effect == RealTimeImageEffect.Radio) {
+            return "Radio";
+        } else if (effect == RealTimeImageEffect.Bluechrome) {
+            return "Bluechrome";
+        } else if (effect == RealTimeImageEffect.Dramatic) {
+            return "Dramatic";
+        } else if (effect == RealTimeImageEffect.PastelPink) {
+            return "Pastel Pink";
+        } else if (effect == RealTimeImageEffect.Obsidian) {
+            return "Obsidian";
+        } else if (effect == RealTimeImageEffect.Pixelate) {
+            return "Pixelate";
+        } else if (effect == RealTimeImageEffect.Posterize) {
+            return "Posterize";
+        } else if (effect == RealTimeImageEffect.Sepia) {
+            return "Sepia";
+        } else if (effect == RealTimeImageEffect.Vignette) {
+            return "Vignette";
+        } else if (effect == RealTimeImageEffect.Temperature) {
+            return "Temperature";
+        } else {
+            return "Grayscale";
         }
     }
     //////////////////////////////// Logic End  ////////////////////////////////

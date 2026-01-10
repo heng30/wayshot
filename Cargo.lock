@@ -10316,6 +10316,7 @@ dependencies = [
  "fast_image_resize",
  "getrandom 0.3.4",
  "image 0.25.8",
+ "image-effect",
  "log",
  "mp4-player",
  "mp4m",

@@ -35,6 +35,9 @@ mod push_stream;
 #[cfg(feature = "desktop")]
 mod camera;
 
+#[cfg(feature = "desktop")]
+mod realtime_image_effect;
+
 pub fn init(ui: &AppWindow) {
     #[cfg(any(feature = "desktop", feature = "mobile"))]
     {
@@ -56,6 +59,7 @@ pub fn init(ui: &AppWindow) {
         share_screen::init(ui);
         push_stream::init(ui);
         camera::init(ui);
+        realtime_image_effect::init(ui);
     }
 }
 
