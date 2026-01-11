@@ -20,6 +20,7 @@ import {
     PopupActionSetting,
     TabBtns,
 } from "../../base/widgets.slint";
+import { RealtimeImageEffectDialog }  from "realtime-image-effect-dislog.slint";
 
 component ProcessModePanel inherits HorizontalLayout {
     width: self.preferred-width;
@@ -103,6 +104,11 @@ component PreviewPanel inherits Rectangle {
         pointer-event(event) => {
             if (event.button == PointerEventButton.right && event.kind == PointerEventKind.down) {
                 PopupActionSetting.show(parent.absolute-position.x + self.mouse-x, parent.absolute-position.y + self.mouse-y, [
+                    {
+                        icon: Icons.image-effect-light,
+                        text: Logic.tr("Image Effect"),
+                        action: "show-realtime-image-effect-dialog"
+                    },
                     Store.setting-control.enable-preview ? {
                         icon: Icons.preview-light,
                         text: Logic.tr("Hide Preview"),
@@ -192,6 +198,8 @@ component PreviewPanel inherits Rectangle {
     ProcessModePanel {
         y: Theme.padding * 2;
     }
+
+    if Store.is-show-realtime-image-effect-dialog: RealtimeImageEffectDialog { }
 }
 
 component ControlPanel inherits HorizontalLayout {

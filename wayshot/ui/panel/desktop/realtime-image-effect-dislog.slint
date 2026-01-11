@@ -1,0 +1,114 @@
+import {
+    Store,
+    Logic,
+    Util,
+    Theme,
+    Icons,
+    RealtimeImageEffect,
+} from "../def.slint";
+import {
+    SettingDetailInner,
+    StatusBar,
+    RadioBtn,
+    Divider,
+} from "../../base/widgets.slint";
+
+export component RealtimeImageEffectDialog inherits Rectangle {
+    private property <RealtimeImageEffect> selected-effect;
+    private property <[RealtimeImageEffect]> effects: [
+        RealtimeImageEffect.None,
+        RealtimeImageEffect.Grayscale,
+        RealtimeImageEffect.Invert,
+        RealtimeImageEffect.Rosetint,
+        RealtimeImageEffect.Twenties,
+        RealtimeImageEffect.Mauve,
+        RealtimeImageEffect.Radio,
+        RealtimeImageEffect.Bluechrome,
+        RealtimeImageEffect.Dramatic,
+        RealtimeImageEffect.PastelPink,
+        RealtimeImageEffect.Obsidian,
+        RealtimeImageEffect.Pixelate,
+        RealtimeImageEffect.Posterize,
+        RealtimeImageEffect.Sepia,
+        RealtimeImageEffect.Vignette,
+        RealtimeImageEffect.Temperature,
+    ];
+
+    init => {
+        selected-effect = Logic.init-realtime-image-effect-dialog();
+    }
+
+    sb := StatusBar {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height - body.height) / 2;
+        width: Theme.default-font-size * 13;
+        icon: Icons.image-effect-light;
+        title: Logic.tr("Image Effect");
+        hide-minimal-ctrl-btns: true;
+        hide-maximal-ctrl-btns: true;
+        is-show-icon: true;
+        is-app-window-bar: false;
+        container-width: root.width;
+        container-height: root.height;
+        background: Theme.secondary-brand-color;
+        icon-colorize: Theme.light-text-color;
+        title-text-color: Theme.light-text-color;
+        close-icon: Icons.close-light;
+        close-icon-colorize: Theme.light-text-color;
+
+        close => {
+            Logic.show-realtime-image-effect-dialog(false);
+        }
+    }
+
+    body := SettingDetailInner {
+        x: sb.x;
+        y: sb.y + sb.height;
+        width: sb.width;
+        height: self.width / Theme.golden-ratio - sb.height;
+        vbox-padding: 0px;
+        interactive: false;
+
+        Rectangle {
+            background: Theme.base-background;
+
+            VerticalLayout {
+                alignment: start;
+
+                for effect[index] in root.effects: Rectangle {
+                    background: selected-effect == effect ? Theme.checked-background : (ta.has-hover || rb.has-hover ? Theme.hover-background : transparent);
+
+                    ta := TouchArea {
+                        mouse-cursor: MouseCursor.pointer;
+
+                        clicked => {
+                            rb.check();
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: start;
+                        padding-left: Theme.padding * 3;
+                        padding-right: Theme.padding * 3;
+                        padding-top: Theme.padding * 1.5;
+                        padding-bottom: Theme.padding * 1.5;
+
+                        rb := RadioBtn {
+                            text: Logic.image-effect-to-string(effect);
+                            checked: selected-effect == effect;
+
+                            check => {
+                                selected-effect = effect;
+                                Logic.realtime-image-effect-changed(effect);
+                            }
+                        }
+                    }
+
+                    if index != root.effects.length - 1: Divider {
+                        y: parent.height - self.height;
+                    }
+                }
+            }
+        }
+    }
+}

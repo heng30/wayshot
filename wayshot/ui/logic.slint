@@ -19,7 +19,7 @@ import {
     SettingShareScreenClient,
     SettingPushStream,
     SettingCamera,
-    RealTimeImageEffect,
+    RealtimeImageEffect,
 } from "store.slint";
 
 import { PlaylistItem } from "base/def.slint";
@@ -183,7 +183,9 @@ export global Logic {
     callback camera-setting-dialog-start-playing(camera: string);
     callback camera-setting-dialog-stop-playing();
 
-    callback realtime-image-effect-changed(effect: RealTimeImageEffect);
+    callback show-realtime-image-effect-dialog(flag: bool);
+    callback init-realtime-image-effect-dialog() -> RealtimeImageEffect;
+    callback realtime-image-effect-changed(effect: RealtimeImageEffect);
 
     pure public function fps-to-int(fps: Fps) -> int {
         if (fps == Fps.Fps24) {
@@ -249,40 +251,39 @@ export global Logic {
         }
     }
 
-    pure public function image-effect-to-string(effect: RealTimeImageEffect) -> string {
-
-        if (effect == RealTimeImageEffect.Grayscale) {
-            return "Grayscale";
-        } else if (effect == RealTimeImageEffect.Invert) {
-            return "Invert";
-        } else if (effect == RealTimeImageEffect.Rosetint) {
-            return "Rosetint";
-        } else if (effect == RealTimeImageEffect.Twenties) {
-            return "Twenties";
-        } else if (effect == RealTimeImageEffect.Mauve) {
-            return "Mauve";
-        } else if (effect == RealTimeImageEffect.Radio) {
-            return "Radio";
-        } else if (effect == RealTimeImageEffect.Bluechrome) {
-            return "Bluechrome";
-        } else if (effect == RealTimeImageEffect.Dramatic) {
-            return "Dramatic";
-        } else if (effect == RealTimeImageEffect.PastelPink) {
-            return "Pastel Pink";
-        } else if (effect == RealTimeImageEffect.Obsidian) {
-            return "Obsidian";
-        } else if (effect == RealTimeImageEffect.Pixelate) {
-            return "Pixelate";
-        } else if (effect == RealTimeImageEffect.Posterize) {
-            return "Posterize";
-        } else if (effect == RealTimeImageEffect.Sepia) {
-            return "Sepia";
-        } else if (effect == RealTimeImageEffect.Vignette) {
-            return "Vignette";
-        } else if (effect == RealTimeImageEffect.Temperature) {
-            return "Temperature";
+    pure public function image-effect-to-string(effect: RealtimeImageEffect) -> string {
+        if (effect == RealtimeImageEffect.Grayscale) {
+            return Logic.tr("Grayscale");
+        } else if (effect == RealtimeImageEffect.Invert) {
+            return Logic.tr("Invert");
+        } else if (effect == RealtimeImageEffect.Rosetint) {
+            return Logic.tr("Rosetint");
+        } else if (effect == RealtimeImageEffect.Twenties) {
+            return Logic.tr("Twenties");
+        } else if (effect == RealtimeImageEffect.Mauve) {
+            return Logic.tr("Mauve");
+        } else if (effect == RealtimeImageEffect.Radio) {
+            return Logic.tr("Radio");
+        } else if (effect == RealtimeImageEffect.Bluechrome) {
+            return Logic.tr("Bluechrome");
+        } else if (effect == RealtimeImageEffect.Dramatic) {
+            return Logic.tr("Dramatic");
+        } else if (effect == RealtimeImageEffect.PastelPink) {
+            return Logic.tr("Pastel Pink");
+        } else if (effect == RealtimeImageEffect.Obsidian) {
+            return Logic.tr("Obsidian");
+        } else if (effect == RealtimeImageEffect.Pixelate) {
+            return Logic.tr("Pixelate");
+        } else if (effect == RealtimeImageEffect.Posterize) {
+            return Logic.tr("Posterize");
+        } else if (effect == RealtimeImageEffect.Sepia) {
+            return Logic.tr("Sepia");
+        } else if (effect == RealtimeImageEffect.Vignette) {
+            return Logic.tr("Vignette");
+        } else if (effect == RealtimeImageEffect.Temperature) {
+            return Logic.tr("Temperature");
         } else {
-            return "Grayscale";
+            return Logic.tr("None");
         }
     }
     //////////////////////////////// Logic End  ////////////////////////////////

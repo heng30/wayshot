@@ -20,6 +20,9 @@ pub fn init(ui: &AppWindow) {
                 "toggle-control-enable-preview" => {
                     global_logic!(ui).invoke_toggle_control_enable_preview();
                 }
+                "show-realtime-image-effect-dialog" => {
+                    global_logic!(ui).invoke_show_realtime_image_effect_dialog(true);
+                }
                 _ => (),
             }
         });

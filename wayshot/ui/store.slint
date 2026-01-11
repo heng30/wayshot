@@ -99,7 +99,7 @@ export enum ProcessMode {
     PushStream,
 }
 
-export enum RealTimeImageEffect {
+export enum RealtimeImageEffect {
     None,
     Grayscale,
     Invert,
@@ -190,7 +190,7 @@ export struct SettingControl {
     enable-stats: bool,
     enable-preview: bool,
 
-    realtime_image-effect: RealTimeImageEffect,
+    realtime_image-effect: RealtimeImageEffect,
 }
 
 export struct SettingPlayer {
@@ -433,6 +433,8 @@ export global Store {
     in-out property <int> share-screen-playing-duration;
     in-out property <bool> share-screen-is-playing-cache;
     in-out property <ConnectionStatus> share-screen-client-connection-status: ConnectionStatus.Disconnected;
+
+    in-out property <bool> is-show-realtime-image-effect-dialog;
 
     //////////////////////////////// Logic End  ////////////////////////////////
 }

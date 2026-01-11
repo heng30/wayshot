@@ -1,5 +1,5 @@
 use image::ImageReader;
-use image_effect::realtime::RealTimeImageEffect;
+use image_effect::realtime::RealtimeImageEffect;
 use std::fs;
 use std::path::Path;
 use std::time::Instant;
@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!("{}\n", "-".repeat(80));
 
-    for effect in RealTimeImageEffect::all_effects() {
+    for effect in RealtimeImageEffect::all_effects() {
         let start = Instant::now();
         let result = effect.apply(sample_image.clone());
         let elapsed = start.elapsed();

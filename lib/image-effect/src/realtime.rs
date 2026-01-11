@@ -11,7 +11,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
-pub enum RealTimeImageEffect {
+pub enum RealtimeImageEffect {
     None = 0,
     Grayscale,
     Invert,
@@ -30,97 +30,97 @@ pub enum RealTimeImageEffect {
     Temperature,
 }
 
-impl RealTimeImageEffect {
+impl RealtimeImageEffect {
     pub fn name(&self) -> &'static str {
         match self {
-            RealTimeImageEffect::None => "None",
-            RealTimeImageEffect::Grayscale => "Grayscale",
-            RealTimeImageEffect::Invert => "Invert",
-            RealTimeImageEffect::Rosetint => "Rosetint",
-            RealTimeImageEffect::Twenties => "Twenties",
-            RealTimeImageEffect::Mauve => "Mauve",
-            RealTimeImageEffect::Radio => "Radio",
-            RealTimeImageEffect::Bluechrome => "Bluechrome",
-            RealTimeImageEffect::Dramatic => "Dramatic",
-            RealTimeImageEffect::PastelPink => "Pastel Pink",
-            RealTimeImageEffect::Obsidian => "Obsidian",
-            RealTimeImageEffect::Pixelate => "Pixelate",
-            RealTimeImageEffect::Posterize => "Posterize",
-            RealTimeImageEffect::Sepia => "Sepia",
-            RealTimeImageEffect::Vignette => "Vignette",
-            RealTimeImageEffect::Temperature => "Temperature",
+            RealtimeImageEffect::None => "None",
+            RealtimeImageEffect::Grayscale => "Grayscale",
+            RealtimeImageEffect::Invert => "Invert",
+            RealtimeImageEffect::Rosetint => "Rosetint",
+            RealtimeImageEffect::Twenties => "Twenties",
+            RealtimeImageEffect::Mauve => "Mauve",
+            RealtimeImageEffect::Radio => "Radio",
+            RealtimeImageEffect::Bluechrome => "Bluechrome",
+            RealtimeImageEffect::Dramatic => "Dramatic",
+            RealtimeImageEffect::PastelPink => "Pastel Pink",
+            RealtimeImageEffect::Obsidian => "Obsidian",
+            RealtimeImageEffect::Pixelate => "Pixelate",
+            RealtimeImageEffect::Posterize => "Posterize",
+            RealtimeImageEffect::Sepia => "Sepia",
+            RealtimeImageEffect::Vignette => "Vignette",
+            RealtimeImageEffect::Temperature => "Temperature",
         }
     }
 
     pub fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
         match self {
-            RealTimeImageEffect::None => None,
-            RealTimeImageEffect::Invert => Invert.apply(image),
-            RealTimeImageEffect::Grayscale => GrayscaleConfig::new().apply(image),
-            RealTimeImageEffect::Pixelate => PixelateConfig::new().with_block_size(8).apply(image),
-            RealTimeImageEffect::Posterize => PosterizeConfig::new().with_levels(6).apply(image),
-            RealTimeImageEffect::Sepia => SepiaConfig::new().with_intensity(0.3).apply(image),
+            RealtimeImageEffect::None => None,
+            RealtimeImageEffect::Invert => Invert.apply(image),
+            RealtimeImageEffect::Grayscale => GrayscaleConfig::new().apply(image),
+            RealtimeImageEffect::Pixelate => PixelateConfig::new().with_block_size(16).apply(image),
+            RealtimeImageEffect::Posterize => PosterizeConfig::new().with_levels(6).apply(image),
+            RealtimeImageEffect::Sepia => SepiaConfig::new().with_intensity(0.3).apply(image),
 
-            RealTimeImageEffect::Temperature => {
+            RealtimeImageEffect::Temperature => {
                 TemperatureConfig::new().with_amount(0.15).apply(image)
             }
 
-            RealTimeImageEffect::Vignette => VignetteConfig::new()
+            RealtimeImageEffect::Vignette => VignetteConfig::new()
                 .with_strength(0.25)
                 .with_radius(0.55)
                 .apply(image),
 
-            RealTimeImageEffect::Rosetint => PresetFilterConfig::new()
+            RealtimeImageEffect::Rosetint => PresetFilterConfig::new()
                 .with_filter(PresetFilter::Rosetint)
                 .apply(image),
 
-            RealTimeImageEffect::Twenties => PresetFilterConfig::new()
+            RealtimeImageEffect::Twenties => PresetFilterConfig::new()
                 .with_filter(PresetFilter::Twenties)
                 .apply(image),
 
-            RealTimeImageEffect::Mauve => PresetFilterConfig::new()
+            RealtimeImageEffect::Mauve => PresetFilterConfig::new()
                 .with_filter(PresetFilter::Mauve)
                 .apply(image),
 
-            RealTimeImageEffect::Radio => PresetFilterConfig::new()
+            RealtimeImageEffect::Radio => PresetFilterConfig::new()
                 .with_filter(PresetFilter::Radio)
                 .apply(image),
 
-            RealTimeImageEffect::Bluechrome => PresetFilterConfig::new()
+            RealtimeImageEffect::Bluechrome => PresetFilterConfig::new()
                 .with_filter(PresetFilter::Bluechrome)
                 .apply(image),
 
-            RealTimeImageEffect::Dramatic => PresetFilterConfig::new()
+            RealtimeImageEffect::Dramatic => PresetFilterConfig::new()
                 .with_filter(PresetFilter::Dramatic)
                 .apply(image),
 
-            RealTimeImageEffect::PastelPink => PresetFilterConfig::new()
+            RealtimeImageEffect::PastelPink => PresetFilterConfig::new()
                 .with_filter(PresetFilter::PastelPink)
                 .apply(image),
 
-            RealTimeImageEffect::Obsidian => PresetFilterConfig::new()
+            RealtimeImageEffect::Obsidian => PresetFilterConfig::new()
                 .with_filter(PresetFilter::Obsidian)
                 .apply(image),
         }
     }
 
-    pub fn all_effects() -> &'static [RealTimeImageEffect] {
+    pub fn all_effects() -> &'static [RealtimeImageEffect] {
         &[
-            RealTimeImageEffect::Grayscale,
-            RealTimeImageEffect::Invert,
-            RealTimeImageEffect::Rosetint,
-            RealTimeImageEffect::Twenties,
-            RealTimeImageEffect::Mauve,
-            RealTimeImageEffect::Radio,
-            RealTimeImageEffect::Bluechrome,
-            RealTimeImageEffect::Dramatic,
-            RealTimeImageEffect::PastelPink,
-            RealTimeImageEffect::Obsidian,
-            RealTimeImageEffect::Pixelate,
-            RealTimeImageEffect::Posterize,
-            RealTimeImageEffect::Sepia,
-            RealTimeImageEffect::Vignette,
-            RealTimeImageEffect::Temperature,
+            RealtimeImageEffect::Grayscale,
+            RealtimeImageEffect::Invert,
+            RealtimeImageEffect::Rosetint,
+            RealtimeImageEffect::Twenties,
+            RealtimeImageEffect::Mauve,
+            RealtimeImageEffect::Radio,
+            RealtimeImageEffect::Bluechrome,
+            RealtimeImageEffect::Dramatic,
+            RealtimeImageEffect::PastelPink,
+            RealtimeImageEffect::Obsidian,
+            RealtimeImageEffect::Pixelate,
+            RealtimeImageEffect::Posterize,
+            RealtimeImageEffect::Sepia,
+            RealtimeImageEffect::Vignette,
+            RealtimeImageEffect::Temperature,
         ]
     }
 }

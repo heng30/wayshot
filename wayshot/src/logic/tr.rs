@@ -344,6 +344,23 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("bottom x right", "底部 X 右侧"),
             ("top x left", "顶部 X 左侧"),
             ("top x right", "顶部 X 右侧"),
+            ("Bluechrome", "蓝铬色调"),
+            ("Dramatic", "戏剧效果"),
+            ("Grayscale", "灰度"),
+            ("Image Effect", "图像特效"),
+            ("Invert", "反色"),
+            ("Mauve", "淡紫"),
+            ("None", "无效果"),
+            ("Obsidian", "黑曜石"),
+            ("Pastel Pink", "柔粉色"),
+            ("Pixelate", "马赛克"),
+            ("Posterize", "海报化"),
+            ("Radio", "复古收音机"),
+            ("Rosetint", "玫瑰色"),
+            ("Sepia", "怀旧棕"),
+            ("Temperature", "色温"),
+            ("Twenties", "复古二十年代"),
+            ("Vignette", "暗角"),
         ])
     })
 }

@@ -1,14 +1,14 @@
 use crate::slint_generatedAppWindow::{
     Fps as UIFps, MixPositionWithPadding as UIMixPositionWithPadding,
     MixPositionWithPaddingTag as UIMixPositionWithPaddingTag, RTCIceServer as UIRTCIceServer,
-    RealTimeImageEffect as UIRealTimeImageEffect, Resolution as UIResolution,
+    RealtimeImageEffect as UIRealtimeImageEffect, Resolution as UIResolution,
     SettingCamera as UISettingCamera, SettingControl as UISettingControl,
     SettingCursorTracker as UISettingCursorTracker, SettingPushStream as UISettingPushStream,
     SettingRecorder as UISettingRecorder, SettingShareScreen as UISettingShareScreen,
     SettingShareScreenClient as UISettingShareScreenClient, TransitionType as UITransitionType,
 };
 use anyhow::{Context, Result, bail};
-use image_effect::realtime::RealTimeImageEffect;
+use image_effect::realtime::RealtimeImageEffect;
 use log::debug;
 use once_cell::sync::Lazy;
 use pmacro::SlintFromConvert;
@@ -164,7 +164,7 @@ pub struct Control {
     #[derivative(Default(value = "true"))]
     pub enable_preview: bool,
 
-    pub realtime_image_effect: UIRealTimeImageEffect,
+    pub realtime_image_effect: UIRealtimeImageEffect,
 
     pub camera: String,
     pub enable_camera: bool,
@@ -326,7 +326,7 @@ crate::impl_slint_enum_serde!(
     BottomRight
 );
 crate::impl_slint_enum_serde!(
-    UIRealTimeImageEffect,
+    UIRealtimeImageEffect,
     None,
     Grayscale,
     Invert,
@@ -347,8 +347,8 @@ crate::impl_slint_enum_serde!(
 
 crate::impl_c_like_enum_convert!(UITransitionType, TransitionType, Linear, EaseIn, EaseOut);
 crate::impl_c_like_enum_convert!(
-    UIRealTimeImageEffect,
-    RealTimeImageEffect,
+    UIRealtimeImageEffect,
+    RealtimeImageEffect,
     None,
     Grayscale,
     Invert,

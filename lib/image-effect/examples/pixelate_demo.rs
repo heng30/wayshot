@@ -1,7 +1,5 @@
 /// Pixelate effect example
 /// Demonstrates different pixelation levels
-
-
 use image::ImageReader;
 use image_effect::{Effect, ImageEffect};
 use std::path::Path;
@@ -20,11 +18,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for block_size in block_sizes {
         let mut test_img = img.clone();
-        let effect = ImageEffect::Pixelate(
-            PixelateConfig::new().with_block_size(block_size)
-        );
+        let effect = ImageEffect::Pixelate(PixelateConfig::new().with_block_size(block_size));
 
-test_img = effect.apply(test_img).expect("Effect failed");
+        test_img = effect.apply(test_img).expect("Effect failed");
 
         let filename = format!("pixelate_b{}.png", block_size);
         test_img.save(output_dir.join(&filename))?;

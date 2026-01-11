@@ -6,6 +6,7 @@ export component RadioBtn inherits Rectangle {
     in-out property enabled <=> ta.enabled;
     in-out property <bool> checked;
     in-out property <color> text-color: Theme.primary-text-color;
+    out property has-hover <=> ta.has-hover;
 
     in-out property h-spacing <=> hbox.spacing;
 

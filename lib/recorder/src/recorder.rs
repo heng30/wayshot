@@ -9,7 +9,7 @@ use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_setters::Setters;
 use fast_image_resize::images::Image;
 use image::{ImageBuffer, Rgb, Rgba, buffer::ConvertBuffer};
-use image_effect::realtime::RealTimeImageEffect;
+use image_effect::realtime::RealtimeImageEffect;
 use mp4m::VideoFrameType;
 use once_cell::sync::Lazy;
 use screen_capture::{
@@ -585,9 +585,9 @@ impl RecordingSession {
                 1
             } else {
                 0
-            } + if let Ok(effect) = RealTimeImageEffect::try_from(
+            } + if let Ok(effect) = RealtimeImageEffect::try_from(
                 session.config.realtime_image_effect.load(Ordering::Relaxed),
-            ) && !matches!(effect, RealTimeImageEffect::None)
+            ) && !matches!(effect, RealtimeImageEffect::None)
             {
                 2
             } else {
@@ -701,8 +701,8 @@ impl RecordingSession {
                 };
 
                 let img = if let Ok(effect) =
-                    RealTimeImageEffect::try_from(realtime_image_effect.load(Ordering::Relaxed))
-                    && !matches!(effect, RealTimeImageEffect::None)
+                    RealtimeImageEffect::try_from(realtime_image_effect.load(Ordering::Relaxed))
+                    && !matches!(effect, RealtimeImageEffect::None)
                 {
                     Self::apply_realtime_image_effect(img, effect)
                 } else {
@@ -1148,7 +1148,7 @@ impl RecordingSession {
 
     fn apply_realtime_image_effect(
         rgb_image: ResizedImageBuffer,
-        effect: RealTimeImageEffect,
+        effect: RealtimeImageEffect,
     ) -> ResizedImageBuffer {
         let (width, height) = rgb_image.dimensions();
         let raw_data = rgb_image.into_raw();
