@@ -8,6 +8,7 @@ mod process_mode;
 mod recorder;
 mod resolution;
 mod speaker_recorder;
+mod worker;
 
 pub use audio_level::*;
 pub use audio_recorder::{AudioDeviceInfo, AudioRecorder, AudioRecorderError};
