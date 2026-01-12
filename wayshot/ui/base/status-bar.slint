@@ -25,7 +25,7 @@ export component StatusBar inherits Rectangle {
     in-out property <bool> is-show-icon;
     in-out property <image> icon;
     in-out property <string> title;
-    in-out property <color> icon-colorize: Theme.icon-color;
+    in-out property <color> icon-colorize: transparent;
     in-out property <color> title-text-color: Theme.secondary-text-color;
 
     in-out property <bool> is-show-tip: false;
@@ -179,4 +179,17 @@ export component StatusBar inherits Rectangle {
             }
         }
     }
+}
+
+export component DialogStatusBar inherits StatusBar {
+    width: Theme.default-font-size * 13;
+    hide-minimal-ctrl-btns: true;
+    hide-maximal-ctrl-btns: true;
+    is-show-icon: true;
+    is-app-window-bar: false;
+    background: Theme.secondary-brand-color;
+    icon-colorize: Theme.light-text-color;
+    title-text-color: Theme.light-text-color;
+    close-icon: Icons.close-light;
+    close-icon-colorize: Theme.light-text-color;
 }

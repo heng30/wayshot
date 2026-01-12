@@ -25,6 +25,7 @@ pub enum ImageEffect {
     // Noise effects
     GaussianNoise(noise::GaussianNoiseConfig),
     PinkNoise(noise::PinkNoiseConfig),
+    SnowNoise(filter::SnowNoiseConfig),
 
     // Channel effects
     Invert,
@@ -122,6 +123,7 @@ impl Effect for ImageEffect {
             // Noise effects
             ImageEffect::GaussianNoise(config) => config.apply(image),
             ImageEffect::PinkNoise(config) => config.apply(image),
+            ImageEffect::SnowNoise(config) => config.apply(image),
 
             // Channel effects
             ImageEffect::Invert => channel::Invert.apply(image),

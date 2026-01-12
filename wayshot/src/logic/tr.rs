@@ -361,6 +361,8 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Temperature", "色温"),
             ("Twenties", "复古二十年代"),
             ("Vignette", "暗角"),
+            ("SnowNoise", "雪花噪点"),
+            ("SnowNoiseTV", "黑白电视"),
         ])
     })
 }

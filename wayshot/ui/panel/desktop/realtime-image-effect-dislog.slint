@@ -8,7 +8,7 @@ import {
 } from "../def.slint";
 import {
     SettingDetailInner,
-    StatusBar,
+    DialogStatusBar,
     RadioBtn,
     Divider,
 } from "../../base/widgets.slint";
@@ -19,10 +19,12 @@ export component RealtimeImageEffectDialog inherits Rectangle {
         RealtimeImageEffect.None,
         RealtimeImageEffect.Grayscale,
         RealtimeImageEffect.Invert,
-        RealtimeImageEffect.Rosetint,
+        RealtimeImageEffect.SnowNoise,
+        RealtimeImageEffect.SnowNoiseTV,
         RealtimeImageEffect.Twenties,
-        RealtimeImageEffect.Mauve,
         RealtimeImageEffect.Radio,
+        RealtimeImageEffect.Mauve,
+        RealtimeImageEffect.Rosetint,
         RealtimeImageEffect.Bluechrome,
         RealtimeImageEffect.Dramatic,
         RealtimeImageEffect.PastelPink,
@@ -38,23 +40,14 @@ export component RealtimeImageEffectDialog inherits Rectangle {
         selected-effect = Logic.init-realtime-image-effect-dialog();
     }
 
-    sb := StatusBar {
+    sb := DialogStatusBar {
         x: (root.width - self.width) / 2;
         y: (root.height - self.height - body.height) / 2;
         width: Theme.default-font-size * 13;
         icon: Icons.image-effect-light;
         title: Logic.tr("Image Effect");
-        hide-minimal-ctrl-btns: true;
-        hide-maximal-ctrl-btns: true;
-        is-show-icon: true;
-        is-app-window-bar: false;
         container-width: root.width;
         container-height: root.height;
-        background: Theme.secondary-brand-color;
-        icon-colorize: Theme.light-text-color;
-        title-text-color: Theme.light-text-color;
-        close-icon: Icons.close-light;
-        close-icon-colorize: Theme.light-text-color;
 
         close => {
             Logic.show-realtime-image-effect-dialog(false);

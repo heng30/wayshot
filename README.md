@@ -20,6 +20,7 @@
 - Cursor tracking
 - Manage recorded video history
 - Play recorded historical videos
+- Simple real-time image effects (right-click on recording interface to open)
 
 ----
 

@@ -330,6 +330,8 @@ crate::impl_slint_enum_serde!(
     None,
     Grayscale,
     Invert,
+    SnowNoise,
+    SnowNoiseTV,
     Rosetint,
     Twenties,
     Mauve,
@@ -352,6 +354,8 @@ crate::impl_c_like_enum_convert!(
     None,
     Grayscale,
     Invert,
+    SnowNoise,
+    SnowNoiseTV,
     Rosetint,
     Twenties,
     Mauve,
@@ -368,12 +372,6 @@ crate::impl_c_like_enum_convert!(
 );
 
 impl Config {
-    /// Initializes the configuration
-    ///
-    /// Loads package metadata, creates directories, and loads configuration file.
-    ///
-    /// # Returns
-    /// - `Result<()>` indicating success or failure
     pub fn init(&mut self) -> Result<()> {
         let metadata = toml::from_str::<toml::Table>(CARGO_TOML).expect("Parse Cargo.toml error");
 
@@ -410,13 +408,6 @@ impl Config {
         Ok(())
     }
 
-    /// Creates application directories and sets up paths
-    ///
-    /// # Parameters
-    /// - `app_dirs`: Platform-specific application directories
-    ///
-    /// # Returns
-    /// - `Result<()>` indicating success or failure
     fn crate_dirs(&mut self, app_dirs: &AppDirs) -> Result<()> {
         self.db_path = app_dirs.data_dir.join(format!("{}.db", self.app_name));
         self.config_path = app_dirs.config_dir.join(format!("{}.toml", self.app_name));
@@ -433,10 +424,6 @@ impl Config {
         Ok(())
     }
 
-    /// Loads configuration from file or creates default if not exists
-    ///
-    /// # Returns
-    /// - `Result<()>` indicating success or failure
     fn load(&mut self) -> Result<()> {
         match fs::read_to_string(&self.config_path) {
             Ok(text) => match toml::from_str::<Config>(&text) {
@@ -480,10 +467,6 @@ impl Config {
         }
     }
 
-    /// Saves the current configuration to file
-    ///
-    /// # Returns
-    /// - `Result<()>` indicating success or failure
     pub fn save(&self) -> Result<()> {
         match toml::to_string_pretty(self) {
             Ok(text) => Ok(fs::write(&self.config_path, text)
@@ -493,10 +476,20 @@ impl Config {
     }
 }
 
-/// Generates a default application ID using UUID v4
-///
-/// # Returns
-/// - Random UUID string
+pub fn init() {
+    CONFIG.lock().unwrap().init().unwrap();
+}
+
+pub fn all() -> Config {
+    CONFIG.lock().unwrap().clone()
+}
+
+pub fn save(conf: Config) -> Result<()> {
+    let mut config = CONFIG.lock().unwrap();
+    *config = conf;
+    config.save()
+}
+
 fn appid_default() -> String {
     Uuid::new_v4().to_string()
 }
@@ -511,32 +504,4 @@ fn resolution_default() -> UIResolution {
 
 fn true_func() -> bool {
     true
-}
-
-/// Initializes the global configuration
-///
-/// This should be called once at application startup.
-pub fn init() {
-    CONFIG.lock().unwrap().init().unwrap();
-}
-
-/// Returns a clone of the current configuration
-///
-/// # Returns
-/// - Current configuration instance
-pub fn all() -> Config {
-    CONFIG.lock().unwrap().clone()
-}
-
-/// Saves a new configuration and updates the global instance
-///
-/// # Parameters
-/// - `conf`: New configuration to save
-///
-/// # Returns
-/// - `Result<()>` indicating success or failure
-pub fn save(conf: Config) -> Result<()> {
-    let mut config = CONFIG.lock().unwrap();
-    *config = conf;
-    config.save()
 }

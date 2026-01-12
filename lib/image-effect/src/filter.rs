@@ -3,6 +3,8 @@ use derivative::Derivative;
 use derive_setters::Setters;
 use image::RgbaImage;
 use photon_rs::{PhotonImage, effects, monochrome};
+use rand::Rng;
+use rayon::prelude::*;
 
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
@@ -186,5 +188,92 @@ impl Effect for VignetteConfig {
         }
 
         RgbaImage::from_raw(width, height, pixels)
+    }
+}
+
+/// Black and white TV snow noise effect (static/white noise)
+#[derive(Debug, Clone, Derivative, Setters)]
+#[derivative(Default)]
+#[setters(prefix = "with_")]
+#[non_exhaustive]
+pub struct SnowNoiseConfig {
+    /// Noise intensity (0.0 - 1.0), controls what fraction of pixels get noise
+    #[derivative(Default(value = "0.3"))]
+    intensity: f32,
+
+    /// Whether to convert to grayscale first for authentic B&W TV look
+    #[derivative(Default(value = "true"))]
+    grayscale: bool,
+
+    /// Minimum noise brightness value (0-255)
+    #[derivative(Default(value = "100"))]
+    min_brightness: u8,
+
+    /// Maximum noise brightness value (0-255)
+    #[derivative(Default(value = "255"))]
+    max_brightness: u8,
+}
+
+impl SnowNoiseConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Effect for SnowNoiseConfig {
+    fn apply(&self, image: RgbaImage) -> Option<RgbaImage> {
+        let width = image.width() as usize;
+        let height = image.height() as usize;
+        let mut pixels = image.into_raw();
+
+        let intensity = self.intensity.clamp(0.0, 1.0);
+
+        if self.grayscale {
+            pixels.par_chunks_exact_mut(4).for_each(|pixel| {
+                let r = pixel[0] as u32;
+                let g = pixel[1] as u32;
+                let b = pixel[2] as u32;
+                let gray = ((77 * r + 150 * g + 29 * b) >> 8) as u8;
+                pixel[0] = gray;
+                pixel[1] = gray;
+                pixel[2] = gray;
+            });
+        }
+
+        // Apply noise by processing each row in parallel
+        let intensity_clamped = intensity.clamp(0.0, 1.0);
+        let min_brightness = self.min_brightness;
+        let max_brightness = self.max_brightness.max(min_brightness);
+        let row_stride = width * 4;
+
+        pixels
+            .par_chunks_mut(row_stride)
+            .enumerate()
+            .for_each(|(_row_idx, row)| {
+                let mut rng = rand::rng();
+                let noise_count = ((width as f64 * intensity_clamped as f64) as usize).max(1);
+
+                for _ in 0..noise_count {
+                    // Random grain size (1 to 8 pixels) - only horizontal
+                    let x = rng.random_range(0usize..width);
+                    let grain_w = rng.random_range(1usize..=8.min(width - x));
+                    let gray_val = rng.random_range(min_brightness..=max_brightness);
+
+                    // Draw noise grain (horizontal only within this row)
+                    for dx in 0..grain_w {
+                        let px = x + dx;
+                        if px < width {
+                            let pixel_idx = px * 4;
+                            if pixel_idx + 4 <= row.len() {
+                                row[pixel_idx] = gray_val;
+                                row[pixel_idx + 1] = gray_val;
+                                row[pixel_idx + 2] = gray_val;
+                            }
+                        }
+                    }
+                }
+            });
+
+        RgbaImage::from_raw(width as u32, height as u32, pixels)
     }
 }

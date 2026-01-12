@@ -1,7 +1,7 @@
 use crate::{
     Effect,
     channel::Invert,
-    filter::{SepiaConfig, TemperatureConfig, VignetteConfig},
+    filter::{SepiaConfig, SnowNoiseConfig, TemperatureConfig, VignetteConfig},
     monochrome::GrayscaleConfig,
     preset_filter::{PresetFilter, PresetFilterConfig},
     stylized::{PixelateConfig, PosterizeConfig},
@@ -15,6 +15,8 @@ pub enum RealtimeImageEffect {
     None = 0,
     Grayscale,
     Invert,
+    SnowNoise,
+    SnowNoiseTV,
     Rosetint,
     Twenties,
     Mauve,
@@ -36,6 +38,8 @@ impl RealtimeImageEffect {
             RealtimeImageEffect::None => "None",
             RealtimeImageEffect::Grayscale => "Grayscale",
             RealtimeImageEffect::Invert => "Invert",
+            RealtimeImageEffect::SnowNoise => "SnowNoise",
+            RealtimeImageEffect::SnowNoiseTV => "SnowNoiseTV",
             RealtimeImageEffect::Rosetint => "Rosetint",
             RealtimeImageEffect::Twenties => "Twenties",
             RealtimeImageEffect::Mauve => "Mauve",
@@ -60,6 +64,16 @@ impl RealtimeImageEffect {
             RealtimeImageEffect::Pixelate => PixelateConfig::new().with_block_size(16).apply(image),
             RealtimeImageEffect::Posterize => PosterizeConfig::new().with_levels(6).apply(image),
             RealtimeImageEffect::Sepia => SepiaConfig::new().with_intensity(0.3).apply(image),
+
+            RealtimeImageEffect::SnowNoise => SnowNoiseConfig::new()
+                .with_intensity(0.001)
+                .with_grayscale(false)
+                .apply(image),
+
+            RealtimeImageEffect::SnowNoiseTV => SnowNoiseConfig::new()
+                .with_intensity(0.001)
+                .with_min_brightness(50)
+                .apply(image),
 
             RealtimeImageEffect::Temperature => {
                 TemperatureConfig::new().with_amount(0.15).apply(image)
@@ -108,6 +122,8 @@ impl RealtimeImageEffect {
         &[
             RealtimeImageEffect::Grayscale,
             RealtimeImageEffect::Invert,
+            RealtimeImageEffect::SnowNoise,
+            RealtimeImageEffect::SnowNoiseTV,
             RealtimeImageEffect::Rosetint,
             RealtimeImageEffect::Twenties,
             RealtimeImageEffect::Mauve,

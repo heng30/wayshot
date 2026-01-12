@@ -1,5 +1,5 @@
 [package]
-name = "image-effect"
+name = "background-remover"
 license.workspace = true
 edition.workspace = true
 version.workspace = true
@@ -12,15 +12,18 @@ description.workspace = true
 
 [dependencies]
 log.workspace = true
-rand.workspace = true
 image.workspace = true
-rayon.workspace = true
-num_enum.workspace = true
-imageproc.workspace = true
-photon-rs.workspace = true
+ndarray.workspace = true
 thiserror.workspace = true
 derivative.workspace = true
 derive_setters.workspace = true
+fast_image_resize.workspace = true
+ort = { workspace = true, features = [
+  "std",
+  "cuda",
+  "tls-rustls",
+  "download-binaries",
+] }
 
 [dev-dependencies]
 anyhow.workspace = true
