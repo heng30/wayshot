@@ -580,7 +580,8 @@ impl RecordingSession {
         camera_shape: &camera::Shape,
     ) -> ResizedImageBuffer {
         if let Some(camera_img) = camera_img {
-            match mix_images_rgb(screen_image.clone(), camera_img, camera_shape.clone()) {
+            // TODO: add background remover
+            match mix_images_rgb(screen_image.clone(), camera_img, None, camera_shape.clone()) {
                 Ok(mixed_img) => mixed_img,
                 Err(e) => {
                     log::warn!("Failed to mix camera image: {e}");

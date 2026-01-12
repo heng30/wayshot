@@ -33,7 +33,7 @@ fn main() -> Result<()> {
             .with_clip_pos((0.5, 0.5)),
     );
 
-    let result1 = mix_images(bg1, test_image.clone(), Shape::Circle(circle1))?;
+    let result1 = mix_images(bg1, test_image.clone(), None, Shape::Circle(circle1))?;
     result1.save("tmp/circle_zoom_1.0x.png")?;
     log::info!("   ✓ Saved circle_zoom_1.0x.png");
 
@@ -47,7 +47,7 @@ fn main() -> Result<()> {
             .with_clip_pos((0.2, 0.3)),
     );
 
-    let result2 = mix_images(bg2, test_image.clone(), Shape::Circle(circle2))?;
+    let result2 = mix_images(bg2, test_image.clone(), None, Shape::Circle(circle2))?;
     result2.save("tmp/circle_zoom_2.0x.png")?;
     log::info!("   ✓ Saved circle_zoom_2.0x.png");
 
@@ -56,7 +56,7 @@ fn main() -> Result<()> {
     let circle3 = ShapeCircle::default()
         .with_radius(100)
         .with_base(ShapeBase::default().with_border_width(3).with_zoom(0.5));
-    let result3 = mix_images(bg3, test_image.clone(), Shape::Circle(circle3))?;
+    let result3 = mix_images(bg3, test_image.clone(), None, Shape::Circle(circle3))?;
     result3.save("tmp/circle_zoom_0.5x.png")?;
     log::info!("   ✓ Saved circle_zoom_0.5x.png");
 

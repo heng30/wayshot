@@ -244,7 +244,7 @@ impl BackgroundRemover {
         let mut mask = vec![0u8; (height * width) as usize];
         for i in 0..mask.len() {
             let clamped = data[i].max(0.0).min(1.0); // Clamp to [0, 1] and convert to 0-255
-            mask[i] = (clamped * 255.0) as u8; //foreground (high) -> 255, background (low) -> 0
+            mask[i] = (clamped * 255.0) as u8; // foreground (high) -> 255, background (low) -> 0
         }
 
         let mask_image: GrayImage = ImageBuffer::from_raw(width, height, mask)

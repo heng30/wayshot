@@ -2,9 +2,9 @@ use crate::{CameraError, CameraResult};
 use derivative::Derivative;
 use derive_setters::Setters;
 use fast_image_resize::{PixelType, ResizeAlg, Resizer, images::Image as FastImage};
-use image::{ImageBuffer, Luma, Pixel, RgbImage, Rgba, RgbaImage};
+use image::{GrayImage, ImageBuffer, Luma, Pixel, RgbImage, Rgba, RgbaImage};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Copy, Clone)]
 pub enum Shape {
     Circle(ShapeCircle),
     Rectangle(ShapeRectangle),
@@ -76,41 +76,60 @@ pub struct ShapeRectangle {
 pub fn mix_images(
     background_image: RgbaImage,
     camera_image: RgbaImage,
+    camera_background_mask: Option<GrayImage>,
     mix_area: Shape,
 ) -> CameraResult<RgbaImage> {
-    mix_images_impl(background_image, camera_image, mix_area)
+    mix_images_impl(
+        background_image,
+        camera_image,
+        camera_background_mask,
+        mix_area,
+    )
 }
 
 pub fn mix_images_rgb(
     background_image: RgbImage,
     camera_image: RgbImage,
+    camera_background_mask: Option<GrayImage>,
     mix_area: Shape,
 ) -> CameraResult<RgbImage> {
-    mix_images_impl(background_image, camera_image, mix_area)
+    mix_images_impl(
+        background_image,
+        camera_image,
+        camera_background_mask,
+        mix_area,
+    )
 }
 
 fn mix_images_impl<P>(
     background: ImageBuffer<P, Vec<u8>>,
     camera_image: ImageBuffer<P, Vec<u8>>,
+    camera_background_mask: Option<GrayImage>,
     mix_area: Shape,
 ) -> CameraResult<ImageBuffer<P, Vec<u8>>>
 where
     P: Pixel<Subpixel = u8> + Copy,
 {
     match mix_area {
-        Shape::Circle(circle) => mix_images_circle_impl(background, camera_image, circle),
-        Shape::Rectangle(rect) => mix_images_rectangle_impl(background, camera_image, rect),
+        Shape::Circle(circle) => {
+            mix_images_circle_impl(background, camera_image, camera_background_mask, circle)
+        }
+        Shape::Rectangle(rect) => {
+            mix_images_rectangle_impl(background, camera_image, camera_background_mask, rect)
+        }
     }
 }
 
 fn mix_images_circle_impl<P>(
     mut background: ImageBuffer<P, Vec<u8>>,
     camera_image: ImageBuffer<P, Vec<u8>>,
+    camera_background_mask: Option<GrayImage>,
     circle: ShapeCircle,
 ) -> CameraResult<ImageBuffer<P, Vec<u8>>>
 where
     P: Pixel<Subpixel = u8> + Copy,
 {
+    let has_mask = camera_background_mask.is_some();
     let (bg_width, bg_height) = background.dimensions();
     let radius = circle.radius;
     let diameter = (radius * 2) as u32;
@@ -147,11 +166,23 @@ where
         circle.base.clip_pos,
     )?;
 
+    let cropped_mask = camera_background_mask
+        .map(|mask| {
+            crop_image_by_pixel_type(
+                mask,
+                diameter,
+                diameter,
+                circle.base.zoom,
+                circle.base.clip_pos,
+            )
+        })
+        .transpose()?;
+
     let start_x = (center_x - radius).max(0) as u32;
     let start_y = (center_y - radius).max(0) as u32;
 
     // Create circular mask (shared logic)
-    let mut mask = ImageBuffer::new(diameter, diameter);
+    let mut shape_mask = ImageBuffer::new(diameter, diameter);
     let (cx, cy, r) = (radius as f32, radius as f32, radius as f32);
 
     for y in 0..diameter {
@@ -161,9 +192,9 @@ where
             let dist = dx * dx + dy * dy;
 
             if dist <= r * r {
-                mask.put_pixel(x, y, Luma([255]));
+                shape_mask.put_pixel(x, y, Luma([255]));
             } else {
-                mask.put_pixel(x, y, Luma([0]));
+                shape_mask.put_pixel(x, y, Luma([0]));
             }
         }
     }
@@ -177,15 +208,38 @@ where
                 continue;
             }
 
-            let mask_val = mask.get_pixel(x, y)[0];
-            if mask_val == 255 {
+            let shape_mask_val = shape_mask.get_pixel(x, y)[0];
+            if shape_mask_val == 255 {
                 let cam_pixel = cropped_camera.get_pixel(x, y);
-                background.put_pixel(bg_x, bg_y, *cam_pixel);
+
+                let bg_remove_alpha = cropped_mask.as_ref().and_then(|m| {
+                    if x < m.width() && y < m.height() {
+                        Some(m.get_pixel(x, y)[0])
+                    } else {
+                        None
+                    }
+                });
+
+                if let Some(alpha) = bg_remove_alpha {
+                    let alpha_normalized = alpha as f32 / 255.0;
+
+                    if alpha_normalized >= 1.0 {
+                        background.put_pixel(bg_x, bg_y, *cam_pixel);
+                    } else if alpha_normalized <= 0.0 {
+                        continue;
+                    } else {
+                        let existing = *background.get_pixel(bg_x, bg_y);
+                        let blended = blend_pixels::<P>(existing, *cam_pixel, alpha_normalized);
+                        background.put_pixel(bg_x, bg_y, blended);
+                    }
+                } else {
+                    background.put_pixel(bg_x, bg_y, *cam_pixel);
+                }
             }
         }
     }
 
-    if circle.base.border_width > 0 {
+    if circle.base.border_width > 0 && !has_mask {
         draw_border_by_image_type(
             &mut background,
             center_x,
@@ -203,11 +257,13 @@ where
 fn mix_images_rectangle_impl<P>(
     mut background: ImageBuffer<P, Vec<u8>>,
     camera_image: ImageBuffer<P, Vec<u8>>,
+    camera_background_mask: Option<GrayImage>,
     rect: ShapeRectangle,
 ) -> CameraResult<ImageBuffer<P, Vec<u8>>>
 where
     P: Pixel<Subpixel = u8> + Copy,
 {
+    let has_mask = camera_background_mask.is_some();
     let (bg_width, bg_height) = background.dimensions();
     let (width, height) = rect.size;
 
@@ -242,6 +298,12 @@ where
         rect.base.clip_pos,
     )?;
 
+    let cropped_mask = camera_background_mask
+        .map(|mask| {
+            crop_image_by_pixel_type(mask, width, height, rect.base.zoom, rect.base.clip_pos)
+        })
+        .transpose()?;
+
     let width = width.min(bg_width.saturating_sub(x));
     let height = height.min(bg_height.saturating_sub(y));
 
@@ -251,11 +313,34 @@ where
             let bg_y = y + cam_y;
 
             let cam_pixel = cropped_camera.get_pixel(cam_x, cam_y);
-            background.put_pixel(bg_x, bg_y, *cam_pixel);
+
+            let bg_remove_alpha = cropped_mask.as_ref().and_then(|m| {
+                if cam_x < m.width() && cam_y < m.height() {
+                    Some(m.get_pixel(cam_x, cam_y)[0])
+                } else {
+                    None
+                }
+            });
+
+            if let Some(alpha) = bg_remove_alpha {
+                let alpha_normalized = alpha as f32 / 255.0;
+
+                if alpha_normalized >= 1.0 {
+                    background.put_pixel(bg_x, bg_y, *cam_pixel);
+                } else if alpha_normalized <= 0.0 {
+                    continue;
+                } else {
+                    let existing = *background.get_pixel(bg_x, bg_y);
+                    let blended = blend_pixels::<P>(existing, *cam_pixel, alpha_normalized);
+                    background.put_pixel(bg_x, bg_y, blended);
+                }
+            } else {
+                background.put_pixel(bg_x, bg_y, *cam_pixel);
+            }
         }
     }
 
-    if rect.base.border_width > 0 {
+    if rect.base.border_width > 0 && !has_mask {
         draw_border_by_image_type(
             &mut background,
             x,
@@ -280,7 +365,9 @@ fn crop_image_by_pixel_type<P>(
 where
     P: Pixel<Subpixel = u8> + Copy,
 {
-    let pixel_type = if P::CHANNEL_COUNT == 3 {
+    let pixel_type = if P::CHANNEL_COUNT == 1 {
+        PixelType::U8
+    } else if P::CHANNEL_COUNT == 3 {
         PixelType::U8x3
     } else if P::CHANNEL_COUNT == 4 {
         PixelType::U8x4

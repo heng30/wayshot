@@ -37,6 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result_rect = mix_images(
         background_rgba.clone(),
         camera_image_rgba.clone(),
+        None,
         Shape::Rectangle(rect),
     )?;
     result_rect.save("tmp/composition_rectangle_rgba.png")?;
@@ -52,6 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result_circle = mix_images(
         background_rgba.clone(),
         camera_image_rgba.clone(),
+        None,
         Shape::Circle(circle),
     )?;
     result_circle.save("tmp/composition_circle_rgba.png")?;
@@ -85,6 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result_rect_rgb = mix_images_rgb(
         background_rgb.clone(),
         camera_image_rgb.clone(),
+        None,
         Shape::Rectangle(rect_rgb),
     )?;
     result_rect_rgb.save("tmp/composition_rectangle_rgb.png")?;
@@ -100,6 +103,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result_circle_rgb = mix_images_rgb(
         background_rgb.clone(),
         camera_image_rgb.clone(),
+        None,
         Shape::Circle(circle_rgb),
     )?;
     result_circle_rgb.save("tmp/composition_circle_rgb.png")?;
@@ -115,6 +119,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result_plain_rgb = mix_images_rgb(
         background_rgb.clone(),
         camera_image_rgb.clone(),
+        None,
         Shape::Rectangle(plain_rect_rgb),
     )?;
     result_plain_rgb.save("tmp/composition_rect_plain_rgb.png")?;
@@ -130,6 +135,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result_plain_rgb = mix_images_rgb(
         background_rgb.clone(),
         camera_image_rgb.clone(),
+        None,
         Shape::Circle(plain_circle_rgb),
     )?;
     result_plain_rgb.save("tmp/composition_circle_plain_rgb.png")?;

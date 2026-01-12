@@ -27,7 +27,7 @@ fn main() -> Result<()> {
             .with_border_color(Rgba([255, 0, 0, 255]))
             .with_clip_pos((0.1, 0.1)),
     );
-    let result1 = mix_images(bg1, test_image.clone(), Shape::Rectangle(rect1))?;
+    let result1 = mix_images(bg1, test_image.clone(), None, Shape::Rectangle(rect1))?;
     result1.save("tmp/rect_zoom_1.0x.png")?;
     log::info!("   ✓ Saved zoom_1.0x.png (original size)");
 
@@ -41,7 +41,7 @@ fn main() -> Result<()> {
             .with_border_color(Rgba([255, 0, 0, 255]))
             .with_clip_pos((0.25, 0.25)),
     );
-    let result2 = mix_images(bg2, test_image.clone(), Shape::Rectangle(rect2))?;
+    let result2 = mix_images(bg2, test_image.clone(), None, Shape::Rectangle(rect2))?;
     result2.save("tmp/rect_zoom_2.0x.png")?;
     log::info!("   ✓ Saved zoom_2.0x.png (center cropped, 2x magnified)");
 
@@ -54,7 +54,7 @@ fn main() -> Result<()> {
             .with_border_color(Rgba([255, 0, 0, 255]))
             .with_clip_pos((0.30, 0.30)),
     );
-    let result3 = mix_images(bg3, test_image.clone(), Shape::Rectangle(rect3))?;
+    let result3 = mix_images(bg3, test_image.clone(), None, Shape::Rectangle(rect3))?;
     result3.save("tmp/rect_zoom_0.5x.png")?;
     log::info!("   ✓ Saved zoom_0.5x.png (shrunk with black padding)");
 
