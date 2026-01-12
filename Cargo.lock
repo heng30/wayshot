@@ -7430,6 +7430,7 @@ dependencies = [
 name = "recorder"
 version = "0.1.0"
 dependencies = [
+ "background-remover",
  "camera",
  "chrono",
  "cpal 0.17.0",

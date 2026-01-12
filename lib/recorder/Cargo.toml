@@ -29,6 +29,7 @@ image-effect.workspace = true
 video-encoder.workspace = true
 derive_setters.workspace = true
 screen-capture.workspace = true
+background-remover.workspace = true
 tokio = { workspace = true, features = ["full"] }
 fast_image_resize = { workspace = true, features = ["rayon"] }
 

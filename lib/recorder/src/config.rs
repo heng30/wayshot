@@ -1,6 +1,7 @@
 use crate::{
     AsyncErrorSender, ProcessMode, cursor_tracker::TransitionType, resolution::Resolution,
 };
+use background_remover::Model as BackgroundRemoverModel;
 use camera::{Shape, ShapeCircle};
 use chrono::Local;
 use derive_setters::Setters;
@@ -207,6 +208,9 @@ pub struct CameraMixConfig {
     pub pixel_format: camera::PixelFormat,
 
     pub shape: Shape,
+
+    pub background_remover_model: Option<BackgroundRemoverModel>,
+    pub background_remover_model_path: Option<PathBuf>,
 }
 
 impl Default for CameraMixConfig {
@@ -220,6 +224,8 @@ impl Default for CameraMixConfig {
             pixel_format: camera::PixelFormat::RGBA,
             shape: Shape::Circle(ShapeCircle::default()),
             mirror_horizontal: false,
+            background_remover_model: None,
+            background_remover_model_path: None,
         }
     }
 }

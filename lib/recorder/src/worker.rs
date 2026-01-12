@@ -4,10 +4,11 @@ use crate::{
     process_mode::SHARE_SCREEN_CONNECTIONS_COUNT,
     recorder::{CURSOR_CHANNEL_SIZE, CameraImage, ENCODER_WORKER_CHANNEL_SIZE, EncoderChannelData},
 };
+use background_remover::BackgroundRemover;
 use camera::mix_images_rgb;
 use crossbeam::channel::{Receiver, Sender, bounded};
 use fast_image_resize::images::Image;
-use image::{ImageBuffer, Rgb, Rgba, buffer::ConvertBuffer};
+use image::{GrayImage, ImageBuffer, Rgb, Rgba, buffer::ConvertBuffer};
 use image_effect::realtime::RealtimeImageEffect;
 use once_cell::sync::Lazy;
 use screen_capture::{
@@ -16,6 +17,7 @@ use screen_capture::{
 };
 use std::{
     collections::HashMap,
+    path::PathBuf,
     sync::{
         Arc, Mutex,
         atomic::{AtomicU64, Ordering},
@@ -40,19 +42,26 @@ impl RecordingSession {
         handles.push(Self::process_forward_worker(session, frame_sender));
 
         // Base worker count + camera mix workers + image effect workers
-        let worker_count =
-            3 + if session.config.camera_mix_config.enable {
-                1
-            } else {
-                0
-            } + if let Ok(effect) = RealtimeImageEffect::try_from(
-                session.config.realtime_image_effect.load(Ordering::Relaxed),
-            ) && !matches!(effect, RealtimeImageEffect::None)
+        let mut worker_count = 3;
+        if session.config.camera_mix_config.enable {
+            if session
+                .config
+                .camera_mix_config
+                .background_remover_model_path
+                .is_some()
             {
-                2
+                worker_count += 2;
             } else {
-                0
-            };
+                worker_count += 1;
+            }
+        }
+
+        if let Ok(effect) = RealtimeImageEffect::try_from(
+            session.config.realtime_image_effect.load(Ordering::Relaxed),
+        ) && !matches!(effect, RealtimeImageEffect::None)
+        {
+            worker_count += 2;
+        }
 
         for i in 0..worker_count {
             handles.push(Self::process_frame_worker(
@@ -226,6 +235,7 @@ impl RecordingSession {
         let enable_camera_mix = session.config.camera_mix_config.enable;
         let camera_shape = session.config.camera_mix_config.shape.clone();
         let realtime_image_effect = session.config.realtime_image_effect.clone();
+        let camera_background_mask = session.camera_background_mask.clone();
 
         thread::spawn(move || {
             while let Ok((total_frame_count, frame, camera_img)) = receiver.recv() {
@@ -264,7 +274,8 @@ impl RecordingSession {
                 };
 
                 let img = if enable_camera_mix {
-                    Self::mix_screen_and_camera(img, camera_img, &camera_shape)
+                    let mask = camera_background_mask.lock().unwrap().clone();
+                    Self::mix_screen_and_camera(img, camera_img, &camera_shape, mask)
                 } else {
                     img
                 };
@@ -386,6 +397,52 @@ impl RecordingSession {
             }
 
             log::info!("Exit monitor cursor position thread");
+        });
+
+        Ok(())
+    }
+
+    pub(crate) fn background_remover_worker(
+        &mut self,
+        model_path: PathBuf,
+    ) -> Result<(), RecorderError> {
+        let model = self
+            .config
+            .camera_mix_config
+            .background_remover_model
+            .ok_or(RecorderError::Other(
+                "Camera background remover model is None".to_string(),
+            ))?;
+
+        let mut remover = BackgroundRemover::new(model, model_path).map_err(|e| {
+            RecorderError::Other(format!("Failed to create background remover: {}", e))
+        })?;
+
+        let camera_image_receiver =
+            self.camera_background_remover_receiver
+                .clone()
+                .ok_or_else(|| {
+                    RecorderError::Other(
+                        "Camera background remover receiver not initialized".to_string(),
+                    )
+                })?;
+
+        let stop_sig = self.stop_sig.clone();
+        let mask_cache = self.camera_background_mask.clone();
+
+        thread::spawn(move || {
+            while !stop_sig.load(Ordering::Relaxed) {
+                if let Ok(camera_img) =
+                    camera_image_receiver.recv_timeout(Duration::from_millis(100))
+                {
+                    match remover.get_mask(&camera_img) {
+                        Ok(mask) => *mask_cache.lock().unwrap() = Some(mask),
+                        Err(e) => log::warn!("Failed to generate background mask: {e}"),
+                    }
+                }
+            }
+
+            log::info!("Background remover worker exit");
         });
 
         Ok(())
@@ -578,10 +635,15 @@ impl RecordingSession {
         screen_image: ResizedImageBuffer,
         camera_img: Option<CameraImage>,
         camera_shape: &camera::Shape,
+        camera_background_mask: Option<GrayImage>,
     ) -> ResizedImageBuffer {
         if let Some(camera_img) = camera_img {
-            // TODO: add background remover
-            match mix_images_rgb(screen_image.clone(), camera_img, None, camera_shape.clone()) {
+            match mix_images_rgb(
+                screen_image.clone(),
+                camera_img,
+                camera_background_mask,
+                camera_shape.clone(),
+            ) {
                 Ok(mixed_img) => mixed_img,
                 Err(e) => {
                     log::warn!("Failed to mix camera image: {e}");

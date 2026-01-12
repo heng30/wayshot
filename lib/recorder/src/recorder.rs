@@ -6,14 +6,14 @@ use crate::{
 use camera::{CameraClient, CameraConfig, query_camera_id, query_first_camera};
 use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_setters::Setters;
-use image::{ImageBuffer, Rgb};
+use image::{GrayImage, ImageBuffer, Rgb};
 use mp4m::VideoFrameType;
 use screen_capture::{CaptureStreamConfig, LogicalSize, Rectangle, ScreenCapture};
 use spin_sleep::SpinSleeper;
 use std::{
     path::PathBuf,
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
     thread::{self, JoinHandle},
@@ -62,6 +62,8 @@ pub struct RecordingSession {
     pub(crate) video_encoder: Option<Box<dyn VideoEncoder>>,
 
     pub(crate) camera_image_receiver: Option<Receiver<CameraImage>>,
+    pub(crate) camera_background_remover_receiver: Option<Receiver<CameraImage>>,
+    pub(crate) camera_background_mask: Arc<Mutex<Option<GrayImage>>>,
 
     // statistic
     pub(crate) start_time: Instant,
@@ -103,6 +105,8 @@ impl RecordingSession {
             video_encoder: None,
 
             camera_image_receiver: None,
+            camera_background_remover_receiver: None,
+            camera_background_mask: Arc::new(Mutex::new(None)),
 
             start_time: std::time::Instant::now(),
             total_frame_count: Arc::new(AtomicU64::new(0)),
@@ -413,6 +417,8 @@ impl RecordingSession {
         };
 
         let (camera_image_sender, camera_image_receiver) = bounded(5);
+        let (camera_background_remover_sender, camera_background_remover_receiver) = bounded(1);
+
         let camera_config = CameraConfig::default()
             .with_fps(self.config.camera_mix_config.fps)
             .with_width(self.config.camera_mix_config.width)
@@ -430,10 +436,12 @@ impl RecordingSession {
             }
 
             while !stop_sig.load(Ordering::Relaxed) {
-                if let Ok(frame) = camera_client.last_frame_rgb()
-                    && let Err(e) = camera_image_sender.try_send(frame)
-                {
-                    log::warn!("Failed to send camera frame: {}", e);
+                if let Ok(frame) = camera_client.last_frame_rgb() {
+                    _ = camera_background_remover_sender.try_send(frame.clone());
+
+                    if let Err(e) = camera_image_sender.try_send(frame) {
+                        log::warn!("Failed to send camera frame: {}", e);
+                    }
                 }
 
                 std::thread::sleep(Duration::from_millis(
@@ -446,7 +454,18 @@ impl RecordingSession {
             }
         });
 
+        if let Some(path) = self
+            .config
+            .camera_mix_config
+            .background_remover_model_path
+            .clone()
+        {
+            self.background_remover_worker(path)?;
+            log::info!("Background remover worker started");
+        }
+
         self.camera_image_receiver = Some(camera_image_receiver);
+        self.camera_background_remover_receiver = Some(camera_background_remover_receiver);
 
         Ok(())
     }
