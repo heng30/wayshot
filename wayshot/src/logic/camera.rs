@@ -1,7 +1,8 @@
 use crate::{
     config, global_store, logic_cb,
     slint_generatedAppWindow::{
-        AppWindow, MixPositionWithPadding as UIMixPositionWithPadding,
+        AppWindow, BackgroundRemoverModel as UIBackgroundRemoverModel,
+        MixPositionWithPadding as UIMixPositionWithPadding,
         MixPositionWithPaddingTag as UIMixPositionWithPaddingTag, Resolution as UIResolution,
         SettingCamera as UISettingCamera, Source as UISource, SourceType,
     },
@@ -214,6 +215,23 @@ impl From<config::Control> for CameraMixConfig {
                 let (w, h) = resolution.to_dimension();
                 config.with_width(w).with_height(h)
             }
+        };
+
+        let config = if c.camera_setting.background_remover.enable {
+            match c.camera_setting.background_remover.model {
+                UIBackgroundRemoverModel::Modnet => config
+                    .with_background_remover_model(Some(UIBackgroundRemoverModel::Modnet.into()))
+                    .with_background_remover_model_path(Some(
+                        c.camera_setting.background_remover.modnet_path.into(),
+                    )),
+                UIBackgroundRemoverModel::Rmbg14 => config
+                    .with_background_remover_model(Some(UIBackgroundRemoverModel::Rmbg14.into()))
+                    .with_background_remover_model_path(Some(
+                        c.camera_setting.background_remover.rmbg14_path.into(),
+                    )),
+            }
+        } else {
+            config
         };
 
         let base_shape = ShapeBase::default()

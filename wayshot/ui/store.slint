@@ -144,6 +144,18 @@ export struct SettingRecorder {
     resolution: Resolution,
 }
 
+export enum BackgroundRemoverModel {
+    Modnet,
+    Rmbg14,
+}
+
+export struct SettingBackgroundRemover {
+    enable: bool,
+    model: BackgroundRemoverModel,
+    modnet-path: string,
+    rmbg14-path: string,
+}
+
 export enum MixPositionWithPaddingTag {
     TopLeft,
     TopRight,
@@ -173,6 +185,8 @@ export struct SettingCamera {
     rect-cropping-width: int,
     rect-cropping-height: int,
     circle-cropping-radius: int,
+
+    background-remover: SettingBackgroundRemover,
 }
 
 export struct SettingControl {
@@ -279,6 +293,12 @@ export enum ConnectionStatus {
     Connected,
 }
 
+export struct Downloader {
+    downloading: bool,
+    progress: float,
+    url: string,
+}
+
 //////////////////////////////// Logic Struct End  ////////////////////////////////
 
 import { PlaylistItem } from "base/def.slint";
@@ -327,20 +347,9 @@ export global Store {
     in-out property <int> speaker-audio-db: -60;
     in-out property <bool> start-recording-timer;
 
-    in-out property <[string]> audio-sources: [
-        "sound-card-1",
-        "sound-card-2",
-    ];
-
-    in-out property <[string]> video-sources: [
-        "eDP-1",
-        "eDP-2",
-    ];
-
-    in-out property <[string]> camera-sources: [
-        "camera-1",
-        "camera-2",
-    ];
+    in-out property <[string]> audio-sources: ["sound-card-1", "sound-card-2"];
+    in-out property <[string]> video-sources: ["eDP-1", "eDP-2"];
+    in-out property <[string]> camera-sources: ["camera-1", "camera-2"];
 
     in-out property <[Source]> sources: [
         { ty: SourceType.Audio, name: "sound-card-2" },
@@ -397,38 +406,18 @@ export global Store {
     ];
 
     in-out property <[HistoryEntry]> history-entries: [
-        {
-            file: "file-1",
-            size: "10M",
-            duration: "4:00",
-        },
-        {
-            file: "file-1",
-            size: "100M",
-        },
+        { file: "file-1", size: "10M", duration: "4:00" },
+        { file: "file-1", size: "100M" },
     ];
 
     in-out property <image> player-image;
     in-out property <float> player-progress;
     in-out property <bool> player-is-playing;
-    in-out property <SettingPlayer> setting-player: {
-        current-time: "00:00",
-        end-time: "4:00",
-        sound: 50,
-    };
+    in-out property <SettingPlayer> setting-player: { current-time: "00:00", end-time: "4:00", sound: 50 };
 
     in-out property <[PlaylistItem]> playlist-entries: [
-        { title: "Video 1 - Short Title", duration: "3:45" },
-        { title: "Video 2 - Medium Length Title", duration: "2:30" },
-        {
-            title: "Video 3 - This is a very long video title that should be truncated with ellipsis",
-            duration: "5:12"
-        },
-        { title: "Video 4 - Test Item", duration: "1:15" },
-        { title: "Video 5 - Another Test", duration: "4:20" },
-        { title: "Video 6 - Sample Video", duration: "2:45" },
-        { title: "Video 7 - Demo Content", duration: "3:30" },
-        { title: "Video 8 - Example Video", duration: "1:50" },
+        { title: "Video1", duration: "3:45" },
+        { title: "Video2", duration: "4:20" },
     ];
 
     in-out property <image> share-screen-player-image;
@@ -437,6 +426,8 @@ export global Store {
     in-out property <ConnectionStatus> share-screen-client-connection-status: ConnectionStatus.Disconnected;
 
     in-out property <bool> is-show-realtime-image-effect-dialog;
+
+    in-out property <[Downloader]> background-remover-dowloader: [{ }, { }];
 
     //////////////////////////////// Logic End  ////////////////////////////////
 }

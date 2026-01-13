@@ -20,6 +20,7 @@ import {
     SettingPushStream,
     SettingCamera,
     RealtimeImageEffect,
+    BackgroundRemoverModel,
 } from "store.slint";
 
 import { PlaylistItem } from "base/def.slint";
@@ -182,6 +183,9 @@ export global Logic {
 
     callback camera-setting-dialog-start-playing(camera: string);
     callback camera-setting-dialog-stop-playing();
+    callback choose-backround-remover-model-path(model: BackgroundRemoverModel);
+    callback downloader-start(url: string);
+    callback downloader-cancel(url: string);
 
     callback show-realtime-image-effect-dialog(flag: bool);
     callback init-realtime-image-effect-dialog() -> RealtimeImageEffect;

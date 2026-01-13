@@ -6,6 +6,8 @@ import {
     Icons,
     SettingCamera,
     MixPositionWithPaddingTag,
+    BackgroundRemoverModel,
+    Downloader,
 } from "../def.slint";
 import {
     SettingDetail,
@@ -21,6 +23,8 @@ import {
     Dialog,
     TextBtnWithoutIcon,
     Slider,
+    IconBtn,
+    ProgressBar,
 } from "../../base/widgets.slint";
 
 export component CameraSettingDialog inherits Dialog {
@@ -441,6 +445,101 @@ export component CameraSettingDialog inherits Dialog {
                             width: Theme.icon-size;
                             height: 2px;
                             background: index == cache-setting.border-color-index ? Theme.success-color : Colors.transparent;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailSwitch {
+                icon: Icons.background-remover-light;
+                text: self.checked ? Logic.tr("Background removal enabled") : Logic.tr("Background removal disabled");
+                checked: cache-setting.background-remover.enable;
+
+                toggled => {
+                    cache-setting.background-remover.enable = self.checked;
+                }
+            }
+        }
+
+        if cache-setting.background-remover.enable: VerticalLayout {
+            spacing: Theme.spacing * 4;
+
+            model-sl := Select {
+                values: ["Modnet", "Rmbg-1.4"];
+                current-value: cache-setting.background-remover.model == BackgroundRemoverModel.Modnet ? self.values[0] : self.values[1];
+
+                selected(index, _value) => {
+                    if (index == 0) {
+                        cache-setting.background-remover.model = BackgroundRemoverModel.Modnet;
+                    } else {
+                        cache-setting.background-remover.model = BackgroundRemoverModel.Rmbg14;
+                    }
+                }
+            }
+
+            VerticalLayout {
+                padding-right: Theme.padding * 2;
+                alignment: start;
+
+                for downloader[index] in Store.background-remover-dowloader: VerticalLayout {
+                    if index == model-sl.current-index: HorizontalLayout {
+                        spacing: Theme.spacing * 8;
+
+                        model-path-li := LineInput {
+                            horizontal-stretch: 2;
+                            read-only: true;
+                            is-show-icon: true;
+                            icon: Icons.file-open-light;
+                            text: index == 0 ? cache-setting.background-remover.modnet-path : cache-setting.background-remover.rmbg14-path;
+
+                            clicked => {
+                                Logic.choose-backround-remover-model-path(cache-setting.background-remover.model);
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: Theme.spacing * 4;
+
+                            if downloader.downloading: VerticalLayout {
+                                alignment: center;
+
+                                ProgressBar {
+                                    height: model-path-li.preferred-height * 2 / 3;
+                                    font-size: Theme.default-font-size * 2 / 3;
+                                }
+                            }
+
+                            HorizontalLayout {
+                                alignment: end;
+                                spacing: Theme.spacing * 4;
+
+                                IconBtn {
+                                    icon: downloader.downloading ? Icons.stop-light : Icons.download-light;
+                                    colorize: downloader.downloading ? Theme.danger-color : Theme.icon-color;
+                                    is-show-tip: true;
+                                    tip: downloader.downloading ? Logic.tr("cancel") : Logic.tr("download");
+
+                                    clicked => {
+                                        if (downloader.downloading) {
+                                            Logic.downloader-cancel(downloader.url);
+                                        } else {
+                                            Logic.downloader-start(downloader.url);
+                                        }
+                                    }
+                                }
+
+                                IconBtn {
+                                    icon: Icons.browser-light;
+                                    is-show-tip: true;
+                                    tip: Logic.tr("open");
+
+                                    clicked => {
+                                        Util.open-url("Default", downloader.url);
+                                    }
+                                }
+                            }
                         }
                     }
                 }

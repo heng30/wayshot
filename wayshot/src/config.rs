@@ -1,13 +1,16 @@
 use crate::slint_generatedAppWindow::{
-    Fps as UIFps, MixPositionWithPadding as UIMixPositionWithPadding,
+    BackgroundRemoverModel as UIBackgroundRemoverModel, Fps as UIFps,
+    MixPositionWithPadding as UIMixPositionWithPadding,
     MixPositionWithPaddingTag as UIMixPositionWithPaddingTag, RTCIceServer as UIRTCIceServer,
     RealtimeImageEffect as UIRealtimeImageEffect, Resolution as UIResolution,
-    SettingCamera as UISettingCamera, SettingControl as UISettingControl,
-    SettingCursorTracker as UISettingCursorTracker, SettingPushStream as UISettingPushStream,
-    SettingRecorder as UISettingRecorder, SettingShareScreen as UISettingShareScreen,
+    SettingBackgroundRemover as UISettingBackgroundRemover, SettingCamera as UISettingCamera,
+    SettingControl as UISettingControl, SettingCursorTracker as UISettingCursorTracker,
+    SettingPushStream as UISettingPushStream, SettingRecorder as UISettingRecorder,
+    SettingShareScreen as UISettingShareScreen,
     SettingShareScreenClient as UISettingShareScreenClient, TransitionType as UITransitionType,
 };
 use anyhow::{Context, Result, bail};
+use background_remover::Model as BackgroundRemoverModel;
 use image_effect::realtime::RealtimeImageEffect;
 use log::debug;
 use once_cell::sync::Lazy;
@@ -26,9 +29,7 @@ static CONFIG: Lazy<Mutex<Config>> = Lazy::new(|| Mutex::new(Config::default()))
 
 #[cfg(feature = "android")]
 pub struct AppDirs {
-    /// Configuration directory path
     pub config_dir: PathBuf,
-    /// Data directory path
     pub data_dir: PathBuf,
 }
 
@@ -273,6 +274,17 @@ pub struct PushStream {
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
 #[derivative(Default)]
 #[serde(default)]
+#[from("UISettingBackgroundRemover")]
+pub struct BackgroundRemover {
+    pub enable: bool,
+    pub model: UIBackgroundRemoverModel,
+    pub modnet_path: String,
+    pub rmbg14_path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
+#[derivative(Default)]
+#[serde(default)]
 #[from("UISettingCamera")]
 pub struct Camera {
     pub mirror_horizontal: bool,
@@ -313,8 +325,11 @@ pub struct Camera {
 
     #[derivative(Default(value = "0.5"))]
     pub cropping_y: f32,
+
+    pub background_remover: BackgroundRemover,
 }
 
+crate::impl_slint_enum_serde!(UIBackgroundRemoverModel, Modnet, Rmbg14);
 crate::impl_slint_enum_serde!(UIFps, Fps24, Fps25, Fps30, Fps60);
 crate::impl_slint_enum_serde!(UIResolution, Original, P480, P720, P1080, P2K, P4K);
 crate::impl_slint_enum_serde!(UITransitionType, Linear, EaseIn, EaseOut);
@@ -369,6 +384,12 @@ crate::impl_c_like_enum_convert!(
     Sepia,
     Vignette,
     Temperature
+);
+crate::impl_c_like_enum_convert!(
+    UIBackgroundRemoverModel,
+    BackgroundRemoverModel,
+    Modnet,
+    Rmbg14
 );
 
 impl Config {

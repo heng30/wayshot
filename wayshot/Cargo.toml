@@ -52,6 +52,7 @@ native-dialog.workspace = true
 platform-dirs.workspace = true
 screen-capture.workspace = true
 fast_image_resize.workspace = true
+background-remover.workspace = true
 rodio = { workspace = true, features = ["playback"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
