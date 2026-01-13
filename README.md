@@ -15,6 +15,7 @@
 - Single screen recording
 - Single input device audio recording
 - Capturing a single camera
+- Supports camera background removal
 - Desktop audio recording
 - Microphone noise reduction
 - Cursor tracking
