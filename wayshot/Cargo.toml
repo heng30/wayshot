@@ -47,6 +47,7 @@ clipboard.workspace = true
 crossbeam.workspace = true
 env_logger.workspace = true
 mp4-player.workspace = true
+downloader.workspace = true
 image-effect.workspace = true
 native-dialog.workspace = true
 platform-dirs.workspace = true

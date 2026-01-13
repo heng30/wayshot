@@ -363,6 +363,12 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Vignette", "暗角"),
             ("SnowNoise", "雪花噪点"),
             ("SnowNoiseTV", "黑白电视"),
+            ("Background removal disabled", "背景移除已禁用"),
+            ("Background removal enabled", "背景移除已启用"),
+            ("Choose model", "选择模型"),
+            ("ONNX Model", "ONNX 模型"),
+            ("download", "下载"),
+            ("open url", "打开网址"),
         ])
     })
 }

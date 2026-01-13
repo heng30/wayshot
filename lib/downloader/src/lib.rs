@@ -1,6 +1,6 @@
 pub mod downloader;
 
-pub use downloader::{DownloadStatus, Downloader};
+pub use downloader::{DownloadState, Downloader};
 
 pub type Result<T> = std::result::Result<T, DownloadError>;
 
@@ -26,5 +26,8 @@ pub enum DownloadError {
     },
 
     #[error("Failed to create file: {path}. Error: {error}")]
-    FileCreateError { error: std::io::Error, path: String },
+    FileCreateError {
+        error: std::io::Error,
+        path: std::path::PathBuf,
+    },
 }

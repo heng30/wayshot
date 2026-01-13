@@ -16,12 +16,12 @@ fn main() -> Result<()> {
     log::info!("Image size: {}x{}", img_width, img_height);
 
     for model in Model::all_models().into_iter() {
-        let model_name = model.to_str().trim_end_matches(".onnx");
+        let model_name = model.to_filename().trim_end_matches(".onnx");
         let input_name = input_file
             .trim_start_matches("./examples/")
             .trim_end_matches(".png");
 
-        let model_path = PathBuf::from("./models").join(model.to_str());
+        let model_path = PathBuf::from("./models").join(model.to_filename());
         if !model_path.exists() {
             log::warn!("Model file not found: {}", model_path.display());
             continue;

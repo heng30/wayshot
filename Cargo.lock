@@ -10455,6 +10455,7 @@ dependencies = [
  "cutil",
  "derivative",
  "display-info",
+ "downloader",
  "duct",
  "embed-resource",
  "env_logger",

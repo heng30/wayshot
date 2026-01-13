@@ -38,6 +38,9 @@ mod camera;
 #[cfg(feature = "desktop")]
 mod realtime_image_effect;
 
+#[cfg(feature = "desktop")]
+mod downloader;
+
 pub fn init(ui: &AppWindow) {
     #[cfg(any(feature = "desktop", feature = "mobile"))]
     {
@@ -60,6 +63,7 @@ pub fn init(ui: &AppWindow) {
         push_stream::init(ui);
         camera::init(ui);
         realtime_image_effect::init(ui);
+        downloader::init(ui);
     }
 }
 

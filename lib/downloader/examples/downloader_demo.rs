@@ -1,18 +1,18 @@
 use anyhow::Result;
-use downloader::{DownloadError, DownloadStatus, Downloader};
+use downloader::{DownloadError, DownloadState, Downloader};
 use std::io::Write;
 
 #[tokio::main]
 async fn main() -> Result<(), DownloadError> {
+    let save_path = "./test_video.mp4";
     let download_url =
         "https://freetestdata.com/wp-content/uploads/2022/02/Free_Test_Data_1MB_MP4.mp4";
-    let save_path = "./test_video.mp4";
 
     println!("Starting download from: {}", download_url);
     println!("Saving to: {}", save_path);
     println!("Press Ctrl+C to cancel...\n");
 
-    let downloader = Downloader::new(download_url.to_string(), save_path.to_string());
+    let downloader = Downloader::new(download_url.to_string(), save_path.into());
 
     match downloader
         .start(|downloaded: u64, total: u64, progress: f32| {
@@ -27,15 +27,15 @@ async fn main() -> Result<(), DownloadError> {
         })
         .await
     {
-        Ok(DownloadStatus::Finsished) => {
+        Ok(DownloadState::Finsished) => {
             println!("\n✓ Download completed successfully!");
             println!("File saved to: {}", save_path);
         }
-        Ok(DownloadStatus::Cancelled) => {
+        Ok(DownloadState::Cancelled) => {
             println!("\n✗ Download was cancelled!");
         }
-        Ok(DownloadStatus::Downloading) => {
-            println!("\n⏳ Download in progress...");
+        Ok(DownloadState::Incompleted) => {
+            println!("\n✗ Download as incompleted!");
         }
         Err(e) => {
             println!("\n✗ Download failed: {}", e);

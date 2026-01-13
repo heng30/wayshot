@@ -429,6 +429,7 @@ impl RecordingSession {
 
         let stop_sig = self.stop_sig.clone();
         let mask_cache = self.camera_background_mask.clone();
+        let waiting_frame = self.camera_background_remover_waiting_frame.clone();
 
         thread::spawn(move || {
             while !stop_sig.load(Ordering::Relaxed) {
@@ -440,6 +441,7 @@ impl RecordingSession {
                         Err(e) => log::warn!("Failed to generate background mask: {e}"),
                     }
                 }
+                waiting_frame.store(true, Ordering::Relaxed);
             }
 
             log::info!("Background remover worker exit");

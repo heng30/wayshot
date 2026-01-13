@@ -4,28 +4,29 @@ use reqwest::Client;
 use std::{
     fs,
     io::Write,
+    path::PathBuf,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
 };
 
-pub enum DownloadStatus {
+pub enum DownloadState {
     Finsished,
     Cancelled,
-    Downloading,
+    Incompleted,
 }
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct Downloader {
     url: String,
-    save_path: String,
+    save_path: PathBuf,
     cancel_sig: Arc<AtomicBool>,
 }
 
 impl Downloader {
-    pub fn new(url: String, save_path: String) -> Downloader {
+    pub fn new(url: String, save_path: PathBuf) -> Downloader {
         Downloader {
             url,
             save_path,
@@ -36,8 +37,8 @@ impl Downloader {
     pub async fn start(
         &self,
         mut progress_cb: impl FnMut(u64, u64, f32) + 'static,
-    ) -> Result<DownloadStatus> {
-        let tmp_filepath = format!("{}.tmp", self.save_path);
+    ) -> Result<DownloadState> {
+        let tmp_filepath = self.save_path.with_added_extension("tmp");
 
         let mut save_file =
             fs::File::create(&tmp_filepath).map_err(|e| DownloadError::FileCreateError {
@@ -64,7 +65,7 @@ impl Downloader {
 
         while let Some(chunk) = stream.next().await {
             if self.cancel_sig.load(Ordering::Relaxed) {
-                return Ok(DownloadStatus::Cancelled);
+                return Ok(DownloadState::Cancelled);
             }
 
             let chunk = chunk.map_err(|e| DownloadError::IncompleteDownload {
@@ -82,9 +83,9 @@ impl Downloader {
 
         if total_size == downloaded {
             _ = fs::rename(&tmp_filepath, &self.save_path);
-            Ok(DownloadStatus::Finsished)
+            Ok(DownloadState::Finsished)
         } else {
-            Ok(DownloadStatus::Downloading)
+            Ok(DownloadState::Incompleted)
         }
     }
 

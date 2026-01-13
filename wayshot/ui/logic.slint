@@ -21,9 +21,10 @@ import {
     SettingCamera,
     RealtimeImageEffect,
     BackgroundRemoverModel,
+    DownloaderState,
 } from "store.slint";
 
-import { PlaylistItem } from "base/def.slint";
+import { Theme } from "base/theme.slint";
 
 export global Logic {
     callback caches-size() -> string;
@@ -183,9 +184,10 @@ export global Logic {
 
     callback camera-setting-dialog-start-playing(camera: string);
     callback camera-setting-dialog-stop-playing();
-    callback choose-backround-remover-model-path(model: BackgroundRemoverModel);
-    callback downloader-start(url: string);
-    callback downloader-cancel(url: string);
+    callback choose-camera-backround-remover-model-path(model: BackgroundRemoverModel);
+    callback camera-backround-remover-model-filename(model: BackgroundRemoverModel) -> string;
+    callback camera-backround-remover-model-start-download(url: string, model: BackgroundRemoverModel);
+    callback camera-backround-remover-model-cancel-download(url: string, model: BackgroundRemoverModel);
 
     callback show-realtime-image-effect-dialog(flag: bool);
     callback init-realtime-image-effect-dialog() -> RealtimeImageEffect;
@@ -292,6 +294,16 @@ export global Logic {
             return Logic.tr("Temperature");
         } else {
             return Logic.tr("None");
+        }
+    }
+
+    pure public function downloader-progress-color(state: DownloaderState) -> color {
+        if (state == DownloaderState.Cancelled) {
+            return Theme.warning-color;
+        } else if (state == DownloaderState.Failed) {
+            return Theme.danger-color;
+        } else {
+            return Theme.thirdly-brand-color;
         }
     }
     //////////////////////////////// Logic End  ////////////////////////////////

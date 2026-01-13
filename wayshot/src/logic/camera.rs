@@ -1,25 +1,44 @@
 use crate::{
-    config, global_store, logic_cb,
+    config, global_logic, global_store,
+    logic::{
+        downloader::{downloader_cancel, downloader_start},
+        share_screen::picker_file,
+        tr::tr,
+    },
+    logic_cb,
     slint_generatedAppWindow::{
-        AppWindow, BackgroundRemoverModel as UIBackgroundRemoverModel,
-        MixPositionWithPadding as UIMixPositionWithPadding,
+        AppWindow, BackgroundRemoverModel as UIBackgroundRemoverModel, Downloader as UIDownloader,
+        DownloaderState as UIDownloaderState, MixPositionWithPadding as UIMixPositionWithPadding,
         MixPositionWithPaddingTag as UIMixPositionWithPaddingTag, Resolution as UIResolution,
         SettingCamera as UISettingCamera, Source as UISource, SourceType,
     },
     store_sources, toast_warn,
 };
+use background_remover::Model as BackgroundRemoverModel;
 use camera::{
     self, CameraClient, CameraConfig, CameraError, CameraResult, MixPositionWithPadding,
     PixelFormat, Rgba, Shape as CroppingSharpe, ShapeBase, ShapeCircle, ShapeRectangle,
     query_available_cameras, query_camera_id,
 };
 use crossbeam::channel::{Sender, bounded};
+use downloader::DownloadState;
 use fast_image_resize::{PixelType, ResizeAlg, Resizer, images::Image as FastImage};
 use image::{RgbImage, imageops};
 use once_cell::sync::Lazy;
 use recorder::{CameraMixConfig, Resolution};
 use slint::{ComponentHandle, Model, SharedPixelBuffer, SharedString, VecModel};
-use std::{sync::Mutex, thread, time::Duration};
+use std::{path::PathBuf, sync::Mutex, thread, time::Duration};
+
+#[macro_export]
+macro_rules! store_camera_background_remover_models_dowloader {
+    ($ui:expr) => {
+        crate::global_store!($ui)
+            .get_camera_background_remover_models_dowloader()
+            .as_any()
+            .downcast_ref::<VecModel<UIDownloader>>()
+            .expect("We know we set a VecModel<UIDownloader> earlier")
+    };
+}
 
 static CAMERA_CACHE: Lazy<Mutex<CameraCache>> = Lazy::new(|| Mutex::new(CameraCache::default()));
 
@@ -34,6 +53,20 @@ pub fn init(ui: &AppWindow) {
 
     logic_cb!(camera_setting_dialog_start_playing, ui, camera);
     logic_cb!(camera_setting_dialog_stop_playing, ui);
+    logic_cb!(choose_camera_backround_remover_model_path, ui, model);
+    logic_cb!(camera_backround_remover_model_filename, ui, model);
+    logic_cb!(
+        camera_backround_remover_model_start_download,
+        ui,
+        url,
+        model
+    );
+    logic_cb!(
+        camera_backround_remover_model_cancel_download,
+        ui,
+        url,
+        model
+    );
 }
 
 pub fn inner_init(ui: &AppWindow) {
@@ -44,6 +77,18 @@ pub fn inner_init(ui: &AppWindow) {
             name: control.camera.into(),
         });
     }
+
+    let downloaders = BackgroundRemoverModel::all_models()
+        .into_iter()
+        .map(|m| UIDownloader {
+            url: m.download_url().to_string().into(),
+            filename: m.to_filename().to_string().into(),
+            state: UIDownloaderState::UnStart,
+            progress: 0.0,
+        })
+        .collect::<Vec<_>>();
+
+    store_camera_background_remover_models_dowloader!(ui).set_vec(downloaders);
 }
 
 pub fn available_cameras() -> Vec<SharedString> {
@@ -169,6 +214,131 @@ fn camera_setting_dialog_stop_playing(_ui: &AppWindow) {
     {
         log::warn!("Stop camera client failed. {e}");
     }
+}
+
+fn choose_camera_backround_remover_model_path(ui: &AppWindow, model: UIBackgroundRemoverModel) {
+    let ui_weak = ui.as_weak();
+    tokio::spawn(async move {
+        let Some(filepath) = picker_file(
+            ui_weak.clone(),
+            &tr("Choose model"),
+            &tr("ONNX Model"),
+            &["onnx"],
+        ) else {
+            return;
+        };
+
+        _ = ui_weak.upgrade_in_event_loop(move |ui| {
+            let filepath = filepath.to_string_lossy().to_string().into();
+            let mut setting = global_store!(ui).get_camera_setting_cache();
+            match model {
+                UIBackgroundRemoverModel::Modnet => {
+                    setting.background_remover.modnet_path = filepath;
+                }
+                UIBackgroundRemoverModel::Rmbg14 => {
+                    setting.background_remover.rmbg14_path = filepath;
+                }
+            }
+
+            global_store!(ui).set_camera_setting_cache(setting);
+        });
+    });
+}
+
+fn camera_backround_remover_model_filename(
+    _ui: &AppWindow,
+    model: UIBackgroundRemoverModel,
+) -> SharedString {
+    let model: BackgroundRemoverModel = model.into();
+    model.to_filename().to_string().into()
+}
+
+fn camera_backround_remover_model_start_download(
+    ui: &AppWindow,
+    url: SharedString,
+    model: UIBackgroundRemoverModel,
+) {
+    downloader_start(
+        ui,
+        url,
+        global_logic!(ui).invoke_camera_backround_remover_model_filename(model),
+        move |ui: &AppWindow, _downloaded: u64, _total: u64, progress: f32| {
+            let index = match model {
+                UIBackgroundRemoverModel::Modnet => 0,
+                UIBackgroundRemoverModel::Rmbg14 => 1,
+            };
+
+            if let Some(mut item) =
+                store_camera_background_remover_models_dowloader!(ui).row_data(index)
+            {
+                item.progress = progress;
+                store_camera_background_remover_models_dowloader!(ui).set_row_data(index, item);
+            }
+        },
+        move |ui: &AppWindow, filepath: PathBuf| {
+            let index = match model {
+                UIBackgroundRemoverModel::Modnet => 0,
+                UIBackgroundRemoverModel::Rmbg14 => 1,
+            };
+
+            if let Some(mut item) =
+                store_camera_background_remover_models_dowloader!(ui).row_data(index)
+            {
+                item.state = UIDownloaderState::Downloading;
+                store_camera_background_remover_models_dowloader!(ui).set_row_data(index, item);
+            }
+
+            let filepath = filepath.to_string_lossy().to_string().into();
+            let mut setting = global_store!(ui).get_camera_setting_cache();
+            match model {
+                UIBackgroundRemoverModel::Modnet => {
+                    setting.background_remover.modnet_path = filepath;
+                }
+                UIBackgroundRemoverModel::Rmbg14 => {
+                    setting.background_remover.rmbg14_path = filepath;
+                }
+            }
+            global_store!(ui).set_camera_setting_cache(setting);
+        },
+        move |ui: &AppWindow, result: downloader::Result<downloader::DownloadState>| {
+            let index = match model {
+                UIBackgroundRemoverModel::Modnet => 0,
+                UIBackgroundRemoverModel::Rmbg14 => 1,
+            };
+
+            if let Some(mut item) =
+                store_camera_background_remover_models_dowloader!(ui).row_data(index)
+            {
+                match result {
+                    Ok(DownloadState::Cancelled) => item.state = UIDownloaderState::Cancelled,
+                    Ok(DownloadState::Incompleted) => item.state = UIDownloaderState::Failed,
+                    Ok(DownloadState::Finsished) => item.state = UIDownloaderState::Finished,
+                    Err(_) => item.state = UIDownloaderState::Failed,
+                }
+                store_camera_background_remover_models_dowloader!(ui).set_row_data(index, item);
+            }
+        },
+    );
+}
+
+fn camera_backround_remover_model_cancel_download(
+    ui: &AppWindow,
+    url: SharedString,
+    model: UIBackgroundRemoverModel,
+) {
+    downloader_cancel(ui, url, move |ui: &AppWindow| {
+        let index = match model {
+            UIBackgroundRemoverModel::Modnet => 0,
+            UIBackgroundRemoverModel::Rmbg14 => 1,
+        };
+
+        if let Some(mut item) =
+            store_camera_background_remover_models_dowloader!(ui).row_data(index)
+        {
+            item.state = UIDownloaderState::Cancelled;
+            store_camera_background_remover_models_dowloader!(ui).set_row_data(index, item);
+        }
+    });
 }
 
 fn zoom_image(frame: RgbImage, zoom: f32) -> CameraResult<RgbImage> {

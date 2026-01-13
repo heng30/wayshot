@@ -63,6 +63,7 @@ pub struct RecordingSession {
 
     pub(crate) camera_image_receiver: Option<Receiver<CameraImage>>,
     pub(crate) camera_background_remover_receiver: Option<Receiver<CameraImage>>,
+    pub(crate) camera_background_remover_waiting_frame: Arc<AtomicBool>,
     pub(crate) camera_background_mask: Arc<Mutex<Option<GrayImage>>>,
 
     // statistic
@@ -106,6 +107,7 @@ impl RecordingSession {
 
             camera_image_receiver: None,
             camera_background_remover_receiver: None,
+            camera_background_remover_waiting_frame: Arc::new(AtomicBool::new(true)),
             camera_background_mask: Arc::new(Mutex::new(None)),
 
             start_time: std::time::Instant::now(),
@@ -419,6 +421,9 @@ impl RecordingSession {
         let (camera_image_sender, camera_image_receiver) = bounded(5);
         let (camera_background_remover_sender, camera_background_remover_receiver) = bounded(1);
 
+        self.camera_image_receiver = Some(camera_image_receiver);
+        self.camera_background_remover_receiver = Some(camera_background_remover_receiver);
+
         let camera_config = CameraConfig::default()
             .with_fps(self.config.camera_mix_config.fps)
             .with_width(self.config.camera_mix_config.width)
@@ -427,6 +432,7 @@ impl RecordingSession {
             .with_mirror_horizontal(self.config.camera_mix_config.mirror_horizontal);
 
         let mut camera_client = CameraClient::new(camera_index, camera_config)?;
+        let waiting_frame = self.camera_background_remover_waiting_frame.clone();
 
         let stop_sig = self.stop_sig.clone();
         thread::spawn(move || {
@@ -437,7 +443,14 @@ impl RecordingSession {
 
             while !stop_sig.load(Ordering::Relaxed) {
                 if let Ok(frame) = camera_client.last_frame_rgb() {
-                    _ = camera_background_remover_sender.try_send(frame.clone());
+                    if waiting_frame.load(Ordering::Relaxed) {
+                        if camera_background_remover_sender
+                            .try_send(frame.clone())
+                            .is_ok()
+                        {
+                            waiting_frame.store(false, Ordering::Relaxed);
+                        }
+                    }
 
                     if let Err(e) = camera_image_sender.try_send(frame) {
                         log::warn!("Failed to send camera frame: {}", e);
@@ -463,9 +476,6 @@ impl RecordingSession {
             self.background_remover_worker(path)?;
             log::info!("Background remover worker started");
         }
-
-        self.camera_image_receiver = Some(camera_image_receiver);
-        self.camera_background_remover_receiver = Some(camera_background_remover_receiver);
 
         Ok(())
     }

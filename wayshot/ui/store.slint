@@ -293,10 +293,19 @@ export enum ConnectionStatus {
     Connected,
 }
 
+export enum DownloaderState {
+    UnStart,
+    Downloading,
+    Finished,
+    Failed,
+    Cancelled,
+}
+
 export struct Downloader {
-    downloading: bool,
+    state: DownloaderState,
     progress: float,
     url: string,
+    filename: string,
 }
 
 //////////////////////////////// Logic Struct End  ////////////////////////////////
@@ -392,6 +401,7 @@ export global Store {
     in-out property <bool> is-show-camera-setting-dialog;
     in-out property <SettingCamera> camera-setting-cache;
     in-out property <image> camera-setting-dialog-image;
+    in-out property <[Downloader]> camera-background-remover-models-dowloader: [{ }, { }];
     in-out property <[color]> camera-cropping-area-border-colors: [
         Colors.white,
         Colors.black,
@@ -426,8 +436,6 @@ export global Store {
     in-out property <ConnectionStatus> share-screen-client-connection-status: ConnectionStatus.Disconnected;
 
     in-out property <bool> is-show-realtime-image-effect-dialog;
-
-    in-out property <[Downloader]> background-remover-dowloader: [{ }, { }];
 
     //////////////////////////////// Logic End  ////////////////////////////////
 }

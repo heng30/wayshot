@@ -8,6 +8,7 @@ import {
     MixPositionWithPaddingTag,
     BackgroundRemoverModel,
     Downloader,
+    DownloaderState,
 } from "../def.slint";
 import {
     SettingDetail,
@@ -468,6 +469,7 @@ export component CameraSettingDialog inherits Dialog {
 
             model-sl := Select {
                 values: ["Modnet", "Rmbg-1.4"];
+                current-index: cache-setting.background-remover.model == BackgroundRemoverModel.Modnet ? 0 : 1;
                 current-value: cache-setting.background-remover.model == BackgroundRemoverModel.Modnet ? self.values[0] : self.values[1];
 
                 selected(index, _value) => {
@@ -483,7 +485,7 @@ export component CameraSettingDialog inherits Dialog {
                 padding-right: Theme.padding * 2;
                 alignment: start;
 
-                for downloader[index] in Store.background-remover-dowloader: VerticalLayout {
+                for downloader[index] in Store.camera-background-remover-models-dowloader: VerticalLayout {
                     if index == model-sl.current-index: HorizontalLayout {
                         spacing: Theme.spacing * 8;
 
@@ -495,19 +497,21 @@ export component CameraSettingDialog inherits Dialog {
                             text: index == 0 ? cache-setting.background-remover.modnet-path : cache-setting.background-remover.rmbg14-path;
 
                             clicked => {
-                                Logic.choose-backround-remover-model-path(cache-setting.background-remover.model);
+                                Logic.choose-camera-backround-remover-model-path(cache-setting.background-remover.model);
                             }
                         }
 
                         HorizontalLayout {
                             spacing: Theme.spacing * 4;
 
-                            if downloader.downloading: VerticalLayout {
+                            if downloader.state != DownloaderState.UnStart: VerticalLayout {
                                 alignment: center;
 
                                 ProgressBar {
                                     height: model-path-li.preferred-height * 2 / 3;
                                     font-size: Theme.default-font-size * 2 / 3;
+                                    finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                                    progress: downloader.progress;
                                 }
                             }
 
@@ -515,17 +519,19 @@ export component CameraSettingDialog inherits Dialog {
                                 alignment: end;
                                 spacing: Theme.spacing * 4;
 
+                                private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+
                                 IconBtn {
-                                    icon: downloader.downloading ? Icons.stop-light : Icons.download-light;
-                                    colorize: downloader.downloading ? Theme.danger-color : Theme.icon-color;
                                     is-show-tip: true;
-                                    tip: downloader.downloading ? Logic.tr("cancel") : Logic.tr("download");
+                                    icon: downloading ? Icons.stop-light : Icons.download-light;
+                                    colorize: downloading ? Theme.danger-color : Theme.icon-color;
+                                    tip: downloading ? Logic.tr("cancel") : Logic.tr("download");
 
                                     clicked => {
-                                        if (downloader.downloading) {
-                                            Logic.downloader-cancel(downloader.url);
+                                        if (downloading) {
+                                            Logic.camera-backround-remover-model-cancel-download(downloader.url, cache-setting.background-remover.model);
                                         } else {
-                                            Logic.downloader-start(downloader.url);
+                                            Logic.camera-backround-remover-model-start-download(downloader.url, cache-setting.background-remover.model);
                                         }
                                     }
                                 }
@@ -533,7 +539,7 @@ export component CameraSettingDialog inherits Dialog {
                                 IconBtn {
                                     icon: Icons.browser-light;
                                     is-show-tip: true;
-                                    tip: Logic.tr("open");
+                                    tip: Logic.tr("open url");
 
                                     clicked => {
                                         Util.open-url("Default", downloader.url);
