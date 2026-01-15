@@ -3843,6 +3843,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "gpt-sovits"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arpabet",
+ "async-stream",
+ "derivative",
+ "derive_setters",
+ "env_logger",
+ "fast_image_resize",
+ "futures",
+ "image 0.25.8",
+ "jieba-rs",
+ "log",
+ "ndarray",
+ "ort",
+ "pest",
+ "pest_derive",
+ "rand 0.9.2",
+ "regex",
+ "rodio",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "tokenizers",
+ "tokio",
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "group"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9233,36 +9263,6 @@ dependencies = [
  "web-sys",
  "windows-sys 0.59.0",
  "x11rb",
-]
-
-[[package]]
-name = "sovits"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arpabet",
- "async-stream",
- "derivative",
- "derive_setters",
- "env_logger",
- "fast_image_resize",
- "futures",
- "image 0.25.8",
- "jieba-rs",
- "log",
- "ndarray",
- "ort",
- "pest",
- "pest_derive",
- "rand 0.9.2",
- "regex",
- "rodio",
- "serde",
- "serde_json",
- "thiserror 2.0.17",
- "tokenizers",
- "tokio",
- "unicode-segmentation",
 ]
 
 [[package]]

@@ -1,0 +1,20 @@
+alpha = { 'a'..'z' | 'A'..'Z' }
+greek = { 'α'..'ω' | 'Α'..'Ω' }
+digit = { '0'..'9' }
+pn =  { "+"|"-"|"*"|"×"|"÷"|"="|"/" }
+link = {"-"|":"|"."|"_"}
+
+flag = {"-"}
+integer = { (digit)+ }
+decimals = { integer? ~ "." ~ integer | integer ~ "." }
+fractional = { integer ~ "/" ~ integer }
+percent = { (decimals|integer)~"%" }
+
+num = {" "*~flag?~ (percent|decimals|fractional|integer)~" "* }
+expr = { (num|"("~expr~")")~(" "*~pn~" "*~(num|"("~expr~")"))+|num }
+signs = { (num|pn|"("|")"|" ")+ }
+
+word = { (alpha | digit | greek)+ }
+ident = { !digit~word~(link+~word)* }
+
+all = {ident|signs}

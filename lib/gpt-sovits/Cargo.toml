@@ -1,0 +1,46 @@
+[package]
+name = "gpt-sovits"
+license = "Apache-2.0"
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[dependencies]
+log.workspace = true
+pest.workspace = true
+rand.workspace = true
+serde.workspace = true
+regex.workspace = true
+image.workspace = true
+arpabet.workspace = true
+futures.workspace = true
+ndarray.workspace = true
+jieba-rs.workspace = true
+thiserror.workspace = true
+derivative.workspace = true
+serde_json.workspace = true
+pest_derive.workspace = true
+async-stream.workspace = true
+derive_setters.workspace = true
+unicode-segmentation.workspace = true
+tokenizers = { workspace = true, features = ["onig"] }
+rodio = { workspace = true, features = ["mp3", "wav"] }
+fast_image_resize.workspace = true
+tokio = { workspace = true, features = ["fs"] }
+ort = { workspace = true, features = [
+  "std",
+  "cuda",
+  "tls-rustls",
+  "download-binaries",
+] }
+
+[dev-dependencies]
+anyhow.workspace = true
+env_logger.workspace = true
+rodio = { workspace = true, features = ["playback"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
