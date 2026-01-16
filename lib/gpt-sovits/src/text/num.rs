@@ -1,5 +1,5 @@
 use {
-    crate::{error::GSVError, text::Lang},
+    crate::{GSVError, text::Lang},
     pest::Parser,
 };
 
@@ -313,7 +313,7 @@ pub mod zh {
 }
 
 pub mod en {
-    use {super::*, crate::error::GSVError, pest::iterators::Pair};
+    use {super::*, crate::GSVError, pest::iterators::Pair};
 
     const SEPARATOR: &str = " ";
 

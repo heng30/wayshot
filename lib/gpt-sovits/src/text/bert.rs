@@ -1,5 +1,5 @@
 use {
-    crate::{error::GSVError, onnx_builder::create_onnx_cpu_session, text::utils::BERT_TOKENIZER},
+    crate::{GSVError, create_session, text::utils::BERT_TOKENIZER},
     log::{debug, warn},
     ndarray::Array2,
     ort::{inputs, value::Tensor},
@@ -23,7 +23,7 @@ fn create_i64_tensor(data: Vec<i64>, cols: usize) -> Result<Tensor<i64>, GSVErro
 
 impl BertModel {
     pub fn new<P: AsRef<Path>>(path: Option<P>) -> Result<Self, GSVError> {
-        let model = path.map(create_onnx_cpu_session).transpose()?;
+        let model = path.map(create_session).transpose()?;
         let tokenizer = Tokenizer::from_str(BERT_TOKENIZER)
             .map_err(|e| GSVError::InternalError(format!("Failed to create BERT tokenizer: {}", e)))?;
 
@@ -42,17 +42,24 @@ impl BertModel {
         let has_models = self.model.is_some() && self.tokenizers.is_some();
 
         if has_models {
-            let bert_features = self.get_real_bert(text, word2ph)?;
-            debug!("use real bert, {}", text);
-            if bert_features.nrows() != total_phones {
-                warn!(
-                    "bert_features.shape()[0]: {} != total_phones: {}, use empty",
-                    bert_features.nrows(),
-                    total_phones
-                );
-                return Ok(self.get_fake_bert(total_phones));
+            match self.get_real_bert(text, word2ph) {
+                Ok(bert_features) => {
+                    debug!("use real bert, {}", text);
+                    if bert_features.nrows() != total_phones {
+                        warn!(
+                            "bert_features.shape()[0]: {} != total_phones: {}, use empty",
+                            bert_features.nrows(),
+                            total_phones
+                        );
+                        return Ok(self.get_fake_bert(total_phones));
+                    }
+                    Ok(bert_features)
+                }
+                Err(e) => {
+                    warn!("Failed to get real bert for '{}': {}, using fake bert", text, e);
+                    Ok(self.get_fake_bert(total_phones))
+                }
             }
-            Ok(bert_features)
         } else {
             debug!("use empty bert, {}", text);
             Ok(self.get_fake_bert(total_phones))

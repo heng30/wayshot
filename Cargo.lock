@@ -3854,6 +3854,7 @@ dependencies = [
  "env_logger",
  "fast_image_resize",
  "futures",
+ "hound",
  "image 0.25.8",
  "jieba-rs",
  "log",

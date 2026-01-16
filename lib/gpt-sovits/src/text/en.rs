@@ -2,7 +2,7 @@ mod g2p_en;
 
 pub use g2p_en::*;
 use {
-    crate::{error::GSVError, text::get_phone_symbol},
+    crate::{GSVError, text::get_phone_symbol},
     log::debug,
     std::borrow::Cow,
 };

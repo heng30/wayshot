@@ -7,7 +7,7 @@ mod utils;
 mod zh;
 
 use {
-    crate::error::GSVError,
+    crate::GSVError,
     jieba_rs::Jieba,
     log::{debug, warn},
     ndarray::Array2,
@@ -213,7 +213,6 @@ impl TextProcessor {
         let mut result = Vec::with_capacity(chunks.len());
 
         for chunk in chunks.iter() {
-            debug!("Processing chunk: {}", chunk);
             let mut phone_builder = PhoneBuilder::new(chunk);
             phone_builder.extend_text(&self.jieba, chunk);
 
@@ -292,32 +291,13 @@ impl TextProcessor {
 
             // --- C. Process each complete sentence with BERT ---
             for group in grouped_sentences {
-                debug!("Processing grouped sentence: '{}'", group.text);
                 let total_expected_bert_len = group.phone_ids.len();
 
-                match self
+                let bert_features = self
                     .bert_model
-                    .get_bert(&group.text, &group.word2ph, total_expected_bert_len)
-                {
-                    Ok(bert_features) => {
-                        if bert_features.shape()[0] != total_expected_bert_len {
-                            warn!(
-                                "BERT output length mismatch for text '{}': expected {}, got {}",
-                                group.text,
-                                total_expected_bert_len,
-                                bert_features.shape()[0]
-                            );
-                            continue;
-                        }
-                        result.push((group.text, group.phone_ids, bert_features));
-                    }
-                    Err(e) => {
-                        warn!(
-                            "Failed to get BERT features for text '{}': {}",
-                            group.text, e
-                        );
-                    }
-                }
+                    .get_bert(&group.text, &group.word2ph, total_expected_bert_len)?;
+
+                result.push((group.text, group.phone_ids, bert_features));
             }
         }
 

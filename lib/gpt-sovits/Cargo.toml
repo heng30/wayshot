@@ -27,11 +27,11 @@ serde_json.workspace = true
 pest_derive.workspace = true
 async-stream.workspace = true
 derive_setters.workspace = true
+fast_image_resize.workspace = true
 unicode-segmentation.workspace = true
+tokio = { workspace = true, features = ["fs"] }
 tokenizers = { workspace = true, features = ["onig"] }
 rodio = { workspace = true, features = ["mp3", "wav"] }
-fast_image_resize.workspace = true
-tokio = { workspace = true, features = ["fs"] }
 ort = { workspace = true, features = [
   "std",
   "cuda",
@@ -40,6 +40,7 @@ ort = { workspace = true, features = [
 ] }
 
 [dev-dependencies]
+hound.workspace = true
 anyhow.workspace = true
 env_logger.workspace = true
 rodio = { workspace = true, features = ["playback"] }

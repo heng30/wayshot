@@ -1,5 +1,5 @@
 use {
-    crate::{error::GSVError, onnx_builder::create_onnx_cpu_session, text::dict},
+    crate::{GSVError, create_session, text::dict},
     arpabet::Arpabet,
     log::debug,
     ndarray::{Array, s},
@@ -30,8 +30,8 @@ pub struct G2PEnModel {
 
 impl G2PEnModel {
     pub fn new<P: AsRef<Path>>(encoder_path: P, decoder_path: P) -> Result<Self, GSVError> {
-        let encoder_model = create_onnx_cpu_session(encoder_path)?;
-        let decoder_model = create_onnx_cpu_session(decoder_path)?;
+        let encoder_model = create_session(encoder_path)?;
+        let decoder_model = create_session(decoder_path)?;
         let tokenizer = Tokenizer::from_str(MINI_BART_G2P_TOKENIZER)?;
 
         Ok(Self {

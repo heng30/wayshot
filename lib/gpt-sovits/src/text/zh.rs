@@ -56,7 +56,6 @@ impl ZhSentence {
             );
         }
         self.phones = pinyin;
-        debug!("phones: {:?}", self.phones);
         self.build_phone_id_and_word2ph();
     }
 

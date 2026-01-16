@@ -1,7 +1,7 @@
 use {
     crate::{
-        error::GSVError,
-        onnx_builder::create_onnx_cpu_session,
+        GSVError,
+        create_session,
         text::{BERT_TOKENIZER, DICT_MONO_CHARS, DICT_POLY_CHARS, argmax_2d},
     },
     ndarray::Array,
@@ -53,7 +53,7 @@ impl G2PW {
         let (model, tokenizers) = match g2pw_path {
             Some(path) => {
                 log::info!("G2PW model is loading...");
-                let model = create_onnx_cpu_session(path)?;
+                let model = create_session(path)?;
                 log::info!("G2PW model is loaded.");
                 let tokenizer = Tokenizer::from_str(BERT_TOKENIZER)
                     .map_err(|e| GSVError::InternalError(format!("Failed to create G2PW tokenizer: {}", e)))?;
