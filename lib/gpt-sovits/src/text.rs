@@ -6,120 +6,38 @@ mod phone_symbol;
 mod utils;
 mod zh;
 
-use {
-    crate::GSVError,
-    jieba_rs::Jieba,
-    log::{debug, warn},
-    ndarray::Array2,
-    regex::Regex,
-    std::sync::LazyLock,
-    unicode_segmentation::UnicodeSegmentation,
-};
-pub use {
-    bert::BertModel,
-    en::{EnSentence, EnWord, G2pEn},
-    num::{NumSentence, is_numeric},
-    phone_symbol::get_phone_symbol,
-    utils::{BERT_TOKENIZER, DICT_MONO_CHARS, DICT_POLY_CHARS, argmax_2d, str_is_chinese},
-    zh::{G2PW, G2PWOut, ZhMode, ZhSentence},
-};
+use crate::{GSVError, Result};
+use jieba_rs::Jieba;
+use ndarray::Array2;
+use regex::Regex;
+use std::sync::LazyLock;
+use unicode_segmentation::UnicodeSegmentation;
 
-/// Type alias for phone and BERT feature results
+pub use bert::BertModel;
+pub use en::{EnSentence, EnWord, G2pEn};
+pub use num::{NumSentence, is_numeric};
+pub use phone_symbol::get_phone_symbol;
+pub use utils::{BERT_TOKENIZER, DICT_MONO_CHARS, DICT_POLY_CHARS, argmax_2d, str_is_chinese};
+pub use zh::{G2PW, G2PWOut, ZhMode, ZhSentence};
+
 type PhoneAndBertResult = Vec<(String, Vec<i64>, Array2<f32>)>;
 
-// Regex to handle emojis and symbols
-static CLEANUP_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{27BF}\u{2000}-\u{206F}\u{2300}-\u{23FF}]+",
-    )
-    .expect("Failed to compile CLEANUP_REGEX")
-});
+const EMOJI_REGEX: &str = r"[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{27BF}\u{2000}-\u{206F}\u{2300}-\u{23FF}]+";
 
 // Simplified regex for tokenization
 static TOKEN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r#"(?x)
-        \p{Han}+ |              # Chinese characters
-        [a-zA-Z]+(?:['-][a-zA-Z]+)* | # English words with optional apostrophes/hyphens
-        \d+(?:\.\d+)? |          # Numbers (including decimals)
-        [.,!?;:()\[\]<>\-"$/\u{3001}\u{3002}\u{FF01}\u{FF1F}\u{FF1B}\u{FF1A}\u{FF0C}\u{2018}\u{2019}\u{201C}\u{201D}] | # Punctuation
-        \s+                      # Whitespace
+        \p{Han}+ |
+        [a-zA-Z]+(?:['-][a-zA-Z]+)* |
+        \d+(?:\.\d+)+ |  # Support version numbers with multiple decimal points like 1.12.3
+        \d+ |
+        [.,!?;:()\[\]<>\-"$/\u{3001}\u{3002}\u{FF01}\u{FF1F}\u{FF1B}\u{FF1A}\u{FF0C}\u{2018}\u{2019}\u{201C}\u{201D}] |
+        \s+
         "#,
     )
     .expect("Failed to compile TOKEN_REGEX")
 });
-
-/// Filters out emojis and other non-essential symbols from the text.
-fn cleanup_text(text: &str) -> String {
-    CLEANUP_REGEX.replace_all(text, " ").into_owned()
-}
-
-/// Helper to push trimmed non-empty text to items vector
-#[inline]
-fn push_trimmed_non_empty(items: &mut Vec<String>, text: &str) {
-    let trimmed = text.trim();
-    if !trimmed.is_empty() {
-        items.push(trimmed.to_string());
-    }
-}
-
-pub fn split_text(text: &str) -> Vec<String> {
-    let mut items = Vec::with_capacity(text.len() / 20);
-    let mut current = String::with_capacity(64);
-    let mut chars = text.chars().peekable();
-
-    while let Some(c) = chars.next() {
-        // Handle newlines separately - don't add them to current sentence
-        if c == '\n' || c == '\r' {
-            push_trimmed_non_empty(&mut items, &current);
-            current.clear();
-            continue;
-        }
-
-        current.push(c);
-
-        // Check if current character is end punctuation
-        let is_end_punctuation = matches!(c, '。' | '！' | '？' | '；' | '.' | '!' | '?' | ';');
-
-        if is_end_punctuation {
-            // Special handling for period (.)
-            if c == '.' {
-                if let Some(&next_char) = chars.peek() {
-                    // Case 1: Abbreviation like "Dr. Smith" - next char is space followed by uppercase
-                    if next_char == ' ' {
-                        let mut peek_iter = chars.clone();
-                        peek_iter.next(); // Skip the space
-                        if let Some(after_space) = peek_iter.next()
-                            && after_space.is_uppercase()
-                        {
-                            continue;
-                        }
-                    }
-
-                    // Case 2: Decimal number like "1.0版本" - next char is digit
-                    // Case 3: Abbreviation with lowercase letter following
-                    if next_char.is_ascii_digit() || next_char.is_lowercase() {
-                        continue;
-                    }
-                }
-            }
-            // For other punctuation, check if next character is lowercase letter
-            else if matches!(c, '!' | '?' | ';')
-                && matches!(chars.peek(), Some(&c) if c.is_lowercase())
-            {
-                continue;
-            }
-
-            push_trimmed_non_empty(&mut items, &current);
-            current.clear();
-        }
-    }
-
-    // Handle any remaining text
-    push_trimmed_non_empty(&mut items, &current);
-
-    items
-}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Lang {
@@ -141,7 +59,7 @@ pub trait SentenceProcessor {
 
 impl SentenceProcessor for EnSentence {
     fn get_text_for_bert(&self) -> String {
-        let mut result = String::with_capacity(self.text.len() * 10);
+        let mut result = String::new();
         for word in &self.text {
             match word {
                 EnWord::Word(w) => {
@@ -150,12 +68,9 @@ impl SentenceProcessor for EnSentence {
                     }
                     result.push_str(w);
                 }
-                EnWord::Punctuation(p) => {
-                    result.push_str(p);
-                }
+                EnWord::Punctuation(p) => result.push_str(p),
             }
         }
-        debug!("English BERT text: {}", result);
         result
     }
 
@@ -170,7 +85,6 @@ impl SentenceProcessor for EnSentence {
 
 impl SentenceProcessor for ZhSentence {
     fn get_text_for_bert(&self) -> String {
-        debug!("Chinese BERT text: {}", self.text);
         self.text.clone()
     }
 
@@ -190,8 +104,22 @@ pub struct TextProcessor {
     pub bert_model: BertModel,
 }
 
+#[derive(Debug)]
+struct SubSentenceData {
+    bert_text: String,
+    word2ph: Vec<i32>,
+    phone_ids: Vec<i64>,
+}
+
+#[derive(Default, Debug)]
+struct GroupedSentence {
+    text: String,
+    word2ph: Vec<i32>,
+    phone_ids: Vec<i64>,
+}
+
 impl TextProcessor {
-    pub fn new(g2pw: G2PW, g2p_en: G2pEn, bert_model: BertModel) -> Result<Self, GSVError> {
+    pub fn new(g2pw: G2PW, g2p_en: G2pEn, bert_model: BertModel) -> Result<Self> {
         Ok(Self {
             jieba: Jieba::new(),
             g2pw,
@@ -204,13 +132,14 @@ impl TextProcessor {
         &mut self,
         text: &str,
         lang_id: LangId,
-    ) -> Result<PhoneAndBertResult, GSVError> {
+    ) -> Result<PhoneAndBertResult> {
         if text.trim().is_empty() {
             return Err(GSVError::InputEmpty);
         }
 
-        let chunks = split_text(&cleanup_text(text));
-        let mut result = Vec::with_capacity(chunks.len());
+        let text = Regex::new(EMOJI_REGEX)?.replace_all(text, " ").into_owned();
+        let chunks = split_text(&text);
+        let mut result = vec![];
 
         for chunk in chunks.iter() {
             let mut phone_builder = PhoneBuilder::new(chunk);
@@ -221,14 +150,6 @@ impl TextProcessor {
                 .ends_with(['。', '.', '?', '？', '!', '！', '；', ';', '\n'])
             {
                 phone_builder.push_punctuation(".");
-            }
-
-            // --- A. Collect data for all sub-sentences in the chunk ---
-            #[derive(Debug)]
-            struct SubSentenceData {
-                bert_text: String,
-                word2ph: Vec<i32>,
-                phone_ids: Vec<i64>,
             }
 
             let sentence_count = phone_builder.sentences.len();
@@ -255,20 +176,11 @@ impl TextProcessor {
                         phone_ids: sentence.get_phone_ids().to_vec(),
                     });
                 } else if let Err(e) = g2p_result {
-                    warn!("G2P failed for a sentence part in chunk '{}': {}", chunk, e);
+                    log::warn!("G2P failed for a sentence part in chunk '{}': {}", chunk, e);
                 }
             }
 
-            // --- B. Group sub-sentences into logically complete sentences ---
-            #[derive(Default, Debug)]
-            struct GroupedSentence {
-                text: String,
-                word2ph: Vec<i32>,
-                phone_ids: Vec<i64>,
-            }
-
-            let group_count = sub_sentences_data.len() / 2 + 1;
-            let mut grouped_sentences: Vec<GroupedSentence> = Vec::with_capacity(group_count);
+            let mut grouped_sentences: Vec<GroupedSentence> = vec![];
             let mut current_group = GroupedSentence::default();
 
             for data in sub_sentences_data {
@@ -279,65 +191,37 @@ impl TextProcessor {
                 current_group.text.push_str(&data.bert_text);
                 current_group.word2ph.extend(data.word2ph);
                 current_group.phone_ids.extend(data.phone_ids);
+
                 if ends_sentence.is_some() {
                     grouped_sentences.push(current_group);
                     current_group = GroupedSentence::default()
                 }
             }
-            // Add any remaining part that didn't end with punctuation
+
             if !current_group.text.is_empty() {
                 grouped_sentences.push(current_group);
             }
 
-            // --- C. Process each complete sentence with BERT ---
             for group in grouped_sentences {
                 let total_expected_bert_len = group.phone_ids.len();
 
-                let bert_features = self
-                    .bert_model
-                    .get_bert(&group.text, &group.word2ph, total_expected_bert_len)?;
+                let bert_features = self.bert_model.get_bert(
+                    &group.text,
+                    &group.word2ph,
+                    total_expected_bert_len,
+                )?;
 
                 result.push((group.text, group.phone_ids, bert_features));
             }
         }
 
-        debug!("RESULT (total sentences: {})", result.len());
         if result.is_empty() {
             return Err(GSVError::GeneratePhonemesOrBertFeaturesFailed(
                 text.to_owned(),
             ));
         }
-        Ok(result)
-    }
-}
 
-fn parse_punctuation(p: &str) -> Option<&'static str> {
-    match p {
-        "，" | "," => Some(","),
-        "。" | "." => Some("."),
-        "！" | "!" => Some("!"),
-        "？" | "?" => Some("?"),
-        "；" | ";" => Some(";"),
-        "：" | ":" => Some(":"),
-        "'" => Some("'"),
-        "＇" => Some("'"),
-        "＂" => Some("\""),
-        "（" | "(" => Some("("),
-        "）" | ")" => Some(")"),
-        "【" | "[" => Some("["),
-        "】" | "]" => Some("]"),
-        "《" | "<" => Some("<"),
-        "》" | ">" => Some(">"),
-        "—" | "–" => Some("-"),
-        "～" | "~" => Some("~"),
-        "…" | "..." => Some("..."),
-        "·" => Some("·"),
-        "、" => Some("、"),
-        "$" => Some("$"),
-        "/" => Some("/"),
-        "\n" => Some("\n"),
-        " " => Some(" "),
-        _ => None,
+        Ok(result)
     }
 }
 
@@ -384,7 +268,6 @@ impl PhoneBuilder {
         }
     }
 
-    /// Helper to process numeric tokens and convert them to language-specific text
     fn process_numeric_token(&mut self, token: &str) {
         let ns = NumSentence {
             text: token.to_owned(),
@@ -393,7 +276,7 @@ impl PhoneBuilder {
         let txt = match ns.to_lang_text() {
             Ok(txt) => txt,
             Err(e) => {
-                warn!("Failed to process numeric token '{}': {}", token, e);
+                log::warn!("Failed to process numeric token '{}': {}", token, e);
                 token.to_string()
             }
         };
@@ -403,7 +286,6 @@ impl PhoneBuilder {
         }
     }
 
-    /// Helper to process a single token (word, number, or punctuation)
     fn process_token(&mut self, token: &str) {
         if let Some(p) = parse_punctuation(token) {
             self.push_punctuation(p);
@@ -427,7 +309,6 @@ impl PhoneBuilder {
         };
 
         for t in tokens {
-            // First, try to process the token directly
             if let Some(p) = parse_punctuation(t) {
                 self.push_punctuation(p);
                 continue;
@@ -471,9 +352,7 @@ impl PhoneBuilder {
     }
 
     fn push_en_word(&mut self, word: &str) {
-        // Create word variant once to avoid repeated to_string() calls
         let word_variant = EnWord::Word(word.to_string());
-
         if word.ends_with(['。', '.', '?', '？', '!', '！', '；', ';', '\n']) {
             self.sentences.push(Sentence::En(EnSentence::new_with_word(
                 word_variant.clone(),
@@ -483,7 +362,6 @@ impl PhoneBuilder {
 
         match self.sentences.last_mut() {
             Some(Sentence::En(en)) => {
-                // Handle contraction merging: if last token is ' or -, append to previous word
                 if let Some(&EnWord::Punctuation(p)) = en.text.last()
                     && (p == "'" || p == "-")
                     && let Some(EnWord::Punctuation(p_str)) = en.text.pop()
@@ -502,57 +380,113 @@ impl PhoneBuilder {
         }
     }
 
-    fn push_zh_word(&mut self, word: &str) {
-        fn add_zh_word(zh: &mut ZhSentence, word: &str) {
-            zh.text.push_str(word);
-            match dict::zh_word_dict(word) {
-                Some(phones) => {
-                    zh.phones
-                        .extend(phones.iter().map(|p| G2PWOut::Pinyin(p.clone())));
-                }
-                None => {
-                    zh.phones
-                        .extend(word.chars().map(|_| G2PWOut::Pinyin(String::new())));
-                }
+    fn add_zh_word(zh: &mut ZhSentence, word: &str) {
+        zh.text.push_str(word);
+        match dict::zh_word_dict(word) {
+            Some(phones) => {
+                zh.phones
+                    .extend(phones.iter().map(|p| G2PWOut::Pinyin(p.clone())));
+            }
+            None => {
+                zh.phones
+                    .extend(word.chars().map(|_| G2PWOut::Pinyin(String::new())));
             }
         }
+    }
 
+    fn push_zh_word(&mut self, word: &str) {
         if word.ends_with(['。', '.', '?', '？', '!', '！', '；', ';', '\n']) {
             self.sentences.push(Sentence::Zh(ZhSentence::new()));
         }
 
         match self.sentences.last_mut() {
-            Some(Sentence::Zh(zh)) => add_zh_word(zh, word),
+            Some(Sentence::Zh(zh)) => Self::add_zh_word(zh, word),
             _ => {
                 let mut zh = ZhSentence::new();
-                add_zh_word(&mut zh, word);
+                Self::add_zh_word(&mut zh, word);
                 self.sentences.push(Sentence::Zh(zh));
             }
         }
     }
 }
 
-/// Detects the dominant language of a sentence based on character distribution.
+fn split_text(text: &str) -> Vec<String> {
+    let mut items = vec![];
+    let mut current = String::new();
+    let mut chars = text.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '\n' || c == '\r' {
+            if !current.trim().is_empty() {
+                items.push(current.trim().to_string());
+            }
+            current.clear();
+            continue;
+        }
+
+        current.push(c);
+
+        if matches!(c, '。' | '！' | '？' | '；' | '.' | '!' | '?' | ';') {
+            if c == '.'
+                && let Some(&next_char) = chars.peek()
+                && next_char.is_ascii_digit()
+            {
+                continue;
+            }
+
+            if !current.trim().is_empty() {
+                items.push(current.trim().to_string());
+            }
+
+            current.clear();
+        }
+    }
+
+    if !current.trim().is_empty() {
+        items.push(current.trim().to_string());
+    }
+
+    items
+}
+
 fn detect_sentence_language(text: &str) -> Lang {
     let graphemes: Vec<_> = text.graphemes(true).collect();
     if graphemes.is_empty() {
-        return Lang::Zh; // Default to Chinese for empty input
+        return Lang::Zh;
     }
 
     let zh_count = graphemes.iter().filter(|g| str_is_chinese(g)).count();
     let zh_percent = zh_count as f32 / graphemes.len() as f32;
 
-    debug!("chinese percent {}", zh_percent);
     if zh_percent > 0.3 { Lang::Zh } else { Lang::En }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_split_text() {
-        assert_eq!(split_text("Dr. Smith"), ["Dr. Smith"]);
-        assert_eq!(split_text("1.0版本"), ["1.0版本"]);
+fn parse_punctuation(p: &str) -> Option<&'static str> {
+    match p {
+        "，" | "," => Some(","),
+        "。" | "." => Some("."),
+        "！" | "!" => Some("!"),
+        "？" | "?" => Some("?"),
+        "；" | ";" => Some(";"),
+        "：" | ":" => Some(":"),
+        "'" => Some("'"),
+        "＇" => Some("'"),
+        "＂" => Some("\""),
+        "（" | "(" => Some("("),
+        "）" | ")" => Some(")"),
+        "【" | "[" => Some("["),
+        "】" | "]" => Some("]"),
+        "《" | "<" => Some("<"),
+        "》" | ">" => Some(">"),
+        "—" | "–" => Some("-"),
+        "～" | "~" => Some("~"),
+        "…" | "..." => Some("..."),
+        "·" => Some("·"),
+        "、" => Some("、"),
+        "$" => Some("$"),
+        "/" => Some("/"),
+        "\n" => Some("\n"),
+        " " => Some(" "),
+        _ => None,
     }
 }

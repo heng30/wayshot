@@ -2,11 +2,11 @@ alpha = { 'a'..'z' | 'A'..'Z' }
 greek = { 'α'..'ω' | 'Α'..'Ω' }
 digit = { '0'..'9' }
 pn =  { "+"|"-"|"*"|"×"|"÷"|"="|"/" }
-link = {"-"|":"|"."|"_"}
+link = {"-"|":"|"_"}
 
 flag = {"-"}
 integer = { (digit)+ }
-decimals = { integer? ~ "." ~ integer | integer ~ "." }
+decimals = { integer ~ ("." ~ integer)+ }
 fractional = { integer ~ "/" ~ integer }
 percent = { (decimals|integer)~"%" }
 

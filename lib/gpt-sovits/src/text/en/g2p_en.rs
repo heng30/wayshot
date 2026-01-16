@@ -146,23 +146,55 @@ impl G2pEn {
 
     #[inline]
     fn fallback_to_arpabet(&self, text: &str) -> Result<Vec<String>, GSVError> {
-        let words: Vec<_> = text.split_whitespace().collect();
-        let mut result = Vec::with_capacity(words.len() * 2);
+        // First, try to split by hyphens to handle compound words like "cross-platform"
+        let hyphen_parts: Vec<&str> = text.split('-').collect();
 
-        for word in words {
-            if let Some(phones) = self.arpabet.get_polyphone_str(word) {
-                result.extend(phones.iter().map(|&s| s.to_string()));
-            } else {
-                for c in word.chars() {
-                    let c_str = c.to_string();
-                    if let Some(phones) = self.arpabet.get_polyphone_str(&c_str) {
+        if hyphen_parts.len() > 1 {
+            // Handle compound word: process each part separately
+            let mut result = Vec::new();
+            for (i, part) in hyphen_parts.iter().enumerate() {
+                if !part.is_empty() {
+                    // Process each part
+                    if let Some(phones) = self.arpabet.get_polyphone_str(part) {
                         result.extend(phones.iter().map(|&s| s.to_string()));
                     } else {
-                        result.push(c_str);
+                        // Fallback to character-by-character for this part
+                        for c in part.chars() {
+                            let c_str = c.to_string();
+                            if let Some(phones) = self.arpabet.get_polyphone_str(&c_str) {
+                                result.extend(phones.iter().map(|&s| s.to_string()));
+                            } else {
+                                result.push(c_str);
+                            }
+                        }
+                    }
+                }
+                // Add hyphen between parts (except after the last part)
+                if i < hyphen_parts.len() - 1 && !hyphen_parts[i + 1].is_empty() {
+                    result.push("-".to_string());
+                }
+            }
+            Ok(result)
+        } else {
+            // Original logic for non-hyphenated words
+            let words: Vec<_> = text.split_whitespace().collect();
+            let mut result = Vec::with_capacity(words.len() * 2);
+
+            for word in words {
+                if let Some(phones) = self.arpabet.get_polyphone_str(word) {
+                    result.extend(phones.iter().map(|&s| s.to_string()));
+                } else {
+                    for c in word.chars() {
+                        let c_str = c.to_string();
+                        if let Some(phones) = self.arpabet.get_polyphone_str(&c_str) {
+                            result.extend(phones.iter().map(|&s| s.to_string()));
+                        } else {
+                            result.push(c_str);
+                        }
                     }
                 }
             }
+            Ok(result)
         }
-        Ok(result)
     }
 }

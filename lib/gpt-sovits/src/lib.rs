@@ -49,6 +49,9 @@ pub enum GSVError {
     #[error(transparent)]
     SystemTime(#[from] std::time::SystemTimeError),
 
+    #[error(transparent)]
+    RegexError(#[from] regex::Error),
+
     #[error("unknown rule 'all': {0:?}")]
     UnknownRuleAll(String),
 

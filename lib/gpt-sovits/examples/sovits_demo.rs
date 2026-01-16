@@ -9,7 +9,7 @@ use hound::{WavSpec, WavWriter};
 use rodio::{OutputStreamBuilder, Sink, buffer::SamplesBuffer};
 use std::path::Path;
 
-const TEXT: &str = "你好呀，我们是一群追逐梦想的人。1.0版本什么时候发布？Reference audio too short, must be at least 0.5 seconds. 随着时间推移，两者的代码库已大幅分化，XNNPACK的API也不再与QNNPACK兼容。面向移动端、服务器及Web的高效浮点神经网络推理算子。";
+const TEXT: &str = "Liquid 模板语言是一种开源的、安全的模板语言。最新版本为1.12.3。最初由 Shopify 用 Ruby 3.2 编写并广泛用于其电子商务平台。它的核心设计理念是将业务逻辑与展示层分离，允许非开发者（如设计师、内容管理者）安全地修改界面而不影响后端代码。\nThis is a cross-platform library for interacting with the clipboard. It allows to copy and paste both text and image data in a platform independent way on Linux, Mac, and Windows.";
 
 async fn synth<P>(
     tts: &mut GptSoVitsModel,
@@ -57,7 +57,8 @@ where
     while let Some(item) = stream.next().await {
         let audio_chunk = item?;
         let chunk_len = audio_chunk.len();
-        println!("Received chunk: {} samples", chunk_len);
+
+        log::info!("Received chunk: {} samples", chunk_len);
 
         player.append(SamplesBuffer::new(
             OUTPUT_AUDIO_CHANNEL,
@@ -95,9 +96,7 @@ where
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
 
-    let data_dir = Path::new("data");
-    let output_dir = Path::new("tmp");
-    let assets_dir = Path::new("assets");
+    let model_dir = Path::new("model");
 
     let output_stream = OutputStreamBuilder::from_default_device()?.open_stream()?;
     let player = Sink::connect_new(output_stream.mixer());
@@ -105,50 +104,44 @@ async fn main() -> anyhow::Result<()> {
     player.play();
 
     let config = GptSoVitsModelConfig::default()
-        .with_sovits_path(assets_dir.join("custom_vits.onnx"))
-        .with_ssl_path(assets_dir.join("ssl.onnx"))
-        .with_t2s_encoder_path(assets_dir.join("custom_t2s_encoder.onnx"))
-        .with_t2s_fs_decoder_path(assets_dir.join("custom_t2s_fs_decoder.onnx"))
-        .with_t2s_s_decoder_path(assets_dir.join("custom_t2s_s_decoder.onnx"))
-        .with_bert_path(Some(assets_dir.join("bert.onnx")))
-        .with_g2pw_path(Some(assets_dir.join("g2pW.onnx")))
-        .with_g2p_en_path(Some(assets_dir.join("g2p_en")));
+        .with_sovits_path(model_dir.join("custom_vits.onnx"))
+        .with_ssl_path(model_dir.join("ssl.onnx"))
+        .with_t2s_encoder_path(model_dir.join("custom_t2s_encoder.onnx"))
+        .with_t2s_fs_decoder_path(model_dir.join("custom_t2s_fs_decoder.onnx"))
+        .with_t2s_s_decoder_path(model_dir.join("custom_t2s_s_decoder.onnx"))
+        .with_bert_path(Some(model_dir.join("bert.onnx")))
+        .with_g2pw_path(Some(model_dir.join("g2pW.onnx")))
+        .with_g2p_en_path(Some(model_dir.join("g2p_en")));
 
     let mut tts = GptSoVitsModel::new(config)?;
 
-    synth(
-        &mut tts,
-        data_dir.join("me.wav"),
-        "这里是这个库支持的编解码器",
-        TEXT,
-        &player,
-        Some(output_dir.join("output.wav")),
-    )
-    .await?;
-    // synth(
-    //     &mut tts,
-    //     assets_dir.join("bajie.mp3"),
-    //     "看你得意地，一听说炸妖怪，就跟见你外公似的你看！",
-    //     text,
-    //     &player,
-    // )
-    // .await?;
-    // synth(
-    //     &mut tts,
-    //     assets_dir.join("ref.wav"),
-    //     "格式化，可以给自家的奶带来大量的。",
-    //     text,
-    //     &player,
-    // )
-    // .await?;
-    // synth(
-    //     &mut tts,
-    //     assets_dir.join("hello_in_cn.mp3"),
-    //     "你好啊，我是智能语音助手。",
-    //     text,
-    //     &player,
-    // )
-    // .await?;
+    let items = vec![
+        ("ai.mp3", "你好啊，我是智能语音助手。"),
+        // ("foo.wav", "情况不妙啊，脖子是相当粗了。"),
+        // (
+        //     "bajie.mp3",
+        //     "看你得意地，一听说炸妖怪，就跟见你外公似的你看！",
+        // ),
+    ];
+
+    for item in items {
+        let name = item.0.split('.').into_iter().next().unwrap();
+
+        synth(
+            &mut tts,
+            Path::new("data").join(item.0),
+            item.1,
+            TEXT,
+            &player,
+            Some(
+                Path::new("tmp")
+                    .join(format!("output-{name}"))
+                    .with_extension("wav"),
+            ),
+        )
+        .await?;
+    }
+
     player.sleep_until_end();
 
     Ok(())
