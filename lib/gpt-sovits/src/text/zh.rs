@@ -3,14 +3,10 @@ mod jyutping_list;
 mod split;
 mod yue;
 
-use {
-    crate::text::get_phone_symbol,
-    log::{debug, warn},
-};
-pub use {
-    g2pw::{G2PW, G2PWOut},
-    split::split_zh_ph,
-};
+use crate::text::get_phone_symbol;
+
+pub use g2pw::{G2PW, G2PWOut};
+pub use split::split_zh_ph;
 
 #[derive(Debug)]
 pub enum ZhMode {
@@ -27,7 +23,6 @@ pub struct ZhSentence {
 }
 
 impl ZhSentence {
-    /// Creates a new ZhSentence with pre-allocated capacity
     pub fn new() -> Self {
         Self {
             phone_ids: Vec::with_capacity(16),
@@ -37,7 +32,6 @@ impl ZhSentence {
         }
     }
 
-    /// Processes Chinese text into phonemes and phone IDs based on the specified mode.
     pub fn g2p(&mut self, g2pw: &mut G2PW, mode: ZhMode) {
         match mode {
             ZhMode::Mandarin => self.g2p_mandarin(g2pw),
@@ -45,37 +39,29 @@ impl ZhSentence {
         }
     }
 
-    /// Processes Mandarin text using the G2PW model.
     fn g2p_mandarin(&mut self, g2pw: &mut G2PW) {
         let pinyin = g2pw.g2p(&self.text);
         let text_len = self.text.chars().count();
         if pinyin.len() != text_len && !self.text.is_empty() {
-            warn!(
+            log::warn!(
                 "Pinyin length mismatch: {} (pinyin) vs {} (text chars) for text '{}'",
-                pinyin.len(), text_len, self.text
+                pinyin.len(),
+                text_len,
+                self.text
             );
         }
         self.phones = pinyin;
         self.build_phone_id_and_word2ph();
     }
 
-    /// Processes Cantonese text using the yue module.
     fn g2p_cantonese(&mut self) {
         let (pinyin, word2ph) = yue::g2p(&self.text);
-        debug!("pinyin: {:?}", pinyin);
         self.phones = Vec::from_iter(pinyin.into_iter().map(G2PWOut::Yue));
         self.build_phone_id_and_word2ph();
         self.word2ph = word2ph;
     }
 
-    /// Converts phonemes to phone IDs and generates word-to-phoneme mapping.
     fn build_phone_id_and_word2ph(&mut self) {
-        let phone_count = self.phones.len();
-        self.phone_ids.clear();
-        self.phone_ids.reserve(phone_count * 2);
-        self.word2ph.clear();
-        self.word2ph.reserve(phone_count);
-
         for p in &self.phones {
             match p {
                 G2PWOut::Pinyin(p) => {
@@ -98,6 +84,9 @@ impl ZhSentence {
                 }
             }
         }
-        debug!("phone_id {:?}", self.phone_ids);
+
+        log::debug!("ZhSentence phones: {:?}", self.phones);
+        log::debug!("ZhSentence phone_ids: {:?}", self.phone_ids);
+        log::debug!("ZhSentence word2ph: {:?}", self.word2ph);
     }
 }

@@ -13,10 +13,10 @@ pub struct MonoChar {
     pub phone: String,
 }
 
-pub static MONO_CHARS_DIST_STR: &str = include_str!("dict_mono_chars.json");
-pub static POLY_CHARS_DIST_STR: &str = include_str!("dict_poly_chars.json");
-pub static DEFAULT_ZH_WORD_DICT: &str = include_str!("zh_word_dict.json");
-pub static BERT_TOKENIZER: &str = include_str!("g2pw_tokenizer.json");
+pub static MONO_CHARS_DIST_STR: &str = include_str!("../../assert/dict_mono_chars.json");
+pub static POLY_CHARS_DIST_STR: &str = include_str!("../../assert/dict_poly_chars.json");
+pub static DEFAULT_ZH_WORD_DICT: &str = include_str!("../../assert/zh_word_dict.json");
+pub static BERT_TOKENIZER: &str = include_str!("../../assert/g2pw_tokenizer.json");
 
 /// Helper to load dictionary content from file or default
 fn load_dict_content(filename: &str, default_content: &str) -> String {

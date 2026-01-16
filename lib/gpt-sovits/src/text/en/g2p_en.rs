@@ -8,7 +8,7 @@ use {
     tokenizers::Tokenizer,
 };
 
-static MINI_BART_G2P_TOKENIZER: &str = include_str!("tokenizer.mini-bart-g2p.json");
+static MINI_BART_G2P_TOKENIZER: &str = include_str!("../../../assert/tokenizer.mini-bart-g2p.json");
 
 const DECODER_START_TOKEN_ID: u32 = 2;
 const EOS_TOKEN_ID: u32 = 2;

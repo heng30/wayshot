@@ -15,7 +15,7 @@ use {
     tokenizers::Tokenizer,
 };
 
-pub static LABELS: &str = include_str!("dict_poly_index_list.json");
+pub static LABELS: &str = include_str!("../../../assert/dict_poly_index_list.json");
 
 pub static POLY_LABLES: LazyLock<Vec<String>> =
     LazyLock::new(|| {

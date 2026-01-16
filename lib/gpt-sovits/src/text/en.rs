@@ -36,16 +36,7 @@ impl EnSentence {
         ph.chars().any(|c| c.is_ascii_digit() && c <= '4')
     }
 
-    #[inline]
-    fn clear(&mut self) {
-        self.phones.clear();
-        self.phone_ids.clear();
-        self.word2ph.clear();
-    }
-
     pub fn g2p(&mut self, g2p_en: &mut G2pEn) -> Result<()> {
-        self.clear();
-
         for word in &self.text {
             match word {
                 EnWord::Word(w) => {

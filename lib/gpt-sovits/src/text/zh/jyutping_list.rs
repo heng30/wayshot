@@ -21,7 +21,7 @@ fn match_indices_by_chars(text: &str, pattern: &str) -> Vec<(usize, String)> {
 }
 
 fn load_dict() -> HashMap<String, Vec<String>> {
-    let content = include_str!("jyut6ping3.words.dict.yaml");
+    let content = include_str!("../../../assert/jyut6ping3.words.dict.yaml");
     // Split content at "..." to separate YAML metadata and word list
     let parts: Vec<&str> = content.split("...").collect();
 
@@ -70,7 +70,7 @@ fn load_dict() -> HashMap<String, Vec<String>> {
 fn load_data() -> HashMap<u32, String> {
     let mut toned = HashMap::new();
     let mut toneless = HashMap::new();
-    let contents = include_str!("jyutping_dictionary.json");
+    let contents = include_str!("../../../assert/jyutping_dictionary.json");
 
     let table: HashMap<String, String> =
         serde_json::from_str(contents).expect("Failed to parse JSON");
