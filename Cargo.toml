@@ -151,7 +151,7 @@ pmacro = { path = "lib/pmacro" }
 camera = { path = "lib/camera" }
 bytesio = { path = "lib/bytesio" }
 recorder = { path = "lib/recorder" }
-gpt-sovits = { path = "lib/gpt-sovits" }
+# gpt-sovits = { path = "lib/gpt-sovits" }
 downloader = { path = "lib/downloader" }
 mp4-player = { path = "lib/mp4-player" }
 image-effect = { path = "lib/image-effect" }

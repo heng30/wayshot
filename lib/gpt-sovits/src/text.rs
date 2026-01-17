@@ -143,8 +143,8 @@ impl TextProcessor {
 
         for chunk in chunks.iter() {
             let mut phone_builder = PhoneBuilder::new(chunk);
-            phone_builder.extend_text(&self.jieba, chunk);
 
+            phone_builder.extend_text(&self.jieba, chunk);
             if !chunk
                 .trim_end()
                 .ends_with(['。', '.', '?', '？', '!', '！', '；', ';', '\n'])

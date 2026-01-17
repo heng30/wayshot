@@ -83,6 +83,7 @@ pub struct GptSoVitsModel {
     t2s_s_decoder: Session,
     num_layers: usize,
     run_options: RunOptions,
+    last_sentence_end_tokens: Option<Vec<i64>>,
 }
 
 impl GptSoVitsModel {
@@ -102,6 +103,7 @@ impl GptSoVitsModel {
             t2s_s_decoder: create_session(config.t2s_s_decoder_path)?,
             num_layers: NUM_LAYERS,
             run_options: RunOptions::new()?,
+            last_sentence_end_tokens: None,
         })
     }
 
@@ -235,6 +237,11 @@ impl GptSoVitsModel {
                 if let Some(item) = logits.last_mut() {
                     *item = f32::NEG_INFINITY;
                 }
+
+                // Boost neutral token probability during first few steps for smoother start
+                if idx < 5 && !logits.is_empty() {
+                    logits[0] *= 1.3; // Token 0 is typically neutral/silent
+                }
             }
 
             y_vec.push(sampler.sample(&mut logits, &y_vec, &sampling_param));
@@ -320,16 +327,36 @@ impl GptSoVitsModel {
                 .into_owned()
         };
 
+        // Apply BERT smoothing from reference to text for smoother starts
+        let smoothed_bert = if let Some(ref _last_tokens) = self.last_sentence_end_tokens {
+            // Blend first text BERT feature with last reference BERT feature
+            let first_text_bert = text_bert.row(0);
+            let last_ref_bert = ref_data.ref_bert.row(ref_data.ref_bert.nrows() - 1);
+
+            // Create a small bridge by blending 80% text + 20% reference for first position
+            let mut smoothed = text_bert.clone();
+            if let Some(mut row) = smoothed.rows_mut().into_iter().next() {
+                for j in 0..row.len() {
+                    row[j] = first_text_bert[j] * 0.8 + last_ref_bert[j] * 0.2;
+                }
+            }
+            smoothed
+        } else {
+            text_bert.clone()
+        };
+
         let x = concatenate(Axis(1), &[ref_data.ref_seq.view(), text_seq.view()])?.to_owned();
         let bert = concatenate(
             Axis(1),
             &[
                 ref_data.ref_bert.clone().permuted_axes([1, 0]).view(),
-                text_bert.clone().permuted_axes([1, 0]).view(),
+                smoothed_bert.permuted_axes([1, 0]).view(),
             ],
         )?
         .insert_axis(Axis(0))
         .to_owned();
+
+        self.last_sentence_end_tokens = Some(text_seq_vec.to_vec());
 
         let (mut y_vec, _) = prompts.clone().into_raw_vec_and_offset();
         let prefix_len = y_vec.len();
@@ -398,7 +425,7 @@ impl GptSoVitsModel {
         let (audio, _) = output_audio.into_owned().into_raw_vec_and_offset();
         let audio: Vec<f32> = audio.into_iter().map(|s| s.clamp(-1.0, 1.0)).collect();
 
-        Ok(apply_fade_in_out(audio, Duration::from_millis(20)))
+        Ok(apply_fade_in_out(audio, Duration::from_millis(100)))
     }
 }
 

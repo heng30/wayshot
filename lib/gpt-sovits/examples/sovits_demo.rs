@@ -9,7 +9,7 @@ use hound::{WavSpec, WavWriter};
 use rodio::{OutputStreamBuilder, Sink, buffer::SamplesBuffer};
 use std::path::Path;
 
-const TEXT: &str = "Liquid 模板语言是一种开源的、安全的模板语言。最新版本为1.12.3。最初由 Shopify 用 Ruby 3.2 编写并广泛用于其电子商务平台。它的核心设计理念是将业务逻辑与展示层分离，允许非开发者（如设计师、内容管理者）安全地修改界面而不影响后端代码。\nThis is a cross-platform library for interacting with the clipboard. It allows to copy and paste both text and image data in a platform independent way on Linux, Mac, and Windows.";
+const TEXT: &str = "Liquid 模板语言是一种开源的、安全的模板语言。最新版本为1.12.3。最初由 Shopify 用 Ruby 3.2 编写，并广泛用于其电子商务平台。它的核心设计理念是将业务逻辑与展示层分离，允许非开发者（如设计师、内容管理者）安全地修改界面而不影响后端代码。\nThis is a cross-platform library for interacting with the clipboard. It allows to copy and paste both text and image data in a platform independent way on Linux, Mac, and Windows.";
 
 async fn synth<P>(
     tts: &mut GptSoVitsModel,
