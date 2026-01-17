@@ -122,6 +122,7 @@ async fn main() -> anyhow::Result<()> {
         //     "bajie.mp3",
         //     "看你得意地，一听说炸妖怪，就跟见你外公似的你看！",
         // ),
+        // ("xinwen.wav", "会议强调，开展知识产权综合管理改革试点。"),
     ];
 
     for item in items {

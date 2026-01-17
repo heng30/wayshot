@@ -1,6 +1,5 @@
 /target
 /model
-/data
 /tmp
 
 *.onnx
