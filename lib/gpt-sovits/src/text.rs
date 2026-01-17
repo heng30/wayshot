@@ -1,5 +1,4 @@
 mod bert;
-mod dict;
 mod en;
 mod num;
 mod phone_symbol;
@@ -17,14 +16,15 @@ pub use bert::BertModel;
 pub use en::{EnSentence, EnWord, G2pEn};
 pub use num::{NumSentence, is_numeric};
 pub use phone_symbol::get_phone_symbol;
-pub use utils::{BERT_TOKENIZER, DICT_MONO_CHARS, DICT_POLY_CHARS, argmax_2d, str_is_chinese};
+pub use utils::{
+    BERT_TOKENIZER, DICT_MONO_CHARS, DICT_POLY_CHARS, argmax_2d, str_is_chinese, zh_word_dict,
+};
 pub use zh::{G2PW, G2PWOut, ZhMode, ZhSentence};
 
 type PhoneAndBertResult = Vec<(String, Vec<i64>, Array2<f32>)>;
 
 const EMOJI_REGEX: &str = r"[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{27BF}\u{2000}-\u{206F}\u{2300}-\u{23FF}]+";
 
-// Simplified regex for tokenization
 static TOKEN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r#"(?x)
@@ -382,7 +382,7 @@ impl PhoneBuilder {
 
     fn add_zh_word(zh: &mut ZhSentence, word: &str) {
         zh.text.push_str(word);
-        match dict::zh_word_dict(word) {
+        match zh_word_dict(word) {
             Some(phones) => {
                 zh.phones
                     .extend(phones.iter().map(|p| G2PWOut::Pinyin(p.clone())));

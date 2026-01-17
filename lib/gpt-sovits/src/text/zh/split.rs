@@ -4,9 +4,7 @@ static CONSONANTS: &[char] = &[
     'w',
 ];
 
-// Optimized phoneme splitting function for Chinese
-// NOTE: This large match statement could be further optimized using a HashMap or a phf::Map
-// if performance profiling indicates it as a bottleneck.
+// phoneme splitting function for Chinese
 pub fn split_zh_ph(ph: &str) -> (&str, &str) {
     match ph {
         "a" => ("AA", "a5"),
@@ -287,9 +285,8 @@ pub fn split_zh_ph(ph: &str) -> (&str, &str) {
     }
 }
 
-// Helper function to split phonemes based on consonants
 #[inline]
-pub fn split_zh_ph_(ph: &str) -> (&str, &str) {
+fn split_zh_ph_(ph: &str) -> (&str, &str) {
     if ph.starts_with("zh") || ph.starts_with("ch") || ph.starts_with("sh") {
         ph.split_at(2)
     } else if ph.chars().next().is_some_and(|c| CONSONANTS.contains(&c)) {

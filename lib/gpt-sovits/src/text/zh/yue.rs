@@ -1,18 +1,21 @@
-use {crate::text::zh::jyutping_list::get_jyutping_list, log::debug, regex::Regex};
+use crate::text::zh::jyutping_list::get_jyutping_list;
+use regex::Regex;
 
+static PUNCTUATIONS: &str = ",.!?;:()[]{}'\"-…";
 const INITIALS: &[&str] = &[
     "aa", "aai", "aak", "aap", "aat", "aau", "ai", "au", "ap", "at", "ak", "a", "p", "b", "e",
     "ts", "t", "dz", "d", "kw", "k", "gw", "g", "f", "h", "l", "m", "ng", "n", "s", "y", "w", "c",
     "z", "j", "ong", "on", "ou", "oi", "ok", "o", "uk", "ung", "sp", "spl", "spn", "sil",
 ];
 
-static PUNCTUATIONS: &str = ",.!?;:()[]{}'\"-…";
+pub fn g2p(text: &str) -> (Vec<String>, Vec<i32>) {
+    let jyuping = get_jyutping(text);
+    jyuping_to_initials_finals_tones(jyuping)
+}
 
 fn get_jyutping(text: &str) -> Vec<String> {
     let punct_pattern = Regex::new(&format!(r"^[{}]+$", regex::escape(PUNCTUATIONS))).unwrap();
-
     let syllables = get_jyutping_list(text);
-    debug!("jyutping {:?}", syllables);
     let mut jyutping_array = Vec::with_capacity(syllables.len());
 
     for (word, syllable) in syllables {
@@ -35,13 +38,16 @@ fn jyuping_to_initials_finals_tones(jyuping_syllables: Vec<String>) -> (Vec<Stri
             phones.push(syllable.clone());
             word2ph.push(1);
         } else {
-            let (tone, syllable_without_tone) =
-                if let Some(last_char) = syllable.chars().last()
-                    && last_char.is_ascii_digit() {
-                    (last_char.to_digit(10).unwrap() as i32, &syllable[..syllable.len() - 1])
-                } else {
-                    (0, syllable.as_str())
-                };
+            let (tone, syllable_without_tone) = if let Some(last_char) = syllable.chars().last()
+                && last_char.is_ascii_digit()
+            {
+                (
+                    last_char.to_digit(10).unwrap() as i32,
+                    &syllable[..syllable.len() - 1],
+                )
+            } else {
+                (0, syllable.as_str())
+            };
 
             let mut found = false;
             for &initial in INITIALS {
@@ -77,12 +83,6 @@ fn jyuping_to_initials_finals_tones(jyuping_syllables: Vec<String>) -> (Vec<Stri
     }
 
     (phones, word2ph)
-}
-
-pub fn g2p(text: &str) -> (Vec<String>, Vec<i32>) {
-    let jyuping = get_jyutping(text);
-    debug!("jyuping {:?}", jyuping);
-    jyuping_to_initials_finals_tones(jyuping)
 }
 
 #[cfg(test)]

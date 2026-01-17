@@ -109,9 +109,10 @@ async fn main() -> anyhow::Result<()> {
         .with_t2s_encoder_path(model_dir.join("custom_t2s_encoder.onnx"))
         .with_t2s_fs_decoder_path(model_dir.join("custom_t2s_fs_decoder.onnx"))
         .with_t2s_s_decoder_path(model_dir.join("custom_t2s_s_decoder.onnx"))
-        .with_bert_path(Some(model_dir.join("bert.onnx")))
-        .with_g2pw_path(Some(model_dir.join("g2pW.onnx")))
-        .with_g2p_en_path(Some(model_dir.join("g2p_en")));
+        .with_bert_path(model_dir.join("bert.onnx"))
+        .with_g2pw_path(model_dir.join("g2pW.onnx"))
+        .with_g2p_en_encoder_path(model_dir.join("g2p_en").join("encoder_model.onnx"))
+        .with_g2p_en_decoder_path(model_dir.join("g2p_en").join("decoder_model.onnx"));
 
     let mut tts = GptSoVitsModel::new(config)?;
 

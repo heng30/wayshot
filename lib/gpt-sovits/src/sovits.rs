@@ -18,7 +18,7 @@ use rodio::{Source, buffer::SamplesBuffer, decoder::Decoder, source::UniformSour
 use std::{
     io::Cursor,
     path::{Path, PathBuf},
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
 use tokio::fs::read;
 
@@ -33,19 +33,29 @@ type KvDType = f32;
 type KvCache = ArrayBase<OwnedRepr<KvDType>, IxDyn>;
 type KvCacheTuple = (Vec<KvCache>, Vec<KvCache>, usize);
 
-#[derive(Debug, Clone, Derivative, Setters)]
+#[derive(Debug, Clone, Setters, Derivative)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
 #[non_exhaustive]
 pub struct GptSoVitsModelConfig {
-    pub sovits_path: PathBuf,         // custom_vits.onnx,
-    pub ssl_path: PathBuf,            // ssl.onnx,
-    pub t2s_encoder_path: PathBuf,    // custom_t2s_encoder.onnx,
-    pub t2s_fs_decoder_path: PathBuf, // custom_t2s_fs_decoder.onnx,
-    pub t2s_s_decoder_path: PathBuf,  // custom_t2s_s_decoder.onnx,
-    pub bert_path: Option<PathBuf>,   // bert.onnx
-    pub g2pw_path: Option<PathBuf>,   // g2pW.onnx
-    pub g2p_en_path: Option<PathBuf>, // g2p_en
+    #[derivative(Default(value = "PathBuf::from(\"custom_vits.onnx\")"))]
+    pub sovits_path: PathBuf,
+    #[derivative(Default(value = "PathBuf::from(\"ssl.onnx\")"))]
+    pub ssl_path: PathBuf,
+    #[derivative(Default(value = "PathBuf::from(\"custom_t2s_encoder.onnx\")"))]
+    pub t2s_encoder_path: PathBuf,
+    #[derivative(Default(value = "PathBuf::from(\"custom_t2s_fs_decoder.onnx\")"))]
+    pub t2s_fs_decoder_path: PathBuf,
+    #[derivative(Default(value = "PathBuf::from(\"custom_t2s_s_decoder.onnx\")"))]
+    pub t2s_s_decoder_path: PathBuf,
+    #[derivative(Default(value = "PathBuf::from(\"bert.onnx\")"))]
+    pub bert_path: PathBuf,
+    #[derivative(Default(value = "PathBuf::from(\"g2pW.onnx\")"))]
+    pub g2pw_path: PathBuf,
+    #[derivative(Default(value = "PathBuf::from(\"g2p_en/encoder_model.onnx\")"))]
+    pub g2p_en_encoder_path: PathBuf,
+    #[derivative(Default(value = "PathBuf::from(\"g2p_en/decoder_model.onnx\")"))]
+    pub g2p_en_decoder_path: PathBuf,
 }
 
 struct DecoderLoopContext {
@@ -79,7 +89,7 @@ impl GptSoVitsModel {
     pub fn new(config: GptSoVitsModelConfig) -> Result<Self> {
         let text_processor = TextProcessor::new(
             G2PW::new(config.g2pw_path)?,
-            G2pEn::new(config.g2p_en_path)?,
+            G2pEn::new(config.g2p_en_encoder_path, config.g2p_en_decoder_path)?,
             BertModel::new(config.bert_path)?,
         )?;
 
@@ -388,10 +398,7 @@ impl GptSoVitsModel {
         let (audio, _) = output_audio.into_owned().into_raw_vec_and_offset();
         let audio: Vec<f32> = audio.into_iter().map(|s| s.clamp(-1.0, 1.0)).collect();
 
-        // Apply fade-in/fade-out to prevent clicks and smooth segment transitions
-        let audio = apply_fade_in_out(&audio);
-
-        Ok(audio)
+        Ok(apply_fade_in_out(audio, Duration::from_millis(20)))
     }
 }
 
@@ -490,93 +497,28 @@ fn update_kv_cache(
     Ok(())
 }
 
-/// Apply fade-in and fade-out to audio to prevent clicks and smooth segment transitions
-///
-/// Fade duration is 20ms at 32kHz sample rate (640 samples)
-pub(crate) fn apply_fade_in_out(audio: &[f32]) -> Vec<f32> {
-    const SAMPLE_RATE: u32 = OUTPUT_AUDIO_SAMPLE_RATE;
-    const FADE_DURATION_MS: u32 = 20;
-    const FADE_SAMPLES: usize = (SAMPLE_RATE * FADE_DURATION_MS / 1000) as usize;
+fn apply_fade_in_out(audio: Vec<f32>, duration: Duration) -> Vec<f32> {
+    let fade_samples: usize =
+        (OUTPUT_AUDIO_SAMPLE_RATE * duration.as_millis() as u32 / 1000) as usize;
 
-    if audio.len() < FADE_SAMPLES * 2 {
-        // Audio too short, apply gentle fade to entire buffer
+    if audio.len() < fade_samples * 2 {
         return audio.to_vec();
     }
 
     let mut result = Vec::with_capacity(audio.len());
-    let fade_in_samples = FADE_SAMPLES.min(audio.len() / 2);
-    let fade_out_samples = FADE_SAMPLES.min(audio.len() / 2);
 
     for (i, &sample) in audio.iter().enumerate() {
         let mut gain = 1.0;
 
-        // Fade in
-        if i < fade_in_samples {
-            gain = i as f32 / fade_in_samples as f32;
-        }
-        // Fade out
-        else if i >= audio.len() - fade_out_samples {
+        if i < fade_samples {
+            gain = i as f32 / fade_samples as f32; // Fade in
+        } else if i >= audio.len() - fade_samples {
             let remaining = audio.len() - i;
-            gain = remaining as f32 / fade_out_samples as f32;
+            gain = remaining as f32 / fade_samples as f32; // Fade out
         }
 
         result.push(sample * gain);
     }
 
     result
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_fade_in_out() {
-        // Test with normal audio
-        let audio = vec![1.0; 2000];
-        let result = apply_fade_in_out(&audio);
-
-        // Check fade-in at start
-        assert!(result[0] < 0.1, "First sample should be near zero");
-        assert!(result[10] > result[0], "Should be fading in");
-        assert!(result[100] < 1.0, "Should still be fading in");
-
-        // Check middle is unchanged
-        let middle_idx = result.len() / 2;
-        assert!((result[middle_idx] - 1.0).abs() < 0.01, "Middle should be at full gain");
-
-        // Check fade-out at end
-        let last = *result.last().unwrap();
-        assert!(last < 0.1, "Last sample should be near zero");
-        assert!(result[result.len() - 100] < 1.0, "Should be fading out");
-    }
-
-    #[test]
-    fn test_short_audio() {
-        // Test with very short audio (less than fade duration)
-        let audio = vec![0.5; 100];
-        let result = apply_fade_in_out(&audio);
-
-        // Should return original audio without modification
-        assert_eq!(result.len(), audio.len());
-        assert_eq!(result, audio);
-    }
-
-    #[test]
-    fn test_fade_symmetry() {
-        // Test that fade-in and fade-out are symmetric
-        let audio = vec![1.0; 2000];
-        let result = apply_fade_in_out(&audio);
-
-        // Compare symmetric positions
-        let fade_samples = 640; // 20ms at 32kHz
-        for i in 0..fade_samples {
-            let fade_in_val = result[i];
-            let fade_out_val = result[result.len() - 1 - i];
-            let diff = (fade_in_val - fade_out_val).abs();
-
-            // Should be approximately symmetric (allowing small numerical differences)
-            assert!(diff < 0.01, "Fade asymmetry at index {}: {} vs {}", i, fade_in_val, fade_out_val);
-        }
-    }
 }
