@@ -1,0 +1,38 @@
+[package]
+name = "fun-ast-nano"
+license = "Apache-2.0"
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[dependencies]
+log.workspace = true
+rand.workspace = true
+hound.workspace = true
+rayon.workspace = true
+realfft.workspace = true
+candle-nn.workspace = true
+thiserror.workspace = true
+serde_json.workspace = true
+derivative.workspace = true
+serde_yaml.workspace = true
+tokenizers.workspace = true
+candle-core.workspace = true
+tensor-utils.workspace = true
+derive_setters.workspace = true
+candle-transformers.workspace = true
+serde = { workspace = true, features = ["derive"] }
+audio-utils = { workspace = true, features = ["extraction"] }
+
+[dev-dependencies]
+anyhow.workspace = true
+env_logger.workspace = true
+
+[features]
+cuda = ["candle-nn/cuda", "candle-core/cuda", "candle-transformers/cuda"]
+metal = ["candle-nn/metal", "candle-core/metal", "candle-transformers/metal"]

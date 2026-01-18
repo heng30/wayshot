@@ -56,8 +56,14 @@ fast_image_resize.workspace = true
 background-remover.workspace = true
 rodio = { workspace = true, features = ["playback"] }
 
+[target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
+fun-ast-nano.workspace = true
+
 [target.'cfg(target_os = "linux")'.dependencies]
 duct.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+fun-ast-nano = { workspace = true, features = ["metal"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger.workspace = true
