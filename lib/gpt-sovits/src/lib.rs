@@ -4,6 +4,7 @@ mod sovits;
 mod text;
 
 pub use futures::{Stream, StreamExt};
+pub use model::Model;
 pub use sampler::*;
 pub use sovits::*;
 pub use text::*;

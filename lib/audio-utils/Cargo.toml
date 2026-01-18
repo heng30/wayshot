@@ -13,6 +13,8 @@ description.workspace = true
 [dependencies]
 log.workspace = true
 thiserror.workspace = true
+derivative.workspace = true
+derive_setters.workspace = true
 rayon = { workspace = true, optional = true }
 realfft = { workspace = true, optional = true }
 candle-core = { workspace = true, optional = true }

@@ -1,14 +1,14 @@
-#[derive(Clone, Copy, Debug)]
-pub enum Model {
-    Modnet,
-    Rmbg14,
-}
-
 const RMBG14_FILENAME: &str = "rmbg-1.4.onnx";
 const MODNET_FILENAME: &str = "modnet_photographic_portrait_matting.onnx";
 
 const RMBG14_URL: &str = "https://huggingface.co/briaai/RMBG-1.4/resolve/main/onnx/model.onnx";
 const MODNET_URL: &str = "https://huggingface.co/TheEeeeLin/HivisionIDPhotos_matting/resolve/034769305faf641ad94edfac654aba13be06e816/modnet_photographic_portrait_matting.onnx";
+
+#[derive(Clone, Copy, Debug)]
+pub enum Model {
+    Modnet,
+    Rmbg14,
+}
 
 impl Model {
     pub fn all_models() -> Vec<Self> {

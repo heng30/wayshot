@@ -52,9 +52,9 @@ pub struct GptSoVitsModelConfig {
     pub bert_path: PathBuf,
     #[derivative(Default(value = "PathBuf::from(\"g2pW.onnx\")"))]
     pub g2pw_path: PathBuf,
-    #[derivative(Default(value = "PathBuf::from(\"g2p_en/encoder_model.onnx\")"))]
+    #[derivative(Default(value = "PathBuf::from(\"g2p_en_encoder_model.onnx\")"))]
     pub g2p_en_encoder_path: PathBuf,
-    #[derivative(Default(value = "PathBuf::from(\"g2p_en/decoder_model.onnx\")"))]
+    #[derivative(Default(value = "PathBuf::from(\"g2p_en_decoder_model.onnx\")"))]
     pub g2p_en_decoder_path: PathBuf,
 }
 

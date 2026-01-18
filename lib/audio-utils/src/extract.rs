@@ -1,12 +1,7 @@
-// Audio feature extraction utilities for FunASR
-// These functions are specific to FunASR's feature extraction pipeline
-
-use crate::AudioProcessError;
-use crate::Result;
+use crate::{AudioProcessError, Result};
 use candle_core::{D, DType, Device, IndexOp, Tensor};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use realfft::RealFftPlanner;
-
 use tensor_utils::pad_replicate_last_dim;
 
 /// Mel frequency scale type

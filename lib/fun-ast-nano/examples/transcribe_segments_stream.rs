@@ -17,7 +17,8 @@ fn main() -> anyhow::Result<()> {
         .with_tokenizer_path(format!("{}/Qwen3-0.6B", model_dir));
 
     // Audio file path
-    let audio_path = "./data/65s.wav";
+    // let audio_path = "./data/65s.wav";
+    let audio_path = "./data/long.wav";
 
     println!("Loading model...");
     let mut model = FunAsrNanoGenerateModel::init(config, None, None)?;
@@ -27,13 +28,9 @@ fn main() -> anyhow::Result<()> {
     println!("{}", separator);
 
     // Configure VAD parameters
-    let vad_config = VadConfig {
-        sample_rate: 0,               // Will be auto-detected from audio
-        min_speech_duration_ms: 250,  // Minimum speech segment: 250ms
-        min_silence_duration_ms: 500, // Split on silence: 500ms
-        speech_threshold: 0.01,       // Energy threshold (0.0 - 1.0)
-        window_size_ms: 30,           // Analysis window: 30ms
-    };
+    let vad_config = VadConfig::default()
+        .with_min_speech_duration_ms(250) // Minimum speech segment: 250ms
+        .with_min_silence_duration_ms(500); // Split on silence: 500ms
 
     let request = fun_ast_nano::TranscriptionRequest::default()
         .with_audio_path(audio_path.to_string())

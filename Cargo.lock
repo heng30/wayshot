@@ -786,6 +786,8 @@ name = "audio-utils"
 version = "0.1.0"
 dependencies = [
  "candle-core",
+ "derivative",
+ "derive_setters",
  "log",
  "rayon",
  "realfft",
@@ -4326,6 +4328,8 @@ dependencies = [
  "rodio",
  "serde",
  "serde_json",
+ "strum",
+ "strum_macros",
  "thiserror 2.0.17",
  "tokenizers",
  "tokio",

@@ -1,5 +1,5 @@
-/// Simple Voice Activity Detection (VAD) based on energy
-/// Detects speech segments and splits audio into sentences
+use derivative::Derivative;
+use derive_setters::Setters;
 
 #[derive(Debug, Clone)]
 pub struct AudioSegment {
@@ -8,34 +8,30 @@ pub struct AudioSegment {
     pub audio_data: Vec<f32>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Derivative, Setters)]
+#[derivative(Default)]
+#[setters(prefix = "with_")]
+#[non_exhaustive]
 pub struct VadConfig {
-    /// Sample rate of audio
+    #[derivative(Default(value = "16_000"))]
     pub sample_rate: u32,
-    /// Minimum speech duration in milliseconds
+
+    #[derivative(Default(value = "250"))]
     pub min_speech_duration_ms: u32,
-    /// Minimum silence duration in milliseconds to split segments
+
+    #[derivative(Default(value = "300"))]
     pub min_silence_duration_ms: u32,
-    /// Energy threshold for speech detection (0.0 - 1.0)
-    /// Lower = more sensitive, Higher = less sensitive
+
+    // Energy threshold for speech detection (0.0 - 1.0)
+    // Lower = more sensitive, Higher = less sensitive
+    #[derivative(Default(value = "0.01"))]
     pub speech_threshold: f32,
-    /// Window size in milliseconds for energy calculation
+
+    // Window size in milliseconds for energy calculation
+    #[derivative(Default(value = "30"))]
     pub window_size_ms: u32,
 }
 
-impl Default for VadConfig {
-    fn default() -> Self {
-        Self {
-            sample_rate: 16000,
-            min_speech_duration_ms: 250,
-            min_silence_duration_ms: 300,
-            speech_threshold: 0.01,
-            window_size_ms: 30,
-        }
-    }
-}
-
-/// Detect speech segments in audio using energy-based VAD
 pub fn detect_speech_segments(audio_data: &[f32], config: &VadConfig) -> Vec<AudioSegment> {
     if audio_data.is_empty() {
         return Vec::new();
@@ -43,17 +39,19 @@ pub fn detect_speech_segments(audio_data: &[f32], config: &VadConfig) -> Vec<Aud
 
     let window_size = (config.sample_rate as usize * config.window_size_ms as usize) / 1000;
     let hop_size = window_size / 2; // 50% overlap
-    let min_speech_samples = (config.sample_rate as usize * config.min_speech_duration_ms as usize) / 1000;
-    let min_silence_samples = (config.sample_rate as usize * config.min_silence_duration_ms as usize) / 1000;
+    let min_speech_samples =
+        (config.sample_rate as usize * config.min_speech_duration_ms as usize) / 1000;
+    let min_silence_samples =
+        (config.sample_rate as usize * config.min_silence_duration_ms as usize) / 1000;
 
-    // Calculate energy for each window
     let mut energies = Vec::new();
 
     for i in (0..audio_data.len().saturating_sub(window_size)).step_by(hop_size) {
         let window_energy: f32 = audio_data[i..i + window_size]
             .iter()
             .map(|&x| x * x)
-            .sum::<f32>() / window_size as f32;
+            .sum::<f32>()
+            / window_size as f32;
 
         energies.push((i, window_energy));
     }
@@ -63,10 +61,13 @@ pub fn detect_speech_segments(audio_data: &[f32], config: &VadConfig) -> Vec<Aud
     }
 
     // Find max energy for normalization
-    let max_energy = energies.iter().map(|&(_, e)| e).fold(0.0f32, |a, b| a.max(b));
+    let max_energy = energies
+        .iter()
+        .map(|&(_, e)| e)
+        .fold(0.0f32, |a, b| a.max(b));
 
+    // Audio is too quiet
     if max_energy < 1e-6 {
-        // Audio is too quiet
         return Vec::new();
     }
 
@@ -98,7 +99,8 @@ pub fn detect_speech_segments(audio_data: &[f32], config: &VadConfig) -> Vec<Aud
                 if speech_duration >= min_speech_samples {
                     // Valid speech segment
                     let end_sample = window_pos + window_size;
-                    let segment_audio = audio_data[speech_start..end_sample.min(audio_data.len())].to_vec();
+                    let segment_audio =
+                        audio_data[speech_start..end_sample.min(audio_data.len())].to_vec();
 
                     segments.push(AudioSegment {
                         start_sample: speech_start,
@@ -163,13 +165,12 @@ mod tests {
     #[test]
     fn test_detect_speech_segments() {
         let sample_rate = 16000;
-        let config = VadConfig {
-            sample_rate,
-            min_speech_duration_ms: 100,
-            min_silence_duration_ms: 100,
-            speech_threshold: 0.01,
-            window_size_ms: 30,
-        };
+        let config = VadConfig::default()
+            .with_sample_rate(sample_rate)
+            .with_min_speech_duration_ms(100)
+            .with_min_silence_duration_ms(100)
+            .with_speech_threshold(0.01)
+            .with_window_size_ms(30);
 
         // Create test audio: speech - silence - speech
         let mut audio = Vec::new();
