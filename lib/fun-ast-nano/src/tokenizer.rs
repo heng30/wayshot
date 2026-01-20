@@ -1,5 +1,6 @@
-use crate::error::{FunAsrError, Result};
+use crate::{FunAsrError, Result};
 use candle_core::{Device, Tensor};
+use std::path::Path;
 use tokenizers::Tokenizer;
 
 pub struct TokenizerModel {
@@ -7,18 +8,8 @@ pub struct TokenizerModel {
 }
 
 impl TokenizerModel {
-    pub fn init(path: &str) -> Result<Self> {
-        let path = path.to_string();
-        assert!(
-            std::path::Path::new(&path).exists(),
-            "model path file not exists"
-        );
-        let tokenizer_file = path.clone() + "/tokenizer.json";
-        assert!(
-            std::path::Path::new(&tokenizer_file).exists(),
-            "tokenizer.json not exists in model path"
-        );
-        let tokenizer = Tokenizer::from_file(tokenizer_file)
+    pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+        let tokenizer = Tokenizer::from_file(path)
             .map_err(|e| FunAsrError::Tokenizer(format!("tokenizer from file error{}", e)))?;
         Ok(Self { tokenizer })
     }
@@ -33,12 +24,6 @@ impl TokenizerModel {
         Ok(token_id)
     }
     pub fn text_encode(&self, text: String, device: &Device) -> Result<Tensor> {
-        // let token_id = self
-        //     .tokenizer
-        //     .encode(text, true)
-        //     .map_err(|e| FunAsrError::Tokenizer(format!("tokenizer encode error: {}", e)))?
-        //     .get_ids()
-        //     .to_vec();
         let token_id = self.text_encode_vec(text, true)?;
         let token_tensor = Tensor::from_slice(&token_id, (1, token_id.len()), device)?;
         Ok(token_tensor)

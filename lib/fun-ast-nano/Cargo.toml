@@ -15,6 +15,8 @@ log.workspace = true
 rand.workspace = true
 hound.workspace = true
 rayon.workspace = true
+strum.workspace = true
+cfg-if.workspace = true
 realfft.workspace = true
 candle-nn.workspace = true
 thiserror.workspace = true
@@ -24,6 +26,7 @@ serde_yaml.workspace = true
 tokenizers.workspace = true
 candle-core.workspace = true
 tensor-utils.workspace = true
+strum_macros.workspace = true
 derive_setters.workspace = true
 candle-transformers.workspace = true
 serde = { workspace = true, features = ["derive"] }

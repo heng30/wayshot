@@ -8,8 +8,8 @@ const CUSTOM_T2S_FS_DECODER_FILENAME: &str = "custom_t2s_fs_decoder.onnx";
 const CUSTOM_T2S_S_DECODER_FILENAME: &str = "custom_t2s_s_decoder.onnx";
 const BERT_FILENAME: &str = "bert.onnx";
 const G2PW_FILENAME: &str = "g2pW.onnx";
-const G2P_EN_ENCODER_FILENAME: &str = "g2p_en/encoder_model.onnx";
-const G2P_EN_DECODER_FILENAME: &str = "g2p_en/decoder_model.onnx";
+const G2P_EN_ENCODER_FILENAME: &str = "g2p_en_encoder_model.onnx";
+const G2P_EN_DECODER_FILENAME: &str = "g2p_en_decoder_model.onnx";
 
 #[derive(VariantArray, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Model {

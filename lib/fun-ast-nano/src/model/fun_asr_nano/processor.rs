@@ -1,11 +1,8 @@
-use crate::error::Result;
-use candle_core::{D, Device, Tensor};
-
-use crate::{models::fun_asr_nano::config::FrontendConf, tokenizer::TokenizerModel};
-
+use crate::{Result, model::fun_asr_nano::config::FrontendConf, tokenizer::TokenizerModel};
 use audio_utils::extract::{
     apply_lfr, get_waveform_and_window_properties, kaldi_fbank, kaldi_get_mel_banks,
 };
+use candle_core::{D, Device, Tensor};
 
 pub struct FunAsrNanoProcessor {
     fronted_conf: FrontendConf,
@@ -68,7 +65,6 @@ impl FunAsrNanoProcessor {
         Ok((mat, feat_length))
     }
 
-    /// Process audio data directly (simplified version without ChatCompletionParameters)
     pub fn process_audio(
         &self,
         audio_data: &[f32],

@@ -9,7 +9,7 @@ const EOS_TOKEN_ID: u32 = 2;
 const EOS_TOKEN_ID_I64: i64 = EOS_TOKEN_ID as i64;
 const MAX_DECODER_STEPS: usize = 50;
 
-static MINI_BART_G2P_TOKENIZER: &str = include_str!("../../../assert/tokenizer.mini-bart-g2p.json");
+static MINI_BART_G2P_TOKENIZER: &str = include_str!("../../../asset/tokenizer.mini-bart-g2p.json");
 
 pub struct G2pEn {
     model: G2PEnModel,

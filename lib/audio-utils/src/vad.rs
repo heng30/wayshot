@@ -8,6 +8,7 @@ pub struct AudioSegment {
     pub audio_data: Vec<f32>,
 }
 
+// Only support one channel audio
 #[derive(Debug, Clone, Derivative, Setters)]
 #[derivative(Default)]
 #[setters(prefix = "with_")]
@@ -19,7 +20,7 @@ pub struct VadConfig {
     #[derivative(Default(value = "250"))]
     pub min_speech_duration_ms: u32,
 
-    #[derivative(Default(value = "300"))]
+    #[derivative(Default(value = "200"))]
     pub min_silence_duration_ms: u32,
 
     // Energy threshold for speech detection (0.0 - 1.0)
@@ -194,5 +195,16 @@ mod tests {
 
         // Should detect 2 segments
         assert_eq!(segments.len(), 2);
+
+        println!(
+            "{}ms -> {}md",
+            segments[0].start_sample * 1000 / 16000,
+            segments[0].end_sample * 1000 / 16000
+        );
+        println!(
+            "{}ms -> {}ms",
+            segments[1].start_sample * 1000 / 16000,
+            segments[1].end_sample * 1000 / 16000
+        );
     }
 }

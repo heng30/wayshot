@@ -13,7 +13,7 @@ use std::{
 use tokenizers::Tokenizer;
 
 const POLYPHONIC_RATIO: usize = 10;
-pub static LABELS: &str = include_str!("../../../assert/dict_poly_index_list.json");
+pub static LABELS: &str = include_str!("../../../asset/dict_poly_index_list.json");
 pub static POLY_LABLES: LazyLock<Vec<String>> =
     LazyLock::new(|| serde_json::from_str(LABELS).expect("Failed to parse POLY_LABELS JSON"));
 

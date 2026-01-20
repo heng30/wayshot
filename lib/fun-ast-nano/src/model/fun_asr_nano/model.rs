@@ -1,18 +1,17 @@
-use crate::error::Result;
-use candle_core::{D, IndexOp, Tensor};
-use candle_nn::{Conv1d, LayerNorm, Linear, Module, VarBuilder, linear, ops::softmax_last_dim};
-
 use crate::{
-    models::{
+    Result,
+    model::{
         common::{
             NaiveAttention, TwoLinearMLP, eager_attention_forward, get_conv1d, get_layer_norm,
         },
         fun_asr_nano::config::FunASRNanoConfig,
-        qwen3::{config::Qwen3Config, model::Qwen3Model},
+        qwen3::{Qwen3Config, Qwen3Model},
     },
     position_embed::sinusoidal_pe::SinusoidalPositionEncoderCat,
 };
-use tensor_utils::{get_equal_mask, mask_filled, masked_scatter_dim0};
+use candle_core::{D, Tensor};
+use candle_nn::{Conv1d, LayerNorm, Linear, Module, VarBuilder, linear};
+use tensor_utils::masked_scatter_dim0;
 
 pub struct MultiHeadedAttentionSANM {
     head_dim: usize,
@@ -66,79 +65,6 @@ impl MultiHeadedAttentionSANM {
         })
     }
 
-    pub fn forward_fsmn(
-        &self,
-        inputs: &Tensor,
-        mask: Option<&Tensor>,
-        mask_shfit_chunk: Option<&Tensor>,
-    ) -> Result<Tensor> {
-        let mut inputs = inputs.clone();
-        let mask = if let Some(mask) = mask {
-            let mut mask = mask.unsqueeze(D::Minus1)?.unsqueeze(0)?;
-            if let Some(mask_shfit_chunk) = mask_shfit_chunk {
-                mask = mask.broadcast_mul(mask_shfit_chunk)?;
-            }
-            inputs = inputs.broadcast_mul(&mask)?;
-            Some(mask)
-        } else {
-            None
-        };
-        let xs = inputs.transpose(1, 2)?;
-        let xs = xs.pad_with_zeros(D::Minus1, self.left_padding, self.right_padding)?;
-        let xs = self.fsmn_block.forward(&xs)?;
-        let xs = xs.transpose(1, 2)?;
-        let mut xs = xs.add(&inputs)?;
-        if let Some(mask) = mask {
-            xs = xs.broadcast_mul(&mask)?;
-        }
-        Ok(xs)
-    }
-    pub fn forward_qkv(&self, xs: &Tensor) -> Result<(Tensor, Tensor, Tensor, Tensor)> {
-        let (b, t, _) = xs.dims3()?;
-        let q_k_v = self
-            .linear_q_k_v
-            .forward(xs)?
-            .reshape((b, t, 3, self.n_head, ()))?
-            .permute((2, 0, 3, 1, 4))?
-            .contiguous()?;
-        let q_h = q_k_v.i(0)?.contiguous()?;
-        let k_h = q_k_v.i(1)?.contiguous()?;
-        let v_h = q_k_v.i(2)?.contiguous()?;
-        let v = v_h.transpose(1, 2)?.reshape((b, t, ()))?;
-        Ok((q_h, k_h, v_h, v))
-    }
-
-    pub fn forward_attention(
-        &self,
-        values: &Tensor,
-        scores: &Tensor,
-        mask: Option<&Tensor>,
-        mask_att_chunk_encoder: Option<&Tensor>,
-    ) -> Result<Tensor> {
-        let bs = scores.dim(0)?;
-        let attn = if let Some(mask) = mask {
-            let mask = if let Some(mask_att_chunk_encoder) = mask_att_chunk_encoder {
-                mask.mul(mask_att_chunk_encoder)?
-            } else {
-                mask.clone()
-            };
-            // mask: rank = 2
-            let mask = get_equal_mask(&mask, 0)?;
-            let scores = mask_filled(scores, &mask, f32::NEG_INFINITY)?;
-            let attn = softmax_last_dim(&scores)?;
-            mask_filled(&attn, &mask, 0.0)?
-        } else {
-            softmax_last_dim(scores)?
-        };
-        let xs = attn.matmul(values)?;
-        let xs =
-            xs.transpose(1, 2)?
-                .contiguous()?
-                .reshape((bs, (), self.n_head * self.head_dim))?;
-        let xs = self.linear_out.forward(&xs)?;
-        Ok(xs)
-    }
-
     pub fn forward_simple(&self, xs: &Tensor) -> Result<Tensor> {
         let (b, t, _) = xs.dims3()?;
         let q_k_v = self.linear_q_k_v.forward(xs)?;
@@ -168,22 +94,6 @@ impl MultiHeadedAttentionSANM {
         let att_outs = att_outs.add(&fsmn_memory)?;
         Ok(att_outs)
     }
-
-    pub fn forward(
-        &self,
-        xs: &Tensor,
-        mask: Option<&Tensor>,
-        mask_shfit_chunk: Option<&Tensor>,
-        mask_att_chunk_encoder: Option<&Tensor>,
-    ) -> Result<Tensor> {
-        let (q_h, k_h, v_h, v) = self.forward_qkv(xs)?;
-        let fsmn_memory = self.forward_fsmn(&v, mask, mask_shfit_chunk)?;
-        let q_h = q_h.affine(self.scaling, 0.0)?;
-        let scores = q_h.matmul(&k_h.transpose(D::Minus2, D::Minus1)?)?;
-        let attn_outs = self.forward_attention(&v_h, &scores, mask, mask_att_chunk_encoder)?;
-        let att_outs = attn_outs.add(&fsmn_memory)?;
-        Ok(att_outs)
-    }
 }
 
 pub struct EncoderLayerSANM {
@@ -191,8 +101,6 @@ pub struct EncoderLayerSANM {
     feed_forward: TwoLinearMLP,
     norm1: LayerNorm,
     norm2: LayerNorm,
-    concat_linear: Option<Linear>,
-    normalize_before: bool,
     in_dim: usize,
     hidden_dim: usize,
 }
@@ -206,8 +114,8 @@ impl EncoderLayerSANM {
         kernel_size: usize,
         sanm_shfit: usize,
         hidden_units: usize,
-        normalize_before: bool,
-        concat_after: bool,
+        _normalize_before: bool,
+        _concat_after: bool,
     ) -> Result<Self> {
         let self_attn = MultiHeadedAttentionSANM::new(
             vb.pp("self_attn"),
@@ -229,88 +137,14 @@ impl EncoderLayerSANM {
         )?;
         let norm1 = get_layer_norm(vb.pp("norm1"), 1e-5, in_dim)?;
         let norm2 = get_layer_norm(vb.pp("norm2"), 1e-5, hidden_dim)?;
-        let concat_linear = if concat_after {
-            let lin = linear(hidden_dim * 2, hidden_dim, vb.pp("concat_linear"))?;
-            Some(lin)
-        } else {
-            None
-        };
         Ok(Self {
             self_attn,
             feed_forward,
             norm1,
             norm2,
-            concat_linear,
-            normalize_before,
             in_dim,
             hidden_dim,
         })
-    }
-
-    pub fn forward(
-        &self,
-        xs: &Tensor,
-        mask: Option<&Tensor>,
-        mask_shfit_chunk: Option<&Tensor>,
-        mask_att_chunk_encoder: Option<&Tensor>,
-    ) -> Result<Tensor> {
-        let stoch_layer_coeff = 1.0f64;
-        let residual = xs.clone();
-        let mut xs = if self.normalize_before {
-            self.norm1.forward(xs)?
-        } else {
-            xs.clone()
-        };
-        if self.concat_linear.is_some() {
-            let attn =
-                self.self_attn
-                    .forward(&xs, mask, mask_shfit_chunk, mask_att_chunk_encoder)?;
-            let x_concat = Tensor::cat(&[&xs, &attn], D::Minus1)?;
-            if self.in_dim == self.hidden_dim {
-                let x_concat = self
-                    .concat_linear
-                    .as_ref()
-                    .unwrap()
-                    .forward(&x_concat)?
-                    .affine(stoch_layer_coeff, 0.0)?;
-                xs = residual.add(&x_concat)?;
-            } else {
-                xs = self
-                    .concat_linear
-                    .as_ref()
-                    .unwrap()
-                    .forward(&x_concat)?
-                    .affine(stoch_layer_coeff, 0.0)?;
-            }
-        } else if self.in_dim == self.hidden_dim {
-            let attn = self
-                .self_attn
-                .forward(&xs, mask, mask_shfit_chunk, mask_att_chunk_encoder)?
-                .affine(stoch_layer_coeff, 0.0)?;
-            xs = residual.add(&attn)?;
-        } else {
-            xs = self
-                .self_attn
-                .forward(&xs, mask, mask_shfit_chunk, mask_att_chunk_encoder)?
-                .affine(stoch_layer_coeff, 0.0)?;
-        }
-
-        if !self.normalize_before {
-            xs = self.norm1.forward(&xs)?;
-        }
-        let residual = xs.clone();
-        if self.normalize_before {
-            xs = self.norm2.forward(&xs)?;
-        }
-        xs = self
-            .feed_forward
-            .forward(&xs)?
-            .affine(stoch_layer_coeff, 0.0)?;
-        xs = residual.add(&xs)?;
-        if !self.normalize_before {
-            xs = self.norm2.forward(&xs)?;
-        }
-        Ok(xs)
     }
 
     pub fn forward_simple(&self, xs: &Tensor) -> Result<Tensor> {

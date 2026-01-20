@@ -1,0 +1,146 @@
+model: FunASRNano
+model_conf:
+  lsm_weight: 0.1
+  length_normalized_loss: true
+audio_encoder: SenseVoiceEncoderSmall
+audio_encoder_conf:
+  output_size: 512
+  attention_heads: 4
+  linear_units: 2048
+  num_blocks: 50
+  tp_blocks: 20
+  dropout_rate: 0.1
+  positional_dropout_rate: 0.1
+  attention_dropout_rate: 0.1
+  input_layer: pe
+  pos_enc_class: SinusoidalPositionEncoder
+  normalize_before: true
+  kernel_size: 11
+  sanm_shfit: 0
+  selfattention_layer_type: sanm
+  freeze: true
+  freeze_layer_num: -1
+  feat_permute: true
+llm: Qwen3-0.6b
+llm_conf:
+  hub: hf
+  freeze: true
+  llm_dtype: bf16
+  init_param_path: Qwen3-0.6B
+  use_lora: false
+  lora_conf:
+    freeze_lora: true
+    task_type: CAUSAL_LM
+    r: 16
+    lora_alpha: 32
+    lora_dropout: 0.05
+    bias: none
+    target_modules:
+      - q_proj
+      - v_proj
+    init_param_path: ""
+audio_adaptor: Transformer
+audio_adaptor_conf:
+  downsample_rate: 1
+  use_low_frame_rate: true
+  ffn_dim: 2048
+  llm_dim: 1024
+  encoder_dim: 512
+  n_layer: 2
+  freeze: true
+ctc_decoder: Transformer
+detach_ctc_decoder: true
+ctc_decoder_conf:
+  downsample_rate: 1
+  ffn_dim: 2048
+  llm_dim: 512
+  encoder_dim: 512
+  n_layer: 5
+  freeze: false
+ctc_weight: 1.0
+ctc_conf:
+  dropout_rate: 0.0
+  ctc_type: builtin
+  reduce: true
+  ignore_nan_grad: true
+frontend: WavFrontend
+frontend_conf:
+  fs: 16000
+  window: hamming
+  n_mels: 80
+  frame_length: 25
+  frame_shift: 10
+  lfr_m: 7
+  lfr_n: 6
+  cmvn_file: null
+train_conf:
+  use_lora: ${llm_conf.use_lora}
+  accum_grad: 1
+  grad_clip: 5
+  max_epoch: 2
+  keep_nbest_models: 200
+  log_interval: 100
+  effective_save_name_excludes:
+    - llm.
+  resume: true
+  validate_interval: 2000
+  save_checkpoint_interval: 2000
+  avg_nbest_model: 100
+  use_bf16: false
+  use_deepspeed: true
+  deepspeed_config: null
+  save_init_model: false
+optim: adamw
+optim_conf:
+  lr: 5.0e-06
+  weight_decay: 0.0
+scheduler: warmuplr
+scheduler_conf:
+  warmup_steps: 2500
+dataset: FunASR
+dataset_conf:
+  index_ds: FunASR
+  batch_sampler: BatchSampler
+  batch_type: token
+  batch_size: 6000
+  max_token_length: 3500
+  shuffle: true
+  sort_size: 1024
+  batch_size_scale_ratio_max: 2
+  num_workers: 4
+  audio_adaptor_downsample_rate: ${audio_adaptor_conf.downsample_rate}
+  audio_encoder_downsample_rate: 6
+  data_split_num: 256
+  batch_size_sample_max: 10
+  retry: 2000
+  batch_size_token_max: 6000
+  max_source_length: 12000
+  max_target_length: 2048
+  prompt_classes: MultiContextPrompt
+  prompt_conf:
+    max_neg_hotwords_num: 0
+    min_neg_hotwords_num: 0
+    use_hist: false
+    use_one_pass_result: true
+    use_hotwords: true
+    use_asr_hotwords: true
+    chinese_hotwords_list: null
+    english_hotwords_list: null
+  ctc_tokenizer: SenseVoiceTokenizer
+  ctc_target_normalize: true
+  ctc_tokenizer_conf:
+    vocab_path: null
+    is_multilingual: true
+    num_languages: 8749
+  min_source_length: 10
+  batch_size_scale_threshold: 3000
+  use_dynamic_output_ratio: 0.0
+tokenizer: HuggingfaceTokenizer
+tokenizer_conf:
+  init_param_path: ${llm_conf.init_param_path}
+enable_tf32: true
+debug: false
+train_data_set_list: null
+valid_data_set_list: null
+init_param: null
+output_dir: null

@@ -1,10 +1,10 @@
 use ndarray::{ArrayView, IxDyn};
 use std::{collections::HashMap, sync::LazyLock};
 
-pub static MONO_CHARS_DIST_STR: &str = include_str!("../../assert/dict_mono_chars.json");
-pub static POLY_CHARS_DIST_STR: &str = include_str!("../../assert/dict_poly_chars.json");
-pub static DEFAULT_ZH_WORD_DICT: &str = include_str!("../../assert/zh_word_dict.json");
-pub static BERT_TOKENIZER: &str = include_str!("../../assert/g2pw_tokenizer.json");
+pub static MONO_CHARS_DIST_STR: &str = include_str!("../../asset/dict_mono_chars.json");
+pub static POLY_CHARS_DIST_STR: &str = include_str!("../../asset/dict_poly_chars.json");
+pub static DEFAULT_ZH_WORD_DICT: &str = include_str!("../../asset/zh_word_dict.json");
+pub static BERT_TOKENIZER: &str = include_str!("../../asset/g2pw_tokenizer.json");
 
 pub static DICT_MONO_CHARS: LazyLock<HashMap<char, MonoChar>> = LazyLock::new(|| {
     serde_json::from_str(MONO_CHARS_DIST_STR).expect("dict_mono_chars.json parse error")

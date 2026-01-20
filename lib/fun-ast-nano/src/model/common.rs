@@ -1,4 +1,4 @@
-use crate::error::{FunAsrError, Result};
+use crate::{FunAsrError, Result, position_embed::rope::apply_rotary_pos_emb};
 use candle_core::{D, Tensor};
 use candle_nn::{
     Activation, BatchNorm, BatchNormConfig, Conv1d, Conv1dConfig, Conv2d, Conv2dConfig, LayerNorm,
@@ -6,8 +6,6 @@ use candle_nn::{
     conv2d, conv2d_no_bias, layer_norm, linear_b, rms_norm,
 };
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
-
-use crate::position_embed::rope::apply_rotary_pos_emb;
 use tensor_utils::repeat_kv;
 
 #[derive(Debug, Clone)]

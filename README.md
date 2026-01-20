@@ -125,3 +125,7 @@
 - [LSP (Language Server Protocol) Server for Slint](https://github.com/slint-ui/slint/tree/master/tools/lsp)
 - [developer.android.com](https://developer.android.com/guide)
 - [How to Deploy Rust Binaries with GitHub Actions](https://dzfrias.dev/blog/deploy-rust-cross-platform-github-actions/)
+
+----
+
+[![Star History Chart](https://api.star-history.com/svg?repos=heng30/wayshot&type=date&legend=top-left)](https://www.star-history.com/#heng30/wayshot&type=date&legend=top-left)

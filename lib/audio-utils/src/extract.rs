@@ -4,7 +4,6 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use realfft::RealFftPlanner;
 use tensor_utils::pad_replicate_last_dim;
 
-/// Mel frequency scale type
 #[derive(Debug, Clone, Copy)]
 pub enum MelScale {
     Htk,
@@ -12,7 +11,6 @@ pub enum MelScale {
     Slaney,
 }
 
-/// Convert Hertz to Mel frequency
 pub fn hertz_to_mel(freq: f32, mel_scale: MelScale) -> f32 {
     match mel_scale {
         MelScale::Htk => 2595.0 * ((1.0 + freq / 700.0).log10()),
@@ -31,7 +29,6 @@ pub fn hertz_to_mel(freq: f32, mel_scale: MelScale) -> f32 {
     }
 }
 
-/// Convert Mel frequency to Hertz
 pub fn mel_to_hertz(mels: f32, mel_scale: MelScale) -> f32 {
     match mel_scale {
         MelScale::Htk => 700.0 * (10.0_f32.powf(mels / 2595.0) - 1.0),
@@ -50,6 +47,8 @@ pub fn mel_to_hertz(mels: f32, mel_scale: MelScale) -> f32 {
     }
 }
 
+// 创建汉明窗（Hamming window）, 用于在信号处理中减少频谱泄漏
+// alpha 和 beta 控制窗函数的形状（通常为 0.54 和 0.46）
 pub fn crate_hamming_window(
     window_size: usize,
     periodic: bool,
@@ -75,6 +74,8 @@ pub fn crate_hamming_window(
     Ok(Tensor::from_vec(window, window_size, device)?.to_dtype(dtype)?)
 }
 
+// 对单帧音频进行短时傅里叶变换（STFT）
+// 返回频谱的功率值（norm squared）
 pub fn stft_audio(n_fft: usize, frame_wave: &[f32]) -> Result<Vec<f32>> {
     let mut real_planner = RealFftPlanner::<f32>::new();
     let r2c = real_planner.plan_fft_forward(n_fft);
@@ -86,8 +87,10 @@ pub fn stft_audio(n_fft: usize, frame_wave: &[f32]) -> Result<Vec<f32>> {
     Ok(output)
 }
 
+/// 对波形张量应用短时傅里叶变换（STFT）
+/// 输入形状：(batch_size, n_frames, window_size)
+/// 输出形状：(batch_size, n_frames, n_fft_bins)
 pub fn apply_stft(waveform: &Tensor) -> Result<Tensor> {
-    // waveform: (bs, n_frames, window_size)
     let mut wave_fft = vec![];
     let (batch_size, _, window_size) = waveform.dims3()?;
     for bs in 0..batch_size {
@@ -106,6 +109,8 @@ pub fn apply_stft(waveform: &Tensor) -> Result<Tensor> {
     Ok(magnitudes)
 }
 
+// 提取 Kaldi 风格的滤波器组（fbank）特征
+// 包括窗口化、预加重、STFT 和 mel 滤波器组处理
 pub fn kaldi_fbank(
     waveform: &Tensor,
     mel_energies: &Tensor,
@@ -134,6 +139,8 @@ pub fn kaldi_fbank(
     Ok(mel_energies)
 }
 
+// 应用低帧率（Low Frame Rate, LFR）处理
+// 将连续的 lfr_m 帧拼接成一帧，每隔 lfr_n 帧取一次. 用于降低特征序列的时间分辨率
 pub fn apply_lfr(inputs: &Tensor, lfr_m: usize, lfr_n: usize) -> Result<Tensor> {
     let (t, feat_dim) = inputs.dims2()?;
     let t_lfr = (t as f32 / lfr_n as f32).ceil() as usize;
@@ -163,6 +170,9 @@ pub fn apply_lfr(inputs: &Tensor, lfr_m: usize, lfr_n: usize) -> Result<Tensor> 
     Ok(lfr_outputs)
 }
 
+// 根据采样率和帧参数计算窗口属性
+// 返回 (window_shift, window_size, padded_window_size)
+// frame_shift 和 frame_length 单位为毫秒
 pub fn get_waveform_and_window_properties(
     sample_frequency: usize,
     frame_shift: f32,
@@ -179,6 +189,9 @@ pub fn get_waveform_and_window_properties(
     Ok((window_shift, window_size, padded_window_size))
 }
 
+// 提取加窗帧并进行预处理
+// 包括：添加抖动（dither）、去除直流偏移、预加重滤波、应用汉明窗
+// 返回 (处理后的窗口帧, 信号对数能量)
 pub fn get_window(
     waveform: &Tensor,
     padded_window_size: usize,
@@ -237,7 +250,7 @@ pub fn get_window(
     Ok((strided_input, signal_log_energy))
 }
 
-/// Extract audio frames
+// 从波形中提取固定大小的帧. 将连续波形切分为重叠的帧
 pub fn extract_frames(
     waveform: &Tensor,
     window_size: usize,
@@ -260,6 +273,7 @@ pub fn extract_frames(
     Ok(reshaped)
 }
 
+// 将梅尔刻度转换回赫兹频率（Kaldi 版本）
 pub fn inverse_mel_scale(mel_freq: &Tensor) -> Result<Tensor> {
     Ok(mel_freq
         .affine(1.0 / 1127.0, 0.0)?
@@ -268,10 +282,14 @@ pub fn inverse_mel_scale(mel_freq: &Tensor) -> Result<Tensor> {
         .affine(700.0, 0.0)?)
 }
 
+// 将赫兹频率转换为梅尔刻度（Kaldi 版本）
 pub fn mel_scale(freq: &Tensor) -> Result<Tensor> {
     Ok(freq.affine(1.0 / 700.0, 1.0)?.log()?.affine(1127.0, 0.0)?)
 }
 
+// 生成 Kaldi 风格的梅尔滤波器组
+// 返回 (滤波器组权重张量, 中心频率张量)
+// 用于将线性频谱映射到梅尔刻度
 pub fn kaldi_get_mel_banks(
     num_bins: usize,
     window_length_padded: usize,

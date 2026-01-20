@@ -4,7 +4,7 @@ use pest::Parser;
 static NUM_OP: [char; 8] = ['+', '-', '*', '×', '/', '÷', '=', '%'];
 
 #[derive(pest_derive::Parser)]
-#[grammar = "assert/rule.pest"]
+#[grammar = "asset/rule.pest"]
 pub struct ExprParser;
 
 pub mod zh {

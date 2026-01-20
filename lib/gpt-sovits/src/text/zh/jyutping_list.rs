@@ -1,9 +1,8 @@
 use regex::Regex;
 use std::{collections::HashMap, sync::LazyLock};
 
-static JYUTPING_DICTIONARY_JSON: &str = include_str!("../../../assert/jyutping_dictionary.json");
-static JYUT6PING3_WORDS_DICT_YAML: &str =
-    include_str!("../../../assert/jyut6ping3.words.dict.yaml");
+static JYUTPING_DICTIONARY_JSON: &str = include_str!("../../../asset/jyutping_dictionary.json");
+static JYUT6PING3_WORDS_DICT_YAML: &str = include_str!("../../../asset/jyut6ping3.words.dict.yaml");
 
 static JYUTPING_DICTIONARY: LazyLock<HashMap<u32, String>> =
     LazyLock::new(load_jyutping_dictionary_json);
