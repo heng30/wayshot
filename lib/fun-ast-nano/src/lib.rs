@@ -14,7 +14,7 @@ pub use model::{
     Model,
     fun_asr_nano::generate::{
         FunASRModelConfig, FunAsrNanoGenerateModel, SegmentInfo, StreamChunk, TranscriptionRequest,
-        TranscriptionResponse, load_wav,
+        TranscriptionResponse, load_audio_file,
     },
 };
 

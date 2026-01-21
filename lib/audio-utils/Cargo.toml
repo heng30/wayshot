@@ -19,6 +19,21 @@ rayon = { workspace = true, optional = true }
 realfft = { workspace = true, optional = true }
 candle-core = { workspace = true, optional = true }
 tensor-utils = { workspace = true, optional = true }
+symphonia = { workspace = true, features = [
+  "mp3",
+  "aac",
+  "alac",
+  "flac",
+  "ogg",
+  "pcm",
+  "wav",
+  "mkv",
+  "isomp4",
+] }
+
+[dev-dependencies]
+anyhow.workspace = true
+env_logger.workspace = true
 
 [features]
 default = []

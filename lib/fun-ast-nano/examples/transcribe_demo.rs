@@ -1,4 +1,4 @@
-use fun_ast_nano::{FunASRModelConfig, FunAsrNanoGenerateModel, VadConfig, load_wav};
+use fun_ast_nano::{FunASRModelConfig, FunAsrNanoGenerateModel, VadConfig, load_audio_file};
 use std::io::{self, Write};
 
 fn main() -> anyhow::Result<()> {
@@ -13,7 +13,7 @@ fn main() -> anyhow::Result<()> {
     let audio_path = "./data/65s.wav";
     // let audio_path = "./data/long.wav";
 
-    let input_audio_config = load_wav(audio_path, hound::SampleFormat::Int)?;
+    let input_audio_config = load_audio_file(audio_path)?;
 
     log::debug!("Loading model...");
     let mut model = FunAsrNanoGenerateModel::new(config, None, None)?;

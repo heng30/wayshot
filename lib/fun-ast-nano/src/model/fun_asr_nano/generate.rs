@@ -8,14 +8,13 @@ use crate::{
     tokenizer::TokenizerModel,
 };
 use audio_utils::{
-    audio::normalize_audio,
+    audio::{AudioConfig, load_audio_file_and_convert},
     vad::{VadConfig, detect_speech_segments},
 };
 use candle_core::{DType, Device, Tensor, pickle::read_all_with_key};
 use candle_nn::VarBuilder;
 use derivative::Derivative;
 use derive_setters::Setters;
-use hound::SampleFormat;
 use rand::{Rng, SeedableRng};
 use std::{collections::HashMap, path::Path};
 
@@ -40,22 +39,8 @@ pub struct FunASRModelConfig {
 #[derivative(Default)]
 #[setters(prefix = "with_")]
 #[non_exhaustive]
-pub struct InputAudioConfig {
-    #[derivative(Default(value = "16_000"))]
-    pub sample_rate: u32,
-
-    #[derivative(Default(value = "1"))]
-    pub channel: u16,
-
-    pub samples: Vec<f32>,
-}
-
-#[derive(Debug, Clone, Derivative, Setters)]
-#[derivative(Default)]
-#[setters(prefix = "with_")]
-#[non_exhaustive]
 pub struct TranscriptionRequest {
-    pub audio_config: InputAudioConfig,
+    pub audio_config: AudioConfig,
     pub prompt: Option<String>,
     #[derivative(Default(value = "512"))]
     pub max_tokens: u32,
@@ -359,41 +344,8 @@ impl SimpleLogitProcessor {
     }
 }
 
-pub fn load_wav(path: &str, format: SampleFormat) -> Result<InputAudioConfig> {
-    let reader = hound::WavReader::open(path)
-        .map_err(|e| FunAsrError::Audio(format!("Failed to open WAV file: {}", e)))?;
-    let original_sample_rate = reader.spec().sample_rate;
-    let channels = reader.spec().channels as u32;
-
-    let audio_data: Vec<f32> = match format {
-        hound::SampleFormat::Float => reader.into_samples().filter_map(|s| s.ok()).collect(),
-        hound::SampleFormat::Int => reader
-            .into_samples::<i16>()
-            .filter_map(|s| s.ok().map(|s| s as f32 / i16::MAX as f32))
-            .collect(),
-    };
-
-    let audio_data = if original_sample_rate != INPUT_AUDIO_SAMPLE_RATE
-        || channels != INPUT_AUDIO_CHANNELS
-    {
-        log::info!(
-            "Audio format: {original_sample_rate} Hz, {channels} channels -> target: {INPUT_AUDIO_SAMPLE_RATE} Hz, {INPUT_AUDIO_CHANNELS} channels",
-        );
-
-        normalize_audio(
-            &audio_data,
-            original_sample_rate,
-            channels,
-            INPUT_AUDIO_SAMPLE_RATE,
-            INPUT_AUDIO_CHANNELS,
-        )?
-    } else {
-        audio_data
-    };
-
-    Ok(InputAudioConfig {
-        sample_rate: INPUT_AUDIO_SAMPLE_RATE,
-        channel: INPUT_AUDIO_CHANNELS as u16,
-        samples: audio_data,
-    })
+pub fn load_audio_file(path: impl AsRef<Path>) -> Result<AudioConfig> {
+    let config =
+        load_audio_file_and_convert(path, INPUT_AUDIO_CHANNELS as u16, INPUT_AUDIO_SAMPLE_RATE)?;
+    Ok(config)
 }
