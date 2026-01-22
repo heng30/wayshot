@@ -65,6 +65,11 @@ export global Util {
 
     pure callback color-to-hex(r: int, g: int, b: int, a: int) -> string;
 
+    pure callback cal-sound-wave(data: [float], container-width: float, data-width: float, is-mono: bool) -> [float];
+    cal-sound-wave(data, container-width, data-width, is-mono) => {
+        return data;
+    }
+
     public pure function text-color(status: ToastStatus) -> color {
         if (status == ToastStatus.Success) {
             return Theme.success-color;

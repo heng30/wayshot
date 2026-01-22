@@ -1,0 +1,297 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    Transcribe,
+    Subtitle,
+} from "../../def.slint";
+import {
+    IconBtn,
+    GainFocus,
+    PopupActionSetting,
+    PopupActionEntry,
+    Label,
+    ClickAndEditLabel,
+    ElevatedBtn,
+    SoundWaveForm,
+} from "../../../base/widgets.slint";
+
+export component SubtitleListItem inherits Rectangle {
+    in-out property <int> index;
+    in-out property <int> playing-index: -1;
+    in-out property <Subtitle> entry;
+    private property <string> cache-text;
+
+    private property <[PopupActionEntry]> subtitle-popup-entry: [
+        {
+            icon: Icons.split-down-light,
+            text: Logic.tr("Split"),
+            action: "transcribe-subtitle-split",
+            user-data: index,
+        },
+        {
+            icon: Icons.merge-above-light,
+            text: Logic.tr("Merge Above"),
+            action: "transcribe-subtitle-merge-above",
+            user-data: index,
+        },
+        { },
+        {
+            icon: Icons.cell-insert-above-light,
+            text: Logic.tr("Insert Above"),
+            action: "transcribe-subtitle-insert-above",
+            user-data: index,
+        },
+        {
+            icon: Icons.cell-insert-below-light,
+            text: Logic.tr("Insert Below"),
+            action: "transcribe-subtitle-insert-below",
+            user-data: index,
+        },
+        {
+            icon: Icons.delete-light,
+            text: Logic.tr("Remove"),
+            action: "transcribe-subtitle-remove",
+            user-data: index,
+        },
+    ];
+
+    height: vbox.preferred-height;
+    border-radius: Theme.border-radius;
+    border-width: Theme.default-border-width;
+    background: Theme.secondary-background;
+    border-color: root.playing-index == index ? Theme.thirdly-brand-color : Theme.base-border-color.brighter(Theme.is-dark ? 50% : 0%);
+
+    ta := GainFocus {
+        clicked => {
+            orginal-input.is-edit = false;
+            entry.original-text = cache-text;
+        }
+    }
+
+    vbox := VerticalLayout {
+        alignment: start;
+        spacing: Theme.spacing * 2;
+        padding: root.border-width;
+
+        Rectangle {
+            background: Theme.thirdly-background;
+            border-top-left-radius: root.border-radius;
+            border-top-right-radius: root.border-radius;
+
+            HorizontalLayout {
+                alignment: space-between;
+                padding: Theme.padding * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+
+                    Label {
+                        width: self.font-size * 2;
+                        text: index + 1 + ".";
+                        font-weight: Theme.bold-font-weight;
+                    }
+
+                    start-timestamp-input := ClickAndEditLabel {
+                        private property <bool> is-valid-timestamp: Logic.is-valid-subtitle-timestamp(self.text);
+
+                        text: entry.start-timestamp;
+                        text-color: is-valid-timestamp ? Theme.regular-text-color : Theme.warning-color;
+                        allow-breaking-text-binding-when-edit: false;
+
+                        edited(text) => {
+                            entry.start-timestamp = text;
+                        }
+
+                        accepted(text) => {
+                            self.is-edit = false;
+                            Logic.transcribe-update-sound-wave(index, 250);
+                            Logic.transcribe-save-subtitle(index);
+                        }
+
+                        clicked => {
+                            self.is-edit = true;
+                        }
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        Image {
+                            width: Theme.icon-size;
+                            height: self.width;
+                            source: Icons.arrow-forward-light;
+                            colorize: Theme.regular-text-color;
+                        }
+                    }
+
+                    end-timestamp-input := ClickAndEditLabel {
+                        private property <bool> is-valid-timestamp: Logic.is-valid-subtitle-timestamp(self.text);
+
+                        text: entry.end-timestamp;
+                        text-color: is-valid-timestamp ? Theme.regular-text-color : Theme.warning-color;
+                        allow-breaking-text-binding-when-edit: false;
+
+                        edited(text) => {
+                            entry.end-timestamp = text;
+                        }
+
+                        accepted(text) => {
+                            self.is-edit = false;
+                            Logic.transcribe-update-sound-wave(index, 250);
+                            Logic.transcribe-save-subtitle(index);
+                        }
+
+                        clicked => {
+                            self.is-edit = true;
+                        }
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+                        padding-left: Theme.padding * 4;
+                        padding-right: Theme.padding * 4;
+
+                        SoundWaveForm {
+                            width: 250px;
+                            height: Theme.icon-size * 1.5;
+                            control-handle-size: Theme.icon-size * Theme.golden-ratio;
+                            amplitude-scale: max(0, entry.audio-wave-amplitude);
+                            wave-data: entry.audio-samples;
+                            disable-amplitude: true;
+                            is-mono: true;
+
+                            moved(percent) => {
+                                Logic.sound-wave-moved(index, percent)
+                            }
+
+                            zoom-changed(level) => {
+                                Logic.sound-wave-zoom-changed(index, level);
+                            }
+
+                            start-position-changed(pos) => {
+                                self.reset-control-handle-pos();
+                                Logic.sound-wave-start-position-changed(index, pos);
+                            }
+
+                            end-position-changed(pos) => {
+                                self.reset-control-handle-pos();
+                                Logic.sound-wave-end-position-changed(index, pos);
+                            }
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.padding * 4;
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("play");
+                        icon: Icons.control-start-light;
+
+                        clicked => {
+                            Logic.transcribe-play-audio(index);
+                        }
+                    }
+
+                    IconBtn {
+                        icon: Icons.more-v-light;
+                        clicked => {
+                            PopupActionSetting.show(self.absolute-position.x + self.width, self.absolute-position.y, subtitle-popup-entry);
+                        }
+                    }
+                }
+            }
+        }
+
+        subtitle-vbox := VerticalLayout {
+            padding: Theme.padding * 2;
+            spacing: entry.correction-text.is-empty ? 0 : Theme.spacing * 2;
+
+            HorizontalLayout {
+                alignment: center;
+
+                orginal-input := ClickAndEditLabel {
+                    use-fixed-width: true;
+                    width: parent.width - parent.spacing;
+                    text: entry.original-text;
+                    wrap: word-wrap;
+                    text-color: Theme.primary-text-color;
+                    allow-breaking-text-binding-when-edit: false;
+
+                    changed is-edit => {
+                        if (self.is-edit) {
+                            cache-text = self.text;
+                        }
+                    }
+
+                    accepted(text) => {
+                        self.is-edit = false;
+                        Logic.transcribe-save-subtitle(index);
+                    }
+
+                    escape => {
+                        entry.original-text = cache-text;
+                    }
+
+                    edited(text) => {
+                        entry.original-text = text;
+                    }
+
+                    clicked => {
+                        self.is-edit = true;
+                    }
+                }
+            }
+
+            if !entry.correction-text.is-empty: Rectangle {
+                background: Theme.thirdly-background;
+                border-radius: Theme.border-radius;
+
+                HorizontalLayout {
+                    alignment: space-between;
+                    spacing: Theme.spacing * 2;
+                    padding: Theme.padding * 2;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 2;
+
+                        VerticalLayout {
+                            alignment: center;
+
+                            Image {
+                                width: Theme.default-font-size;
+                                height: self.width;
+                                source: Icons.polish-fill;
+                                colorize: Theme.warning-color;
+                            }
+                        }
+
+                        Label {
+                            text: entry.correction-text;
+                            wrap: word-wrap;
+                        }
+                    }
+
+                    if entry.original-text != entry.correction-text: VerticalLayout {
+                        alignment: center;
+
+                        ElevatedBtn {
+                            icon: Icons.checked-light;
+                            width: Theme.icon-size * 0.8;
+                            colorize: Colors.white;
+                            background: self.has-hover ? Theme.success-color.darker(20%) : Theme.success-color;
+
+                            clicked => {
+                                Logic.transcribe-accept-correction(index);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

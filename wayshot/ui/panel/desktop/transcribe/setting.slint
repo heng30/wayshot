@@ -1,0 +1,127 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    PopupIndex,
+    SettingTranscribe,
+    DownloaderState,
+} from "../../def.slint";
+import {
+    Dialog,
+    SettingDetailInnerVbox,
+    Select,
+    SettingDetailLabel,
+    SettingDetailInner,
+    CheckBtn,
+    RadioBtn,
+    LineInput,
+    IconBtn,
+    ProgressBar,
+} from "../../../base/widgets.slint";
+import { Transcribe } from "../../../store.slint";
+
+export component TranscribeSettingDialog inherits Dialog {
+    title: Logic.tr("Setting");
+    is-prevent-event-forward: true;
+
+    private property cache-setting <=> Store.setting-transcribe-cache;
+
+    init => {
+        cache-setting = Store.setting-transcribe;
+    }
+
+    confirmed => {
+        Store.setting-transcribe = cache-setting;
+        Logic.set-setting-transcirbe(cache-setting);
+        Logic.transcribe-start();
+        self.escape();
+    }
+
+    canceled => {
+        self.escape();
+    }
+
+    SettingDetailInner {
+        for downloader[index] in Store.transcribe-models-dowloader: VerticalLayout {
+            alignment: start;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                model-path-li := LineInput {
+                    horizontal-stretch: 2;
+                    read-only: true;
+                    is-show-icon: true;
+                    icon: Icons.file-open-light;
+                    placeholder-text: index == 0 ? "model.pt" : "Qwen3-0.6B/tokenizer.json";
+                    text: index == 0 ? cache-setting.running-setting.model-path : cache-setting.running-setting.model-tokenizer-path;
+                    border-color: Logic.file-exist(index == 0 ? cache-setting.running-setting.model-path : cache-setting.running-setting.model-tokenizer-path) ? self.default-border-color : Theme.warning-color;
+
+                    clicked => {
+                        Logic.transcribe-choose-model-path(index);
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                        alignment: center;
+
+                        ProgressBar {
+                            height: model-path-li.preferred-height * 2 / 3;
+                            font-size: Theme.default-font-size * 2 / 3;
+                            finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                            progress: downloader.progress;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: Theme.spacing * 4;
+
+                        private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+
+                        IconBtn {
+                            is-show-tip: true;
+                            icon: downloading ? Icons.stop-light : Icons.download-light;
+                            colorize: downloading ? Theme.danger-color : Theme.icon-color;
+                            tip: downloading ? Logic.tr("cancel") : Logic.tr("download");
+
+                            clicked => {
+                                if (downloading) {
+                                    Logic.transcribe-model-cancel-download(index, downloader.url);
+                                } else {
+                                    Logic.transcribe-model-start-download(index, downloader.url);
+                                }
+                            }
+                        }
+
+                        IconBtn {
+                            icon: Icons.browser-light;
+                            is-show-tip: true;
+                            tip: Logic.tr("open url");
+
+                            clicked => {
+                                Util.open-url("Default", downloader.url);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Minimum silent period duration (ms)");
+            }
+
+            LineInput {
+                placeholder-text: 200;
+                text: cache-setting.running-setting.mini-silent-period-duration;
+            }
+        }
+    }
+}

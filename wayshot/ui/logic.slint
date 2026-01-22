@@ -22,6 +22,10 @@ import {
     RealtimeImageEffect,
     BackgroundRemoverModel,
     DownloaderState,
+    TranscribeProgressType,
+    Subtitle,
+    TranscribePopupIndex,
+    SettingTranscribe,
 } from "store.slint";
 
 import { Theme } from "base/theme.slint";
@@ -78,6 +82,13 @@ export global Logic {
         Store.current-setting-detail-index = index;
     }
 
+    //desktop
+    public function switch-transcribe-popup(index: TranscribePopupIndex) {
+        if (Store.transcribe-popup-index != index) {
+            Store.transcribe-popup-index = index;
+        }
+    }
+
     public function switch-process-mode(mode: ProcessMode) {
         if (Store.process-mode == mode) {
             return;
@@ -125,6 +136,9 @@ export global Logic {
     callback get-setting-camera() -> SettingCamera;
     callback set-setting-camera(setting: SettingCamera);
 
+    callback get-setting-transcirbe() -> SettingTranscribe;
+    callback set-setting-transcirbe(setting: SettingTranscribe);
+
     callback init-sources-dialog();
     callback choose-save-dir();
     callback update-sources(setting: SettingControl);
@@ -139,6 +153,7 @@ export global Logic {
     callback stop-recording();
 
     callback open-file(file: string);
+    pure callback file-exist(file: string) -> bool;
 
     callback cal-region-width(height: float) -> int;
     callback cal-region-height(width: float) -> int;
@@ -192,6 +207,45 @@ export global Logic {
     callback show-realtime-image-effect-dialog(flag: bool);
     callback init-realtime-image-effect-dialog() -> RealtimeImageEffect;
     callback realtime-image-effect-changed(effect: RealtimeImageEffect);
+
+    callback transcribe-new();
+    callback transcribe-start();
+    callback transcribe-import-file();
+    callback transcribe-export-video();
+    callback transcribe-export-subtitles();
+    callback transcribe-refresh-subtitles();
+    callback transcribe-cancel-progress(ty: TranscribeProgressType);
+    callback transcribe-update-sound-wave(index: int, count: int);
+    callback transcribe-save-subtitle(index: int);
+    callback transcribe-play-audio(index: int);
+    callback transcribe-accept-correction(index: int);
+
+    callback transcribe-subtitles-ai-correction();
+    callback transcribe-subtitles-remove-ai-correction();
+    callback transcribe-subtitles-optimize-timestamp();
+    callback transcribe-subtitles-adjust-overlap-timestamp();
+    callback transcribe-subtitles-to-lowercase();
+    callback transcribe-subtitles-to-simple-chinese();
+    callback transcribe-subtitles-remove-separator();
+
+    callback transcribe-subtitle-split();
+    callback transcribe-subtitle-merge-above();
+    callback transcribe-subtitle-insert-above();
+    callback transcribe-subtitle-insert-below();
+    callback transcribe-subtitle-remove();
+
+    callback transcribe-choose-model-path(index: int);
+    callback transcribe-model-cancel-download(index: int, url: string);
+    callback transcribe-model-start-download(index: int, url: string);
+
+    pure callback is-valid-subtitle-timestamp(timestamp: string) -> bool;
+
+    callback sound-waves-init(max-sample: int);
+    callback sound-wave-update(index: int, max-samples: int);
+    callback sound-wave-zoom-changed(index: int, level: float);
+    callback sound-wave-moved(index: int, percent: float);
+    callback sound-wave-start-position-changed(index: int, pos: float);
+    callback sound-wave-end-position-changed(index: int, pos: float);
 
     pure public function fps-to-int(fps: Fps) -> int {
         if (fps == Fps.Fps24) {

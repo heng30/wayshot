@@ -1,0 +1,93 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    Transcribe,
+    TranscribePopupIndex,
+    Subtitle,
+} from "../../def.slint";
+import {
+    CenterLayout,
+    ConfirmBtn,
+    IconBtn,
+    GainFocus,
+    PopupActionSetting,
+    PopupActionEntry,
+    ConfirmDialogSetting,
+    NoMessageImg,
+    Skeleton,
+    Label,
+    SkeletonType,
+    ClickAndEditLabel,
+    SoundWaveForm,
+} from "../../../base/widgets.slint";
+import { Header } from "header.slint";
+import { ScrollView } from "std-widgets.slint";
+import { SubtitleListItem } from "list-item.slint";
+
+component StartTranscribeField inherits VerticalLayout {
+    CenterLayout {
+        NoMessageImg {
+            width: root.width;
+        }
+
+        HorizontalLayout {
+            alignment: center;
+
+            ConfirmBtn {
+                icon: Icons.transcribe-light;
+                text: Logic.tr("Start transcribe");
+                auto-size-vpadding: Theme.padding * 2;
+
+                clicked => {
+                    Store.transcribe-popup-index = TranscribePopupIndex.Setting;
+                }
+            }
+        }
+    }
+}
+
+component SubtitleListView inherits ScrollView {
+    in-out property <bool> is-progressing;
+    private property <[Subtitle]> subtitles: Store.transcribe.subtitles;
+
+    VerticalLayout {
+        spacing: Theme.spacing * 2;
+
+        if is-progressing && subtitles.length <= 0: Rectangle {
+            height: Theme.icon-size * 6;
+
+            Skeleton {
+                width: parent.width;
+                height: parent.height;
+                type: SkeletonType.List;
+            }
+        }
+
+        for entry[index] in subtitles: SubtitleListItem {
+            index: index;
+            entry: entry;
+            width: root.width;
+            playing-index: Store.transcribe.playing-index;
+        }
+    }
+}
+
+export component Subtitles inherits Rectangle {
+    in property <bool> is-progressing;
+    private property <Transcribe> current-transcribe: Store.transcribe;
+    private property <bool> is-show-no-message: current-transcribe.subtitles.length == 0 && !root.is-progressing;
+
+    background: Theme.secondary-background;
+    border-radius: Theme.border-radius;
+
+    if !is-show-no-message: VerticalLayout {
+        SubtitleListView {
+            is-progressing: root.is-progressing;
+        }
+    }
+
+    if is-show-no-message: StartTranscribeField { }
+}

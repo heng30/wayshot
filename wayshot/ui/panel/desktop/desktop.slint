@@ -94,6 +94,20 @@ component HorizontalHomeIconsBar inherits Rectangle {
         }
 
         IconBtn {
+            icon: Icons.transcribe-fill;
+            icon-size: root.icon-size * 1.3;
+            show-icon-hover-background: root.show-icon-hover-background;
+            colorize: Store.current-tab-index == TabIndex.Transcribe ? Theme.thirdly-brand-color : Theme.icon-color;
+            is-show-tip: root.is-show-tip;
+            tip-position: root.tip-position;
+            tip: Logic.tr("transcribe");
+
+            clicked => {
+                Logic.switch-tab(TabIndex.Transcribe);
+            }
+        }
+
+        IconBtn {
             icon: Icons.share-screen-fill;
             icon-size: root.icon-size * 1.2;
             show-icon-hover-background: root.show-icon-hover-background;
@@ -211,6 +225,20 @@ component VerticalStatusBar inherits Rectangle {
 
                     clicked => {
                         Logic.switch-tab(TabIndex.Player);
+                    }
+                }
+
+                IconBtn {
+                    icon: Icons.transcribe-fill;
+                    icon-size: root.icon-size * 1.3;
+                    show-icon-hover-background: root.show-icon-hover-background;
+                    colorize: Store.current-tab-index == TabIndex.Transcribe ? Theme.thirdly-brand-color : Theme.icon-color;
+                    is-show-tip: root.is-show-tip;
+                    tip-position: root.tip-position;
+                    tip: Logic.tr("transcribe");
+
+                    clicked => {
+                        Logic.switch-tab(TabIndex.Transcribe);
                     }
                 }
 

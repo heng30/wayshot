@@ -37,6 +37,7 @@ export component LineInput inherits Rectangle {
     in-out property <color> placeholder-text-color: Theme.placeholder-text-color;
     out property has-focus <=> text-input.has-focus;
     out property <color> default-border-color: text-input.has-focus ? Theme.thirdly-brand-color : Theme.base-border-color;
+    in-out property <bool> show-icon-hover-background: true;
 
     in property <bool> is-show-icon;
     in property <image> icon;
@@ -132,6 +133,7 @@ export component LineInput inherits Rectangle {
                 icon-size: root.icon-size;
                 colorize: root.icon-colorize;
                 gain-focus-when-clicked: gain-focus-when-clicked;
+                show-icon-hover-background: root.show-icon-hover-background;
 
                 clicked => {
                     root.clicked();
@@ -146,6 +148,7 @@ export component ClickAndEditLabel inherits Rectangle {
     in-out property <bool> is-edit;
     in-out property <bool> use-fixed-width;
     in-out property <bool> allow-breaking-text-binding-when-edit;
+    in-out property <bool> show-icon-hover-background: true;
     in-out property <int> font-weight: Theme.normal-font-weight;
     in-out property <length> font-size: Theme.default-font-size;
     in-out property <color> text-color: Theme.regular-text-color;
@@ -156,6 +159,7 @@ export component ClickAndEditLabel inherits Rectangle {
     callback accepted(text: string);
     callback edited(text: string);
     callback clicked();
+    callback escape();
 
     changed text => {
         li.text = text;
@@ -221,6 +225,7 @@ export component ClickAndEditLabel inherits Rectangle {
             font-size: root.font-size;
             font-weight: root.font-weight;
             text-color: root.text-color;
+            show-icon-hover-background: root.show-icon-hover-background;
 
             accepted => {
                 inner-is-edit = !inner-is-edit;
@@ -237,6 +242,7 @@ export component ClickAndEditLabel inherits Rectangle {
             key-pressed(key-event) => {
                 if (key-event.text == Key.Escape) {
                     inner-is-edit = false;
+                    root.escape();
                 }
             }
         }

@@ -1,0 +1,154 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    PopupIndex,
+    Transcribe,
+    SettingTranscribe,
+} from "../../def.slint";
+import {
+    Dialog,
+    SettingDetailInnerVbox,
+    SettingDetailInner,
+    Select,
+    SettingDetailLabel,
+    RadioBtn,
+    CheckBtn,
+    LineInput,
+    Label,
+} from "../../../base/widgets.slint";
+
+export component ExportVideoDialog inherits Dialog {
+    title: Logic.tr("Export Video");
+    is-prevent-event-forward: true;
+
+    private property <SettingTranscribe> cache-setting: Store.setting-transcribe;
+
+    confirmed => {
+        Store.setting-transcribe = cache-setting;
+        Logic.set-setting-transcirbe(cache-setting);
+        Logic.transcribe-export-video();
+    }
+
+    canceled => {
+        self.escape();
+    }
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Font name");
+            }
+
+            fonts-select := Select {
+                background: Theme.thirdly-background;
+                values: Store.system-fonts;
+                current-value: cache-setting.export-video.font-name;
+
+                selected => {
+                    cache-setting.export-video.font-name = self.current-value;
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            font-size-txt := SettingDetailLabel {
+                text: Logic.tr("Font size");
+            }
+
+            font-size-lineedit := LineInput {
+                input-type: number;
+                placeholder-text: "10 ~ 50";
+                text: cache-setting.export-video.font-size;
+
+                edited => {
+                    cache-setting.export-video.font-size = self.text.to-float();
+                }
+            }
+        }
+
+        HorizontalLayout {
+            padding-right: Theme.padding * 4;
+            spacing: Theme.spacing * 4;
+
+            SettingDetailLabel {
+                text: Logic.tr("Font color");
+            }
+
+            for item[index] in [Colors.white, Colors.black]: VerticalLayout {
+                spacing: Theme.spacing;
+                alignment: center;
+
+                private property <int> selected-color-index: cache-setting.export-video.is-white-font-color ? 0 : 1;
+
+                Rectangle {
+                    border-width: Theme.default-border-width;
+                    border-color: Theme.base-border-color;
+                    background: item;
+                    width: Theme.icon-size;
+                    height: self.width;
+                    border-radius: Theme.border-radius;
+
+                    TouchArea {
+                        clicked => {
+                            cache-setting.export-video.is-white-font-color = index == 0;
+                        }
+                    }
+                }
+
+                Rectangle {
+                    width: Theme.icon-size;
+                    height: 2px;
+                    background: index == selected-color-index ? Theme.success-color : Colors.transparent;
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            background-btn := CheckBtn {
+                text: cache-setting.export-video.enable-background ? Logic.tr("Background enabled") : Logic.tr("Background disabled");
+                checked: cache-setting.export-video.enable-background;
+
+                toggled => {
+                    cache-setting.export-video.enable-background = !cache-setting.export-video.enable-background;
+                }
+            }
+        }
+
+        VerticalLayout {
+            CheckBtn {
+                text: Logic.tr("Adjust volume");
+                checked: cache-setting.export-video.enable-adjust-volume;
+
+                toggled => {
+                    cache-setting.export-video.enable-adjust-volume = !cache-setting.export-video.enable-adjust-volume;
+                }
+            }
+
+            if cache-setting.export-video.enable-adjust-volume: HorizontalLayout {
+                alignment: start;
+                spacing: Theme.spacing * 2;
+
+                Label {
+                    text: Logic.tr("Standardize the volume and adjust it to");
+                }
+
+                LineInput {
+                    input-type: InputType.decimal;
+                    width: self.font-size * 3;
+                    text: cache-setting.export-video.adjust-volume-times;
+
+                    edited => {
+                        cache-setting.export-video.adjust-volume-times = self.text.to-float();
+                    }
+                }
+
+                Label {
+                    text: Logic.tr("times") + ".";
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,183 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    Transcribe,
+    FileType,
+    TranscribePopupIndex,
+    SettingTranscribe,
+} from "../../def.slint";
+import {
+    Divider,
+    ToolTip,
+    PopupAction,
+    PopupActionSetting,
+    IconBtn,
+    ToastStatus,
+    FilePicker,
+    Banner,
+    Label,
+    Link,
+    TextBtn,
+    Blanket,
+    ReplaceDialog,
+    SimpleAudioControl,
+} from "../../../base/widgets.slint";
+import { Header } from "header.slint";
+import { Subtitles } from "subtitles.slint";
+import { TranscribeSettingDialog } from "setting.slint";
+import { ExportVideoDialog } from "export-video.slint";
+
+component Banners inherits VerticalLayout {
+    in-out property <bool> is-show-import-banner;
+    in-out property <bool> is-show-ffmpeg-banner;
+
+    spacing: Theme.spacing * 2;
+
+    if is-show-ffmpeg-banner: Banner {
+        width: root.width;
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 4;
+
+            Label {
+                color: Theme.light-text-color;
+                text: Logic.tr("Download ffmpeg.");
+                font-weight: Theme.bold-font-weight;
+            }
+
+            IconBtn {
+                icon: Icons.browser-access-light;
+                show-icon-hover-background: false;
+                colorize: Theme.light-text-color;
+
+                clicked => {
+                    Util.open-url("Default", "https://www.ffmpeg.org/download.html");
+                }
+            }
+        }
+
+        close => {
+            is-show-ffmpeg-banner = false;
+        }
+    }
+
+    if is-show-import-banner: Banner {
+        width: root.width;
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 4;
+
+            Label {
+                color: Theme.light-text-color;
+                text: Logic.tr("No found") + " " + Store.transcribe.file-path + ".";
+                font-weight: Theme.bold-font-weight;
+            }
+
+            IconBtn {
+                icon: Icons.import-light;
+                colorize: Theme.light-text-color;
+                show-icon-hover-background: false;
+
+                clicked => {
+                    Logic.transcribe-import-file();
+                }
+            }
+        }
+
+        close => {
+            is-show-import-banner = false;
+        }
+    }
+}
+
+export component TranscribePanel inherits Rectangle {
+    private property <Transcribe> current-transcribe <=> Store.transcribe;
+    private property <SettingTranscribe> cache-setting <=> Store.setting-transcribe-cache;
+    private property <bool> is-show-replace-dialog;
+    private property <bool> is-show-file-picker: current-transcribe.file-path.is-empty;
+
+    private property <bool> is-show-import-banner: !Store.transcribe.is-file-exist;
+    private property <bool> is-show-ffmpeg-banner: !Store.ffmpeg-available && current-transcribe.file-type == FileType.Video;
+    private property <bool> is-show-banners: is-show-import-banner || is-show-ffmpeg-banner;
+
+    private property <bool> is-show-setting-dialog: Store.transcribe-popup-index == TranscribePopupIndex.Setting;
+    private property <bool> is-show-export-video-dialog: Store.transcribe-popup-index == TranscribePopupIndex.ExportVideo;
+
+    if is-show-file-picker: FilePicker {
+        icon: Icons.media-light;
+        title: Logic.tr("Support video and audio files");
+        sub-title: "e.g. mp4, mkv, mp3, wav...";
+
+        select-file => {
+            Logic.transcribe-new();
+        }
+    }
+
+    if !is-show-file-picker: VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        if is-show-banners: Banners {
+            is-show-ffmpeg-banner: root.is-show-ffmpeg-banner;
+            is-show-import-banner: root.is-show-import-banner;
+        }
+
+        header := Header {
+            show-replace-dialog => {
+                root.is-show-replace-dialog = true;
+            }
+        }
+
+        Subtitles {
+            is-progressing: header.is-progressing;
+        }
+
+        SimpleAudioControl {
+            play => {
+            }
+
+            stop => {
+            }
+
+            sound-changed(sound) => {
+            }
+            progress-changed => {
+            }
+            progress-release => {
+            }
+            progress-pressed => {
+            }
+        }
+    }
+
+    if is-show-replace-dialog: ReplaceDialog {
+        escape => {
+            is-show-replace-dialog = false;
+        }
+    }
+
+    if is-show-setting-dialog || is-show-export-video-dialog: Blanket {
+        clicked => {
+            Logic.switch-transcribe-popup(TranscribePopupIndex.None);
+        }
+    }
+
+    if Store.transcribe-popup-index == TranscribePopupIndex.Setting: TranscribeSettingDialog {
+        width: Math.min(Theme.dialog-max-width, root.width * 0.8);
+
+        escape => {
+            Logic.switch-transcribe-popup(TranscribePopupIndex.None);
+        }
+    }
+
+    if Store.transcribe-popup-index == TranscribePopupIndex.ExportVideo: ExportVideoDialog {
+        width: Math.min(Theme.dialog-max-width, root.width * 0.95);
+
+        escape => {
+            Logic.switch-transcribe-popup(TranscribePopupIndex.None);
+        }
+    }
+}
