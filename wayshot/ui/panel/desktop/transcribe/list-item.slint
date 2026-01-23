@@ -164,21 +164,21 @@ export component SubtitleListItem inherits Rectangle {
                             is-mono: true;
 
                             moved(percent) => {
-                                Logic.sound-wave-moved(index, percent)
+                                Logic.transcribe-sound-wave-moved(index, percent)
                             }
 
                             zoom-changed(level) => {
-                                Logic.sound-wave-zoom-changed(index, level);
+                                Logic.transcribe-sound-wave-zoom-changed(index, level);
                             }
 
                             start-position-changed(pos) => {
                                 self.reset-control-handle-pos();
-                                Logic.sound-wave-start-position-changed(index, pos);
+                                Logic.transcribe-sound-wave-start-position-changed(index, pos);
                             }
 
                             end-position-changed(pos) => {
                                 self.reset-control-handle-pos();
-                                Logic.sound-wave-end-position-changed(index, pos);
+                                Logic.transcribe-sound-wave-end-position-changed(index, pos);
                             }
                         }
                     }

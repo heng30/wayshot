@@ -1,11 +1,14 @@
+use crate::slint_generatedAppWindow::{
+    FileType as UIFileType, HistoryEntry as UIHistoryEntry, SettingPlayer as UISettingPlayer,
+    Subtitle as UISubtitle, Transcribe as UITranscribe,
+};
 use pmacro::SlintFromConvert;
 use serde::{Deserialize, Serialize};
+use slint::Model;
 
-use crate::slint_generatedAppWindow::{
-    HistoryEntry as UIHistoryEntry, SettingPlayer as UISettingPlayer,
-};
 pub const HISTORY_TABLE: &str = "history";
 pub const PLAYER_SETTING_TABLE: &str = "player_setting";
+pub const TRANSCRIBE_TABLE: &str = "transcribe";
 
 pub async fn init(db_path: &str) {
     sqldb::create_db(db_path).await.expect("create db");
@@ -13,6 +16,10 @@ pub async fn init(db_path: &str) {
     sqldb::entry::new(HISTORY_TABLE)
         .await
         .expect("history table failed");
+
+    sqldb::entry::new(TRANSCRIBE_TABLE)
+        .await
+        .expect("transcribe table failed");
 
     sqldb::entry::new(PLAYER_SETTING_TABLE)
         .await
@@ -70,6 +77,46 @@ macro_rules! db_select_all {
 }
 
 #[macro_export]
+macro_rules! db_select {
+    ($table:expr, $ty:ident) => {
+        fn db_select<F>(
+            ui: slint::Weak<$crate::slint_generatedAppWindow::AppWindow>,
+            id: impl ToString,
+            callback: F,
+        ) where
+            F: FnOnce(&$crate::slint_generatedAppWindow::AppWindow, $ty) + Send + 'static,
+        {
+            let id = id.to_string();
+            tokio::spawn(async move {
+                match sqldb::entry::select($table, id.as_str()).await {
+                    Ok(item) => match serde_json::from_str::<$ty>(&item.data) {
+                        Ok(data) => {
+                            let _ = slint::invoke_from_event_loop(move || {
+                                if let Some(ui) = ui.upgrade() {
+                                    callback(&ui, data);
+                                }
+                            });
+                        }
+                        Err(e) => {
+                            $crate::logic::toast::async_toast_warn(
+                                ui,
+                                format!("{}. {e}", crate::logic::tr::tr("parse entry failed")),
+                            );
+                        }
+                    },
+                    Err(e) => {
+                        $crate::logic::toast::async_toast_warn(
+                            ui,
+                            format!("{}. {e}", crate::logic::tr::tr("load entry failed")),
+                        );
+                    }
+                }
+            });
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! db_remove {
     ($table:expr) => {
         fn db_remove(
@@ -124,4 +171,30 @@ pub struct SettingPlayer {
     pub current_time: String,
     pub end_time: String,
     pub sound: i32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
+#[derivative(Default)]
+#[serde(default)]
+#[from("UISubtitle")]
+pub struct Subtitle {
+    pub start_timestamp: String,
+    pub end_timestamp: String,
+    pub original_text: String,
+    pub correction_text: String,
+    pub audio_wave_amplitude: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
+#[derivative(Default)]
+#[serde(default)]
+#[from("UITranscribe")]
+pub struct Transcribe {
+    pub id: String,
+    pub file_path: String,
+    pub is_file_exist: bool,
+    pub file_type: UIFileType,
+
+    #[vec(from = "subtitles")]
+    pub subtitles: Vec<Subtitle>,
 }

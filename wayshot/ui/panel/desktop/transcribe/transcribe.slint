@@ -95,7 +95,7 @@ component Banners inherits VerticalLayout {
 
 export component TranscribePanel inherits Rectangle {
     private property <Transcribe> current-transcribe <=> Store.transcribe;
-    private property <SettingTranscribe> cache-setting <=> Store.setting-transcribe-cache;
+    private property <SettingTranscribe> cache-setting <=> Store.transcribe-setting-cache;
     private property <bool> is-show-replace-dialog;
     private property <bool> is-show-file-picker: current-transcribe.file-path.is-empty;
 
@@ -105,6 +105,10 @@ export component TranscribePanel inherits Rectangle {
 
     private property <bool> is-show-setting-dialog: Store.transcribe-popup-index == TranscribePopupIndex.Setting;
     private property <bool> is-show-export-video-dialog: Store.transcribe-popup-index == TranscribePopupIndex.ExportVideo;
+
+    init => {
+        Logic.transcribe-init();
+    }
 
     if is-show-file-picker: FilePicker {
         icon: Icons.media-light;
@@ -131,8 +135,12 @@ export component TranscribePanel inherits Rectangle {
             }
         }
 
-        Subtitles {
-            is-progressing: header.is-progressing;
+        HorizontalLayout {
+            padding-top: Theme.spacing * 2;
+
+            Subtitles {
+                is-progressing: header.is-progressing;
+            }
         }
 
         SimpleAudioControl {

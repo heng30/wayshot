@@ -1,8 +1,10 @@
 {
   "enabledPlugins": {
+    "context7@pleaseai": true,
     "claude-mem@thedotmack": true,
-    "context7@claude-plugins-official": true,
-    "code-review@claude-plugins-official": true,
-    "rust-analyzer-lsp@claude-plugins-official": true
+    "productivity-skills@mhattingpete-claude-skills": true,
+    "code-operations-skills@mhattingpete-claude-skills": true,
+    "engineering-workflow-skills@mhattingpete-claude-skills": true,
+    "visual-documentation-skills@mhattingpete-claude-skills": true
   }
 }

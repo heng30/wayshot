@@ -309,17 +309,6 @@ export struct Downloader {
     filename: string,
 }
 
-export struct Subtitle {
-    start-timestamp: string,
-    end-timestamp: string,
-
-    original-text: string,
-    correction-text: string,
-
-    audio-wave-amplitude: float,
-    audio-samples: [float],
-}
-
 export enum TranscribeProgressType {
     None,
     Finished,
@@ -351,25 +340,31 @@ export struct TranscribeExportVideoSetting {
     enable-background: bool,
 }
 
-export struct TranscribeRunningSetting {
+export struct TranscribeModelSetting {
     model-path: string,
     model-tokenizer-path: string,
     mini-silent-period-duration: int,
 }
 
-export struct TranscribePlayerSetting {
-    current-time: string,
-    end-time: string,
-    sound: int,
-    progress: float,
-}
-
 export struct SettingTranscribe {
-    running-setting: TranscribeRunningSetting,
+    model: TranscribeModelSetting,
     export-video: TranscribeExportVideoSetting,
 }
 
+export struct Subtitle {
+    start-timestamp: string,
+    end-timestamp: string,
+
+    original-text: string,
+    correction-text: string,
+
+    audio-wave-amplitude: float,
+    audio-samples: [float],
+}
+
+
 export struct Transcribe {
+    id: string,
     file-path: string,
     is-file-exist: bool,
     file-type: FileType,
@@ -379,7 +374,6 @@ export struct Transcribe {
     progress: float,
     progress-type: TranscribeProgressType,
 }
-
 
 //////////////////////////////// Logic Struct End  ////////////////////////////////
 
@@ -516,8 +510,11 @@ export global Store {
 
     in-out property <[Downloader]> transcribe-models-dowloader: [{ }, { }];
     in-out property <TranscribePopupIndex> transcribe-popup-index: TranscribePopupIndex.None;
-    in-out property <SettingTranscribe> setting-transcribe;
-    in-out property <SettingTranscribe> setting-transcribe-cache;
+    in-out property <SettingTranscribe> transcribe-setting;
+    in-out property <SettingTranscribe> transcribe-setting-cache;
+    in-out property <float> trancribe-audio-player-progress;
+    in-out property <bool> trancribe-audio-player-is-playing;
+    in-out property <SettingPlayer> setting-trancribe-audio-player;
     in-out property <Transcribe> transcribe: {
         progress: 0.5,
         playing-index: -1,

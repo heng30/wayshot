@@ -24,11 +24,11 @@ export component ExportVideoDialog inherits Dialog {
     title: Logic.tr("Export Video");
     is-prevent-event-forward: true;
 
-    private property <SettingTranscribe> cache-setting: Store.setting-transcribe;
+    private property <SettingTranscribe> cache-setting: Store.transcribe-setting;
 
     confirmed => {
-        Store.setting-transcribe = cache-setting;
-        Logic.set-setting-transcirbe(cache-setting);
+        Store.transcribe-setting = cache-setting;
+        Logic.set-setting-transcribe(cache-setting);
         Logic.transcribe-export-video();
     }
 

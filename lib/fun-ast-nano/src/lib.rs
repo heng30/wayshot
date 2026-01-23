@@ -51,6 +51,9 @@ pub enum FunAsrError {
 
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+
+    #[error("Transcribe cancelled")]
+    TranscribeCancelled,
 }
 
 impl From<audio_utils::AudioProcessError> for FunAsrError {

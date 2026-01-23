@@ -31,6 +31,14 @@ pub struct AudioConfig {
     pub samples: Vec<f32>,
 }
 
+#[derive(Debug, Clone)]
+pub struct AudioSegment {
+    pub index: u32,
+    pub start_timestamp: Duration,
+    pub end_timestamp: Duration,
+    pub samples: Vec<f32>,
+}
+
 pub fn resample_audio(
     audio_data: &[f32],
     original_sample_rate: u32,
@@ -328,4 +336,31 @@ pub fn load_audio_file_and_convert(
     }
 
     Ok(audio_config)
+}
+
+pub fn gen_audio_segments(config: &AudioConfig, segments: &mut [AudioSegment]) {
+    let sample_rate = config.sample_rate as f64;
+    let channels = config.channel as usize;
+
+    for segment in segments.iter_mut() {
+        let start_sample =
+            (segment.start_timestamp.as_secs_f64() * sample_rate * channels as f64) as usize;
+        let end_sample =
+            (segment.end_timestamp.as_secs_f64() * sample_rate * channels as f64) as usize;
+
+        let start = start_sample.min(config.samples.len());
+        let end = end_sample.min(config.samples.len());
+
+        if start < end {
+            segment.samples = config.samples[start..end].to_vec();
+        } else {
+            log::warn!(
+                "Invalid segment[{}] range: start={:?} end={:?}, skipping",
+                segment.index,
+                segment.start_timestamp,
+                segment.end_timestamp,
+            );
+            segment.samples.clear();
+        }
+    }
 }

@@ -1,5 +1,5 @@
 use crate::slint_generatedAppWindow::{
-    BackgroundRemoverModel as UIBackgroundRemoverModel, Fps as UIFps,
+    BackgroundRemoverModel as UIBackgroundRemoverModel, FileType as UIFileType, Fps as UIFps,
     MixPositionWithPadding as UIMixPositionWithPadding,
     MixPositionWithPaddingTag as UIMixPositionWithPaddingTag, RTCIceServer as UIRTCIceServer,
     RealtimeImageEffect as UIRealtimeImageEffect, Resolution as UIResolution,
@@ -7,7 +7,10 @@ use crate::slint_generatedAppWindow::{
     SettingControl as UISettingControl, SettingCursorTracker as UISettingCursorTracker,
     SettingPushStream as UISettingPushStream, SettingRecorder as UISettingRecorder,
     SettingShareScreen as UISettingShareScreen,
-    SettingShareScreenClient as UISettingShareScreenClient, TransitionType as UITransitionType,
+    SettingShareScreenClient as UISettingShareScreenClient,
+    SettingTranscribe as UISettingTranscribe,
+    TranscribeExportVideoSetting as UITranscribeExportVideoSetting,
+    TranscribeModelSetting as UITranscribeModelSetting, TransitionType as UITransitionType,
 };
 use anyhow::{Context, Result, bail};
 use background_remover::Model as BackgroundRemoverModel;
@@ -77,6 +80,9 @@ pub struct Config {
 
     #[serde(default)]
     pub control: Control,
+
+    #[serde(default)]
+    pub transcribe: Transcribe,
 
     #[serde(default)]
     pub share_screen: ShareScreen,
@@ -329,6 +335,47 @@ pub struct Camera {
     pub background_remover: BackgroundRemover,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
+#[derivative(Default)]
+#[serde(default)]
+#[from("UITranscribeExportVideoSetting")]
+pub struct TranscribeExportVideoSetting {
+    pub enable_adjust_volume: bool,
+
+    #[derivative(Default(value = "1.0"))]
+    pub adjust_volume_times: f32,
+
+    #[derivative(Default(value = "20"))]
+    pub font_size: i32,
+
+    pub font_name: String,
+
+    #[derivative(Default(value = "true"))]
+    pub is_white_font_color: bool,
+
+    pub enable_background: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
+#[derivative(Default)]
+#[serde(default)]
+#[from("UITranscribeModelSetting")]
+pub struct TranscribeModelSetting {
+    pub model_path: String,
+    pub model_tokenizer_path: String,
+    pub mini_silent_period_duration: i32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
+#[derivative(Default)]
+#[serde(default)]
+#[from("UISettingTranscribe")]
+pub struct Transcribe {
+    pub model: TranscribeModelSetting,
+    pub export_video: TranscribeExportVideoSetting,
+}
+
+crate::impl_slint_enum_serde!(UIFileType, Audio, Video);
 crate::impl_slint_enum_serde!(UIBackgroundRemoverModel, Modnet, Rmbg14);
 crate::impl_slint_enum_serde!(UIFps, Fps24, Fps25, Fps30, Fps60);
 crate::impl_slint_enum_serde!(UIResolution, Original, P480, P720, P1080, P2K, P4K);

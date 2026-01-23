@@ -136,8 +136,8 @@ export global Logic {
     callback get-setting-camera() -> SettingCamera;
     callback set-setting-camera(setting: SettingCamera);
 
-    callback get-setting-transcirbe() -> SettingTranscribe;
-    callback set-setting-transcirbe(setting: SettingTranscribe);
+    callback get-setting-transcribe() -> SettingTranscribe;
+    callback set-setting-transcribe(setting: SettingTranscribe);
 
     callback init-sources-dialog();
     callback choose-save-dir();
@@ -208,6 +208,9 @@ export global Logic {
     callback init-realtime-image-effect-dialog() -> RealtimeImageEffect;
     callback realtime-image-effect-changed(effect: RealtimeImageEffect);
 
+    pure callback is-valid-subtitle-timestamp(timestamp: string) -> bool;
+
+    callback transcribe-init();
     callback transcribe-new();
     callback transcribe-start();
     callback transcribe-import-file();
@@ -215,9 +218,7 @@ export global Logic {
     callback transcribe-export-subtitles();
     callback transcribe-refresh-subtitles();
     callback transcribe-cancel-progress(ty: TranscribeProgressType);
-    callback transcribe-update-sound-wave(index: int, count: int);
     callback transcribe-save-subtitle(index: int);
-    callback transcribe-play-audio(index: int);
     callback transcribe-accept-correction(index: int);
 
     callback transcribe-subtitles-ai-correction();
@@ -238,14 +239,14 @@ export global Logic {
     callback transcribe-model-cancel-download(index: int, url: string);
     callback transcribe-model-start-download(index: int, url: string);
 
-    pure callback is-valid-subtitle-timestamp(timestamp: string) -> bool;
-
-    callback sound-waves-init(max-sample: int);
-    callback sound-wave-update(index: int, max-samples: int);
-    callback sound-wave-zoom-changed(index: int, level: float);
-    callback sound-wave-moved(index: int, percent: float);
-    callback sound-wave-start-position-changed(index: int, pos: float);
-    callback sound-wave-end-position-changed(index: int, pos: float);
+    callback transcribe-play-audio(index: int);
+    callback transcribe-update-sound-wave(index: int, count: int);
+    callback transcribe-sound-waves-init(max-sample: int);
+    callback transcribe-sound-wave-update(index: int, max-samples: int);
+    callback transcribe-sound-wave-zoom-changed(index: int, level: float);
+    callback transcribe-sound-wave-moved(index: int, percent: float);
+    callback transcribe-sound-wave-start-position-changed(index: int, pos: float);
+    callback transcribe-sound-wave-end-position-changed(index: int, pos: float);
 
     pure public function fps-to-int(fps: Fps) -> int {
         if (fps == Fps.Fps24) {

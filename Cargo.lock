@@ -11955,6 +11955,7 @@ dependencies = [
  "android_clipboard",
  "android_logger",
  "anyhow",
+ "audio-utils",
  "background-remover",
  "camera",
  "clipboard",
