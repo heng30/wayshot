@@ -5,7 +5,6 @@ import {
     Util,
     Icons,
     Transcribe,
-    TranscribePopupIndex,
     Subtitle,
 } from "../../def.slint";
 import {
@@ -28,6 +27,8 @@ import { ScrollView } from "std-widgets.slint";
 import { SubtitleListItem } from "list-item.slint";
 
 component StartTranscribeField inherits VerticalLayout {
+    callback show-setting-dialog();
+
     CenterLayout {
         NoMessageImg {
             width: root.width;
@@ -42,7 +43,7 @@ component StartTranscribeField inherits VerticalLayout {
                 auto-size-vpadding: Theme.padding * 2;
 
                 clicked => {
-                    Store.transcribe-popup-index = TranscribePopupIndex.Setting;
+                    root.show-setting-dialog();
                 }
             }
         }
@@ -80,6 +81,8 @@ export component Subtitles inherits Rectangle {
     private property <Transcribe> current-transcribe: Store.transcribe;
     private property <bool> is-show-no-message: current-transcribe.subtitles.length == 0 && !root.is-progressing;
 
+    callback show-setting-dialog();
+
     background: Theme.secondary-background;
     border-radius: Theme.border-radius;
 
@@ -89,5 +92,9 @@ export component Subtitles inherits Rectangle {
         }
     }
 
-    if is-show-no-message: StartTranscribeField { }
+    if is-show-no-message: StartTranscribeField {
+        show-setting-dialog => {
+            root.show-setting-dialog();
+        }
+    }
 }

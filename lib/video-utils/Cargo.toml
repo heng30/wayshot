@@ -1,0 +1,31 @@
+[package]
+name = "video-utils"
+license.workspace = true
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[dependencies]
+log.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+derivative.workspace = true
+derive_setters.workspace = true
+unicode-segmentation.workspace = true
+
+[dependencies.ffmpeg-next]
+workspace = true
+optional = true
+
+[features]
+default = []
+add-subtitle = ["ffmpeg-next"]
+
+[dev-dependencies]
+anyhow.workspace = true
+env_logger.workspace = true

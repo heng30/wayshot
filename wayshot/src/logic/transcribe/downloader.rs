@@ -64,8 +64,8 @@ fn transcribe_choose_model_path(ui: &AppWindow, index: i32) {
             let filepath = filepath.to_string_lossy().to_string().into();
             let mut setting = global_store!(ui).get_transcribe_setting_cache();
             match index {
-                0 => setting.model.model_path = filepath,
-                1 => setting.model.model_tokenizer_path = filepath,
+                0 => setting.model_path = filepath,
+                1 => setting.model_tokenizer_path = filepath,
                 _ => log::warn!("Unexcepted trancribe model index = {index}"),
             }
 
@@ -97,8 +97,8 @@ fn transcribe_model_start_download(ui: &AppWindow, index: i32, url: SharedString
             let filepath = filepath.to_string_lossy().to_string().into();
             let mut setting = global_store!(ui).get_transcribe_setting_cache();
             match index {
-                0 => setting.model.model_path = filepath,
-                1 => setting.model.model_tokenizer_path = filepath,
+                0 => setting.model_path = filepath,
+                1 => setting.model_tokenizer_path = filepath,
                 _ => log::warn!("Unexcepted trancribe model index = {index}"),
             }
             global_store!(ui).set_transcribe_setting_cache(setting);

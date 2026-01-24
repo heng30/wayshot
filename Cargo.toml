@@ -99,6 +99,7 @@ ctrlc = "3.5"
 ashpd = "0.12"
 strum = "0.27"
 winapi = "0.3"
+fast2s = "0.3"
 webrtc = "0.14"
 nokhwa = "0.10"
 cfg-if = "1.0"
@@ -134,6 +135,7 @@ async-trait = "0.1"
 pest_derive = "2.8"
 async-stream = "0.3"
 tokio-stream = "0.1"
+async-openai = "0.32"
 strum_macros = "0.27"
 rustls-pemfile = "2.2"
 derive_builder = "0.20"
@@ -163,6 +165,7 @@ gpt-sovits = { path = "lib/gpt-sovits" }
 downloader = { path = "lib/downloader" }
 mp4-player = { path = "lib/mp4-player" }
 audio-utils = { path = "lib/audio-utils" }
+video-utils = { path = "lib/video-utils" }
 tensor-utils = { path = "lib/tensor-utils" }
 fun-ast-nano = { path = "lib/fun-ast-nano" }
 image-effect = { path = "lib/image-effect" }

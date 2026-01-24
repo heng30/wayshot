@@ -314,10 +314,7 @@ export enum TranscribeProgressType {
     Finished,
     Cancelled,
     Transcribe,
-    AddSubtitle,
-    AdjustVoice,
-    Correct,
-    OptimizeTimestamp,
+    CorrectSubtitles,
 }
 
 export enum FileType {
@@ -325,30 +322,11 @@ export enum FileType {
     Video,
 }
 
-export enum TranscribePopupIndex {
-    None,
-    Setting,
-    ExportVideo,
-}
-
-export struct TranscribeExportVideoSetting {
-    enable-adjust-volume: bool,
-    adjust-volume-times: float,
-    font-size: int,
-    font-name: string,
-    is-white-font-color: bool,
-    enable-background: bool,
-}
-
-export struct TranscribeModelSetting {
+export struct SettingTranscribe {
     model-path: string,
     model-tokenizer-path: string,
     mini-silent-period-duration: int,
-}
-
-export struct SettingTranscribe {
-    model: TranscribeModelSetting,
-    export-video: TranscribeExportVideoSetting,
+    audio-sound: float,
 }
 
 export struct Subtitle {
@@ -362,7 +340,6 @@ export struct Subtitle {
     audio-samples: [float],
 }
 
-
 export struct Transcribe {
     id: string,
     file-path: string,
@@ -370,6 +347,7 @@ export struct Transcribe {
     file-type: FileType,
     subtitles: [Subtitle],
 
+    media-duration-ms: float,
     playing-index: int,
     progress: float,
     progress-type: TranscribeProgressType,
@@ -509,12 +487,10 @@ export global Store {
     in-out property <[string]> system-fonts;
 
     in-out property <[Downloader]> transcribe-models-dowloader: [{ }, { }];
-    in-out property <TranscribePopupIndex> transcribe-popup-index: TranscribePopupIndex.None;
     in-out property <SettingTranscribe> transcribe-setting;
     in-out property <SettingTranscribe> transcribe-setting-cache;
     in-out property <float> trancribe-audio-player-progress;
     in-out property <bool> trancribe-audio-player-is-playing;
-    in-out property <SettingPlayer> setting-trancribe-audio-player;
     in-out property <Transcribe> transcribe: {
         progress: 0.5,
         playing-index: -1,

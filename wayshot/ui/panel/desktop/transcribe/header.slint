@@ -7,7 +7,6 @@ import {
     TranscribeProgressType,
     Transcribe,
     FileType,
-    TranscribePopupIndex,
 } from "../../def.slint";
 import {
     CenterLayout,
@@ -29,19 +28,12 @@ export component Header inherits HorizontalLayout {
         {
             icon: Icons.correction-light,
             text: Logic.tr("ai correction"),
-            action: "transcribe-subtitles-ai-correction",
-            user-data: "correct",
+            action: "transcribe-subtitles-correction",
         },
         {
             icon: Icons.delete-light,
             text: Logic.tr("remove correction"),
-            action: "transcribe-subtitles-remove-ai-correction",
-        },
-        { },
-        {
-            icon: Icons.optimize-light,
-            text: Logic.tr("optimize timestamp"),
-            action: "transcribe-subtitles-optimize-timestamp",
+            action: "transcribe-subtitles-remove-correction",
         },
         {
             icon: Icons.overlap-light,
@@ -67,18 +59,13 @@ export component Header inherits HorizontalLayout {
     ];
 
     callback show-replace-dialog();
+    callback show-setting-dialog();
 
     public pure function progress-type-str(ty: TranscribeProgressType) -> string {
         if (ty == TranscribeProgressType.Transcribe) {
             return Logic.tr("transcribing");
-        } else if (ty == TranscribeProgressType.AddSubtitle) {
-            return Logic.tr("adding subtitle");
-        } else if (ty == TranscribeProgressType.AdjustVoice) {
-            return Logic.tr("adjusting volume");
-        } else if (ty == TranscribeProgressType.Correct) {
-            return Logic.tr("correcting");
-        } else if (ty == TranscribeProgressType.OptimizeTimestamp) {
-            return Logic.tr("optimizing timestamp");
+        } else if (ty == TranscribeProgressType.CorrectSubtitles) {
+            return Logic.tr("correcting subtitles");
         } else if (ty == TranscribeProgressType.Cancelled) {
             return Logic.tr("cancelled");
         } else {
@@ -152,7 +139,7 @@ export component Header inherits HorizontalLayout {
                         hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
 
                         clicked => {
-                            Logic.switch-transcribe-popup(TranscribePopupIndex.Setting);
+                            root.show-setting-dialog();
                         }
                     }
 
@@ -169,7 +156,7 @@ export component Header inherits HorizontalLayout {
                         }
                     }
 
-                    if current-transcribe.subtitles.length > 0: IconBtn {
+                    IconBtn {
                         is-show-tip: true;
                         tip: Logic.tr("open file");
                         icon: Icons.open-file-light;
@@ -191,18 +178,6 @@ export component Header inherits HorizontalLayout {
 
                         clicked => {
                             Logic.transcribe-export-subtitles();
-                        }
-                    }
-
-                    if current-transcribe.file-type == FileType.Video: IconBtn {
-                        is-show-tip: true;
-                        tip: Logic.tr("export video");
-                        icon: Icons.export-video-light;
-                        tip-position: Bottom;
-                        hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
-
-                        clicked => {
-                            Logic.switch-transcribe-popup(TranscribePopupIndex.ExportVideo);
                         }
                     }
 

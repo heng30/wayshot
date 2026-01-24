@@ -22,7 +22,7 @@ export component SubtitleListItem inherits Rectangle {
     in-out property <int> index;
     in-out property <int> playing-index: -1;
     in-out property <Subtitle> entry;
-    private property <string> cache-text;
+    private property <string> cache-text: entry.original-text;
 
     private property <[PopupActionEntry]> subtitle-popup-entry: [
         {
@@ -89,31 +89,16 @@ export component SubtitleListItem inherits Rectangle {
                     spacing: Theme.spacing * 2;
 
                     Label {
-                        width: self.font-size * 2;
+                        width: self.font-size;
                         text: index + 1 + ".";
                         font-weight: Theme.bold-font-weight;
                     }
 
-                    start-timestamp-input := ClickAndEditLabel {
+                    start-timestamp-input := Label {
                         private property <bool> is-valid-timestamp: Logic.is-valid-subtitle-timestamp(self.text);
 
                         text: entry.start-timestamp;
-                        text-color: is-valid-timestamp ? Theme.regular-text-color : Theme.warning-color;
-                        allow-breaking-text-binding-when-edit: false;
-
-                        edited(text) => {
-                            entry.start-timestamp = text;
-                        }
-
-                        accepted(text) => {
-                            self.is-edit = false;
-                            Logic.transcribe-update-sound-wave(index, 250);
-                            Logic.transcribe-save-subtitle(index);
-                        }
-
-                        clicked => {
-                            self.is-edit = true;
-                        }
+                        color: is-valid-timestamp ? Theme.regular-text-color : Theme.warning-color;
                     }
 
                     VerticalLayout {
@@ -127,26 +112,11 @@ export component SubtitleListItem inherits Rectangle {
                         }
                     }
 
-                    end-timestamp-input := ClickAndEditLabel {
+                    end-timestamp-input := Label {
                         private property <bool> is-valid-timestamp: Logic.is-valid-subtitle-timestamp(self.text);
 
                         text: entry.end-timestamp;
-                        text-color: is-valid-timestamp ? Theme.regular-text-color : Theme.warning-color;
-                        allow-breaking-text-binding-when-edit: false;
-
-                        edited(text) => {
-                            entry.end-timestamp = text;
-                        }
-
-                        accepted(text) => {
-                            self.is-edit = false;
-                            Logic.transcribe-update-sound-wave(index, 250);
-                            Logic.transcribe-save-subtitle(index);
-                        }
-
-                        clicked => {
-                            self.is-edit = true;
-                        }
+                        color: is-valid-timestamp ? Theme.regular-text-color : Theme.warning-color;
                     }
 
                     VerticalLayout {
@@ -193,7 +163,7 @@ export component SubtitleListItem inherits Rectangle {
                         icon: Icons.control-start-light;
 
                         clicked => {
-                            Logic.transcribe-play-audio(index);
+                            Logic.transcribe-play-audio(entry.start-timestamp, entry.end-timestamp);
                         }
                     }
 
@@ -230,7 +200,8 @@ export component SubtitleListItem inherits Rectangle {
 
                     accepted(text) => {
                         self.is-edit = false;
-                        Logic.transcribe-save-subtitle(index);
+                        root.cache-text = self.text;
+                        Logic.transcribe-subtitle-update(index, entry);
                     }
 
                     escape => {
@@ -286,7 +257,7 @@ export component SubtitleListItem inherits Rectangle {
                             background: self.has-hover ? Theme.success-color.darker(20%) : Theme.success-color;
 
                             clicked => {
-                                Logic.transcribe-accept-correction(index);
+                                Logic.transcribe-subtitle-accept-correction(index);
                             }
                         }
                     }

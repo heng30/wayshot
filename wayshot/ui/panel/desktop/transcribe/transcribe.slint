@@ -6,7 +6,6 @@ import {
     Icons,
     Transcribe,
     FileType,
-    TranscribePopupIndex,
     SettingTranscribe,
 } from "../../def.slint";
 import {
@@ -24,74 +23,11 @@ import {
     Blanket,
     ReplaceDialog,
     SimpleAudioControl,
+    ConfirmDialogSetting,
 } from "../../../base/widgets.slint";
 import { Header } from "header.slint";
 import { Subtitles } from "subtitles.slint";
 import { TranscribeSettingDialog } from "setting.slint";
-import { ExportVideoDialog } from "export-video.slint";
-
-component Banners inherits VerticalLayout {
-    in-out property <bool> is-show-import-banner;
-    in-out property <bool> is-show-ffmpeg-banner;
-
-    spacing: Theme.spacing * 2;
-
-    if is-show-ffmpeg-banner: Banner {
-        width: root.width;
-
-        HorizontalLayout {
-            spacing: Theme.spacing * 4;
-
-            Label {
-                color: Theme.light-text-color;
-                text: Logic.tr("Download ffmpeg.");
-                font-weight: Theme.bold-font-weight;
-            }
-
-            IconBtn {
-                icon: Icons.browser-access-light;
-                show-icon-hover-background: false;
-                colorize: Theme.light-text-color;
-
-                clicked => {
-                    Util.open-url("Default", "https://www.ffmpeg.org/download.html");
-                }
-            }
-        }
-
-        close => {
-            is-show-ffmpeg-banner = false;
-        }
-    }
-
-    if is-show-import-banner: Banner {
-        width: root.width;
-
-        HorizontalLayout {
-            spacing: Theme.spacing * 4;
-
-            Label {
-                color: Theme.light-text-color;
-                text: Logic.tr("No found") + " " + Store.transcribe.file-path + ".";
-                font-weight: Theme.bold-font-weight;
-            }
-
-            IconBtn {
-                icon: Icons.import-light;
-                colorize: Theme.light-text-color;
-                show-icon-hover-background: false;
-
-                clicked => {
-                    Logic.transcribe-import-file();
-                }
-            }
-        }
-
-        close => {
-            is-show-import-banner = false;
-        }
-    }
-}
 
 export component TranscribePanel inherits Rectangle {
     private property <Transcribe> current-transcribe <=> Store.transcribe;
@@ -100,14 +36,15 @@ export component TranscribePanel inherits Rectangle {
     private property <bool> is-show-file-picker: current-transcribe.file-path.is-empty;
 
     private property <bool> is-show-import-banner: !Store.transcribe.is-file-exist;
-    private property <bool> is-show-ffmpeg-banner: !Store.ffmpeg-available && current-transcribe.file-type == FileType.Video;
-    private property <bool> is-show-banners: is-show-import-banner || is-show-ffmpeg-banner;
-
-    private property <bool> is-show-setting-dialog: Store.transcribe-popup-index == TranscribePopupIndex.Setting;
-    private property <bool> is-show-export-video-dialog: Store.transcribe-popup-index == TranscribePopupIndex.ExportVideo;
+    private property <bool> is-show-setting-dialog;
 
     init => {
         Logic.transcribe-init();
+        Logic.transcribe-audio-player-init();
+
+        if (!current-transcribe.is-file-exist) {
+            ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("No found media file. Import file or not?"), "transcribe-import-file", "");
+        }
     }
 
     if is-show-file-picker: FilePicker {
@@ -124,14 +61,13 @@ export component TranscribePanel inherits Rectangle {
         padding: Theme.padding * 2;
         spacing: Theme.spacing * 2;
 
-        if is-show-banners: Banners {
-            is-show-ffmpeg-banner: root.is-show-ffmpeg-banner;
-            is-show-import-banner: root.is-show-import-banner;
-        }
-
         header := Header {
             show-replace-dialog => {
                 root.is-show-replace-dialog = true;
+            }
+
+            show-setting-dialog => {
+                root.is-show-setting-dialog = true;
             }
         }
 
@@ -140,6 +76,10 @@ export component TranscribePanel inherits Rectangle {
 
             Subtitles {
                 is-progressing: header.is-progressing;
+
+                show-setting-dialog => {
+                    root.is-show-setting-dialog = true;
+                }
             }
         }
 
@@ -167,25 +107,17 @@ export component TranscribePanel inherits Rectangle {
         }
     }
 
-    if is-show-setting-dialog || is-show-export-video-dialog: Blanket {
+    if is-show-setting-dialog: Blanket {
         clicked => {
-            Logic.switch-transcribe-popup(TranscribePopupIndex.None);
+            is-show-setting-dialog = false;
         }
     }
 
-    if Store.transcribe-popup-index == TranscribePopupIndex.Setting: TranscribeSettingDialog {
+    if is-show-setting-dialog: TranscribeSettingDialog {
         width: Math.min(Theme.dialog-max-width, root.width * 0.8);
 
         escape => {
-            Logic.switch-transcribe-popup(TranscribePopupIndex.None);
-        }
-    }
-
-    if Store.transcribe-popup-index == TranscribePopupIndex.ExportVideo: ExportVideoDialog {
-        width: Math.min(Theme.dialog-max-width, root.width * 0.95);
-
-        escape => {
-            Logic.switch-transcribe-popup(TranscribePopupIndex.None);
+            is-show-setting-dialog = false;
         }
     }
 }

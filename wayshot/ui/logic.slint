@@ -24,7 +24,6 @@ import {
     DownloaderState,
     TranscribeProgressType,
     Subtitle,
-    TranscribePopupIndex,
     SettingTranscribe,
 } from "store.slint";
 
@@ -80,13 +79,6 @@ export global Logic {
             return;
         }
         Store.current-setting-detail-index = index;
-    }
-
-    //desktop
-    public function switch-transcribe-popup(index: TranscribePopupIndex) {
-        if (Store.transcribe-popup-index != index) {
-            Store.transcribe-popup-index = index;
-        }
     }
 
     public function switch-process-mode(mode: ProcessMode) {
@@ -218,30 +210,30 @@ export global Logic {
     callback transcribe-export-subtitles();
     callback transcribe-refresh-subtitles();
     callback transcribe-cancel-progress(ty: TranscribeProgressType);
-    callback transcribe-save-subtitle(index: int);
-    callback transcribe-accept-correction(index: int);
 
-    callback transcribe-subtitles-ai-correction();
-    callback transcribe-subtitles-remove-ai-correction();
-    callback transcribe-subtitles-optimize-timestamp();
+    callback transcribe-subtitles-correction();
+    callback transcribe-subtitles-remove-correction();
     callback transcribe-subtitles-adjust-overlap-timestamp();
     callback transcribe-subtitles-to-lowercase();
     callback transcribe-subtitles-to-simple-chinese();
     callback transcribe-subtitles-remove-separator();
 
-    callback transcribe-subtitle-split();
-    callback transcribe-subtitle-merge-above();
-    callback transcribe-subtitle-insert-above();
-    callback transcribe-subtitle-insert-below();
-    callback transcribe-subtitle-remove();
+    callback transcribe-subtitle-update(index: int, item: Subtitle);
+    callback transcribe-subtitle-accept-correction(index: int);
+    callback transcribe-subtitle-split(index: int);
+    callback transcribe-subtitle-merge-above(index: int);
+    callback transcribe-subtitle-insert-above(index: int);
+    callback transcribe-subtitle-insert-below(index: int);
+    callback transcribe-subtitle-remove(index: int);
 
     callback transcribe-choose-model-path(index: int);
     callback transcribe-model-cancel-download(index: int, url: string);
     callback transcribe-model-start-download(index: int, url: string);
 
-    callback transcribe-play-audio(index: int);
-    callback transcribe-update-sound-wave(index: int, count: int);
-    callback transcribe-sound-waves-init(max-sample: int);
+    callback transcribe-audio-player-init();
+    callback transcribe-play-audio(start-timestamp: string, end-timestamp: string);
+    callback transcribe-stop-audio();
+
     callback transcribe-sound-wave-update(index: int, max-samples: int);
     callback transcribe-sound-wave-zoom-changed(index: int, level: float);
     callback transcribe-sound-wave-moved(index: int, percent: float);

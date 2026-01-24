@@ -8,9 +8,7 @@ use crate::slint_generatedAppWindow::{
     SettingPushStream as UISettingPushStream, SettingRecorder as UISettingRecorder,
     SettingShareScreen as UISettingShareScreen,
     SettingShareScreenClient as UISettingShareScreenClient,
-    SettingTranscribe as UISettingTranscribe,
-    TranscribeExportVideoSetting as UITranscribeExportVideoSetting,
-    TranscribeModelSetting as UITranscribeModelSetting, TransitionType as UITransitionType,
+    SettingTranscribe as UISettingTranscribe, TransitionType as UITransitionType,
 };
 use anyhow::{Context, Result, bail};
 use background_remover::Model as BackgroundRemoverModel;
@@ -338,41 +336,12 @@ pub struct Camera {
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
 #[derivative(Default)]
 #[serde(default)]
-#[from("UITranscribeExportVideoSetting")]
-pub struct TranscribeExportVideoSetting {
-    pub enable_adjust_volume: bool,
-
-    #[derivative(Default(value = "1.0"))]
-    pub adjust_volume_times: f32,
-
-    #[derivative(Default(value = "20"))]
-    pub font_size: i32,
-
-    pub font_name: String,
-
-    #[derivative(Default(value = "true"))]
-    pub is_white_font_color: bool,
-
-    pub enable_background: bool,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
-#[derivative(Default)]
-#[serde(default)]
-#[from("UITranscribeModelSetting")]
-pub struct TranscribeModelSetting {
+#[from("UISettingTranscribe")]
+pub struct Transcribe {
     pub model_path: String,
     pub model_tokenizer_path: String,
     pub mini_silent_period_duration: i32,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
-#[derivative(Default)]
-#[serde(default)]
-#[from("UISettingTranscribe")]
-pub struct Transcribe {
-    pub model: TranscribeModelSetting,
-    pub export_video: TranscribeExportVideoSetting,
+    pub audio_sound: f32,
 }
 
 crate::impl_slint_enum_serde!(UIFileType, Audio, Video);

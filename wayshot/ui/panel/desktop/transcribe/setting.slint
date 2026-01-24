@@ -56,8 +56,8 @@ export component TranscribeSettingDialog inherits Dialog {
                     is-show-icon: true;
                     icon: Icons.file-open-light;
                     placeholder-text: index == 0 ? "model.pt" : "Qwen3-0.6B/tokenizer.json";
-                    text: index == 0 ? cache-setting.model.model-path : cache-setting.model.model-tokenizer-path;
-                    border-color: Logic.file-exist(index == 0 ? cache-setting.model.model-path : cache-setting.model.model-tokenizer-path) ? self.default-border-color : Theme.warning-color;
+                    text: index == 0 ? cache-setting.model-path : cache-setting.model-tokenizer-path;
+                    border-color: Logic.file-exist(index == 0 ? cache-setting.model-path : cache-setting.model-tokenizer-path) ? self.default-border-color : Theme.danger-color;
 
                     clicked => {
                         Logic.transcribe-choose-model-path(index);
@@ -120,7 +120,7 @@ export component TranscribeSettingDialog inherits Dialog {
 
             LineInput {
                 placeholder-text: 200;
-                text: cache-setting.model.mini-silent-period-duration;
+                text: cache-setting.mini-silent-period-duration;
             }
         }
     }
