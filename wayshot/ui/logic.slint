@@ -201,6 +201,7 @@ export global Logic {
     callback realtime-image-effect-changed(effect: RealtimeImageEffect);
 
     pure callback is-valid-subtitle-timestamp(timestamp: string) -> bool;
+    pure callback ms-to-srt-timestamp-ui(ms: float) -> string;
 
     callback transcribe-init();
     callback transcribe-new();
@@ -211,12 +212,15 @@ export global Logic {
     callback transcribe-refresh-subtitles();
     callback transcribe-cancel-progress(ty: TranscribeProgressType);
 
+    callback transcribe-subtitles-recovery();
+    callback transcribe-subtitles-remove-all();
     callback transcribe-subtitles-correction();
     callback transcribe-subtitles-remove-correction();
     callback transcribe-subtitles-adjust-overlap-timestamp();
     callback transcribe-subtitles-to-lowercase();
     callback transcribe-subtitles-to-simple-chinese();
     callback transcribe-subtitles-remove-separator();
+    callback transcribe-subtitles-replace-text(old-text: string, new-text: string);
 
     callback transcribe-subtitle-update(index: int, item: Subtitle);
     callback transcribe-subtitle-accept-correction(index: int);
@@ -231,6 +235,12 @@ export global Logic {
     callback transcribe-model-start-download(index: int, url: string);
 
     callback transcribe-audio-player-init();
+    callback transcribe-audio-player-sound-changed(sound: float);
+    callback transcribe-audio-player-sound-released(sound: float);
+    callback transcribe-audio-player-progress-changed(value: float);
+    callback transcribe-audio-player-progress-released(value: float);
+    callback transcribe-audio-player-progress-pressed(value: float);
+
     callback transcribe-play-audio(start-timestamp: string, end-timestamp: string);
     callback transcribe-stop-audio();
 

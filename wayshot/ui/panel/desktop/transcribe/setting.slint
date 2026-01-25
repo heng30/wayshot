@@ -35,8 +35,9 @@ export component TranscribeSettingDialog inherits Dialog {
     confirmed => {
         Store.transcribe-setting = cache-setting;
         Logic.set-setting-transcribe(cache-setting);
-        Logic.transcribe-start();
+
         self.escape();
+        Logic.transcribe-start();
     }
 
     canceled => {
@@ -50,6 +51,14 @@ export component TranscribeSettingDialog inherits Dialog {
             HorizontalLayout {
                 spacing: Theme.spacing * 4;
 
+                pure function get-border-color(status: DownloaderState, exist-color: color, no-exist-color: color) -> color {
+                    if status == DownloaderState.Finished {
+                        return exist-color;
+                    } else {
+                        return Logic.file-exist(index == 0 ? cache-setting.model-path : cache-setting.model-tokenizer-path) ? exist-color : no-exist-color;
+                    }
+                }
+
                 model-path-li := LineInput {
                     horizontal-stretch: 2;
                     read-only: true;
@@ -57,7 +66,7 @@ export component TranscribeSettingDialog inherits Dialog {
                     icon: Icons.file-open-light;
                     placeholder-text: index == 0 ? "model.pt" : "Qwen3-0.6B/tokenizer.json";
                     text: index == 0 ? cache-setting.model-path : cache-setting.model-tokenizer-path;
-                    border-color: Logic.file-exist(index == 0 ? cache-setting.model-path : cache-setting.model-tokenizer-path) ? self.default-border-color : Theme.danger-color;
+                    border-color: get-border-color(downloader.state, self.default-border-color, Theme.danger-color);
 
                     clicked => {
                         Logic.transcribe-choose-model-path(index);

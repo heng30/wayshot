@@ -26,6 +26,16 @@ pub fn init(ui: &AppWindow) {
                 let index = user_data.parse::<i32>().unwrap_or(-1);
                 global_logic!(ui).invoke_remove_history(index);
             }
+            "transcribe-import-file" => {
+                global_logic!(ui).invoke_transcribe_import_file();
+            }
+            "transcribe-subtitles-remove-all" => {
+                global_logic!(ui).invoke_transcribe_subtitles_remove_all();
+            }
+            "transcribe-subtitles-recovery" => {
+                global_logic!(ui).invoke_transcribe_subtitles_recovery();
+            }
+
             _ => (),
         }
     });

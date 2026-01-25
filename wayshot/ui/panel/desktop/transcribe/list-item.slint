@@ -20,7 +20,6 @@ import {
 
 export component SubtitleListItem inherits Rectangle {
     in-out property <int> index;
-    in-out property <int> playing-index: -1;
     in-out property <Subtitle> entry;
     private property <string> cache-text: entry.original-text;
 
@@ -37,7 +36,6 @@ export component SubtitleListItem inherits Rectangle {
             action: "transcribe-subtitle-merge-above",
             user-data: index,
         },
-        { },
         {
             icon: Icons.cell-insert-above-light,
             text: Logic.tr("Insert Above"),
@@ -62,7 +60,7 @@ export component SubtitleListItem inherits Rectangle {
     border-radius: Theme.border-radius;
     border-width: Theme.default-border-width;
     background: Theme.secondary-background;
-    border-color: root.playing-index == index ? Theme.thirdly-brand-color : Theme.base-border-color.brighter(Theme.is-dark ? 50% : 0%);
+    border-color: Store.transcribe.playing-index == index ? Theme.thirdly-brand-color : Theme.base-border-color.brighter(Theme.is-dark ? 50% : 0%);
 
     ta := GainFocus {
         clicked => {
@@ -81,57 +79,70 @@ export component SubtitleListItem inherits Rectangle {
             border-top-left-radius: root.border-radius;
             border-top-right-radius: root.border-radius;
 
-            HorizontalLayout {
+            hbox := HorizontalLayout {
                 alignment: space-between;
-                padding: Theme.padding * 2;
+                padding-left: Theme.padding * 2;
+                padding-right: Theme.padding * 2;
 
                 HorizontalLayout {
-                    spacing: Theme.spacing * 2;
+                    alignment: start;
 
-                    Label {
-                        width: self.font-size;
-                        text: index + 1 + ".";
-                        font-weight: Theme.bold-font-weight;
-                    }
+                    timestamp-hbox := HorizontalLayout {
+                        spacing: Theme.spacing * 2;
+                        alignment: start;
 
-                    start-timestamp-input := Label {
-                        private property <bool> is-valid-timestamp: Logic.is-valid-subtitle-timestamp(self.text);
+                        Label {
+                            width: self.font-size * 2;
+                            text: index + 1 + ".";
+                            font-weight: Theme.bold-font-weight;
+                        }
 
-                        text: entry.start-timestamp;
-                        color: is-valid-timestamp ? Theme.regular-text-color : Theme.warning-color;
-                    }
+                        start-timestamp-input := Label {
+                            private property <bool> is-valid-timestamp: Logic.is-valid-subtitle-timestamp(self.text);
 
-                    VerticalLayout {
-                        alignment: center;
+                            text: entry.start-timestamp;
+                            color: is-valid-timestamp ? Theme.regular-text-color : Theme.warning-color;
+                        }
 
-                        Image {
-                            width: Theme.icon-size;
-                            height: self.width;
-                            source: Icons.arrow-forward-light;
-                            colorize: Theme.regular-text-color;
+                        VerticalLayout {
+                            alignment: center;
+
+                            Image {
+                                width: Theme.icon-size;
+                                height: self.width;
+                                source: Icons.arrow-forward-light;
+                                colorize: Theme.regular-text-color;
+                            }
+                        }
+
+                        end-timestamp-input := Label {
+                            private property <bool> is-valid-timestamp: Logic.is-valid-subtitle-timestamp(self.text);
+
+                            text: entry.end-timestamp;
+                            color: is-valid-timestamp ? Theme.regular-text-color : Theme.warning-color;
                         }
                     }
 
-                    end-timestamp-input := Label {
-                        private property <bool> is-valid-timestamp: Logic.is-valid-subtitle-timestamp(self.text);
-
-                        text: entry.end-timestamp;
-                        color: is-valid-timestamp ? Theme.regular-text-color : Theme.warning-color;
-                    }
-
                     VerticalLayout {
                         alignment: center;
-                        padding-left: Theme.padding * 4;
+                        padding-left: Theme.padding * 8;
                         padding-right: Theme.padding * 4;
+                        padding-top: Theme.padding;
+                        padding-bottom: Theme.padding;
 
                         SoundWaveForm {
-                            width: 250px;
-                            height: Theme.icon-size * 1.5;
+                            width: min(root.width - timestamp-hbox.preferred-width - icon-hbox.preferred-width - hbox.padding-left - hbox.padding-right - parent.padding-left - parent.padding-right, 450px);
+                            height: Theme.icon-size * 1.6;
                             control-handle-size: Theme.icon-size * Theme.golden-ratio;
                             amplitude-scale: max(0, entry.audio-wave-amplitude);
                             wave-data: entry.audio-samples;
                             disable-amplitude: true;
+                            show-control-handle: false;
                             is-mono: true;
+
+                            changed has-hover => {
+                                self.show-control-handle = self.has-hover;
+                            }
 
                             moved(percent) => {
                                 Logic.transcribe-sound-wave-moved(index, percent)
@@ -154,8 +165,9 @@ export component SubtitleListItem inherits Rectangle {
                     }
                 }
 
-                HorizontalLayout {
+                icon-hbox := HorizontalLayout {
                     spacing: Theme.padding * 4;
+                    alignment: end;
 
                     IconBtn {
                         is-show-tip: true;

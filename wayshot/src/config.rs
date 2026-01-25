@@ -340,7 +340,11 @@ pub struct Camera {
 pub struct Transcribe {
     pub model_path: String,
     pub model_tokenizer_path: String,
+
+    #[derivative(Default(value = "200"))]
     pub mini_silent_period_duration: i32,
+
+    #[derivative(Default(value = "0.5"))]
     pub audio_sound: f32,
 }
 

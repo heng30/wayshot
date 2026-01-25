@@ -98,14 +98,12 @@ pub fn detect_speech_segments(audio_data: &[f32], config: &VadConfig) -> Vec<Aud
                 let speech_duration = window_pos - speech_start;
 
                 if speech_duration >= min_speech_samples {
-                    // Valid speech segment
-                    let end_sample = window_pos + window_size;
-                    let segment_audio =
-                        audio_data[speech_start..end_sample.min(audio_data.len())].to_vec();
+                    let end_sample = window_pos;
+                    let segment_audio = audio_data[speech_start..end_sample].to_vec();
 
                     segments.push(AudioSegment {
                         start_sample: speech_start,
-                        end_sample: end_sample.min(audio_data.len()),
+                        end_sample: end_sample,
                         audio_data: segment_audio,
                     });
                 }
@@ -140,7 +138,10 @@ pub fn detect_speech_segments(audio_data: &[f32], config: &VadConfig) -> Vec<Aud
         let mut current_segment = segments[0].clone();
 
         for segment in segments.iter().skip(1) {
-            let gap = segment.start_sample - current_segment.end_sample;
+            let gap = segment
+                .start_sample
+                .checked_sub(current_segment.end_sample)
+                .expect("Speech segments overlap - this indicates a bug in segment creation");
             let gap_ms = (gap * 1000) / config.sample_rate as usize;
 
             if gap_ms < config.min_silence_duration_ms as usize {

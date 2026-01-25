@@ -483,14 +483,12 @@ export global Store {
 
     in-out property <bool> is-show-realtime-image-effect-dialog;
 
-    in-out property <bool> ffmpeg-available;
-    in-out property <[string]> system-fonts;
-
     in-out property <[Downloader]> transcribe-models-dowloader: [{ }, { }];
     in-out property <SettingTranscribe> transcribe-setting;
     in-out property <SettingTranscribe> transcribe-setting-cache;
-    in-out property <float> trancribe-audio-player-progress;
-    in-out property <bool> trancribe-audio-player-is-playing;
+    in-out property <float> transcribe-audio-player-progress;
+    in-out property <bool> transcribe-audio-player-is-playing;
+    in-out property <bool> transcribe-can-recovered;
     in-out property <Transcribe> transcribe: {
         progress: 0.5,
         playing-index: -1,

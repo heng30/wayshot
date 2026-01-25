@@ -20,56 +20,65 @@ import {
 } from "../../../base/widgets.slint";
 
 export component Header inherits HorizontalLayout {
-    out property <bool> is-progressing: !(current-transcribe.progress-type == TranscribeProgressType.None || current-transcribe.progress-type == TranscribeProgressType.Finished);
+    out property <bool> is-progressing: !(current-transcribe.progress-type == TranscribeProgressType.None || current-transcribe.progress-type == TranscribeProgressType.Finished || current-transcribe.progress-type == TranscribeProgressType.Cancelled);
 
     private property <Transcribe> current-transcribe <=> Store.transcribe;
 
     private property <[PopupActionEntry]> popup-action-entries: [
         {
             icon: Icons.correction-light,
-            text: Logic.tr("ai correction"),
+            text: Logic.tr("AI Correction"),
             action: "transcribe-subtitles-correction",
         },
         {
             icon: Icons.delete-light,
-            text: Logic.tr("remove correction"),
+            text: Logic.tr("Remove Correction"),
             action: "transcribe-subtitles-remove-correction",
         },
         {
-            icon: Icons.overlap-light,
-            text: Logic.tr("adjust overlap timestamp"),
-            action: "transcribe-subtitles-adjust-overlap-timestamp",
-        },
-        { },
-        {
             icon: Icons.to-lowercase-light,
-            text: Logic.tr("lowercase"),
+            text: Logic.tr("To Lowercase"),
             action: "transcribe-subtitles-to-lowercase",
         },
         {
             icon: Icons.traditional-to-simple-chinese-light,
-            text: Logic.tr("simple chinese"),
+            text: Logic.tr("To Simple Chinese"),
             action: "transcribe-subtitles-to-simple-chinese",
         },
         {
             icon: Icons.separator-light,
-            text: Logic.tr("remove separator"),
+            text: Logic.tr("Remove Separator"),
             action: "transcribe-subtitles-remove-separator",
+        },
+        {
+            icon: Icons.overlap-light,
+            text: Logic.tr("Adjust Overlap Timestamp"),
+            action: "transcribe-subtitles-adjust-overlap-timestamp",
         },
     ];
 
     callback show-replace-dialog();
     callback show-setting-dialog();
 
-    public pure function progress-type-str(ty: TranscribeProgressType) -> string {
+    pure function progress-type-str(ty: TranscribeProgressType) -> string {
         if (ty == TranscribeProgressType.Transcribe) {
             return Logic.tr("transcribing");
         } else if (ty == TranscribeProgressType.CorrectSubtitles) {
             return Logic.tr("correcting subtitles");
         } else if (ty == TranscribeProgressType.Cancelled) {
             return Logic.tr("cancelled");
+        } else if (ty == TranscribeProgressType.Finished) {
+            return Logic.tr("Finished");
         } else {
             return "";
+        }
+    }
+
+    pure function progress-type-color(ty: TranscribeProgressType) -> color {
+        if (ty == TranscribeProgressType.Cancelled) {
+            return Theme.warning-color;
+        } else {
+            return Theme.thirdly-brand-color;
         }
     }
 
@@ -91,7 +100,7 @@ export component Header inherits HorizontalLayout {
                 clip: true;
                 font-weight: Theme.bold-font-weight;
                 progress: current-transcribe.progress;
-                unfinished-progress-color: Theme.thirdly-background;
+                unfinished-progress-color: progress-type-color(current-transcribe.progress-type);
                 unfinished-text: self.progress-text + " " + self.calc-percent(self.progress) + "%";
                 finished-text: self.progress-text;
             }
@@ -171,8 +180,35 @@ export component Header inherits HorizontalLayout {
 
                     if current-transcribe.subtitles.length > 0: IconBtn {
                         is-show-tip: true;
+                        tip: Logic.tr("remove all");
+                        icon: Icons.delete-all-light;
+                        icon-size: Theme.icon-size * 0.9;
+                        tip-position: Bottom;
+                        hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                        clicked => {
+                            ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Quit application or not?"), "transcribe-subtitles-remove-all", "");
+                        }
+                    }
+
+                    if Store.transcribe-can-recovered: IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("recovery");
+                        icon: Icons.recovery-convert-light;
+                        icon-size: Theme.icon-size;
+                        tip-position: Bottom;
+                        hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                        clicked => {
+                            ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Recovery or not?"), "transcribe-subtitles-recovery", "");
+                        }
+                    }
+
+                    if current-transcribe.subtitles.length > 0: IconBtn {
+                        is-show-tip: true;
                         tip: Logic.tr("export subtitle");
-                        icon: Icons.subtitle-light;
+                        icon: Icons.export-light;
+                        icon-size: Theme.icon-size * 0.9;
                         tip-position: Bottom;
                         hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
 

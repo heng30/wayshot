@@ -5,6 +5,7 @@ import {
     Util,
     Icons,
     Transcribe,
+    TranscribeProgressType,
     Subtitle,
 } from "../../def.slint";
 import {
@@ -51,17 +52,20 @@ component StartTranscribeField inherits VerticalLayout {
 }
 
 component SubtitleListView inherits ScrollView {
-    in-out property <bool> is-progressing;
+    private property current-transcribe <=> Store.transcribe;
     private property <[Subtitle]> subtitles: Store.transcribe.subtitles;
+    private property <bool> is-show-skeleton: (current-transcribe.progress-type == TranscribeProgressType.Transcribe && subtitles.length == 0);
 
     VerticalLayout {
         spacing: Theme.spacing * 2;
 
-        if is-progressing && subtitles.length <= 0: Rectangle {
-            height: Theme.icon-size * 6;
+        if is-show-skeleton: Rectangle {
+            height: Theme.icon-size * 8;
 
             Skeleton {
-                width: parent.width;
+                x: Theme.padding * 2;
+                y: Theme.padding * 2;
+                width: parent.width - Theme.padding * 4;
                 height: parent.height;
                 type: SkeletonType.List;
             }
@@ -71,15 +75,14 @@ component SubtitleListView inherits ScrollView {
             index: index;
             entry: entry;
             width: root.width;
-            playing-index: Store.transcribe.playing-index;
         }
     }
 }
 
 export component Subtitles inherits Rectangle {
-    in property <bool> is-progressing;
-    private property <Transcribe> current-transcribe: Store.transcribe;
-    private property <bool> is-show-no-message: current-transcribe.subtitles.length == 0 && !root.is-progressing;
+    private property current-transcribe <=> Store.transcribe;
+    private property <bool> is-transcribing: current-transcribe.progress-type == TranscribeProgressType.Transcribe;
+    private property <bool> is-show-no-message: current-transcribe.subtitles.length == 0 && !root.is-transcribing;
 
     callback show-setting-dialog();
 
@@ -87,9 +90,9 @@ export component Subtitles inherits Rectangle {
     border-radius: Theme.border-radius;
 
     if !is-show-no-message: VerticalLayout {
-        SubtitleListView {
-            is-progressing: root.is-progressing;
-        }
+        padding: Theme.padding * 2;
+
+        SubtitleListView { }
     }
 
     if is-show-no-message: StartTranscribeField {

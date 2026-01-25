@@ -1,44 +1,40 @@
 use crate::{
-    global_store,
+    global_logic, global_store,
     logic::toast,
     logic_cb,
     slint_generatedAppWindow::{AppWindow, Subtitle as UISubtitle},
     store_transcribe_subtitles, toast_warn,
 };
 use audio_utils::audio::AudioConfig;
-use cutil::time::media_timestamp_to_ms;
 use once_cell::sync::Lazy;
 use rodio::{OutputStream, OutputStreamBuilder, Sink, buffer::SamplesBuffer};
-use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel, Weak};
 use std::sync::{Arc, Mutex};
 use video_utils::subtitle::{ms_to_srt_timestamp, srt_timestamp_to_ms};
 
-const MAX_WAVE_FORM_SAMPLE_COUNTS: i32 = 200;
+pub const MAX_WAVE_FORM_SAMPLE_COUNTS: i32 = 200;
 static CURRENT_AUDIO_PLAYER: Lazy<Mutex<CurrentAudioPlayer>> =
     Lazy::new(|| Mutex::new(CurrentAudioPlayer::default()));
-
-#[macro_export]
-macro_rules! store_transcribe_subtitle_audio_samples {
-    ($subtitle: expr) => {
-        $subtitle
-            .audio_samples
-            .as_any()
-            .downcast_ref::<VecModel<f32>>()
-            .expect("We know we set a VecModel<f32> earlier")
-    };
-}
 
 #[derive(Default)]
 struct CurrentAudioPlayer {
     audio_config: Option<AudioConfig>,
     audio_sink: Option<Arc<Sink>>,
     audio_stream: Option<Arc<OutputStream>>,
+    inc_index: u64,
 }
 
 pub fn init(ui: &AppWindow) {
     logic_cb!(transcribe_audio_player_init, ui);
+    logic_cb!(transcribe_audio_player_sound_changed, ui, sound);
+    logic_cb!(transcribe_audio_player_sound_released, ui, sound);
+    logic_cb!(transcribe_audio_player_progress_changed, ui, value);
+    logic_cb!(transcribe_audio_player_progress_released, ui, value);
+    logic_cb!(transcribe_audio_player_progress_pressed, ui, value);
+
     logic_cb!(transcribe_play_audio, ui, start_timestamp, end_timestamp);
     logic_cb!(transcribe_stop_audio, ui);
+
     logic_cb!(transcribe_sound_wave_update, ui, index, max_samples);
     logic_cb!(transcribe_sound_wave_zoom_changed, ui, index, level);
     logic_cb!(transcribe_sound_wave_moved, ui, index, percent);
@@ -86,31 +82,53 @@ fn transcribe_audio_player_init(ui: &AppWindow) {
     }
 }
 
+fn transcribe_audio_player_sound_changed(_ui: &AppWindow, sound: f32) {
+    if let Some(ref sink) = CURRENT_AUDIO_PLAYER.lock().unwrap().audio_sink {
+        sink.set_volume(sound.clamp(0.0, 1.0));
+    }
+}
+
+fn transcribe_audio_player_sound_released(ui: &AppWindow, sound: f32) {
+    if let Some(ref sink) = CURRENT_AUDIO_PLAYER.lock().unwrap().audio_sink {
+        sink.set_volume(sound.clamp(0.0, 1.0));
+    }
+
+    let mut setting = global_store!(ui).get_transcribe_setting();
+    setting.audio_sound = sound;
+    global_store!(ui).set_transcribe_setting(setting.clone());
+    global_logic!(ui).invoke_set_setting_transcribe(setting);
+}
+
+fn transcribe_audio_player_progress_changed(ui: &AppWindow, value: f32) {
+    global_store!(ui).set_transcribe_audio_player_progress(value);
+}
+
+fn transcribe_audio_player_progress_released(ui: &AppWindow, value: f32) {
+    let entry = global_store!(ui).get_transcribe();
+    let start_timestamp =
+        ms_to_srt_timestamp((entry.media_duration_ms * value.clamp(0.0, 1.0)) as u64).into();
+    let end_timestamp = ms_to_srt_timestamp(entry.media_duration_ms as u64).into();
+
+    global_store!(ui).set_transcribe_audio_player_progress(value);
+    global_logic!(ui).invoke_transcribe_play_audio(start_timestamp, end_timestamp);
+}
+
+fn transcribe_audio_player_progress_pressed(ui: &AppWindow, value: f32) {
+    global_store!(ui).set_transcribe_audio_player_progress(value);
+}
+
 fn transcribe_play_audio(
     ui: &AppWindow,
     start_timestamp: SharedString,
     end_timestamp: SharedString,
 ) {
-    let start_ms = match srt_timestamp_to_ms(&start_timestamp) {
-        Ok(ms) => ms,
-        Err(_) => {
-            toast_warn!(ui, "Invalid start timestamp");
-            return;
-        }
-    };
-
-    let end_ms = match srt_timestamp_to_ms(&end_timestamp) {
-        Ok(ms) => ms,
-        Err(_) => {
-            toast_warn!(ui, "Invalid end timestamp");
-            return;
-        }
-    };
-
-    if start_ms >= end_ms {
-        toast_warn!(ui, "Invalid time range");
+    let Ok(start_ms) = srt_timestamp_to_ms(&start_timestamp) else {
         return;
-    }
+    };
+
+    let Ok(end_ms) = srt_timestamp_to_ms(&end_timestamp) else {
+        return;
+    };
 
     let (audio_config, sink) = {
         let player = CURRENT_AUDIO_PLAYER.lock().unwrap();
@@ -132,14 +150,25 @@ fn transcribe_play_audio(
     };
 
     let ui_weak = ui.as_weak();
-    tokio::spawn(async move {
-        if let Err(e) = play_audio_segment(&audio_config, start_ms, end_ms, sink) {
+    let runtime_handle = tokio::runtime::Handle::current();
+
+    std::thread::spawn(move || {
+        if let Err(e) = play_audio_segment(
+            ui_weak.clone(),
+            runtime_handle,
+            &audio_config,
+            start_ms,
+            end_ms,
+            sink,
+        ) {
             toast::async_toast_warn(ui_weak, format!("Failed to play audio: {e}"));
         }
     });
 }
 
 fn play_audio_segment(
+    ui_weak: Weak<AppWindow>,
+    runtime_handle: tokio::runtime::Handle,
     audio_config: &AudioConfig,
     start_ms: u64,
     end_ms: u64,
@@ -148,31 +177,84 @@ fn play_audio_segment(
     sink.stop();
     sink.clear();
 
+    let samples = extract_audio_samples(audio_config, start_ms, end_ms);
+    let total_duration_ms = audio_config.duration.as_millis() as u64;
+
     let source = SamplesBuffer::new(
         audio_config.channel as u16,
         audio_config.sample_rate,
-        extract_audio_samples(audio_config, start_ms, end_ms),
+        samples,
     );
 
     sink.append(source);
+
+    _ = ui_weak.clone().upgrade_in_event_loop(move |ui| {
+        global_store!(ui).set_transcribe_audio_player_is_playing(true);
+    });
+
+    let sink_clone = sink.clone();
+    let ui_weak_clone = ui_weak.clone();
+    let start_time = std::time::Instant::now();
+
+    let inc_index = {
+        let mut player = CURRENT_AUDIO_PLAYER.lock().unwrap();
+        player.inc_index += 1;
+        player.inc_index
+    };
+
+    runtime_handle.spawn(async move {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(100));
+        loop {
+            interval.tick().await;
+
+            if CURRENT_AUDIO_PLAYER.lock().unwrap().inc_index != inc_index {
+                break;
+            }
+
+            if !sink_clone.is_paused() {
+                let elapsed_ms = start_ms + start_time.elapsed().as_millis() as u64;
+                let progress = (elapsed_ms as f64 / total_duration_ms as f64).clamp(0.0, 1.0);
+
+                _ = ui_weak_clone.upgrade_in_event_loop(move |ui| {
+                    if CURRENT_AUDIO_PLAYER.lock().unwrap().inc_index == inc_index {
+                        global_store!(ui).set_transcribe_audio_player_progress(progress as f32);
+                    }
+                });
+            } else {
+                break;
+            }
+        }
+    });
+
+    sink.play();
     sink.sleep_until_end();
+    sink.pause();
+
+    _ = ui_weak.clone().upgrade_in_event_loop(move |ui| {
+        global_store!(ui).set_transcribe_audio_player_is_playing(false);
+    });
 
     Ok(())
 }
 
-fn extract_audio_samples(audio_config: &AudioConfig, start_ms: u64, end_ms: u64) -> Vec<f32> {
+pub fn extract_audio_samples(audio_config: &AudioConfig, start_ms: u64, end_ms: u64) -> Vec<f32> {
     let sample_rate = audio_config.sample_rate as u64;
     let channels = audio_config.channel as u64;
     let start_sample = ((sample_rate * start_ms * channels) / 1000) as usize;
     let end_sample =
         ((sample_rate * end_ms * channels) / 1000).min(audio_config.samples.len() as u64) as usize;
 
+    if start_sample > end_sample {
+        return vec![];
+    }
+
     let mut samples = Vec::with_capacity(end_sample - start_sample);
     samples.extend(&audio_config.samples[start_sample..end_sample]);
     samples
 }
 
-fn transcribe_stop_audio(_ui: &AppWindow) {
+fn transcribe_stop_audio(ui: &AppWindow) {
+    global_store!(ui).set_transcribe_audio_player_is_playing(false);
     if let Some(ref sink) = CURRENT_AUDIO_PLAYER.lock().unwrap().audio_sink {
         sink.stop();
     };
@@ -221,7 +303,7 @@ fn transcribe_sound_wave_update(ui: &AppWindow, index: i32, max_samples: i32) {
     });
 }
 
-fn downsample_audio(audio_data: &[f32], target_length: usize) -> Vec<f32> {
+pub fn downsample_audio(audio_data: &[f32], target_length: usize) -> Vec<f32> {
     if audio_data.len() <= target_length {
         return audio_data.to_vec();
     }

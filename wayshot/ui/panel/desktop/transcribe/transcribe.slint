@@ -33,16 +33,14 @@ export component TranscribePanel inherits Rectangle {
     private property <Transcribe> current-transcribe <=> Store.transcribe;
     private property <SettingTranscribe> cache-setting <=> Store.transcribe-setting-cache;
     private property <bool> is-show-replace-dialog;
-    private property <bool> is-show-file-picker: current-transcribe.file-path.is-empty;
-
-    private property <bool> is-show-import-banner: !Store.transcribe.is-file-exist;
     private property <bool> is-show-setting-dialog;
+    private property <bool> is-show-file-picker: current-transcribe.file-path.is-empty && current-transcribe.subtitles.length == 0;
 
     init => {
         Logic.transcribe-init();
         Logic.transcribe-audio-player-init();
 
-        if (!current-transcribe.is-file-exist) {
+        if (!current-transcribe.is-file-exist && current-transcribe.subtitles.length > 0) {
             ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("No found media file. Import file or not?"), "transcribe-import-file", "");
         }
     }
@@ -51,9 +49,14 @@ export component TranscribePanel inherits Rectangle {
         icon: Icons.media-light;
         title: Logic.tr("Support video and audio files");
         sub-title: "e.g. mp4, mkv, mp3, wav...";
+        show-recovery-btn: Store.transcribe-can-recovered;
 
         select-file => {
             Logic.transcribe-new();
+        }
+
+        recovery => {
+            Logic.transcribe-subtitles-recovery();
         }
     }
 
@@ -71,32 +74,53 @@ export component TranscribePanel inherits Rectangle {
             }
         }
 
-        HorizontalLayout {
-            padding-top: Theme.spacing * 2;
-
-            Subtitles {
-                is-progressing: header.is-progressing;
-
-                show-setting-dialog => {
-                    root.is-show-setting-dialog = true;
-                }
+        Subtitles {
+            show-setting-dialog => {
+                root.is-show-setting-dialog = true;
             }
         }
 
         SimpleAudioControl {
+            is-playing: Store.transcribe-audio-player-is-playing;
+            progress: Store.transcribe-audio-player-progress;
+            current-sound: Store.transcribe-setting.audio-sound * 100;
+            current-time: Util.seconds-to-media-timestamp(self.progress * Store.transcribe.media-duration-ms / 1000);
+            end-time: Util.seconds-to-media-timestamp(Store.transcribe.media-duration-ms / 1000);
+
+            private property inner-is-playing <=> Store.transcribe-audio-player-is-playing;
+            changed inner-is-playing => {
+                self.is-playing = inner-is-playing;
+            }
+
             play => {
+                let start-timestamp = Logic.ms-to-srt-timestamp-ui(Store.transcribe.media-duration-ms * self.progress);
+                let end-timestamp = Logic.ms-to-srt-timestamp-ui(Store.transcribe.media-duration-ms);
+
+                Logic.transcribe-play-audio(start-timestamp, end-timestamp);
             }
 
             stop => {
+                Logic.transcribe-stop-audio();
             }
 
             sound-changed(sound) => {
+                Logic.transcribe-audio-player-sound-changed(sound / 100);
             }
-            progress-changed => {
+
+            sound-released(sound) => {
+                Logic.transcribe-audio-player-sound-released(sound / 100);
             }
-            progress-release => {
+
+            progress-changed(value) => {
+                Logic.transcribe-audio-player-progress-changed(value);
             }
-            progress-pressed => {
+
+            progress-released(value) => {
+                Logic.transcribe-audio-player-progress-released(value);
+            }
+
+            progress-pressed(value) => {
+                Logic.transcribe-audio-player-progress-pressed(value);
             }
         }
     }
@@ -104,6 +128,10 @@ export component TranscribePanel inherits Rectangle {
     if is-show-replace-dialog: ReplaceDialog {
         escape => {
             is-show-replace-dialog = false;
+        }
+
+        replace(old-text, new-text) => {
+            Logic.transcribe-subtitles-replace-text(old-text, new-text);
         }
     }
 

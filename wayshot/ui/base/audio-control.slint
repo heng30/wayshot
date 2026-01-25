@@ -34,10 +34,11 @@ export component AudioControl inherits Rectangle {
     callback play();
     callback stop();
     callback sound-changed(sound: int);
+    callback sound-released(sound: int);
     callback speed-changed(speed: float);
     callback media-control-status-changed(status: MediaControlStatus);
     callback progress-changed <=> slider.changed;
-    callback progress-release <=> slider.released;
+    callback progress-released <=> slider.released;
     callback progress-pressed <=> slider.pressed;
 
     changed progress => {
@@ -129,6 +130,8 @@ export component AudioControl inherits Rectangle {
                     height: Theme.default-font-size / 2;
                     indicator-size: self.has-hover ? self.height * 2 : 0;
                     value: root.progress;
+                    minimum: 0;
+                    maximum: 1;
                 }
             }
         }
@@ -215,6 +218,10 @@ export component AudioControl inherits Rectangle {
                     orientation: Orientation.vertical;
                     value: root.current-sound;
 
+                    released => {
+                        root.sound-released(Math.ceil(self.value));
+                    }
+
                     changed(v) => {
                         if (root.current-sound == Math.round(v)) {
                             return;
@@ -284,8 +291,9 @@ export component SimpleAudioControl inherits Rectangle {
     callback play();
     callback stop();
     callback sound-changed(sound: int);
+    callback sound-released(sound: int);
     callback progress-changed <=> slider.changed;
-    callback progress-release <=> slider.released;
+    callback progress-released <=> slider.released;
     callback progress-pressed <=> slider.pressed;
 
     changed progress => {
@@ -342,6 +350,8 @@ export component SimpleAudioControl inherits Rectangle {
                     height: Theme.default-font-size / 2;
                     indicator-size: self.has-hover ? self.height * 2 : 0;
                     value: root.progress;
+                    minimum: 0;
+                    maximum: 1;
                 }
             }
         }
@@ -368,6 +378,10 @@ export component SimpleAudioControl inherits Rectangle {
                     indicator-size: self.width * 1.33;
                     orientation: Orientation.vertical;
                     value: root.current-sound;
+
+                    released => {
+                        root.sound-released(Math.ceil(self.value));
+                    }
 
                     changed(v) => {
                         if (root.current-sound == Math.round(v)) {

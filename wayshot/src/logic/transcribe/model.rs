@@ -1,28 +1,31 @@
 use crate::{
     config,
     db::{TRANSCRIBE_TABLE as DB_TABLE, Transcribe},
-    global_store,
+    global_logic, global_store,
     logic::{
         recorder::picker_directory,
         share_screen::picker_file,
         toast,
         tr::tr,
-        transcribe::audio_player::{self, get_current_audio_config},
+        transcribe::audio_player::{
+            self, MAX_WAVE_FORM_SAMPLE_COUNTS, downsample_audio, extract_audio_samples,
+            get_current_audio_config, get_sound_wave_amplitude,
+        },
     },
     logic_cb,
     slint_generatedAppWindow::{
         AppWindow, FileType as UIFileType, Subtitle as UISubtitle, Transcribe as UITranscribe,
         TranscribeProgressType as UITranscribeProgressType,
     },
-    store_transcribe_subtitle_audio_samples, toast_info, toast_success, toast_warn,
+    toast_info, toast_success, toast_warn,
 };
 
 use anyhow::Result;
 use audio_utils::{
-    audio::{AudioConfig, AudioSegment, gen_audio_segments, load_audio_file},
+    audio::{AudioConfig, AudioSegment, gen_audio_segments},
     vad::VadConfig,
 };
-use fun_ast_nano::{FunASRModelConfig, FunAsrError, FunAsrNanoGenerateModel};
+use fun_ast_nano::{FunASRModelConfig, FunAsrError, FunAsrNanoGenerateModel, load_audio_file};
 use once_cell::sync::Lazy;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::{
@@ -41,6 +44,9 @@ use video_utils::subtitle::{
 };
 
 const TRANSCRIBE_ID: &str = "transcribe_id";
+const DEFAULT_PROMPT: &str =
+    "Transcribe audio to text, transform numerical speech into Arabic numeral form.";
+
 static TRANSCRIBE_CACHE: Lazy<Mutex<TranscribeCache>> =
     Lazy::new(|| Mutex::new(TranscribeCache::default()));
 
@@ -68,6 +74,8 @@ macro_rules! store_transcribe_subtitles {
 pub fn init(ui: &AppWindow) {
     logic_cb!(file_exist, ui, file);
     logic_cb!(is_valid_subtitle_timestamp, ui, timestamp);
+    logic_cb!(ms_to_srt_timestamp_ui, ui, ms);
+
     logic_cb!(transcribe_init, ui);
     logic_cb!(transcribe_new, ui);
     logic_cb!(transcribe_start, ui);
@@ -76,12 +84,15 @@ pub fn init(ui: &AppWindow) {
     logic_cb!(transcribe_refresh_subtitles, ui);
     logic_cb!(transcribe_cancel_progress, ui, ty);
 
+    logic_cb!(transcribe_subtitles_recovery, ui);
+    logic_cb!(transcribe_subtitles_remove_all, ui);
     logic_cb!(transcribe_subtitles_correction, ui);
     logic_cb!(transcribe_subtitles_remove_correction, ui);
     logic_cb!(transcribe_subtitles_adjust_overlap_timestamp, ui);
     logic_cb!(transcribe_subtitles_to_lowercase, ui);
     logic_cb!(transcribe_subtitles_to_simple_chinese, ui);
     logic_cb!(transcribe_subtitles_remove_separator, ui);
+    logic_cb!(transcribe_subtitles_replace_text, ui, old_text, new_text);
 
     logic_cb!(transcribe_subtitle_update, ui, index, subtitle);
     logic_cb!(transcribe_subtitle_accept_correction, ui, index);
@@ -96,59 +107,20 @@ pub fn transcribe_init(ui: &AppWindow) {
     let config = config::all().transcribe;
     global_store!(ui).set_transcribe_setting(config.into());
 
-    let transcribe = global_store!(ui).get_transcribe();
-    store_transcribe_subtitles!(transcribe).set_vec(vec![]);
+    let mut transcribe = UITranscribe::default();
+    transcribe.playing_index = -1;
+    transcribe.subtitles = ModelRc::new(VecModel::from_slice(&[]));
+    global_store!(ui).set_transcribe(transcribe);
 
-    db_select(ui.as_weak(), TRANSCRIBE_ID, |ui, entry| {
-        let mut entry: UITranscribe = entry.into();
-        entry.is_file_exist = PathBuf::from(&entry.file_path).exists();
-        if entry.is_file_exist {
-            match load_audio_file(&entry.file_path) {
-                Ok(audio_config) => {
-                    entry.media_duration_ms = audio_config.duration.as_millis() as f32;
-                    set_store_subtitles(&entry, audio_config);
-                }
-                Err(e) => {
-                    audio_player::set_current_audio_config(None);
-                    log::warn!("load {} failed: {e}", entry.file_path);
-                }
-            }
-        }
-        global_store!(ui).set_transcribe(entry);
-    });
-}
-
-fn set_store_subtitles(entry: &UITranscribe, audio_config: AudioConfig) {
-    let mut audio_segments = entry
-        .subtitles
-        .iter()
-        .enumerate()
-        .filter_map(|(index, item)| {
-            let start_timestamp = srt_timestamp_to_ms(&item.start_timestamp);
-            let end_timestamp = srt_timestamp_to_ms(&item.end_timestamp);
-
-            if start_timestamp.is_err() || end_timestamp.is_err() {
-                None
-            } else {
-                Some(AudioSegment {
-                    index: index as u32,
-                    start_timestamp: Duration::from_millis(start_timestamp.unwrap()),
-                    end_timestamp: Duration::from_millis(end_timestamp.unwrap()),
-                    samples: vec![],
-                })
-            }
-        })
-        .collect::<Vec<_>>();
-
-    gen_audio_segments(&audio_config, &mut audio_segments);
-    audio_player::set_current_audio_config(Some(audio_config));
-
-    audio_segments.into_iter().for_each(|item| {
-        if let Some(mut subtitle) = store_transcribe_subtitles!(entry).row_data(item.index as usize)
+    let ui_weak = ui.as_weak();
+    tokio::spawn(async move {
+        if sqldb::entry::is_exist(DB_TABLE, TRANSCRIBE_ID)
+            .await
+            .is_ok()
         {
-            subtitle.audio_wave_amplitude = audio_player::get_sound_wave_amplitude(&item.samples);
-            subtitle.audio_samples = ModelRc::new(VecModel::from_slice(&item.samples));
-            store_transcribe_subtitles!(entry).set_row_data(item.index as usize, subtitle);
+            _ = ui_weak.upgrade_in_event_loop(move |ui| {
+                global_store!(ui).set_transcribe_can_recovered(true);
+            });
         }
     });
 }
@@ -161,6 +133,10 @@ fn is_valid_subtitle_timestamp(_ui: &AppWindow, timestamp: SharedString) -> bool
     valid_srt_timestamp(&timestamp)
 }
 
+fn ms_to_srt_timestamp_ui(_ui: &AppWindow, ms: f32) -> SharedString {
+    ms_to_srt_timestamp(ms as u64).into()
+}
+
 fn reset_transcribe_stop_sig() {
     let mut cache = TRANSCRIBE_CACHE.lock().unwrap();
     if let Some(stop_sig) = cache.transcribe_stop_sig.take() {
@@ -170,9 +146,6 @@ fn reset_transcribe_stop_sig() {
 }
 
 fn transcribe_new(ui: &AppWindow) {
-    db_remove_all(ui.as_weak());
-    reset_transcribe_stop_sig();
-
     let ui_weak = ui.as_weak();
     tokio::spawn(async move {
         let Some(filepath) = picker_file(
@@ -215,25 +188,28 @@ fn get_file_type(file: impl AsRef<Path>) -> UIFileType {
 }
 
 fn transcribe_start(ui: &AppWindow) {
+    db_remove_all(ui.as_weak());
+    reset_transcribe_stop_sig();
+
     let mut entry = global_store!(ui).get_transcribe();
     let filepath = PathBuf::from(&entry.file_path);
 
-    if filepath.exists() {
-        if !entry.is_file_exist {
-            entry.is_file_exist = true;
-            global_store!(ui).set_transcribe(entry);
-        }
-    } else {
+    if !filepath.exists() {
         toast_warn!(ui, format!("No found {}", filepath.display()));
         return;
     }
 
-    if let Err(e) = inner_trancribe_start(&ui, filepath) {
+    entry.is_file_exist = true;
+    entry.progress_type = UITranscribeProgressType::Transcribe;
+
+    global_store!(ui).set_transcribe(entry);
+
+    if let Err(e) = inner_transcribe_start(&ui, filepath) {
         toast_warn!(ui, format!("Start transcribe failed: {e}"));
     }
 }
 
-fn inner_trancribe_start(ui: &AppWindow, filepath: PathBuf) -> Result<()> {
+fn inner_transcribe_start(ui: &AppWindow, filepath: PathBuf) -> Result<()> {
     let ui_weak = ui.as_weak();
     let setting = global_store!(ui).get_transcribe_setting();
     let stop_sig = TRANSCRIBE_CACHE.lock().unwrap().transcribe_stop_sig.clone();
@@ -260,6 +236,8 @@ fn inner_trancribe_start(ui: &AppWindow, filepath: PathBuf) -> Result<()> {
             }
         };
 
+        audio_player::set_current_audio_config(Some(audio_config.clone()));
+
         let mut model = match FunAsrNanoGenerateModel::new(config, None, None) {
             Ok(model) => model,
             Err(e) => {
@@ -273,9 +251,10 @@ fn inner_trancribe_start(ui: &AppWindow, filepath: PathBuf) -> Result<()> {
 
         let request = fun_ast_nano::TranscriptionRequest::default()
             .with_audio_config(audio_config.clone())
-            .with_prompt(Some("Transcribe the audio to text.".to_string()))
+            .with_prompt(Some(DEFAULT_PROMPT.to_string()))
             .with_max_tokens(512);
 
+        let stop_sig_clone = stop_sig.clone();
         let result = model.generate(request, Some(vad_config), move |chunk| {
             if let Some(ref stop_sig) = stop_sig
                 && stop_sig.load(Ordering::Relaxed)
@@ -289,10 +268,22 @@ fn inner_trancribe_start(ui: &AppWindow, filepath: PathBuf) -> Result<()> {
             }
 
             if !chunk.is_finished {
+                if chunk.text.trim().is_empty() {
+                    return Ok(());
+                }
+
                 if let Some(seg_info) = chunk.segment_info {
                     let start_timestamp =
                         ms_to_srt_timestamp(seg_info.segment_start_ms as u64).into();
                     let end_timestamp = ms_to_srt_timestamp(seg_info.segment_end_ms as u64).into();
+
+                    let samples = extract_audio_samples(
+                        &audio_config,
+                        seg_info.segment_start_ms as u64,
+                        seg_info.segment_end_ms as u64,
+                    );
+                    let samples = downsample_audio(&samples, MAX_WAVE_FORM_SAMPLE_COUNTS as usize);
+                    let amplitude = get_sound_wave_amplitude(&samples);
 
                     _ = ui_weak.clone().upgrade_in_event_loop(move |ui| {
                         let subtitle = UISubtitle {
@@ -300,8 +291,8 @@ fn inner_trancribe_start(ui: &AppWindow, filepath: PathBuf) -> Result<()> {
                             end_timestamp,
                             original_text: chunk.text.into(),
                             correction_text: Default::default(),
-                            audio_wave_amplitude: 1.0, // placeholder
-                            audio_samples: ModelRc::new(VecModel::from_slice(&[])), // placeholder
+                            audio_wave_amplitude: amplitude,
+                            audio_samples: ModelRc::new(VecModel::from_slice(&samples)),
                         };
 
                         let mut entry = global_store!(ui).get_transcribe();
@@ -320,15 +311,18 @@ fn inner_trancribe_start(ui: &AppWindow, filepath: PathBuf) -> Result<()> {
                     entry.progress = 1.0;
                     entry.media_duration_ms = value.duration.as_millis() as f32;
 
-                    // set audio_wave_amplitude and audio_samples
-                    set_store_subtitles(&entry, value);
-
                     global_store!(ui).set_transcribe(entry.clone());
                     db_add(ui.as_weak(), entry.into());
                 });
             }
             Ok(())
         });
+
+        if let Some(ref stop_sig) = stop_sig_clone
+            && stop_sig.load(Ordering::Relaxed)
+        {
+            return;
+        }
 
         match result {
             Err(FunAsrError::TranscribeCancelled) => {
@@ -340,6 +334,41 @@ fn inner_trancribe_start(ui: &AppWindow, filepath: PathBuf) -> Result<()> {
     });
 
     Ok(())
+}
+
+fn set_store_subtitles(entry: &UITranscribe, audio_config: &AudioConfig) {
+    let mut audio_segments = entry
+        .subtitles
+        .iter()
+        .enumerate()
+        .filter_map(|(index, item)| {
+            let start_timestamp = srt_timestamp_to_ms(&item.start_timestamp);
+            let end_timestamp = srt_timestamp_to_ms(&item.end_timestamp);
+
+            if start_timestamp.is_err() || end_timestamp.is_err() {
+                None
+            } else {
+                Some(AudioSegment {
+                    index: index as u32,
+                    start_timestamp: Duration::from_millis(start_timestamp.unwrap()),
+                    end_timestamp: Duration::from_millis(end_timestamp.unwrap()),
+                    samples: vec![],
+                })
+            }
+        })
+        .collect::<Vec<_>>();
+
+    gen_audio_segments(audio_config, &mut audio_segments);
+
+    audio_segments.into_iter().for_each(|item| {
+        if let Some(mut subtitle) = store_transcribe_subtitles!(entry).row_data(item.index as usize)
+        {
+            let samples = downsample_audio(&item.samples, MAX_WAVE_FORM_SAMPLE_COUNTS as usize);
+            subtitle.audio_wave_amplitude = audio_player::get_sound_wave_amplitude(&samples);
+            subtitle.audio_samples = ModelRc::new(VecModel::from_slice(&samples));
+            store_transcribe_subtitles!(entry).set_row_data(item.index as usize, subtitle);
+        }
+    });
 }
 
 fn transcribe_import_file(ui: &AppWindow) {
@@ -416,7 +445,8 @@ fn transcribe_refresh_subtitles(ui: &AppWindow) {
 
     match get_current_audio_config() {
         Some(audio_config) => {
-            set_store_subtitles(&entry, audio_config);
+            set_store_subtitles(&entry, &audio_config);
+            audio_player::set_current_audio_config(Some(audio_config));
             toast_success!(ui, "Refresh subtitles successfully".to_string());
         }
         None => toast_warn!(
@@ -441,6 +471,46 @@ fn transcribe_cancel_progress(ui: &AppWindow, ty: UITranscribeProgressType) {
             todo!()
         }
     }
+}
+
+fn transcribe_subtitles_recovery(ui: &AppWindow) {
+    db_select(ui.as_weak(), TRANSCRIBE_ID, true, |ui, entry| {
+        let mut entry: UITranscribe = entry.into();
+        let is_file_exist = PathBuf::from(&entry.file_path).exists();
+        let file_path = entry.file_path.clone();
+
+        entry.playing_index = -1;
+        entry.is_file_exist = is_file_exist;
+        global_store!(ui).set_transcribe(entry);
+
+        if !is_file_exist {
+            return;
+        }
+
+        let ui_weak = ui.as_weak();
+        std::thread::spawn(move || match load_audio_file(&file_path) {
+            Ok(audio_config) => {
+                _ = ui_weak.upgrade_in_event_loop(move |ui| {
+                    let mut entry = global_store!(ui).get_transcribe();
+                    entry.media_duration_ms = audio_config.duration.as_millis() as f32;
+                    set_store_subtitles(&entry, &audio_config);
+                    global_store!(ui).set_transcribe(entry);
+
+                    audio_player::set_current_audio_config(Some(audio_config));
+                });
+            }
+            Err(e) => {
+                audio_player::set_current_audio_config(None);
+                log::warn!("load `{}` failed: {e}", file_path);
+            }
+        });
+    });
+}
+
+fn transcribe_subtitles_remove_all(ui: &AppWindow) {
+    global_store!(ui).set_transcribe(UITranscribe::default());
+    global_store!(ui).set_transcribe_can_recovered(false);
+    db_remove_all(ui.as_weak());
 }
 
 fn transcribe_subtitles_correction(ui: &AppWindow) {
@@ -599,6 +669,29 @@ fn transcribe_subtitles_remove_separator(ui: &AppWindow) {
     toast_success!(ui, "Remove separators successfully".to_string());
 }
 
+fn transcribe_subtitles_replace_text(
+    ui: &AppWindow,
+    old_text: SharedString,
+    new_text: SharedString,
+) {
+    let entry = global_store!(ui).get_transcribe();
+    let subtitles = store_transcribe_subtitles!(entry)
+        .iter()
+        .map(|mut entry| {
+            entry.original_text = entry
+                .original_text
+                .replace(old_text.as_str(), new_text.as_str())
+                .into();
+            entry
+        })
+        .collect::<Vec<_>>();
+
+    store_transcribe_subtitles!(entry).set_vec(subtitles);
+    toast_success!(ui, "replace content of subtitles successfully");
+
+    db_update(ui.as_weak(), entry.into());
+}
+
 fn transcribe_subtitle_update(ui: &AppWindow, index: i32, subtitle: UISubtitle) {
     let entry = global_store!(ui).get_transcribe();
     store_transcribe_subtitles!(entry).set_row_data(index as usize, subtitle);
@@ -662,6 +755,10 @@ fn transcribe_subtitle_split(ui: &AppWindow, index: i32) {
 
     store_transcribe_subtitles!(entry).set_row_data(index, current_subtitle);
     store_transcribe_subtitles!(entry).insert(index + 1, next_subtitle);
+    global_logic!(ui)
+        .invoke_transcribe_sound_wave_update(index as i32, MAX_WAVE_FORM_SAMPLE_COUNTS);
+    global_logic!(ui)
+        .invoke_transcribe_sound_wave_update(index as i32 + 1, MAX_WAVE_FORM_SAMPLE_COUNTS);
 
     db_update(ui.as_weak(), entry.into());
     toast_success!(ui, "Split subtitle successfully");
@@ -686,10 +783,12 @@ fn transcribe_subtitle_merge_above(ui: &AppWindow, index: i32) {
 
     let mut samples = prev.audio_samples.iter().collect::<Vec<_>>();
     samples.extend_from_slice(&current.audio_samples.iter().collect::<Vec<_>>());
-    store_transcribe_subtitle_audio_samples!(prev).set_vec(samples);
+    prev.audio_samples = ModelRc::new(VecModel::from_slice(&samples));
 
     store_transcribe_subtitles!(entry).set_row_data(index - 1, prev);
     store_transcribe_subtitles!(entry).remove(index);
+    global_logic!(ui)
+        .invoke_transcribe_sound_wave_update(index as i32 - 1, MAX_WAVE_FORM_SAMPLE_COUNTS);
 
     db_update(ui.as_weak(), entry.into());
     toast_success!(ui, "Merge subtitle successfully");
@@ -702,9 +801,19 @@ fn transcribe_subtitle_insert_above(ui: &AppWindow, index: i32) {
 
     let new_subtitle = if index == 0 {
         let first = subtitles.row_data(0).unwrap();
+
+        let end_timestamp = if first.start_timestamp == "00:00:00,000" {
+            match srt_timestamp_to_ms(&first.start_timestamp) {
+                Ok(ms) => ms_to_srt_timestamp(ms + 1000).into(),
+                _ => first.start_timestamp.clone(),
+            }
+        } else {
+            first.start_timestamp.clone()
+        };
+
         UISubtitle {
             start_timestamp: "00:00:00,000".into(),
-            end_timestamp: first.start_timestamp.clone(),
+            end_timestamp,
             original_text: "Click to edit".to_string().into(),
             correction_text: Default::default(),
             audio_samples: ModelRc::new(VecModel::from_slice(&[])),
@@ -724,6 +833,9 @@ fn transcribe_subtitle_insert_above(ui: &AppWindow, index: i32) {
     };
 
     store_transcribe_subtitles!(entry).insert(index, new_subtitle);
+    global_logic!(ui)
+        .invoke_transcribe_sound_wave_update(index as i32, MAX_WAVE_FORM_SAMPLE_COUNTS);
+
     db_update(ui.as_weak(), entry.into());
     toast_success!(ui, "Insert subtitle successfully");
 }
@@ -735,9 +847,14 @@ fn transcribe_subtitle_insert_below(ui: &AppWindow, index: i32) {
 
     let new_subtitle = if index == subtitles.row_count() - 1 {
         let last = subtitles.row_data(subtitles.row_count() - 1).unwrap();
+        let end_timestamp = match srt_timestamp_to_ms(&last.end_timestamp) {
+            Ok(ms) => ms_to_srt_timestamp(ms + 1000).into(),
+            _ => last.end_timestamp.clone(),
+        };
+
         UISubtitle {
             start_timestamp: last.end_timestamp.clone(),
-            end_timestamp: last.end_timestamp.clone(),
+            end_timestamp,
             original_text: "Click to edit".into(),
             correction_text: Default::default(),
             audio_samples: ModelRc::new(VecModel::from_slice(&[])),
@@ -757,6 +874,9 @@ fn transcribe_subtitle_insert_below(ui: &AppWindow, index: i32) {
     };
 
     store_transcribe_subtitles!(entry).insert(index + 1, new_subtitle);
+    global_logic!(ui)
+        .invoke_transcribe_sound_wave_update(index as i32 + 1, MAX_WAVE_FORM_SAMPLE_COUNTS);
+
     db_update(ui.as_weak(), entry.into());
     toast_success!(ui, "Insert subtitle successfully");
 }

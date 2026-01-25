@@ -173,13 +173,10 @@ pub fn init(ui: &AppWindow) {
         config.into()
     });
 
-    let ui_weak = ui.as_weak();
     global_logic!(ui).on_set_setting_transcribe(move |setting| {
         let mut all = config::all();
         all.transcribe = setting.into();
         _ = config::save(all);
-
-        toast_success!(ui_weak.unwrap(), tr("save configuration successfully"));
     });
 
     let ui_weak = ui.as_weak();
