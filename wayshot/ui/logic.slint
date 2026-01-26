@@ -228,7 +228,7 @@ export global Logic {
     callback transcribe-subtitles-replace-text(old-text: string, new-text: string);
     callback transcribe-subtitles-update-playng-index(progress: float);
 
-    callback transcribe-subtitle-update(index: int, item: Subtitle);
+    callback transcribe-subtitle-update(index: int, text: string);
     callback transcribe-subtitle-accept-correction(index: int);
     callback transcribe-subtitle-split(index: int);
     callback transcribe-subtitle-merge-above(index: int);

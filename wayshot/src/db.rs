@@ -186,6 +186,7 @@ pub struct Subtitle {
     pub original_text: String,
     pub correction_text: String,
     pub audio_wave_amplitude: f32,
+    pub is_timestamp_overlap: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]

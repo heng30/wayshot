@@ -12116,6 +12116,7 @@ dependencies = [
  "async-openai",
  "audio-utils",
  "background-remover",
+ "bot",
  "camera",
  "clipboard",
  "console_log",

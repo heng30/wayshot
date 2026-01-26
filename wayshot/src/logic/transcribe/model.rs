@@ -19,21 +19,21 @@ use crate::{
     },
     toast_info, toast_success, toast_warn,
 };
-
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use audio_utils::{
     audio::{AudioConfig, AudioSegment, gen_audio_segments},
     vad::VadConfig,
 };
+use bot::{APIConfig, Chat, ChatConfig, StreamTextItem};
 use fun_ast_nano::{FunASRModelConfig, FunAsrError, FunAsrNanoGenerateModel, load_audio_file};
 use once_cell::sync::Lazy;
-use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel, Weak};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
     },
     thread,
     time::Duration,
@@ -56,6 +56,8 @@ crate::db_select!(DB_TABLE, Transcribe);
 #[derive(Default, Clone)]
 struct TranscribeCache {
     transcribe_stop_sig: Option<Arc<AtomicBool>>,
+    ai_correction_stop_sig: Option<Arc<AtomicBool>>,
+    inc_index: u64,
 }
 
 #[macro_export]
@@ -94,7 +96,7 @@ pub fn init(ui: &AppWindow) {
     logic_cb!(transcribe_subtitles_replace_text, ui, old_text, new_text);
     logic_cb!(transcribe_subtitles_update_playng_index, ui, progress);
 
-    logic_cb!(transcribe_subtitle_update, ui, index, subtitle);
+    logic_cb!(transcribe_subtitle_update, ui, index, text);
     logic_cb!(transcribe_subtitle_accept_correction, ui, index);
     logic_cb!(transcribe_subtitle_split, ui, index);
     logic_cb!(transcribe_subtitle_merge_above, ui, index);
@@ -199,9 +201,11 @@ fn transcribe_start(ui: &AppWindow) {
         return;
     }
 
-    entry.is_file_exist = true;
+    entry.progress = 0.0;
     entry.progress_type = UITranscribeProgressType::Transcribe;
-
+    entry.subtitles = ModelRc::new(VecModel::from_slice(&[]));
+    entry.playing_index = -1;
+    entry.is_file_exist = true;
     global_store!(ui).set_transcribe(entry);
 
     if let Err(e) = inner_transcribe_start(&ui, filepath) {
@@ -212,7 +216,11 @@ fn transcribe_start(ui: &AppWindow) {
 fn inner_transcribe_start(ui: &AppWindow, filepath: PathBuf) -> Result<()> {
     let ui_weak = ui.as_weak();
     let setting = global_store!(ui).get_transcribe_setting();
-    let stop_sig = TRANSCRIBE_CACHE.lock().unwrap().transcribe_stop_sig.clone();
+    let (stop_sig, inc_index) = {
+        let mut cache = TRANSCRIBE_CACHE.lock().unwrap();
+        cache.inc_index += 1;
+        (cache.transcribe_stop_sig.clone(), cache.inc_index)
+    };
 
     thread::spawn(move || {
         let ui_weak_clone = ui_weak.clone();
@@ -254,16 +262,10 @@ fn inner_transcribe_start(ui: &AppWindow, filepath: PathBuf) -> Result<()> {
             .with_prompt(Some(DEFAULT_PROMPT.to_string()))
             .with_max_tokens(512);
 
-        let stop_sig_clone = stop_sig.clone();
         let result = model.generate(request, Some(vad_config), move |chunk| {
             if let Some(ref stop_sig) = stop_sig
                 && stop_sig.load(Ordering::Relaxed)
             {
-                _ = ui_weak.clone().upgrade_in_event_loop(move |ui| {
-                    let mut entry = global_store!(ui).get_transcribe();
-                    entry.progress_type = UITranscribeProgressType::Cancelled;
-                    global_store!(ui).set_transcribe(entry);
-                });
                 return Err(FunAsrError::TranscribeCancelled);
             }
 
@@ -293,6 +295,7 @@ fn inner_transcribe_start(ui: &AppWindow, filepath: PathBuf) -> Result<()> {
                             correction_text: Default::default(),
                             audio_wave_amplitude: amplitude,
                             audio_samples: ModelRc::new(VecModel::from_slice(&samples)),
+                            is_timestamp_overlap: false,
                         };
 
                         let mut entry = global_store!(ui).get_transcribe();
@@ -318,18 +321,27 @@ fn inner_transcribe_start(ui: &AppWindow, filepath: PathBuf) -> Result<()> {
             Ok(())
         });
 
-        if let Some(ref stop_sig) = stop_sig_clone
-            && stop_sig.load(Ordering::Relaxed)
-        {
+        if inc_index != TRANSCRIBE_CACHE.lock().unwrap().inc_index {
             return;
         }
 
         match result {
             Err(FunAsrError::TranscribeCancelled) => {
-                toast::async_toast_info(ui_weak_clone, "Transcription cancelled".to_string())
+                _ = ui_weak_clone.upgrade_in_event_loop(move |ui| {
+                    let mut entry = global_store!(ui).get_transcribe();
+                    entry.progress_type = UITranscribeProgressType::Cancelled;
+                    global_store!(ui).set_transcribe(entry);
+                });
             }
-            Err(e) => toast::async_toast_warn(ui_weak_clone, format!("Transcription failed: {e}")),
-            _ => toast::async_toast_success(ui_weak_clone, "Transcription successful".to_string()),
+            Err(e) => {
+                _ = ui_weak_clone.upgrade_in_event_loop(move |ui| {
+                    let mut entry = global_store!(ui).get_transcribe();
+                    entry.progress_type = UITranscribeProgressType::Failed;
+                    global_store!(ui).set_transcribe(entry);
+                    toast_warn!(ui, format!("transcribe failed: {e}"));
+                });
+            }
+            _ => (),
         }
     });
 
@@ -462,15 +474,20 @@ fn transcribe_cancel_progress(ui: &AppWindow, ty: UITranscribeProgressType) {
             if let Some(ref stop_sig) = TRANSCRIBE_CACHE.lock().unwrap().transcribe_stop_sig {
                 stop_sig.store(true, Ordering::Relaxed);
             }
-
-            let mut entry = global_store!(ui).get_transcribe();
-            entry.progress_type = UITranscribeProgressType::Cancelled;
-            global_store!(ui).set_transcribe(entry);
+        }
+        UITranscribeProgressType::CorrectSubtitles => {
+            if let Some(ref stop_sig) = TRANSCRIBE_CACHE.lock().unwrap().ai_correction_stop_sig {
+                stop_sig.store(true, Ordering::Relaxed);
+            }
         }
         _ => {
             todo!()
         }
     }
+
+    let mut entry = global_store!(ui).get_transcribe();
+    entry.progress_type = UITranscribeProgressType::Cancelled;
+    global_store!(ui).set_transcribe(entry);
 }
 
 fn transcribe_subtitles_recovery(ui: &AppWindow) {
@@ -514,7 +531,16 @@ fn transcribe_subtitles_remove_all(ui: &AppWindow) {
 }
 
 fn transcribe_subtitles_correction(ui: &AppWindow) {
-    let entry = global_store!(ui).get_transcribe();
+    let setting = config::all().ai_model;
+    if setting.api_base_url.is_empty()
+        || setting.model_name.is_empty()
+        || setting.api_key.is_empty()
+    {
+        toast_info!(ui, "Please setup AI model and try again.".to_string());
+        return;
+    }
+
+    let mut entry = global_store!(ui).get_transcribe();
     let subtitles = store_transcribe_subtitles!(entry);
     let subtitles_to_correct = subtitles
         .iter()
@@ -533,39 +559,161 @@ fn transcribe_subtitles_correction(ui: &AppWindow) {
         return;
     }
 
-    let ui_weak = ui.as_weak();
+    entry.progress = 0.0;
+    entry.progress_type = UITranscribeProgressType::CorrectSubtitles;
+    global_store!(ui).set_transcribe(entry);
 
-    tokio::spawn(async move {
-        match ai_correct_subtitles(&subtitles_to_correct).await {
-            Ok(corrections) => {
-                _ = ui_weak.upgrade_in_event_loop(move |ui| {
-                    let entry = global_store!(ui).get_transcribe();
-                    let subtitles = store_transcribe_subtitles!(entry);
-
-                    let updated_subtitles = subtitles
-                        .iter()
-                        .enumerate()
-                        .map(|(index, mut subtitle)| {
-                            if let Some(correction) = corrections.get(&index) {
-                                subtitle.correction_text = correction.clone().into();
-                            }
-                            subtitle
-                        })
-                        .collect::<Vec<_>>();
-
-                    store_transcribe_subtitles!(entry).set_vec(updated_subtitles);
-                    db_update(ui.as_weak(), entry.into());
-                    toast_success!(ui, "AI correction completed".to_string());
-                });
-            }
-            Err(e) => toast::async_toast_warn(ui_weak, format!("AI correction failed: {e}")),
+    let stop_sig = Arc::new(AtomicBool::new(false));
+    {
+        let mut cache = TRANSCRIBE_CACHE.lock().unwrap();
+        if let Some(sig) = cache.transcribe_stop_sig.take() {
+            sig.store(true, Ordering::Relaxed);
         }
-    });
+        cache.ai_correction_stop_sig = Some(stop_sig.clone());
+    }
+
+    let total_subtitles_count = subtitles_to_correct.len();
+    let finished_subtitles_count = Arc::new(AtomicU32::new(0));
+
+    for (chunk_index, chunk) in subtitles_to_correct.chunks(10).enumerate() {
+        let ui_weak = ui.as_weak();
+        let chunk = chunk.to_vec();
+        let stop_sig_clone = stop_sig.clone();
+        let finished_subtitles_count_clone = finished_subtitles_count.clone();
+
+        tokio::spawn(async move {
+            match ai_correct_subtitles(ui_weak.clone(), chunk, stop_sig_clone.clone()).await {
+                Ok(corrections) => {
+                    if stop_sig_clone.load(Ordering::Relaxed) {
+                        return;
+                    }
+
+                    _ = ui_weak.upgrade_in_event_loop(move |ui| {
+                        let mut entry = global_store!(ui).get_transcribe();
+                        let subtitles = store_transcribe_subtitles!(entry);
+
+                        let updated_subtitles = subtitles
+                            .iter()
+                            .enumerate()
+                            .map(|(index, mut subtitle)| {
+                                if let Some(correction) = corrections.get(&index) {
+                                    subtitle.correction_text = correction.clone().into();
+                                }
+                                subtitle
+                            })
+                            .collect::<Vec<_>>();
+
+                        let counts = finished_subtitles_count_clone
+                            .fetch_add(corrections.len() as u32, Ordering::Relaxed);
+
+                        entry.progress = (counts + corrections.len() as u32) as f32
+                            / total_subtitles_count as f32;
+
+                        if entry.progress == 1.0 {
+                            entry.progress_type = UITranscribeProgressType::Finished;
+                        }
+
+                        store_transcribe_subtitles!(entry).set_vec(updated_subtitles);
+                        global_store!(ui).set_transcribe(entry.clone());
+                        db_update(ui.as_weak(), entry.into());
+                    });
+                }
+                Err(e) => toast::async_toast_warn(
+                    ui_weak,
+                    format!(" Chunck[{chunk_index}] AI correctionfailed: {e}"),
+                ),
+            }
+        });
+    }
 }
 
-// TODO:
-async fn ai_correct_subtitles(_subtitles: &[(usize, String)]) -> Result<HashMap<usize, String>> {
-    Ok(HashMap::new())
+async fn ai_correct_subtitles(
+    ui_weak: Weak<AppWindow>,
+    subtitles: Vec<(usize, String)>,
+    stop_sig: Arc<AtomicBool>,
+) -> Result<HashMap<usize, String>> {
+    #[derive(serde::Serialize)]
+    struct InputSubtitle {
+        index: usize,
+        text: String,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct OutputSubtitle {
+        index: usize,
+        correction: String,
+    }
+
+    let prompt = r#"You are a subtitle correction assistant. Your task is to correct misspelled words, grammar errors, and improve the clarity of subtitle text while maintaining the original meaning.
+
+<Input format>
+[{"index": 1, "text": "text1"}, {"index": 3, "text": "text3"}, ...]
+</Input format>
+
+<Output format>
+[{"index": 1, "correction": "correction1"}, {"index": 3, "correction": "correction3"}, ...]
+</Output format>
+
+Rules:
+1. Only output the JSON array, no additional text
+2. Keep corrections concise and appropriate for subtitles
+3. Maintain the original language
+4. Preserve proper nouns and technical terms
+"#;
+
+    let input: Vec<InputSubtitle> = subtitles
+        .into_iter()
+        .map(|(index, text)| InputSubtitle { index, text })
+        .collect();
+
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<StreamTextItem>(100);
+    let question = serde_json::to_string(&input)?;
+    let model_config = config::all().ai_model.clone();
+    let request_config = APIConfig {
+        api_base_url: model_config.api_base_url,
+        api_model: model_config.model_name,
+        api_key: model_config.api_key,
+        temperature: None,
+    };
+
+    tokio::spawn(async move {
+        let chat_config = ChatConfig { tx };
+        let chat = Chat::new(prompt, question, chat_config, request_config, vec![]);
+        if let Err(e) = chat.start().await {
+            toast::async_toast_warn(ui_weak, format!("Start AI correction failed: {e}"));
+        }
+    });
+
+    let mut resp = String::new();
+    while let Some(item) = rx.recv().await {
+        if stop_sig.load(Ordering::Relaxed) {
+            return Ok(HashMap::new());
+        }
+
+        if let Some(ref text) = item.text {
+            resp.push_str(text);
+        }
+    }
+
+    let resp = resp
+        .trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim()
+        .to_string();
+
+    log::debug!("{resp}");
+
+    let output_subtitles: Vec<OutputSubtitle> = serde_json::from_str(&resp)
+        .map_err(|e| anyhow!("Failed to parse AI response as JSON: {e}. Response: {resp}"))?;
+
+    let corrections = output_subtitles
+        .into_iter()
+        .map(|item| (item.index, item.correction))
+        .collect();
+
+    Ok(corrections)
 }
 
 fn transcribe_subtitles_remove_correction(ui: &AppWindow) {
@@ -582,7 +730,6 @@ fn transcribe_subtitles_remove_correction(ui: &AppWindow) {
 
     store_transcribe_subtitles!(entry).set_vec(updated_subtitles);
     db_update(ui.as_weak(), entry.into());
-    toast_success!(ui, "Remove subtitle corrections successfully".to_string());
 }
 
 fn transcribe_subtitles_adjust_overlap_timestamp(ui: &AppWindow) {
@@ -595,7 +742,7 @@ fn transcribe_subtitles_adjust_overlap_timestamp(ui: &AppWindow) {
             break;
         }
 
-        let current = subtitles.row_data(index).unwrap();
+        let mut current = subtitles.row_data(index).unwrap();
         let mut next = subtitles.row_data(index + 1).unwrap();
 
         let current_end_ms = srt_timestamp_to_ms(&current.end_timestamp);
@@ -603,13 +750,17 @@ fn transcribe_subtitles_adjust_overlap_timestamp(ui: &AppWindow) {
 
         if let (Ok(end_ms), Ok(next_ms)) = (current_end_ms, next_start_ms) {
             if end_ms > next_ms {
+                current.is_timestamp_overlap = false;
+                store_transcribe_subtitles!(entry).set_row_data(index, current);
+
                 next.start_timestamp = ms_to_srt_timestamp(end_ms).into();
+                next.is_timestamp_overlap = false;
                 store_transcribe_subtitles!(entry).set_row_data(index + 1, next);
             }
         }
     }
 
-    db_add(ui.as_weak(), entry.into());
+    db_update(ui.as_weak(), entry.into());
     toast_success!(ui, &tr("Adjust overlap timestamp successfully"));
 }
 
@@ -743,10 +894,15 @@ fn transcribe_subtitles_update_playng_index(ui: &AppWindow, progress: f32) {
     global_store!(ui).set_transcribe(entry);
 }
 
-fn transcribe_subtitle_update(ui: &AppWindow, index: i32, subtitle: UISubtitle) {
+fn transcribe_subtitle_update(ui: &AppWindow, index: i32, text: SharedString) {
+    let index = index as usize;
     let entry = global_store!(ui).get_transcribe();
-    store_transcribe_subtitles!(entry).set_row_data(index as usize, subtitle);
+    let mut subtitle = store_transcribe_subtitles!(entry).row_data(index).unwrap();
+
+    subtitle.original_text = text;
+    store_transcribe_subtitles!(entry).set_row_data(index, subtitle);
     toast_success!(ui, "Update subtitle successfully");
+
     db_update(ui.as_weak(), entry.into());
 }
 
@@ -870,6 +1026,7 @@ fn transcribe_subtitle_insert_above(ui: &AppWindow, index: i32) {
             correction_text: Default::default(),
             audio_samples: ModelRc::new(VecModel::from_slice(&[])),
             audio_wave_amplitude: 1.0,
+            is_timestamp_overlap: false,
         }
     } else {
         let prev = subtitles.row_data(index - 1).unwrap();
@@ -881,6 +1038,7 @@ fn transcribe_subtitle_insert_above(ui: &AppWindow, index: i32) {
             correction_text: Default::default(),
             audio_samples: ModelRc::new(VecModel::from_slice(&[])),
             audio_wave_amplitude: 1.0,
+            is_timestamp_overlap: false,
         }
     };
 
@@ -890,6 +1048,10 @@ fn transcribe_subtitle_insert_above(ui: &AppWindow, index: i32) {
 
     db_update(ui.as_weak(), entry.into());
     toast_success!(ui, "Insert subtitle successfully");
+
+    if index == 0 {
+        mark_overlapped_timestamp(ui, index);
+    }
 }
 
 fn transcribe_subtitle_insert_below(ui: &AppWindow, index: i32) {
@@ -911,6 +1073,7 @@ fn transcribe_subtitle_insert_below(ui: &AppWindow, index: i32) {
             correction_text: Default::default(),
             audio_samples: ModelRc::new(VecModel::from_slice(&[])),
             audio_wave_amplitude: 1.0,
+            is_timestamp_overlap: false,
         }
     } else {
         let current = subtitles.row_data(index).unwrap();
@@ -922,6 +1085,7 @@ fn transcribe_subtitle_insert_below(ui: &AppWindow, index: i32) {
             correction_text: Default::default(),
             audio_samples: ModelRc::new(VecModel::from_slice(&[])),
             audio_wave_amplitude: 1.0,
+            is_timestamp_overlap: false,
         }
     };
 
@@ -940,4 +1104,65 @@ fn transcribe_subtitle_remove(ui: &AppWindow, index: i32) {
     store_transcribe_subtitles!(entry).remove(index);
     db_update(ui.as_weak(), entry.into());
     toast_success!(ui, "Remove subtitle successfully");
+}
+
+pub fn mark_overlapped_timestamp(ui: &AppWindow, index: usize) {
+    let entry = global_store!(ui).get_transcribe();
+    let subtitles = store_transcribe_subtitles!(entry);
+    let total = subtitles.row_count();
+
+    if index >= total {
+        return;
+    }
+
+    let current = subtitles.row_data(index).unwrap();
+    let Ok(current_start_ms) = srt_timestamp_to_ms(&current.start_timestamp) else {
+        return;
+    };
+    let Ok(current_end_ms) = srt_timestamp_to_ms(&current.end_timestamp) else {
+        return;
+    };
+
+    let mut has_overlap = false;
+
+    if index > 0
+        && let Some(prev) = subtitles.row_data(index - 1)
+        && let Ok(prev_end_ms) = srt_timestamp_to_ms(&prev.end_timestamp)
+    {
+        let mut subtitle = store_transcribe_subtitles!(entry)
+            .row_data(index - 1)
+            .unwrap();
+
+        if current_start_ms < prev_end_ms {
+            has_overlap = true;
+            subtitle.is_timestamp_overlap = true;
+        } else {
+            subtitle.is_timestamp_overlap = false;
+        }
+
+        store_transcribe_subtitles!(entry).set_row_data(index - 1, subtitle);
+    }
+
+    if index < total - 1
+        && let Some(next) = subtitles.row_data(index + 1)
+        && let Ok(next_start_ms) = srt_timestamp_to_ms(&next.start_timestamp)
+    {
+        let mut subtitle = store_transcribe_subtitles!(entry)
+            .row_data(index + 1)
+            .unwrap();
+
+        if current_end_ms > next_start_ms {
+            has_overlap = true;
+            subtitle.is_timestamp_overlap = true;
+        } else {
+            subtitle.is_timestamp_overlap = false;
+        }
+
+        store_transcribe_subtitles!(entry).set_row_data(index + 1, subtitle);
+    }
+
+    let mut subtitle = store_transcribe_subtitles!(entry).row_data(index).unwrap();
+    subtitle.is_timestamp_overlap = has_overlap;
+    store_transcribe_subtitles!(entry).set_row_data(index, subtitle);
+    db_update(ui.as_weak(), entry.into());
 }

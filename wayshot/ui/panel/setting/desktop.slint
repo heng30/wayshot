@@ -51,7 +51,7 @@ component SettingBody inherits Rectangle {
             share-screen.apply();
         } else if (Store.current-setting-detail-index == SettingDetailIndex.PushStream) {
             push-stream.apply();
-        } else if (Store.current-setting-detail-index == SettingDetailIndex.AIModel) {
+        } else if (Store.current-setting-detail-index == SettingDetailIndex.AiModel) {
             ai-model.apply();
         }
     }
@@ -129,7 +129,7 @@ component SettingBody inherits Rectangle {
     }
 
     ai-model := AiModel {
-        visible: Store.current-setting-detail-index == SettingDetailIndex.AIModel;
+        visible: Store.current-setting-detail-index == SettingDetailIndex.AiModel;
         is-show-header: false;
 
         public function apply() {
@@ -158,6 +158,7 @@ component Setting inherits Rectangle {
                     { icon: Icons.monitor-recorder-light, text: Logic.tr("Cursor Tracking") },
                     { icon: Icons.share-screen-light, text: Logic.tr("Share Screen") },
                     { icon: Icons.push-light, text: Logic.tr("Push Stream") },
+                    { icon: Icons.ai-robot-light, text: Logic.tr("AI Model") },
                 ];
 
                 clicked(index) => {
@@ -171,6 +172,8 @@ component Setting inherits Rectangle {
                         Logic.switch-setting-detail(SettingDetailIndex.ShareScreen);
                     } else if (index == 4) {
                         Logic.switch-setting-detail(SettingDetailIndex.PushStream);
+                    } else if (index == 5) {
+                        Logic.switch-setting-detail(SettingDetailIndex.AiModel);
                     }
                 }
             }

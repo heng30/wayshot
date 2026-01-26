@@ -179,6 +179,20 @@ pub fn init(ui: &AppWindow) {
         _ = config::save(all);
     });
 
+    global_logic!(ui).on_get_setting_ai_model(move || {
+        let config = config::all().ai_model;
+        config.into()
+    });
+
+    let ui_weak = ui.as_weak();
+    global_logic!(ui).on_set_setting_ai_model(move |setting| {
+        let mut all = config::all();
+        all.ai_model = setting.into();
+        _ = config::save(all);
+
+        toast_success!(ui_weak.unwrap(), tr("save configuration successfully"));
+    });
+
     let ui_weak = ui.as_weak();
     global_logic!(ui).on_remove_caches(move || {
         let ui = ui_weak.unwrap();

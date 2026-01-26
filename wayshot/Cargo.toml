@@ -37,6 +37,7 @@ serde = { workspace = true, features = ["serde_derive"] }
 cutil = { workspace = true, features = ["str", "time", "number", "fs"] }
 
 [target.'cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))'.dependencies]
+bot.workspace = true
 open.workspace = true
 wrtc.workspace = true
 mp4m.workspace = true

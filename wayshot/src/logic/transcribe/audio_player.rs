@@ -1,6 +1,6 @@
 use crate::{
     global_logic, global_store,
-    logic::toast,
+    logic::{toast, transcribe::model::mark_overlapped_timestamp},
     logic_cb,
     slint_generatedAppWindow::{AppWindow, Subtitle as UISubtitle},
     store_transcribe_subtitles, toast_warn,
@@ -114,6 +114,10 @@ fn transcribe_audio_player_progress_released(ui: &AppWindow, value: f32) {
 }
 
 fn transcribe_audio_player_progress_pressed(ui: &AppWindow, value: f32) {
+    if let Some(ref sink) = CURRENT_AUDIO_PLAYER.lock().unwrap().audio_sink {
+        sink.clear();
+    };
+
     global_store!(ui).set_transcribe_audio_player_progress(value);
 }
 
@@ -306,6 +310,8 @@ fn transcribe_sound_wave_update(ui: &AppWindow, index: i32, max_samples: i32) {
             subtitle.audio_wave_amplitude = amplitude;
             subtitle.audio_samples = ModelRc::new(VecModel::from_slice(&samples));
             subtitles.set_row_data(index, subtitle);
+
+            mark_overlapped_timestamp(&ui, index as usize);
         });
     });
 }
