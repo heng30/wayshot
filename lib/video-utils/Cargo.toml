@@ -17,10 +17,8 @@ thiserror.workspace = true
 derivative.workspace = true
 derive_setters.workspace = true
 unicode-segmentation.workspace = true
-
-[dependencies.ffmpeg-next]
-workspace = true
-optional = true
+ffmpeg-next = { workspace = true, optional = true }
+chinese-number = { workspace = true, features = ["chinese-to-number"] }
 
 [features]
 default = []

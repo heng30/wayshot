@@ -364,3 +364,26 @@ pub fn gen_audio_segments(config: &AudioConfig, segments: &mut [AudioSegment]) {
         }
     }
 }
+
+pub fn apply_fade_in(samples: &mut [f32], channels: u16, sample_rate: u32, duration_ms: u32) {
+    let fade_frames = (sample_rate as f32 * duration_ms as f32 / 1000.0) as usize;
+    let total_frames = samples.len() / channels as usize;
+    let frames_to_process = fade_frames.min(total_frames);
+
+    for i in 0..frames_to_process {
+        let gain = i as f32 / fade_frames as f32;
+        for c in 0..channels {
+            let idx = i * channels as usize + c as usize;
+            samples[idx] *= gain;
+        }
+    }
+}
+
+pub fn rms(samples: &[f32]) -> f32 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+
+    let sum_squares: f32 = samples.iter().map(|&sample| sample * sample).sum();
+    (sum_squares / samples.len() as f32).sqrt()
+}

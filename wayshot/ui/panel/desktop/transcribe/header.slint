@@ -31,7 +31,7 @@ export component Header inherits HorizontalLayout {
             action: "transcribe-subtitles-correction",
         },
         {
-            icon: Icons.delete-light,
+            icon: Icons.remove-light,
             text: Logic.tr("Remove Correction"),
             action: "transcribe-subtitles-remove-correction",
         },
@@ -44,6 +44,11 @@ export component Header inherits HorizontalLayout {
             icon: Icons.traditional-to-simple-chinese-light,
             text: Logic.tr("To Simple Chinese"),
             action: "transcribe-subtitles-to-simple-chinese",
+        },
+        {
+            icon: Icons.number-light,
+            text: Logic.tr("To Primitive Number"),
+            action: "transcribe-subtitles-to-primitive-numbers",
         },
         {
             icon: Icons.separator-light,
@@ -191,7 +196,7 @@ export component Header inherits HorizontalLayout {
                         }
                     }
 
-                    if Store.transcribe-can-recovered: IconBtn {
+                    if current-transcribe.subtitles.length == 0 && Store.transcribe-can-recovered: IconBtn {
                         is-show-tip: true;
                         tip: Logic.tr("recovery");
                         icon: Icons.recovery-convert-light;

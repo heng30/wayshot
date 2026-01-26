@@ -5,7 +5,7 @@ use crate::{
     slint_generatedAppWindow::{AppWindow, Subtitle as UISubtitle},
     store_transcribe_subtitles, toast_warn,
 };
-use audio_utils::audio::AudioConfig;
+use audio_utils::audio::{AudioConfig, apply_fade_in};
 use once_cell::sync::Lazy;
 use rodio::{OutputStream, OutputStreamBuilder, Sink, buffer::SamplesBuffer};
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel, Weak};
@@ -174,11 +174,18 @@ fn play_audio_segment(
     end_ms: u64,
     sink: Arc<Sink>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    sink.stop();
     sink.clear();
+    sink.stop();
 
-    let samples = extract_audio_samples(audio_config, start_ms, end_ms);
+    let mut samples = extract_audio_samples(audio_config, start_ms, end_ms);
     let total_duration_ms = audio_config.duration.as_millis() as u64;
+
+    apply_fade_in(
+        &mut samples,
+        audio_config.channel,
+        audio_config.sample_rate,
+        200,
+    );
 
     let source = SamplesBuffer::new(
         audio_config.channel as u16,

@@ -53,10 +53,35 @@ component StartTranscribeField inherits VerticalLayout {
 
 component SubtitleListView inherits ScrollView {
     private property current-transcribe <=> Store.transcribe;
+    private property <length> list-item-height;
     private property <[Subtitle]> subtitles: Store.transcribe.subtitles;
     private property <bool> is-show-skeleton: (current-transcribe.progress-type == TranscribeProgressType.Transcribe && subtitles.length == 0);
+    private property <float> audio-player-progress: Store.transcribe-audio-player-progress;
 
-    VerticalLayout {
+    function need-scroll() -> bool {
+        if (list-item-height <= 0 || current-transcribe.playing-index < 0) {
+            return false;
+        }
+        let pos = ceil(current-transcribe.playing-index / 2) * list-item-height;
+        return !(pos > abs(self.viewport-y) && pos < abs(self.viewport-y) + self.height - list-item-height);
+    }
+
+    function scroll-to-item() {
+        if (list-item-height <= 0 || current-transcribe.playing-index < 0) {
+            return;
+        }
+        root.viewport-y = 0 - clamp(ceil(current-transcribe.playing-index / 2) * list-item-height - list-item-height / 2, 0, root.viewport-height - root.height);
+    }
+
+    changed audio-player-progress => {
+        Logic.transcribe-subtitles-update-playng-index(audio-player-progress);
+
+        if (current-transcribe.playing-index >= 0 && need-scroll()) {
+            scroll-to-item();
+        }
+    }
+
+    vbox := VerticalLayout {
         spacing: Theme.spacing * 2;
 
         if is-show-skeleton: Rectangle {
@@ -71,10 +96,32 @@ component SubtitleListView inherits ScrollView {
             }
         }
 
-        for entry[index] in subtitles: SubtitleListItem {
-            index: index;
-            entry: entry;
-            width: root.width;
+        for entry[index] in subtitles: VerticalLayout {
+            spacing: Theme.spacing * 2;
+
+            private property <bool> show-playing-separator: Store.transcribe-audio-player-is-playing && index * 2 + 1 == current-transcribe.playing-index;
+
+            SubtitleListItem {
+                index: index;
+                entry: entry;
+                width: root.width;
+
+                changed height => {
+                    self.init();
+                }
+
+                init => {
+                    root.list-item-height = max(self.height + vbox.spacing, root.list-item-height);
+                }
+            }
+
+            if show-playing-separator: Rectangle {
+                width: root.width;
+                height: Theme.padding;
+                border-radius: self.height / 2;
+                background: Theme.thirdly-brand-color;
+                opacity: Util.progress-value(2s);
+            }
         }
     }
 }

@@ -38,6 +38,9 @@ pub fn init(ui: &AppWindow) {
                 "transcribe-subtitles-to-simple-chinese" => {
                     global_logic!(ui).invoke_transcribe_subtitles_to_simple_chinese();
                 }
+                "transcribe-subtitles-to-primitive-numbers" => {
+                    global_logic!(ui).invoke_transcribe_subtitles_to_primitive_numbers();
+                }
                 "transcribe-subtitles-remove-separator" => {
                     global_logic!(ui).invoke_transcribe_subtitles_remove_separator();
                 }

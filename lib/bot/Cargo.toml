@@ -1,0 +1,17 @@
+[package]
+name = "bot"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+log.workspace = true
+reqwest.workspace = true
+thiserror.workspace = true
+serde_json.workspace = true
+tokio-stream.workspace = true
+serde = { workspace = true, features = ["serde_derive"] }
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }
+
+[dev-dependencies]
+anyhow.workspace = true
+env_logger.workspace = true

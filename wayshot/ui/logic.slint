@@ -219,8 +219,10 @@ export global Logic {
     callback transcribe-subtitles-adjust-overlap-timestamp();
     callback transcribe-subtitles-to-lowercase();
     callback transcribe-subtitles-to-simple-chinese();
+    callback transcribe-subtitles-to-primitive-numbers();
     callback transcribe-subtitles-remove-separator();
     callback transcribe-subtitles-replace-text(old-text: string, new-text: string);
+    callback transcribe-subtitles-update-playng-index(progress: float);
 
     callback transcribe-subtitle-update(index: int, item: Subtitle);
     callback transcribe-subtitle-accept-correction(index: int);

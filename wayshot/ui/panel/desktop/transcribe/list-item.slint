@@ -22,6 +22,7 @@ export component SubtitleListItem inherits Rectangle {
     in-out property <int> index;
     in-out property <Subtitle> entry;
     private property <string> cache-text: entry.original-text;
+    private property <bool> show-playing-animation: Store.transcribe.playing-index == index * 2 && Store.transcribe-audio-player-is-playing;
 
     private property <[PopupActionEntry]> subtitle-popup-entry: [
         {
@@ -58,9 +59,9 @@ export component SubtitleListItem inherits Rectangle {
 
     height: vbox.preferred-height;
     border-radius: Theme.border-radius;
-    border-width: Theme.default-border-width;
     background: Theme.secondary-background;
-    border-color: Store.transcribe.playing-index == index ? Theme.thirdly-brand-color : Theme.base-border-color.brighter(Theme.is-dark ? 50% : 0%);
+    border-width: Theme.default-border-width * (show-playing-animation ? 2 : 1);
+    border-color: show-playing-animation ? Theme.thirdly-brand-color : Theme.base-border-color.brighter(Theme.is-dark ? 50% : 0%);
 
     ta := GainFocus {
         clicked => {

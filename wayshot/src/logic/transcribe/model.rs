@@ -39,14 +39,12 @@ use std::{
     time::Duration,
 };
 use video_utils::subtitle::{
-    Subtitle as ExportSubtitle, ms_to_srt_timestamp, save_as_srt, split_subtitle_into_two,
-    srt_timestamp_to_ms, valid_srt_timestamp,
+    Subtitle as ExportSubtitle, chinese_numbers_to_primitive_numbers, ms_to_srt_timestamp,
+    save_as_srt, split_subtitle_into_two, srt_timestamp_to_ms, valid_srt_timestamp,
 };
 
 const TRANSCRIBE_ID: &str = "transcribe_id";
-const DEFAULT_PROMPT: &str =
-    "Transcribe audio to text, transform numerical speech into Arabic numeral form.";
-
+const DEFAULT_PROMPT: &str = "Transcribe audio to text.";
 static TRANSCRIBE_CACHE: Lazy<Mutex<TranscribeCache>> =
     Lazy::new(|| Mutex::new(TranscribeCache::default()));
 
@@ -91,8 +89,10 @@ pub fn init(ui: &AppWindow) {
     logic_cb!(transcribe_subtitles_adjust_overlap_timestamp, ui);
     logic_cb!(transcribe_subtitles_to_lowercase, ui);
     logic_cb!(transcribe_subtitles_to_simple_chinese, ui);
+    logic_cb!(transcribe_subtitles_to_primitive_numbers, ui);
     logic_cb!(transcribe_subtitles_remove_separator, ui);
     logic_cb!(transcribe_subtitles_replace_text, ui, old_text, new_text);
+    logic_cb!(transcribe_subtitles_update_playng_index, ui, progress);
 
     logic_cb!(transcribe_subtitle_update, ui, index, subtitle);
     logic_cb!(transcribe_subtitle_accept_correction, ui, index);
@@ -647,6 +647,18 @@ fn transcribe_subtitles_to_simple_chinese(ui: &AppWindow) {
     toast_success!(ui, "Convert to simplified Chinese successfully");
 }
 
+fn transcribe_subtitles_to_primitive_numbers(ui: &AppWindow) {
+    let entry = global_store!(ui).get_transcribe();
+    store_transcribe_subtitles!(entry)
+        .iter()
+        .enumerate()
+        .for_each(|(index, mut subtitle)| {
+            let converted_text = chinese_numbers_to_primitive_numbers(&subtitle.original_text);
+            subtitle.original_text = converted_text.into();
+            store_transcribe_subtitles!(entry).set_row_data(index, subtitle);
+        });
+}
+
 fn transcribe_subtitles_remove_separator(ui: &AppWindow) {
     let separators = [',', '，', '。'];
     let entry = global_store!(ui).get_transcribe();
@@ -687,14 +699,54 @@ fn transcribe_subtitles_replace_text(
         .collect::<Vec<_>>();
 
     store_transcribe_subtitles!(entry).set_vec(subtitles);
-    toast_success!(ui, "replace content of subtitles successfully");
+    toast_success!(ui, "Replace content of subtitles successfully");
 
     db_update(ui.as_weak(), entry.into());
+}
+
+fn transcribe_subtitles_update_playng_index(ui: &AppWindow, progress: f32) {
+    let mut entry = global_store!(ui).get_transcribe();
+    let subtitles = store_transcribe_subtitles!(entry);
+    let row_counts = subtitles.row_count();
+    let target_ms = (entry.media_duration_ms * progress) as u64;
+
+    if row_counts == 0 {
+        return;
+    }
+
+    let subtitle_times: Vec<(usize, u64, u64)> = subtitles
+        .iter()
+        .enumerate()
+        .filter_map(|(index, item)| {
+            let start_ms = srt_timestamp_to_ms(&item.start_timestamp).ok()?;
+            let end_ms = srt_timestamp_to_ms(&item.end_timestamp).ok()?;
+            Some((index, start_ms, end_ms))
+        })
+        .collect();
+
+    let index = subtitle_times.partition_point(|(_, start, _)| *start <= target_ms);
+
+    if index > 0 {
+        let (idx, start_ms, end_ms) = subtitle_times[index - 1];
+        if target_ms >= start_ms && target_ms <= end_ms {
+            // Target is within this subtitle
+            entry.playing_index = idx as i32 * 2;
+        } else {
+            // Target is in a gap or after the last subtitle
+            entry.playing_index = idx as i32 * 2 + 1;
+        }
+    } else {
+        // Target is before the first subtitle
+        entry.playing_index = -1;
+    }
+
+    global_store!(ui).set_transcribe(entry);
 }
 
 fn transcribe_subtitle_update(ui: &AppWindow, index: i32, subtitle: UISubtitle) {
     let entry = global_store!(ui).get_transcribe();
     store_transcribe_subtitles!(entry).set_row_data(index as usize, subtitle);
+    toast_success!(ui, "Update subtitle successfully");
     db_update(ui.as_weak(), entry.into());
 }
 

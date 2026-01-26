@@ -8,6 +8,7 @@ use crate::{
     },
     toast_warn,
 };
+use audio_utils::audio::{apply_fade_in, rms};
 use once_cell::sync::Lazy;
 use recorder::{RTCIceServer, ShareScreenConfig};
 use slint::{ComponentHandle, Model, ModelRc, SharedPixelBuffer, SharedString, VecModel, Weak};
@@ -474,7 +475,7 @@ fn handle_auddio_lagging(
         Some(samples)
     } else {
         // remove silent audio
-        if buffer_len >= 20 && calculate_amplitude(&samples) < 0.01 {
+        if buffer_len >= 20 && rms(&samples) < 0.01 {
             return None;
         }
 
@@ -488,27 +489,4 @@ fn handle_auddio_lagging(
 
         Some(resample_linear(&samples, audio_info.channels, speed))
     }
-}
-
-fn apply_fade_in(samples: &mut [f32], channels: u16, sample_rate: u32, duration_ms: u32) {
-    let fade_frames = (sample_rate as f32 * duration_ms as f32 / 1000.0) as usize;
-    let total_frames = samples.len() / channels as usize;
-    let frames_to_process = fade_frames.min(total_frames);
-
-    for i in 0..frames_to_process {
-        let gain = i as f32 / fade_frames as f32;
-        for c in 0..channels {
-            let idx = i * channels as usize + c as usize;
-            samples[idx] *= gain;
-        }
-    }
-}
-
-fn calculate_amplitude(samples: &[f32]) -> f32 {
-    if samples.is_empty() {
-        return 0.0;
-    }
-
-    let sum_squares: f32 = samples.iter().map(|&sample| sample * sample).sum();
-    (sum_squares / samples.len() as f32).sqrt()
 }
