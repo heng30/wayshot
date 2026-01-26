@@ -35,6 +35,7 @@ import { PushStream } from "components/push-stream.slint";
 import { CursorTracker } from "components/cursor-tracker.slint";
 import { HelpDetail } from "components/help-detail.slint";
 import { Backup } from "components/backup.slint";
+import { AiModel } from "components/ai-model.slint";
 
 component SettingBody inherits Rectangle {
     background: Theme.base-background;
@@ -50,6 +51,8 @@ component SettingBody inherits Rectangle {
             share-screen.apply();
         } else if (Store.current-setting-detail-index == SettingDetailIndex.PushStream) {
             push-stream.apply();
+        } else if (Store.current-setting-detail-index == SettingDetailIndex.AIModel) {
+            ai-model.apply();
         }
     }
 
@@ -122,6 +125,16 @@ component SettingBody inherits Rectangle {
             } else {
                 Util.show-toast(err, ToastStatus.Warning);
             }
+        }
+    }
+
+    ai-model := AiModel {
+        visible: Store.current-setting-detail-index == SettingDetailIndex.AIModel;
+        is-show-header: false;
+
+        public function apply() {
+            let setting = self.get();
+            Logic.set-setting-ai-model(setting);
         }
     }
 }

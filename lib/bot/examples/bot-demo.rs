@@ -1,8 +1,4 @@
-use bot::openai::{
-    Chat, ChatConfig,
-    request::{APIConfig, HistoryChat},
-    response::StreamTextItem,
-};
+use bot::{APIConfig, Chat, ChatConfig, HistoryChat, StreamTextItem};
 
 #[tokio::main]
 async fn main() {

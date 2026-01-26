@@ -3,10 +3,10 @@ use crate::slint_generatedAppWindow::{
     MixPositionWithPadding as UIMixPositionWithPadding,
     MixPositionWithPaddingTag as UIMixPositionWithPaddingTag, RTCIceServer as UIRTCIceServer,
     RealtimeImageEffect as UIRealtimeImageEffect, Resolution as UIResolution,
-    SettingBackgroundRemover as UISettingBackgroundRemover, SettingCamera as UISettingCamera,
-    SettingControl as UISettingControl, SettingCursorTracker as UISettingCursorTracker,
-    SettingPushStream as UISettingPushStream, SettingRecorder as UISettingRecorder,
-    SettingShareScreen as UISettingShareScreen,
+    SettingAiModel as UISettingAiModel, SettingBackgroundRemover as UISettingBackgroundRemover,
+    SettingCamera as UISettingCamera, SettingControl as UISettingControl,
+    SettingCursorTracker as UISettingCursorTracker, SettingPushStream as UISettingPushStream,
+    SettingRecorder as UISettingRecorder, SettingShareScreen as UISettingShareScreen,
     SettingShareScreenClient as UISettingShareScreenClient,
     SettingTranscribe as UISettingTranscribe, TransitionType as UITransitionType,
 };
@@ -90,6 +90,9 @@ pub struct Config {
 
     #[serde(default)]
     pub push_stream: PushStream,
+
+    #[serde(default)]
+    pub ai_model: AiModel,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative)]
@@ -336,6 +339,16 @@ pub struct Camera {
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
 #[derivative(Default)]
 #[serde(default)]
+#[from("UISettingAiModel")]
+pub struct AiModel {
+    pub model_name: String,
+    pub api_base_url: String,
+    pub api_key: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
+#[derivative(Default)]
+#[serde(default)]
 #[from("UISettingTranscribe")]
 pub struct Transcribe {
     pub model_path: String,
@@ -348,7 +361,7 @@ pub struct Transcribe {
     pub audio_sound: f32,
 }
 
-crate::impl_slint_enum_serde!(UIFileType, Audio, Video);
+crate::impl_slint_enum_serde!(UIFileType, None, Audio, Video);
 crate::impl_slint_enum_serde!(UIBackgroundRemoverModel, Modnet, Rmbg14);
 crate::impl_slint_enum_serde!(UIFps, Fps24, Fps25, Fps30, Fps60);
 crate::impl_slint_enum_serde!(UIResolution, Original, P480, P720, P1080, P2K, P4K);

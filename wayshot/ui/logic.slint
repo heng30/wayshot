@@ -25,6 +25,7 @@ import {
     TranscribeProgressType,
     Subtitle,
     SettingTranscribe,
+    SettingAiModel,
 } from "store.slint";
 
 import { Theme } from "base/theme.slint";
@@ -130,6 +131,9 @@ export global Logic {
 
     callback get-setting-transcribe() -> SettingTranscribe;
     callback set-setting-transcribe(setting: SettingTranscribe);
+
+    callback get-setting-ai-model() -> SettingAiModel;
+    callback set-setting-ai-model(setting: SettingAiModel);
 
     callback init-sources-dialog();
     callback choose-save-dir();

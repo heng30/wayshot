@@ -37,6 +37,7 @@ export enum SettingDetailIndex {
     CursorTracking,
     ShareScreen,
     PushStream,
+    AIModel,
 }
 
 export enum MobileTabIndex {
@@ -318,6 +319,7 @@ export enum TranscribeProgressType {
 }
 
 export enum FileType {
+    None,
     Audio,
     Video,
 }
@@ -351,6 +353,12 @@ export struct Transcribe {
     playing-index: int,
     progress: float,
     progress-type: TranscribeProgressType,
+}
+
+export struct SettingAiModel {
+    model-name: string,
+    api-base-url: string,
+    api-key: string,
 }
 
 //////////////////////////////// Logic Struct End  ////////////////////////////////

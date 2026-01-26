@@ -183,7 +183,7 @@ fn get_file_type(file: impl AsRef<Path>) -> UIFileType {
                 UIFileType::Audio
             }
         }
-        _ => UIFileType::Audio,
+        _ => UIFileType::None,
     }
 }
 

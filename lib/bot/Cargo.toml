@@ -1,17 +1,25 @@
 [package]
 name = "bot"
-version.workspace = true
+license.workspace = true
 edition.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
 
 [dependencies]
 log.workspace = true
-reqwest.workspace = true
 thiserror.workspace = true
 serde_json.workspace = true
 tokio-stream.workspace = true
+tokio = { workspace = true, features = ["sync"] }
 serde = { workspace = true, features = ["serde_derive"] }
-tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }
+reqwest = { workspace = true, features = ["json", "stream"] }
 
 [dev-dependencies]
 anyhow.workspace = true
 env_logger.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
