@@ -17,6 +17,7 @@ hound.workspace = true
 fdk-aac.workspace = true
 thiserror.workspace = true
 crossbeam.workspace = true
+audio-utils.workspace = true
 derive_builder.workspace = true
 video-encoder.workspace = true
 

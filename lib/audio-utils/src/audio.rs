@@ -1,85 +1,4 @@
 use crate::{AudioProcessError, Result};
-use derivative::Derivative;
-use derive_setters::Setters;
-use std::{fs::File, path::Path, time::Duration};
-use symphonia::{
-    core::{
-        audio::{AudioBuffer, AudioBufferRef, Signal},
-        codecs::DecoderOptions,
-        errors::Error as SymphoniaError,
-        formats::FormatOptions,
-        io::MediaSourceStream,
-        meta::MetadataOptions,
-        probe::Hint,
-        sample::Sample,
-    },
-    default,
-};
-
-#[derive(Debug, Clone, Derivative, Setters)]
-#[derivative(Default)]
-#[setters(prefix = "with_")]
-#[non_exhaustive]
-pub struct AudioConfig {
-    #[derivative(Default(value = "16_000"))]
-    pub sample_rate: u32,
-
-    #[derivative(Default(value = "1"))]
-    pub channel: u16,
-
-    pub duration: Duration,
-    pub samples: Vec<f32>,
-}
-
-#[derive(Debug, Clone)]
-pub struct AudioSegment {
-    pub index: u32,
-    pub start_timestamp: Duration,
-    pub end_timestamp: Duration,
-    pub samples: Vec<f32>,
-}
-
-pub fn resample_audio(
-    audio_data: &[f32],
-    original_sample_rate: u32,
-    target_sample_rate: u32,
-) -> Result<Vec<f32>> {
-    if original_sample_rate == target_sample_rate {
-        return Ok(audio_data.to_vec());
-    }
-
-    let ratio = target_sample_rate as f32 / original_sample_rate as f32;
-    let new_length = (audio_data.len() as f32 * ratio).ceil() as usize;
-
-    if new_length == 0 {
-        return Ok(Vec::new());
-    }
-
-    let mut resampled = Vec::with_capacity(new_length);
-
-    for i in 0..new_length {
-        let src_pos = i as f32 / ratio;
-        let src_index_float = src_pos.floor();
-        let src_index = src_index_float as usize;
-        let src_frac = src_pos - src_index_float;
-
-        if src_index + 1 < audio_data.len() {
-            // Linear interpolation
-            let sample0 = audio_data[src_index];
-            let sample1 = audio_data[src_index + 1];
-            let interpolated = sample0 + (sample1 - sample0) * src_frac;
-            resampled.push(interpolated);
-        } else if src_index < audio_data.len() {
-            // Near the end, just use the last sample
-            resampled.push(audio_data[src_index]);
-        } else {
-            // Beyond the end, use zeros
-            resampled.push(0.0);
-        }
-    }
-
-    Ok(resampled)
-}
 
 pub fn mono_to_stereo(audio_data: &[f32]) -> Vec<f32> {
     let mut stereo = Vec::with_capacity(audio_data.len() * 2);
@@ -102,267 +21,76 @@ pub fn stereo_to_mono(audio_data: &[f32]) -> Vec<f32> {
     mono
 }
 
-pub fn normalize_audio(
-    audio_data: &[f32],
-    current_sample_rate: u32,
-    current_channels: u32,
-    target_sample_rate: u32,
-    target_channels: u32,
-) -> Result<Vec<f32>> {
-    let mut processed = audio_data.to_vec();
-
-    if current_channels != target_channels {
-        log::info!(
-            "Converting audio from {current_channels} channels to {target_channels} channels",
-        );
-
-        processed = if current_channels == 2 && target_channels == 1 {
-            stereo_to_mono(&processed)
-        } else if current_channels == 1 && target_channels == 2 {
-            mono_to_stereo(&processed)
-        } else {
-            return Err(AudioProcessError::Audio(format!(
-                "Unsupported channel conversion: {current_channels} -> {target_channels}"
-            )));
-        };
+pub fn multi_to_mono(samples: &[f32], channels: u16) -> Vec<f32> {
+    if channels == 1 {
+        return samples.to_vec();
     }
 
-    if current_sample_rate != target_sample_rate {
-        log::info!("Resampling audio from {current_sample_rate} Hz to {target_sample_rate} Hz");
-        processed = resample_audio(&processed, current_sample_rate, target_sample_rate)?;
-    }
-
-    Ok(processed)
-}
-
-fn convert_planar<S, F>(buf: &AudioBuffer<S>, mut convert_fn: F) -> Vec<f32>
-where
-    S: Sample + Copy,
-    F: FnMut(S) -> f32,
-{
-    let spec = *buf.spec();
-    let channels = spec.channels.count();
-    let frames = buf.frames();
-    let mut samples = Vec::with_capacity(frames * channels);
-
-    for frame in 0..frames {
-        for channel in 0..channels {
-            samples.push(convert_fn(buf.chan(channel)[frame]));
-        }
-    }
     samples
+        .chunks(channels as usize)
+        .map(|frame| frame.iter().sum::<f32>() / channels as f32)
+        .collect()
 }
 
-fn convert_audio_buffer_to_f32(audio_buffer: AudioBufferRef) -> Vec<f32> {
-    match audio_buffer {
-        AudioBufferRef::S8(buf) => convert_planar(&buf, |s| s as f32 / i8::MAX as f32),
-        AudioBufferRef::U8(buf) => convert_planar(&buf, |s| {
-            let half = (u8::MAX / 2 + 1) as f32;
-            (s as f32 - half) / half
-        }),
-        AudioBufferRef::S16(buf) => convert_planar(&buf, |s| s as f32 / i16::MAX as f32),
-        AudioBufferRef::U16(buf) => convert_planar(&buf, |s| {
-            let half = (u16::MAX / 2 + 1) as f32;
-            (s as f32 - half) / half
-        }),
-        AudioBufferRef::S24(buf) => {
-            convert_planar(&buf, |s| s.inner() as f32 / (i32::MAX >> 8) as f32)
-        }
-        AudioBufferRef::U24(buf) => convert_planar(&buf, |s| {
-            let half = ((1u32 << 24) / 2 + 1) as f32;
-            (s.inner() as f32 - half) / half
-        }),
-        AudioBufferRef::S32(buf) => convert_planar(&buf, |s| s as f32 / i32::MAX as f32),
-        AudioBufferRef::U32(buf) => convert_planar(&buf, |s| {
-            let half = (u32::MAX / 2 + 1) as f32;
-            (s as f32 - half) / half
-        }),
-        AudioBufferRef::F32(buf) => convert_planar(&buf, |s| s),
-        AudioBufferRef::F64(buf) => convert_planar(&buf, |s| s as f32),
+pub fn multi_to_stereo(samples: &[f32], input_channels: u16) -> Vec<f32> {
+    let (input_ch, output_ch) = (input_channels as usize, 2);
+    let frame_count = samples.len() / input_ch;
+    let mut output = Vec::with_capacity(frame_count * output_ch);
+
+    for frame in 0..frame_count {
+        let frame_start = frame * input_ch;
+        let frame_samples = &samples[frame_start..frame_start + input_ch];
+        let (left, right) = downmix_frame(frame_samples, input_channels);
+        output.extend_from_slice(&[left, right]);
+    }
+
+    output
+}
+
+fn downmix_frame(frame_samples: &[f32], input_channels: u16) -> (f32, f32) {
+    match input_channels {
+        // 3 channels: lefe, right, middle
+        3 => (
+            frame_samples[0] + frame_samples[2] * 0.707,
+            frame_samples[1] + frame_samples[2] * 0.707,
+        ),
+        // 4 channels: front-left, front-right, back-left, back-right
+        4 => (
+            frame_samples[0] + frame_samples[2] * 0.7,
+            frame_samples[1] + frame_samples[3] * 0.7,
+        ),
+        // 5.1 channels: left, right, middle, LFE, left-surround, right-surround
+        6 => (
+            frame_samples[0]
+                + frame_samples[2] * 0.707
+                + frame_samples[4] * 0.5
+                + frame_samples[3] * 0.1,
+            frame_samples[1]
+                + frame_samples[2] * 0.707
+                + frame_samples[5] * 0.5
+                + frame_samples[3] * 0.1,
+        ),
+
+        _ => generic_downmix(frame_samples, input_channels),
     }
 }
 
-pub fn load_audio_file(path: impl AsRef<Path>) -> Result<AudioConfig> {
-    let file = File::open(&path)?;
-    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+// FIXME: we don't know the channel layout, so it maybe output strange sounds
+fn generic_downmix(frame_samples: &[f32], input_channels: u16) -> (f32, f32) {
+    let input_ch = input_channels as usize;
+    let (mut left, mut right) = (0.0, 0.0);
 
-    let mut hint = Hint::new();
-    if let Some(extension) = path.as_ref().extension()
-        && let Some(ext_str) = extension.to_str()
-    {
-        hint.with_extension(&ext_str.to_lowercase());
+    for (i, &sample) in frame_samples.iter().enumerate() {
+        // Calculating the weights of the left and right channels based on the channel positions.
+        let pan = i as f32 / (input_ch - 1) as f32; // 0.0 = Left, 1.0 = Right
+
+        // Using the square root curve for more natural panning effects.
+        left += sample * (1.0 - pan).sqrt();
+        right += sample * pan.sqrt();
     }
 
-    let meta_opts: MetadataOptions = Default::default();
-    let fmt_opts: FormatOptions = Default::default();
-    let probed = default::get_probe()
-        .format(&hint, mss, &fmt_opts, &meta_opts)
-        .map_err(|e| AudioProcessError::Audio(format!("Failed to probe format: {e}")))?;
-
-    let mut format = probed.format;
-
-    // Find the first audio track by checking for sample_rate (audio-specific property)
-    let track = format
-        .tracks()
-        .iter()
-        .find(|t| t.codec_params.sample_rate.is_some())
-        .ok_or_else(|| AudioProcessError::Audio("No audio track found".to_string()))?;
-
-    let codec_params = &track.codec_params;
-    let mut decoder = default::get_codecs()
-        .make(codec_params, &DecoderOptions::default())
-        .map_err(|e| AudioProcessError::Audio(format!("Failed to create decoder: {e}")))?;
-
-    let track_id = track.id;
-    let mut all_samples = Vec::new();
-
-    // Decode first packet to get audio format info
-    let (sample_rate, channel_count) = loop {
-        let packet = match format.next_packet() {
-            Ok(packet) => packet,
-            Err(SymphoniaError::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
-                return Err(AudioProcessError::Audio(
-                    "No audio packets found".to_string(),
-                ));
-            }
-            Err(SymphoniaError::ResetRequired) => continue,
-            Err(e) => {
-                return Err(AudioProcessError::Audio(format!(
-                    "Failed to get packet: {e}"
-                )));
-            }
-        };
-
-        if packet.track_id() != track_id {
-            continue;
-        }
-
-        match decoder.decode(&packet) {
-            Ok(audio_buffer) => {
-                let spec = *audio_buffer.spec();
-                let samples = convert_audio_buffer_to_f32(audio_buffer);
-                all_samples.extend_from_slice(&samples);
-                break (spec.rate, spec.channels.count());
-            }
-            Err(SymphoniaError::IoError(_)) | Err(SymphoniaError::DecodeError(_)) => continue,
-            Err(e) => {
-                return Err(AudioProcessError::Audio(format!(
-                    "Failed to decode audio: {e}"
-                )));
-            }
-        }
-    };
-
-    log::info!("Detected audio format: {sample_rate} Hz, {channel_count} channels");
-
-    // Continue decoding the rest of the packets
-    loop {
-        let packet = match format.next_packet() {
-            Ok(packet) => packet,
-            Err(SymphoniaError::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
-                break;
-            }
-            Err(SymphoniaError::ResetRequired) => continue,
-            Err(e) => {
-                return Err(AudioProcessError::Audio(format!(
-                    "Failed to get packet: {e}"
-                )));
-            }
-        };
-
-        if packet.track_id() != track_id {
-            continue;
-        }
-
-        match decoder.decode(&packet) {
-            Ok(audio_buffer) => {
-                let samples = convert_audio_buffer_to_f32(audio_buffer);
-                all_samples.extend_from_slice(&samples);
-            }
-            Err(SymphoniaError::IoError(_)) | Err(SymphoniaError::DecodeError(_)) => continue,
-            Err(e) => {
-                return Err(AudioProcessError::Audio(format!(
-                    "Failed to decode audio: {e}"
-                )));
-            }
-        }
-    }
-
-    let sample_count = all_samples.len() / channel_count as usize;
-    let duration = std::time::Duration::from_secs_f64(sample_count as f64 / sample_rate as f64);
-
-    log::info!(
-        "Loaded audio file: {} - {} Hz, {} channels, {} samples, duration: {:.2}s",
-        path.as_ref().display(),
-        sample_rate,
-        channel_count,
-        sample_count,
-        duration.as_secs_f64()
-    );
-
-    Ok(AudioConfig {
-        sample_rate,
-        channel: channel_count as u16,
-        duration,
-        samples: all_samples,
-    })
-}
-
-pub fn load_audio_file_and_convert(
-    path: impl AsRef<Path>,
-    target_channel: u16,
-    target_sample_rate: u32,
-) -> Result<AudioConfig> {
-    let mut audio_config = load_audio_file(path)?;
-
-    if audio_config.sample_rate != target_sample_rate || audio_config.channel != target_channel {
-        let samples = normalize_audio(
-            &audio_config.samples,
-            audio_config.sample_rate,
-            audio_config.channel as u32,
-            target_sample_rate,
-            target_channel as u32,
-        )?;
-
-        log::info!(
-            "Audio format: {} Hz, {} channels -> target: {target_sample_rate} Hz, {target_channel} channels",
-            audio_config.sample_rate,
-            audio_config.channel
-        );
-
-        audio_config.sample_rate = target_sample_rate;
-        audio_config.channel = target_channel;
-        audio_config.samples = samples;
-    }
-
-    Ok(audio_config)
-}
-
-pub fn gen_audio_segments(config: &AudioConfig, segments: &mut [AudioSegment]) {
-    let sample_rate = config.sample_rate as f64;
-    let channels = config.channel as usize;
-
-    for segment in segments.iter_mut() {
-        let start_sample =
-            (segment.start_timestamp.as_secs_f64() * sample_rate * channels as f64) as usize;
-        let end_sample =
-            (segment.end_timestamp.as_secs_f64() * sample_rate * channels as f64) as usize;
-
-        let start = start_sample.min(config.samples.len());
-        let end = end_sample.min(config.samples.len());
-
-        if start < end {
-            segment.samples = config.samples[start..end].to_vec();
-        } else {
-            log::warn!(
-                "Invalid segment[{}] range: start={:?} end={:?}, skipping",
-                segment.index,
-                segment.start_timestamp,
-                segment.end_timestamp,
-            );
-            segment.samples.clear();
-        }
-    }
+    let normalization = (input_ch as f32 / 2.0).sqrt();
+    (left / normalization, right / normalization)
 }
 
 pub fn apply_fade_in(samples: &mut [f32], channels: u16, sample_rate: u32, duration_ms: u32) {
@@ -386,4 +114,180 @@ pub fn rms(samples: &[f32]) -> f32 {
 
     let sum_squares: f32 = samples.iter().map(|&sample| sample * sample).sum();
     (sum_squares / samples.len() as f32).sqrt()
+}
+
+pub fn max_sound_wave_amplitude(samples: &[f32]) -> f32 {
+    let max_value = samples
+        .iter()
+        .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        .unwrap_or(&0.0);
+
+    if *max_value == 0.0 {
+        1.0
+    } else {
+        1.0 / max_value.abs().min(1.0)
+    }
+}
+
+pub fn downsample_audio(audio_data: &[f32], target_length: usize) -> Vec<f32> {
+    if audio_data.len() <= target_length {
+        return audio_data.to_vec();
+    }
+
+    let chunk_size = (audio_data.len() as f32 / target_length as f32).ceil() as usize;
+
+    audio_data
+        .chunks(chunk_size)
+        .map(|chunk| chunk.iter().sum::<f32>() / chunk.len() as f32)
+        .collect()
+}
+
+pub fn normalize_audio(samples: &[f32]) -> Vec<f32> {
+    let max_amplitude = samples
+        .iter()
+        .map(|&s| s.abs())
+        .fold(0.0f32, |a, b| a.max(b));
+
+    if max_amplitude > 1.0 {
+        samples.iter().map(|&s| s / max_amplitude).collect()
+    } else {
+        samples.to_vec()
+    }
+}
+
+// pub fn resample_audio(
+//     audio_data: &[f32],
+//     original_sample_rate: u32,
+//     target_sample_rate: u32,
+// ) -> Result<Vec<f32>> {
+//     if original_sample_rate == target_sample_rate {
+//         return Ok(audio_data.to_vec());
+//     }
+//
+//     let ratio = target_sample_rate as f32 / original_sample_rate as f32;
+//     let new_length = (audio_data.len() as f32 * ratio).ceil() as usize;
+//
+//     if new_length == 0 {
+//         return Ok(Vec::new());
+//     }
+//
+//     let mut resampled = Vec::with_capacity(new_length);
+//
+//     for i in 0..new_length {
+//         let src_pos = i as f32 / ratio;
+//         let src_index_float = src_pos.floor();
+//         let src_index = src_index_float as usize;
+//         let src_frac = src_pos - src_index_float;
+//
+//         if src_index + 1 < audio_data.len() {
+//             // Linear interpolation
+//             let sample0 = audio_data[src_index];
+//             let sample1 = audio_data[src_index + 1];
+//             let interpolated = sample0 + (sample1 - sample0) * src_frac;
+//             resampled.push(interpolated);
+//         } else if src_index < audio_data.len() {
+//             // Near the end, just use the last sample
+//             resampled.push(audio_data[src_index]);
+//         } else {
+//             // Beyond the end, use zeros
+//             resampled.push(0.0);
+//         }
+//     }
+//
+//     Ok(resampled)
+// }
+//
+pub fn resample_audio(
+    input_samples: &[f32],
+    input_sample_rate: u32,
+    output_sample_rate: u32,
+    channels: u16,
+) -> Result<Vec<f32>> {
+    if input_sample_rate == output_sample_rate {
+        return Ok(input_samples.to_vec());
+    }
+
+    let channels = channels as usize;
+    let input_frames = input_samples.len() / channels;
+    let ratio = output_sample_rate as f64 / input_sample_rate as f64;
+    let output_frames = (input_frames as f64 * ratio).round() as usize;
+    let output_samples = output_frames * channels;
+    let mut output = vec![0.0f32; output_samples];
+
+    // Simple linear interpolation resampling for each channel independently
+    for ch in 0..channels {
+        let input_channel: Vec<f32> = input_samples
+            .iter()
+            .skip(ch)
+            .step_by(channels)
+            .cloned()
+            .collect();
+
+        for out_frame in 0..output_frames {
+            let input_pos = out_frame as f64 / ratio;
+            let input_frame = input_pos.floor() as usize;
+            let fraction = input_pos - input_frame as f64;
+
+            if input_frame + 1 >= input_channel.len() {
+                // At the end, just copy the last sample
+                output[out_frame * channels + ch] = input_channel[input_channel.len() - 1];
+            } else {
+                // Linear interpolation between neighboring samples
+                let sample1 = input_channel[input_frame];
+                let sample2 = input_channel[input_frame + 1];
+                let interpolated = sample1 + (sample2 - sample1) * fraction as f32;
+                output[out_frame * channels + ch] = interpolated;
+            }
+        }
+    }
+
+    let actual_ratio = output_samples as f64 / input_samples.len() as f64;
+    let expected_ratio = output_sample_rate as f64 / input_sample_rate as f64;
+    let ratio_error = (actual_ratio - expected_ratio).abs();
+    if ratio_error > 0.001 {
+        return Err(AudioProcessError::Audio(format!(
+            "Ratio error: expected {:.6}, got {:.6}",
+            expected_ratio, actual_ratio
+        )));
+    }
+
+    Ok(output)
+}
+
+pub fn resample_audio_with_channel(
+    audio_data: &[f32],
+    current_sample_rate: u32,
+    current_channels: u16,
+    target_sample_rate: u32,
+    target_channels: u16,
+) -> Result<Vec<f32>> {
+    let mut processed = audio_data.to_vec();
+
+    if current_channels != target_channels {
+        log::info!(
+            "Converting audio from {current_channels} channels to {target_channels} channels",
+        );
+
+        processed = if current_channels == 2 && target_channels == 1 {
+            stereo_to_mono(&processed)
+        } else if current_channels == 1 && target_channels == 2 {
+            mono_to_stereo(&processed)
+        } else {
+            return Err(AudioProcessError::Audio(format!(
+                "Unsupported channel conversion: {current_channels} -> {target_channels}"
+            )));
+        };
+    }
+
+    if current_sample_rate != target_sample_rate {
+        log::info!("Resampling audio from {current_sample_rate} Hz to {target_sample_rate} Hz");
+        processed = resample_audio(
+            &processed,
+            current_sample_rate,
+            target_sample_rate,
+            target_channels,
+        )?;
+    }
+
+    Ok(processed)
 }

@@ -5,7 +5,10 @@ use crate::{
     slint_generatedAppWindow::{AppWindow, Subtitle as UISubtitle},
     store_transcribe_subtitles, toast_warn,
 };
-use audio_utils::audio::{AudioConfig, apply_fade_in};
+use audio_utils::{
+    audio::{apply_fade_in, downsample_audio, max_sound_wave_amplitude},
+    loader::AudioConfig,
+};
 use once_cell::sync::Lazy;
 use rodio::{OutputStream, OutputStreamBuilder, Sink, buffer::SamplesBuffer};
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel, Weak};
@@ -48,19 +51,6 @@ pub fn get_current_audio_config() -> Option<AudioConfig> {
 
 pub fn set_current_audio_config(config: Option<AudioConfig>) {
     CURRENT_AUDIO_PLAYER.lock().unwrap().audio_config = config;
-}
-
-pub fn get_sound_wave_amplitude(samples: &[f32]) -> f32 {
-    let max_value = samples
-        .iter()
-        .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-        .unwrap_or(&0.0);
-
-    if *max_value == 0.0 {
-        1.0
-    } else {
-        1.0 / max_value.abs().min(1.0)
-    }
 }
 
 fn transcribe_audio_player_init(ui: &AppWindow) {
@@ -299,7 +289,7 @@ fn transcribe_sound_wave_update(ui: &AppWindow, index: i32, max_samples: i32) {
         }
 
         let samples = downsample_audio(&samples, max_samples as usize);
-        let amplitude = get_sound_wave_amplitude(&samples);
+        let amplitude = max_sound_wave_amplitude(&samples);
 
         _ = ui_weak.upgrade_in_event_loop(move |ui| {
             let entry = global_store!(ui).get_transcribe();
@@ -317,19 +307,6 @@ fn transcribe_sound_wave_update(ui: &AppWindow, index: i32, max_samples: i32) {
             mark_overlapped_timestamp(&ui, index as usize);
         });
     });
-}
-
-pub fn downsample_audio(audio_data: &[f32], target_length: usize) -> Vec<f32> {
-    if audio_data.len() <= target_length {
-        return audio_data.to_vec();
-    }
-
-    let chunk_size = (audio_data.len() as f32 / target_length as f32).ceil() as usize;
-
-    audio_data
-        .chunks(chunk_size)
-        .map(|chunk| chunk.iter().sum::<f32>() / chunk.len() as f32)
-        .collect()
 }
 
 fn transcribe_sound_wave_zoom_changed(ui: &AppWindow, index: i32, level: f32) {

@@ -1,4 +1,4 @@
-use audio_utils::audio::load_audio_file;
+use audio_utils::loader::load_audio_file;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();

@@ -1,4 +1,3 @@
-use mp4m::AudioProcessor;
 use opus::{Application as Bitrate, Channels, Decoder, Encoder, Error as OpusError};
 use std::time::Duration;
 use thiserror::Error;
@@ -50,7 +49,7 @@ impl OpusCoder {
         }
 
         let input = if self.sample_rate != OPUS_SAMPLE_RATE {
-            let samples = AudioProcessor::<f32>::resample_audio(
+            let samples = audio_utils::audio::resample_audio(
                 input,
                 self.sample_rate,
                 OPUS_SAMPLE_RATE,

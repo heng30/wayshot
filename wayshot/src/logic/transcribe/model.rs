@@ -8,8 +8,7 @@ use crate::{
         toast,
         tr::tr,
         transcribe::audio_player::{
-            self, MAX_WAVE_FORM_SAMPLE_COUNTS, downsample_audio, extract_audio_samples,
-            get_current_audio_config, get_sound_wave_amplitude,
+            self, MAX_WAVE_FORM_SAMPLE_COUNTS, extract_audio_samples, get_current_audio_config,
         },
     },
     logic_cb,
@@ -21,7 +20,8 @@ use crate::{
 };
 use anyhow::{Result, anyhow};
 use audio_utils::{
-    audio::{AudioConfig, AudioSegment, gen_audio_segments},
+    audio::{downsample_audio, max_sound_wave_amplitude},
+    loader::{AudioConfig, AudioSegment, gen_audio_segments},
     vad::VadConfig,
 };
 use bot::{APIConfig, Chat, ChatConfig, StreamTextItem};
@@ -292,7 +292,7 @@ fn inner_transcribe_start(ui: &AppWindow, filepath: PathBuf) -> Result<()> {
                         seg_info.segment_end_ms as u64,
                     );
                     let samples = downsample_audio(&samples, MAX_WAVE_FORM_SAMPLE_COUNTS as usize);
-                    let amplitude = get_sound_wave_amplitude(&samples);
+                    let amplitude = max_sound_wave_amplitude(&samples);
 
                     _ = ui_weak.clone().upgrade_in_event_loop(move |ui| {
                         let subtitle = UISubtitle {
@@ -383,7 +383,7 @@ fn set_store_subtitles(entry: &UITranscribe, audio_config: &AudioConfig) {
         if let Some(mut subtitle) = store_transcribe_subtitles!(entry).row_data(item.index as usize)
         {
             let samples = downsample_audio(&item.samples, MAX_WAVE_FORM_SAMPLE_COUNTS as usize);
-            subtitle.audio_wave_amplitude = audio_player::get_sound_wave_amplitude(&samples);
+            subtitle.audio_wave_amplitude = max_sound_wave_amplitude(&samples);
             subtitle.audio_samples = ModelRc::new(VecModel::from_slice(&samples));
             store_transcribe_subtitles!(entry).set_row_data(item.index as usize, subtitle);
         }

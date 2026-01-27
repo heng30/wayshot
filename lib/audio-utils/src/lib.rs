@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod loader;
 pub mod vad;
 
 #[cfg(feature = "extraction")]

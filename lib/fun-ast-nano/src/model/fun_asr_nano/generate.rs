@@ -8,7 +8,7 @@ use crate::{
     tokenizer::TokenizerModel,
 };
 use audio_utils::{
-    audio::{AudioConfig, load_audio_file_and_convert},
+    loader::{AudioConfig, load_audio_file_and_convert},
     vad::{VadConfig, detect_speech_segments},
 };
 use candle_core::{DType, Device, Tensor, pickle::read_all_with_key};

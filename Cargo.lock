@@ -6265,6 +6265,7 @@ dependencies = [
 name = "mp4m"
 version = "0.1.0"
 dependencies = [
+ "audio-utils",
  "crossbeam",
  "derive_builder",
  "env_logger",
@@ -13223,6 +13224,7 @@ name = "wrtc"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "audio-utils",
  "byteorder",
  "bytes",
  "bytesio",
@@ -13236,7 +13238,6 @@ dependencies = [
  "indexmap 2.13.0",
  "log",
  "mp4-player",
- "mp4m",
  "once_cell",
  "openh264",
  "opus",
