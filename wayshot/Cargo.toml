@@ -110,6 +110,9 @@ path = "src/desktop.rs"
 name = "wayshot"
 required-features = ["desktop"]
 
+[target.'cfg(windows)']
+rustflags = ["-C", "target-feature=+crt-static"]
+
 [package.metadata.android]
 package = "xyz.heng30.wayshot"
 build_targets = ["aarch64-linux-android"]
