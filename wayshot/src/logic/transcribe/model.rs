@@ -13,7 +13,8 @@ use crate::{
     },
     logic_cb,
     slint_generatedAppWindow::{
-        AppWindow, FileType as UIFileType, Subtitle as UISubtitle, Transcribe as UITranscribe,
+        AppWindow, ConfirmDialogSetting as UIConfirmDialogSetting, FileType as UIFileType,
+        Subtitle as UISubtitle, Transcribe as UITranscribe,
         TranscribeProgressType as UITranscribeProgressType,
     },
     toast_info, toast_success, toast_warn,
@@ -393,7 +394,7 @@ fn set_store_subtitles(entry: &UITranscribe, audio_config: &AudioConfig) {
 fn transcribe_import_file(ui: &AppWindow) {
     let ui_weak = ui.as_weak();
     tokio::spawn(async move {
-        let Some(filepath) = picker_file(
+        let Some(file_path) = picker_file(
             ui_weak.clone(),
             &tr("Choose media file"),
             &tr("e.g. mp4, mp3, wav"),
@@ -404,9 +405,28 @@ fn transcribe_import_file(ui: &AppWindow) {
 
         _ = ui_weak.upgrade_in_event_loop(move |ui| {
             let mut entry = global_store!(ui).get_transcribe();
-            entry.file_path = filepath.to_string_lossy().to_string().into();
+            entry.file_path = file_path.to_string_lossy().to_string().into();
             entry.is_file_exist = true;
-            global_store!(ui).set_transcribe(entry);
+            global_store!(ui).set_transcribe(entry.clone());
+            db_update(ui.as_weak(), entry.into());
+
+            let ui_weak = ui.as_weak();
+            std::thread::spawn(move || match load_audio_file(&file_path) {
+                Ok(audio_config) => {
+                    _ = ui_weak.upgrade_in_event_loop(move |ui| {
+                        let mut entry = global_store!(ui).get_transcribe();
+                        entry.media_duration_ms = audio_config.duration.as_millis() as f32;
+                        set_store_subtitles(&entry, &audio_config);
+                        global_store!(ui).set_transcribe(entry);
+
+                        audio_player::set_current_audio_config(Some(audio_config));
+                    });
+                }
+                Err(e) => {
+                    audio_player::set_current_audio_config(None);
+                    log::warn!("load `{}` failed: {e}", file_path.display());
+                }
+            });
         });
     });
 }
@@ -500,12 +520,23 @@ fn transcribe_cancel_progress(ui: &AppWindow, ty: UITranscribeProgressType) {
 fn transcribe_subtitles_recovery(ui: &AppWindow) {
     db_select(ui.as_weak(), TRANSCRIBE_ID, true, |ui, entry| {
         let mut entry: UITranscribe = entry.into();
+        let subtitles_counts = entry.subtitles.row_count();
         let is_file_exist = PathBuf::from(&entry.file_path).exists();
         let file_path = entry.file_path.clone();
 
         entry.playing_index = -1;
         entry.is_file_exist = is_file_exist;
         global_store!(ui).set_transcribe(entry);
+
+        if !is_file_exist && subtitles_counts > 0 {
+            ui.global::<UIConfirmDialogSetting>().invoke_set(
+                true,
+                tr("Warning").into(),
+                tr("No found media file. Import file or not?").into(),
+                "transcribe-import-file".into(),
+                "".into(),
+            );
+        }
 
         if !is_file_exist {
             return;

@@ -42,9 +42,6 @@ export component TranscribePanel inherits Rectangle {
             Logic.transcribe-audio-player-init();
             Store.transcribe-is-initialized = true;
         }
-        if (!current-transcribe.is-file-exist && current-transcribe.subtitles.length > 0) {
-            ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("No found media file. Import file or not?"), "transcribe-import-file", "");
-        }
     }
 
     if is-show-file-picker: FilePicker {

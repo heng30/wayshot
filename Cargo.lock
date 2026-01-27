@@ -11784,7 +11784,10 @@ dependencies = [
  "derive_setters",
  "env_logger",
  "ffmpeg-next",
+ "image 0.25.8",
  "log",
+ "serde",
+ "serde_json",
  "thiserror 2.0.17",
  "unicode-segmentation",
 ]

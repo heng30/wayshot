@@ -14,15 +14,19 @@ description.workspace = true
 log.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
+serde_json.workspace = true
 derivative.workspace = true
 derive_setters.workspace = true
 unicode-segmentation.workspace = true
+image = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"] }
 ffmpeg-next = { workspace = true, optional = true }
 chinese-number = { workspace = true, features = ["chinese-to-number"] }
 
 [features]
 default = []
-add-subtitle = ["ffmpeg-next"]
+# default = ["ffmpeg"]
+ffmpeg = ["ffmpeg-next", "image"]
 
 [dev-dependencies]
 anyhow.workspace = true

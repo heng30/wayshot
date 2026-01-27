@@ -207,7 +207,7 @@ fn play_audio_segment(
     };
 
     runtime_handle.spawn(async move {
-        let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(100));
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(20));
         loop {
             interval.tick().await;
 
@@ -215,16 +215,16 @@ fn play_audio_segment(
                 break;
             }
 
-            if !sink_clone.is_paused() {
-                let elapsed_ms = start_ms + start_time.elapsed().as_millis() as u64;
-                let progress = (elapsed_ms as f64 / total_duration_ms as f64).clamp(0.0, 1.0);
+            let elapsed_ms = start_ms + start_time.elapsed().as_millis() as u64;
+            let progress = (elapsed_ms as f64 / total_duration_ms as f64).clamp(0.0, 1.0);
 
-                _ = ui_weak_clone.upgrade_in_event_loop(move |ui| {
-                    if CURRENT_AUDIO_PLAYER.lock().unwrap().inc_index == inc_index {
-                        global_store!(ui).set_transcribe_audio_player_progress(progress as f32);
-                    }
-                });
-            } else {
+            _ = ui_weak_clone.upgrade_in_event_loop(move |ui| {
+                if CURRENT_AUDIO_PLAYER.lock().unwrap().inc_index == inc_index {
+                    global_store!(ui).set_transcribe_audio_player_progress(progress as f32);
+                }
+            });
+
+            if sink_clone.is_paused() {
                 break;
             }
         }
