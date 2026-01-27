@@ -111,6 +111,9 @@ component SubtitleListView inherits ScrollView {
                 }
 
                 init => {
+                    if (index == 0) {
+                        root.list-item-height = 0;
+                    }
                     root.list-item-height = max(self.height + vbox.spacing, root.list-item-height);
                 }
             }

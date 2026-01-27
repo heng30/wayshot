@@ -87,6 +87,7 @@ pub fn init(ui: &AppWindow) {
     logic_cb!(transcribe_subtitles_recovery, ui);
     logic_cb!(transcribe_subtitles_remove_all, ui);
     logic_cb!(transcribe_subtitles_correction, ui);
+    logic_cb!(transcribe_subtitles_accept_correction, ui);
     logic_cb!(transcribe_subtitles_remove_correction, ui);
     logic_cb!(transcribe_subtitles_adjust_overlap_timestamp, ui);
     logic_cb!(transcribe_subtitles_to_lowercase, ui);
@@ -170,6 +171,8 @@ fn transcribe_new(ui: &AppWindow) {
                 ..Default::default()
             };
             global_store!(ui).set_transcribe(entry);
+            global_store!(ui).set_transcribe_audio_player_progress(0.0);
+            global_store!(ui).set_transcribe_audio_player_is_playing(false);
         });
     });
 }
@@ -207,6 +210,10 @@ fn transcribe_start(ui: &AppWindow) {
     entry.playing_index = -1;
     entry.is_file_exist = true;
     global_store!(ui).set_transcribe(entry);
+
+    global_store!(ui).set_transcribe_can_recovered(false);
+    global_store!(ui).set_transcribe_audio_player_progress(0.0);
+    global_store!(ui).set_transcribe_audio_player_is_playing(false);
 
     if let Err(e) = inner_transcribe_start(&ui, filepath) {
         toast_warn!(ui, format!("Start transcribe failed: {e}"));
@@ -644,7 +651,7 @@ async fn ai_correct_subtitles(
         correction: String,
     }
 
-    let prompt = r#"You are a subtitle correction assistant. Your task is to correct misspelled words, grammar errors, and improve the clarity of subtitle text while maintaining the original meaning.
+    let prompt = r#"You are a subtitle correction assistant. Please correct the misspelled words in the following statement. Only output the JSON array, no additional text.
 
 <Input format>
 [{"index": 1, "text": "text1"}, {"index": 3, "text": "text3"}, ...]
@@ -653,12 +660,6 @@ async fn ai_correct_subtitles(
 <Output format>
 [{"index": 1, "correction": "correction1"}, {"index": 3, "correction": "correction3"}, ...]
 </Output format>
-
-Rules:
-1. Only output the JSON array, no additional text
-2. Keep corrections concise and appropriate for subtitles
-3. Maintain the original language
-4. Preserve proper nouns and technical terms
 "#;
 
     let input: Vec<InputSubtitle> = subtitles
@@ -714,6 +715,26 @@ Rules:
         .collect();
 
     Ok(corrections)
+}
+
+fn transcribe_subtitles_accept_correction(ui: &AppWindow) {
+    let entry = global_store!(ui).get_transcribe();
+    let subtitles = store_transcribe_subtitles!(entry);
+
+    let updated_subtitles = subtitles
+        .iter()
+        .map(|mut subtitle| {
+            if !subtitle.correction_text.is_empty() {
+                subtitle.original_text = subtitle.correction_text.clone();
+                subtitle.correction_text = SharedString::default();
+            }
+
+            subtitle
+        })
+        .collect::<Vec<_>>();
+
+    store_transcribe_subtitles!(entry).set_vec(updated_subtitles);
+    db_update(ui.as_weak(), entry.into());
 }
 
 fn transcribe_subtitles_remove_correction(ui: &AppWindow) {
@@ -807,6 +828,7 @@ fn transcribe_subtitles_to_primitive_numbers(ui: &AppWindow) {
             let converted_text = chinese_numbers_to_primitive_numbers(&subtitle.original_text);
             subtitle.original_text = converted_text.into();
             store_transcribe_subtitles!(entry).set_row_data(index, subtitle);
+            toast_success!(ui, "Convert to primitive numbers successfully");
         });
 }
 

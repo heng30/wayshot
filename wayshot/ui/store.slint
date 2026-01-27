@@ -377,7 +377,7 @@ export global Store {
 
     // desktop
     in-out property <TabIndex> previous-tab-index: TabIndex.Home;
-    in-out property <TabIndex> current-tab-index: TabIndex.Transcribe;
+    in-out property <TabIndex> current-tab-index: TabIndex.Home;
     in-out property <PopupIndex> current-popup-index: PopupIndex.None;
     in-out property <SettingDetailIndex> current-setting-detail-index: SettingDetailIndex.Preference;
 
@@ -387,8 +387,7 @@ export global Store {
     in-out property <MobileSettingDetailIndex> current-mobile-setting-detail-index: MobileSettingDetailIndex.Preference;
 
     in-out property <SettingPreference> setting-preference: {
-        // win-width: 800,
-        win-width: 700,
+        win-width: 800,
         win-height: 640,
         font-size: "16",
         font-family: "Source Han Sans CN",
@@ -502,8 +501,6 @@ export global Store {
     in-out property <bool> transcribe-can-recovered;
     in-out property <bool> transcribe-is-initialized;
     in-out property <Transcribe> transcribe: {
-        progress: 0.5,
-        playing-index: -1,
         is-file-exist: true,
         file-path: "/tmp/test.mp3",
         subtitles: [
@@ -514,13 +511,6 @@ export global Store {
                 correction-text: "It's correction text",
                 audio-wave-amplitude: 1.0,
             },
-            {
-                start-timestamp: "00:00:06,000",
-                end-timestamp: "00:00:08,100",
-                original-text: "It's a test text2",
-                correction-text: "",
-                audio-wave-amplitude: 1.0,
-            }
         ],
     };
 

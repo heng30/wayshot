@@ -199,13 +199,16 @@ fn play_audio_segment(
 
     sink.append(source);
 
-    _ = ui_weak.clone().upgrade_in_event_loop(move |ui| {
-        global_store!(ui).set_transcribe_audio_player_is_playing(true);
-    });
-
     let sink_clone = sink.clone();
     let ui_weak_clone = ui_weak.clone();
     let start_time = std::time::Instant::now();
+
+    let progress = (start_ms as f64 / total_duration_ms as f64).clamp(0.0, 1.0);
+    _ = ui_weak.clone().upgrade_in_event_loop(move |ui| {
+        global_store!(ui).set_transcribe_audio_player_progress(progress as f32);
+        global_logic!(ui).invoke_transcribe_subtitles_update_playng_index(progress as f32);
+        global_store!(ui).set_transcribe_audio_player_is_playing(true);
+    });
 
     let inc_index = {
         let mut player = CURRENT_AUDIO_PLAYER.lock().unwrap();

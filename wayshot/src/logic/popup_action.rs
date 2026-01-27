@@ -26,6 +26,9 @@ pub fn init(ui: &AppWindow) {
                 "transcribe-subtitles-correction" => {
                     global_logic!(ui).invoke_transcribe_subtitles_correction();
                 }
+                "transcribe-subtitles-accept-correction" => {
+                    global_logic!(ui).invoke_transcribe_subtitles_accept_correction();
+                }
                 "transcribe-subtitles-remove-correction" => {
                     global_logic!(ui).invoke_transcribe_subtitles_remove_correction();
                 }

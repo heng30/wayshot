@@ -31,10 +31,16 @@ export component Header inherits HorizontalLayout {
             action: "transcribe-subtitles-correction",
         },
         {
+            icon: Icons.list-accept2-light,
+            text: Logic.tr("Accept Correction"),
+            action: "transcribe-subtitles-accept-correction",
+        },
+        {
             icon: Icons.remove-light,
             text: Logic.tr("Remove Correction"),
             action: "transcribe-subtitles-remove-correction",
         },
+        { },
         {
             icon: Icons.to-lowercase-light,
             text: Logic.tr("To Lowercase"),
@@ -50,6 +56,7 @@ export component Header inherits HorizontalLayout {
             text: Logic.tr("To Primitive Number"),
             action: "transcribe-subtitles-to-primitive-numbers",
         },
+        { },
         {
             icon: Icons.separator-light,
             text: Logic.tr("Remove Separator"),
