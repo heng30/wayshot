@@ -1,6 +1,6 @@
 [workspace]
-exclude = []
 resolver = "3"
+exclude = ["lib/gpt-sovits"]
 members = ["wayshot", "wayshot-cursor", "tr-helper", "icon-helper", "lib/*"]
 
 [workspace.package]
@@ -163,7 +163,6 @@ pmacro = { path = "lib/pmacro" }
 camera = { path = "lib/camera" }
 bytesio = { path = "lib/bytesio" }
 recorder = { path = "lib/recorder" }
-gpt-sovits = { path = "lib/gpt-sovits" }
 downloader = { path = "lib/downloader" }
 mp4-player = { path = "lib/mp4-player" }
 audio-utils = { path = "lib/audio-utils" }
