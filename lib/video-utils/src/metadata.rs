@@ -56,20 +56,17 @@ pub fn get_metadata<P: AsRef<Path>>(path: P) -> Result<VideoMetadata> {
     let bitrate = input_ctx.bit_rate() as u64;
 
     // Count streams
-    let mut video_streams_count = 0;
-    let mut audio_streams_count = 0;
+    let video_streams_count = if input_ctx.streams().best(ffmpeg::media::Type::Video).is_some() {
+        1
+    } else {
+        0
+    };
 
-    for stream in input_ctx.streams() {
-        match stream.parameters().medium() {
-            Ok(ffmpeg::media::Type::Video) => {
-                video_streams_count += 1;
-            }
-            Ok(ffmpeg::media::Type::Audio) => {
-                audio_streams_count += 1;
-            }
-            _ => {}
-        }
-    }
+    let audio_streams_count = if input_ctx.streams().best(ffmpeg::media::Type::Audio).is_some() {
+        1
+    } else {
+        0
+    };
 
     Ok(VideoMetadata {
         path: path_str,

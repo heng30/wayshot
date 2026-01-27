@@ -74,18 +74,18 @@ pub fn extract_frame_at_time<P: AsRef<Path>>(
         .ok_or_else(|| Error::FFmpeg("No video stream found in input file".to_string()))?;
 
     let video_stream_index = video_stream.index();
+    let time_base = video_stream.time_base();
+    let codec_par = video_stream.parameters();
 
     // Seek to the specified time
     let seek_timestamp = (time * 10000.0) as i64; // Convert to AV_TIME_BASE
     input_ctx
         .seek(seek_timestamp, ..)
         .map_err(|e| Error::FFmpeg(format!("Failed to seek: {}", e)))?;
+    let decoder_context = ffmpeg::codec::context::Context::from_parameters(codec_par)
+        .map_err(|e| Error::FFmpeg(format!("Failed to create decoder context: {}", e)))?;
 
-    // Create decoder and scaler
-    let codec_par = video_stream.parameters();
-    let mut decoder = ffmpeg::codec::context::Context::from_parameters(codec_par)
-        .and_then(|ctx| ctx.decoder())
-        .video()
+    let mut decoder = decoder_context.decoder().video()
         .map_err(|e| Error::FFmpeg(format!("Failed to create video decoder: {}", e)))?;
 
     let width = decoder.width();
@@ -93,12 +93,12 @@ pub fn extract_frame_at_time<P: AsRef<Path>>(
 
     log::debug!("Video info: {}x{}", width, height);
 
-    // Create scaler to convert to RGB24
+    // Create scaler to convert to RGB24 (3 bytes per pixel: R, G, B)
     let mut scaler = ffmpeg::software::scaling::context::Context::get(
         decoder.format(),
         decoder.width(),
         decoder.height(),
-        ffmpeg::format::Pixel::RGB(24),
+        ffmpeg::format::Pixel::RGB24,
         width,
         height,
         ffmpeg::software::scaling::Flags::BILINEAR,
@@ -120,12 +120,12 @@ pub fn extract_frame_at_time<P: AsRef<Path>>(
 
         while decoder.receive_frame(&mut decoded_frame).is_ok() {
             // Check if this is the frame we want
-            if let Some(pts) = decoded_frame pts() {
-                let frame_time = pts as f64 * video_stream.time_base().numerator() as f64
-                    / video_stream.time_base().denominator() as f64;
+            if let Some(pts) = decoded_frame.pts() {
+                let frame_time = pts as f64 * time_base.numerator() as f64
+                    / time_base.denominator() as f64;
 
                 if frame_time >= time {
-                    // Convert to RGB24
+                    // Convert to RGB8
                     scaler.run(&decoded_frame, &mut rgb_frame)
                         .map_err(|e| Error::FFmpeg(format!("Scaler run failed: {}", e)))?;
 
@@ -215,23 +215,25 @@ pub fn extract_frames_interval<P: AsRef<Path>>(
         .ok_or_else(|| Error::FFmpeg("No video stream found in input file".to_string()))?;
 
     let video_stream_index = video_stream.index();
+    let time_base = video_stream.time_base();
 
-    // Create decoder and scaler
+    // Create decoder
     let codec_par = video_stream.parameters();
-    let mut decoder = ffmpeg::codec::context::Context::from_parameters(codec_par)
-        .and_then(|ctx| ctx.decoder())
-        .video()
+    let decoder_context = ffmpeg::codec::context::Context::from_parameters(codec_par)
+        .map_err(|e| Error::FFmpeg(format!("Failed to create decoder context: {}", e)))?;
+
+    let mut decoder = decoder_context.decoder().video()
         .map_err(|e| Error::FFmpeg(format!("Failed to create video decoder: {}", e)))?;
 
     let width = decoder.width();
     let height = decoder.height();
 
-    // Create scaler to convert to RGB24
+    // Create scaler to convert to RGB24 (3 bytes per pixel: R, G, B)
     let mut scaler = ffmpeg::software::scaling::context::Context::get(
         decoder.format(),
         decoder.width(),
         decoder.height(),
-        ffmpeg::format::Pixel::RGB(24),
+        ffmpeg::format::Pixel::RGB24,
         width,
         height,
         ffmpeg::software::scaling::Flags::BILINEAR,
@@ -262,9 +264,9 @@ pub fn extract_frames_interval<P: AsRef<Path>>(
             .map_err(|e| Error::FFmpeg(format!("Decoder send failed: {}", e)))?;
 
         while decoder.receive_frame(&mut decoded_frame).is_ok() {
-            if let Some(pts) = decoded_frame pts() {
-                let frame_time = pts as f64 * video_stream.time_base().numerator() as f64
-                    / video_stream.time_base().denominator() as f64;
+            if let Some(pts) = decoded_frame.pts() {
+                let frame_time = pts as f64 * time_base.numerator() as f64
+                    / time_base.denominator() as f64;
 
                 if frame_time > end_time {
                     break;
@@ -327,20 +329,7 @@ pub fn extract_all_frames<P: AsRef<Path>>(video_path: P) -> Result<Vec<VideoFram
     let metadata = super::metadata::get_metadata(video_path)?;
 
     let duration = metadata.duration;
-    let fps = if !metadata.video_streams.is_empty() {
-        // Parse frame rate
-        let fps_str = &metadata.video_streams[0].frame_rate;
-        if let Some(pos) = fps_str.find('/') {
-            let num: f32 = fps_str[..pos].parse().unwrap_or(25.0);
-            let den: f32 = fps_str[pos + 1..].parse().unwrap_or(1.0);
-            num / den
-        } else {
-            25.0
-        }
-    } else {
-        25.0
-    };
-
+    let fps = 25.0; // Default to 25 fps
     let interval = 1.0 / fps;
 
     extract_frames_interval(video_path, 0.0, duration, interval)

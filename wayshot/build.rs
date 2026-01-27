@@ -47,7 +47,6 @@ fn set_windows_info() {
 #[cfg(target_os = "windows")]
 fn window_linker_params() {
     if cfg!(target_env = "msvc") {
-        println!("cargo:rustc-link-arg=/MT");
         println!("cargo:rustc-cdylib-link-arg=/NODEFAULTLIB:libcmt");
     }
 }
