@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 use std::time::Duration;
 use video_utils::{
-    MP4Encoder, MP4EncoderConfig, H264Config, AACConfig, H264Preset, FrameData, AudioData,
+    MP4Encoder, MP4EncoderConfig, H264Config, EncoderAACConfig as AACConfig,
+    H264Preset, EncoderFrameData as FrameData, EncoderAudioData as AudioData,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -167,7 +168,10 @@ fn encode_test_video(config: MP4EncoderConfig, frame_count: usize) -> Result<(),
             timestamp: Duration::from_millis((i as u64 * 1000) / 30),
         };
 
-        video_tx.send(frame).map_err(|e| format!("Failed to send video frame: {}", e))?;
+        video_tx.send(frame).map_err(|e| format!("Failed to send video frame {}: {}", i, e))?;
+
+        // 小延迟，确保编码器有足够时间处理
+        std::thread::sleep(std::time::Duration::from_millis(10));
 
         // 每30帧生成一帧音频 (1秒)
         if i % 30 == 0 {
@@ -206,7 +210,12 @@ fn encode_test_video(config: MP4EncoderConfig, frame_count: usize) -> Result<(),
 
     println!("编码中...");
 
-    // 停止编码器
+    // 重要：必须先显式关闭发送通道，然后才能停止编码器
+    // 因为 MP4Encoder 只持有一个发送器的副本，用户持有的另一个副本必须先关闭
+    drop(video_tx);
+    drop(audio_tx);
+
+    // 现在可以安全地停止编码器
     encoder.stop()?;
 
     println!("✓ 编码完成");

@@ -1,4 +1,9 @@
-# Force dynamic CRT (/MD) on Windows to match pre-built binaries like ort-sys
-# This fixes LNK2038/LNK2005 errors caused by CRT mismatches between dependencies
-[target.'cfg(windows)']
-rustflags = ["-C", "target-feature=-crt-static"]
+# On Windows, ort-sys uses prebuilt binaries compiled with /MD (dynamic CRT).
+# We must ensure all native dependencies (esaxx-rs, etc.) also use /MD to avoid LNK2038 errors.
+[target.x86_64-pc-windows-msvc.env]
+CFLAGS = "/MD"
+CXXFLAGS = "/MD"
+
+[target.aarch64-pc-windows-msvc.env]
+CFLAGS = "/MD"
+CXXFLAGS = "/MD"

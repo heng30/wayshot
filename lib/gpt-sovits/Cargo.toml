@@ -12,6 +12,7 @@ description.workspace = true
 
 [dependencies]
 log.workspace = true
+ort.workspace = true
 pest.workspace = true
 rand.workspace = true
 serde.workspace = true
@@ -34,12 +35,6 @@ unicode-segmentation.workspace = true
 tokio = { workspace = true, features = ["fs"] }
 tokenizers = { workspace = true, features = ["onig"] }
 rodio = { workspace = true, features = ["mp3", "wav"] }
-ort = { workspace = true, features = [
-  "std",
-  "cuda",
-  "tls-rustls",
-  "download-binaries",
-] }
 
 [dev-dependencies]
 hound.workspace = true

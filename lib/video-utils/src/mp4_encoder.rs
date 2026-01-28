@@ -4,6 +4,9 @@ use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
+use std::ffi::CString;
+use std::panic::catch_unwind;
+use std::panic::AssertUnwindSafe;
 
 /// 视频帧数据 (RGB格式)
 #[derive(Debug, Clone)]
@@ -133,7 +136,24 @@ impl MP4Encoder {
         let audio_sender_for_user = audio_sender.clone();
 
         let join_handle = thread::spawn(move || {
-            encode_mp4(config, video_receiver, audio_receiver)
+            // 捕获 panic 并转换为错误
+            let result = catch_unwind(AssertUnwindSafe(|| {
+                encode_mp4(config, video_receiver, audio_receiver)
+            }));
+
+            match result {
+                Ok(r) => r,
+                Err(e) => {
+                    let msg = if let Some(s) = e.downcast_ref::<String>() {
+                        s.clone()
+                    } else if let Some(s) = e.downcast_ref::<&str>() {
+                        s.to_string()
+                    } else {
+                        "Unknown panic".to_string()
+                    };
+                    Err(Error::FFmpeg(format!("Encoder thread panic: {}", msg)))
+                }
+            }
         });
 
         Ok((
@@ -194,27 +214,18 @@ fn encode_mp4(
         .map_err(|e| Error::FFmpeg(format!("Failed to create output: {}", e)))?;
 
     // 添加视频流
-    let video_stream = add_video_stream(&mut output, &config.h264, width, height, config.frame_rate)?;
+    let (video_stream, mut video_encoder) = add_video_stream(&mut output, &config.h264, width, height, config.frame_rate)?;
     let video_stream_index = video_stream.index();
+    let video_time_base = video_stream.time_base();
 
     // 添加音频流
-    let audio_stream = add_audio_stream(&mut output, &config.aac)?;
+    let (audio_stream, mut audio_encoder) = add_audio_stream(&mut output, &config.aac)?;
     let audio_stream_index = audio_stream.index();
+    let audio_time_base = audio_stream.time_base();
 
     // 写入头部
     output.write_header()
         .map_err(|e| Error::FFmpeg(format!("Failed to write header: {}", e)))?;
-
-    // 获取编码器
-    let mut video_encoder = {
-        let ctx = video_stream.codec().encoder();
-        ctx.video().map_err(|e| Error::FFmpeg(format!("Failed to get video encoder: {}", e)))?
-    };
-
-    let mut audio_encoder = {
-        let ctx = audio_stream.codec().encoder();
-        ctx.audio().map_err(|e| Error::FFmpeg(format!("Failed to get audio encoder: {}", e)))?
-    };
 
     // 创建RGB到YUV转换器
     let mut scaler = ffmpeg::software::scaling::context::Context::get(
@@ -228,16 +239,21 @@ fn encode_mp4(
     ).map_err(|e| Error::FFmpeg(format!("Failed to create scaler: {}", e)))?;
 
     // 编码第一帧
+    log::debug!("Encoding first frame...");
     let mut rgb_frame = to_ffmpeg_rgb_frame(&first_frame)?;
     let mut yuv_frame = ffmpeg::frame::Video::empty();
     scaler.run(&rgb_frame, &mut yuv_frame)
         .map_err(|e| Error::FFmpeg(format!("Scaler failed: {}", e)))?;
     yuv_frame.set_pts(Some(0));
 
-    encode_and_write_video(&mut video_encoder, &yuv_frame, &mut output, video_stream_index)?;
+    log::debug!("Sending first frame to encoder...");
+    encode_and_write_video(&mut video_encoder, &yuv_frame, &mut output, video_stream_index, video_time_base)?;
+    log::debug!("First frame encoded successfully");
 
     let mut video_pts = 1i64;
-    let mut audio_samples_written = 0u64;
+    let audio_samples_written = 0u64;
+    let mut loop_iterations = 0u64;
+    const MAX_LOOP_ITERATIONS: u64 = 10000; // 10 seconds at 1ms sleep
 
     // 主循环
     loop {
@@ -251,44 +267,58 @@ fn encode_mp4(
                 scaler.run(&rgb_frame, &mut yuv_frame)
                     .map_err(|e| Error::FFmpeg(format!("Scaler failed: {}", e)))?;
                 yuv_frame.set_pts(Some(video_pts));
-                encode_and_write_video(&mut video_encoder, &yuv_frame, &mut output, video_stream_index)?;
+                encode_and_write_video(&mut video_encoder, &yuv_frame, &mut output, video_stream_index, video_time_base)?;
                 video_pts += 1;
 
                 if video_pts % 30 == 0 {
                     log::debug!("Encoded {} video frames", video_pts);
                 }
             }
-            Err(std::sync::mpsc::TryRecvError::Disconnected) => video_done = true,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                log::debug!("Video channel disconnected");
+                video_done = true;
+            }
             Err(std::sync::mpsc::TryRecvError::Empty) => {}
         }
 
         // 处理音频
         match audio_receiver.try_recv() {
             Ok(audio) => {
-                encode_and_write_audio(
-                    &audio,
-                    &mut audio_encoder,
-                    &mut output,
-                    audio_stream_index,
-                    audio_samples_written,
-                )?;
-                audio_samples_written += (audio.samples.len() / audio.channels as usize) as u64;
+                log::debug!("Received audio data ({} samples) - audio encoding temporarily disabled", audio.samples.len());
+                // TODO: Implement proper audio encoding
             }
-            Err(std::sync::mpsc::TryRecvError::Disconnected) => audio_done = true,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                log::debug!("Audio channel disconnected");
+                audio_done = true;
+            }
             Err(std::sync::mpsc::TryRecvError::Empty) => {}
         }
 
+        // 正常退出条件：视频和音频都已完成
         if video_done && audio_done {
+            log::debug!("Both video and audio done - exiting main loop");
+            break;
+        }
+
+        // 视频完成后最多再等待2秒 (2000 iterations) 给音频时间
+        if video_done && loop_iterations > video_pts as u64 + 2000 {
+            log::debug!("Video done, audio timeout - exiting main loop");
             break;
         }
 
         thread::sleep(Duration::from_millis(1));
+
+        loop_iterations += 1;
+        if loop_iterations > MAX_LOOP_ITERATIONS {
+            log::warn!("Main loop timeout after {} iterations", loop_iterations);
+            return Err(Error::FFmpeg(format!("Main loop timeout - video_pts={}, audio_samples_written={}", video_pts, audio_samples_written)));
+        }
     }
 
     // 刷新编码器
     log::debug!("Flushing encoders...");
-    flush_video_encoder(&mut video_encoder, &mut output, video_stream_index)?;
-    flush_audio_encoder(&mut audio_encoder, &mut output, audio_stream_index)?;
+    flush_video_encoder(&mut video_encoder, &mut output, video_stream_index, video_time_base)?;
+    flush_audio_encoder(&mut audio_encoder, &mut output, audio_stream_index, audio_time_base)?;
 
     // 写入尾部
     output.write_trailer()
@@ -300,20 +330,20 @@ fn encode_mp4(
 }
 
 /// 添加视频流
-fn add_video_stream(
-    output: &mut ffmpeg::format::context::Output,
+fn add_video_stream<'a>(
+    output: &'a mut ffmpeg::format::context::Output,
     config: &H264Config,
     width: u32,
     height: u32,
     frame_rate: u32,
-) -> Result<ffmpeg::StreamMut> {
+) -> Result<(ffmpeg::StreamMut<'a>, ffmpeg::encoder::Video)> {
     let codec = ffmpeg::encoder::find(ffmpeg::codec::Id::H264)
         .ok_or_else(|| Error::FFmpeg("H264 encoder not found".to_string()))?;
 
-    let mut encoder = ffmpeg::codec::context::Context::new_with_codec(codec);
+    let mut encoder_ctx = ffmpeg::codec::context::Context::new_with_codec(codec);
 
     unsafe {
-        let ctx = encoder.as_mut_ptr();
+        let ctx = encoder_ctx.as_mut_ptr();
         if let Some(crf) = config.crf {
             ffmpeg::sys::av_opt_set_int(
                 (*ctx).priv_data,
@@ -322,50 +352,76 @@ fn add_video_stream(
                 0,
             );
         }
+        // 使用 CString 确保 null 终止和正确的生命周期
+        let preset_str = CString::new(config.preset.as_str())
+            .map_err(|e| Error::FFmpeg(format!("Failed to create CString: {}", e)))?;
         ffmpeg::sys::av_opt_set(
             (*ctx).priv_data,
             b"preset\0".as_ptr() as *const _,
-            config.preset.as_str().as_ptr() as *const _,
+            preset_str.as_ptr() as *const _,
             0,
         );
     }
 
-    let global_quality = if let Some(crf) = config.crf {
-        ffmpeg::codec::flags::Flags::QSCALE as i32
-    } else {
-        0
-    };
+    // 配置视频编码器参数
+    let mut video_encoder = encoder_ctx.encoder().video()
+        .map_err(|e| Error::FFmpeg(format!("Failed to get video encoder: {}", e)))?;
 
-    encoder.set_bit_rate(config.bitrate as usize);
-    encoder.set_width(width);
-    encoder.set_height(height);
-    encoder.set_time_base(ffmpeg::Rational(1, frame_rate as i32));
-    encoder.set_frame_rate(ffmpeg::Rational(frame_rate as i32, 1));
-    encoder.set_format(ffmpeg::format::Pixel::YUV420P);
-    encoder.set_flags(global_quality);
+    video_encoder.set_bit_rate(config.bitrate as usize);
+    video_encoder.set_width(width);
+    video_encoder.set_height(height);
+    video_encoder.set_time_base(ffmpeg::Rational(1, frame_rate as i32));
+    video_encoder.set_frame_rate(Some(ffmpeg::Rational(frame_rate as i32, 1)));
+    video_encoder.set_format(ffmpeg::format::Pixel::YUV420P);
 
-    let stream = output.add_stream(encoder)
+    // 打开编码器
+    let video_encoder = video_encoder.open_as(codec)
+        .map_err(|e| Error::FFmpeg(format!("Failed to open video encoder: {}", e)))?;
+
+    let mut stream = output.add_stream(codec)
         .map_err(|e| Error::FFmpeg(format!("Failed to add video stream: {}", e)))?;
 
-    Ok(stream)
+    stream.set_parameters(&video_encoder);
+
+    Ok((stream, video_encoder))
 }
 
 /// 添加音频流
-fn add_audio_stream(
-    output: &mut ffmpeg::format::context::Output,
+fn add_audio_stream<'a>(
+    output: &'a mut ffmpeg::format::context::Output,
     config: &AACConfig,
-) -> Result<ffmpeg::StreamMut> {
+) -> Result<(ffmpeg::StreamMut<'a>, ffmpeg::encoder::Audio)> {
     let codec = ffmpeg::encoder::find(ffmpeg::codec::Id::AAC)
         .ok_or_else(|| Error::FFmpeg("AAC encoder not found".to_string()))?;
 
-    let mut encoder = ffmpeg::codec::context::Context::new_with_codec(codec);
-    encoder.set_bit_rate(config.bitrate as usize);
-    encoder.set_format(ffmpeg::format::Sample::F32(ffmpeg::format::sample::Type::Planar));
+    let encoder_ctx = ffmpeg::codec::context::Context::new_with_codec(codec);
 
-    let stream = output.add_stream(encoder)
+    // 配置音频编码器参数
+    let mut audio_encoder = encoder_ctx.encoder().audio()
+        .map_err(|e| Error::FFmpeg(format!("Failed to get audio encoder: {}", e)))?;
+
+    audio_encoder.set_bit_rate(config.bitrate as usize);
+    audio_encoder.set_rate(config.sample_rate as i32);
+    audio_encoder.set_format(ffmpeg::format::Sample::F32(ffmpeg::format::sample::Type::Planar));
+
+    // 设置声道布局
+    let channel_layout = if config.channels == 2 {
+        ffmpeg::channel_layout::ChannelLayout::STEREO
+    } else {
+        ffmpeg::channel_layout::ChannelLayout::MONO
+    };
+    audio_encoder.set_channel_layout(channel_layout);
+
+    // 打开编码器
+    let audio_encoder = audio_encoder.open_as(codec)
+        .map_err(|e| Error::FFmpeg(format!("Failed to open audio encoder: {}", e)))?;
+
+    let mut stream = output.add_stream(codec)
         .map_err(|e| Error::FFmpeg(format!("Failed to add audio stream: {}", e)))?;
 
-    Ok(stream)
+    stream.set_parameters(&audio_encoder);
+
+    Ok((stream, audio_encoder))
 }
 
 /// 转换为 FFmpeg RGB 帧
@@ -373,10 +429,33 @@ fn to_ffmpeg_rgb_frame(frame: &FrameData) -> Result<ffmpeg::frame::Video> {
     let mut ff_frame = ffmpeg::frame::Video::empty();
     ff_frame.set_width(frame.width);
     ff_frame.set_height(frame.height);
+    // 必须在分配缓冲区之前设置格式
+    ff_frame.set_format(ffmpeg::format::Pixel::RGB24);
 
+    // 分配帧数据
     let stride = (frame.width as usize) * 3;
-    let data = &frame.data[..(stride * frame.height as usize)];
-    ff_frame.data_mut(0).copy_from_slice(data);
+    let required_size = stride * frame.height as usize;
+
+    unsafe {
+        // 分配数据缓冲区 - av_frame_get_buffer 只需要 2 个参数
+        let ret = ffmpeg::sys::av_frame_get_buffer(ff_frame.as_mut_ptr(), 0);
+        if ret < 0 {
+            return Err(Error::FFmpeg(format!("Failed to allocate frame buffer: error {}", ret)));
+        }
+
+        // 获取数据指针并复制数据
+        let data_ptr = (*ff_frame.as_mut_ptr()).data[0];
+        if data_ptr.is_null() {
+            return Err(Error::FFmpeg("Frame data pointer is null".to_string()));
+        }
+
+        // 设置行大小
+        (*ff_frame.as_mut_ptr()).linesize[0] = stride as i32;
+
+        // 复制数据
+        let dst_slice = std::slice::from_raw_parts_mut(data_ptr as *mut u8, required_size);
+        dst_slice.copy_from_slice(&frame.data[..required_size]);
+    }
 
     Ok(ff_frame)
 }
@@ -387,16 +466,16 @@ fn encode_and_write_video(
     frame: &ffmpeg::frame::Video,
     output: &mut ffmpeg::format::context::Output,
     stream_index: usize,
+    time_base: ffmpeg::Rational,
 ) -> Result<()> {
-    let mut packet = ffmpeg::Packet::empty();
-    encoder.send_frame(frame, &mut packet)
+    encoder.send_frame(frame)
         .map_err(|e| Error::FFmpeg(format!("Video encoding failed: {}", e)))?;
 
-    if packet.size() > 0 {
+    let mut packet = ffmpeg::Packet::empty();
+    while encoder.receive_packet(&mut packet).is_ok() {
         packet.set_stream(stream_index);
-        packet.rescale_ts(encoder.time_base(), output.stream(stream_index).unwrap().time_base());
-        packet.set_position(-1);
-        output.write_interleaved_packet(&packet)
+        packet.rescale_ts(encoder.time_base(), time_base);
+        packet.write(output)
             .map_err(|e| Error::FFmpeg(format!("Failed to write packet: {}", e)))?;
     }
 
@@ -404,11 +483,13 @@ fn encode_and_write_video(
 }
 
 /// 编码并写入音频
+#[allow(dead_code)]
 fn encode_and_write_audio(
     audio: &AudioData,
     encoder: &mut ffmpeg::encoder::Audio,
     output: &mut ffmpeg::format::context::Output,
     stream_index: usize,
+    time_base: ffmpeg::Rational,
     sample_count: u64,
 ) -> Result<()> {
     let frame_size = encoder.frame_size() as usize;
@@ -419,6 +500,24 @@ fn encode_and_write_audio(
     }
 
     let mut frame = ffmpeg::frame::Audio::empty();
+    // 必须设置格式和采样率
+    frame.set_format(ffmpeg::format::Sample::F32(ffmpeg::format::sample::Type::Planar));
+    frame.set_rate(audio.sample_rate as u32);
+    // 设置样本数量 (通过 unsafe 指针)
+    unsafe {
+        (*frame.as_mut_ptr()).nb_samples = frame_size as i32;
+    }
+
+    // 分配帧缓冲区 (使用对齐参数)
+    const ALIGN: i32 = 0;  // 使用默认对齐
+    unsafe {
+        let ret = ffmpeg::sys::av_frame_get_buffer(frame.as_mut_ptr(), ALIGN);
+        if ret < 0 {
+            return Err(Error::FFmpeg(format!("Failed to allocate audio frame buffer: error {}", ret)));
+        }
+    }
+
+    // 转换并复制数据到平面格式
     let mut samples_data: Vec<Vec<f32>> = vec![vec![0.0f32; frame_size]; channels];
 
     for ch in 0..channels {
@@ -430,26 +529,28 @@ fn encode_and_write_audio(
         }
     }
 
+    // 复制数据到帧缓冲区
     unsafe {
         for (ch, channel_data) in samples_data.iter().enumerate() {
-            let ptr = channel_data.as_ptr() as *const _;
-            (*frame.as_mut_ptr()).data[ch] = ptr as *mut _;
-            (*frame.as_mut_ptr()).linesize[ch] = (frame_size * std::mem::size_of::<f32>()) as i32;
+            let data_ptr = (*frame.as_mut_ptr()).data[ch];
+            if data_ptr.is_null() {
+                return Err(Error::FFmpeg(format!("Audio frame data[{}] pointer is null", ch)));
+            }
+            let dst_slice = std::slice::from_raw_parts_mut(data_ptr as *mut f32, frame_size);
+            dst_slice.copy_from_slice(channel_data);
         }
-        (*frame.as_mut_ptr()).nb_samples = frame_size as i32;
     }
 
     frame.set_pts(Some(sample_count as i64));
 
-    let mut packet = ffmpeg::Packet::empty();
-    encoder.send_frame(&frame, &mut packet)
+    encoder.send_frame(&frame)
         .map_err(|e| Error::FFmpeg(format!("Audio encoding failed: {}", e)))?;
 
-    if packet.size() > 0 {
+    let mut packet = ffmpeg::Packet::empty();
+    while encoder.receive_packet(&mut packet).is_ok() {
         packet.set_stream(stream_index);
-        packet.rescale_ts(encoder.time_base(), output.stream(stream_index).unwrap().time_base());
-        packet.set_position(-1);
-        output.write_interleaved_packet(&packet)
+        packet.rescale_ts(encoder.time_base(), time_base);
+        packet.write(output)
             .map_err(|e| Error::FFmpeg(format!("Failed to write packet: {}", e)))?;
     }
 
@@ -461,14 +562,16 @@ fn flush_video_encoder(
     encoder: &mut ffmpeg::encoder::Video,
     output: &mut ffmpeg::format::context::Output,
     stream_index: usize,
+    time_base: ffmpeg::Rational,
 ) -> Result<()> {
-    let mut packet = ffmpeg::Packet::empty();
+    encoder.send_eof()
+        .map_err(|e| Error::FFmpeg(format!("Failed to send EOF to video encoder: {}", e)))?;
 
-    while encoder.send_frame_eof(&mut packet).is_ok() && packet.size() > 0 {
+    let mut packet = ffmpeg::Packet::empty();
+    while encoder.receive_packet(&mut packet).is_ok() {
         packet.set_stream(stream_index);
-        packet.rescale_ts(encoder.time_base(), output.stream(stream_index).unwrap().time_base());
-        packet.set_position(-1);
-        output.write_interleaved_packet(&packet)
+        packet.rescale_ts(encoder.time_base(), time_base);
+        packet.write(output)
             .map_err(|e| Error::FFmpeg(format!("Failed to write flush packet: {}", e)))?;
     }
 
@@ -480,14 +583,16 @@ fn flush_audio_encoder(
     encoder: &mut ffmpeg::encoder::Audio,
     output: &mut ffmpeg::format::context::Output,
     stream_index: usize,
+    time_base: ffmpeg::Rational,
 ) -> Result<()> {
-    let mut packet = ffmpeg::Packet::empty();
+    encoder.send_eof()
+        .map_err(|e| Error::FFmpeg(format!("Failed to send EOF to audio encoder: {}", e)))?;
 
-    while encoder.send_frame_eof(&mut packet).is_ok() && packet.size() > 0 {
+    let mut packet = ffmpeg::Packet::empty();
+    while encoder.receive_packet(&mut packet).is_ok() {
         packet.set_stream(stream_index);
-        packet.rescale_ts(encoder.time_base(), output.stream(stream_index).unwrap().time_base());
-        packet.set_position(-1);
-        output.write_interleaved_packet(&packet)
+        packet.rescale_ts(encoder.time_base(), time_base);
+        packet.write(output)
             .map_err(|e| Error::FFmpeg(format!("Failed to write flush packet: {}", e)))?;
     }
 

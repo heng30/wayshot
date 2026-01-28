@@ -17,6 +17,7 @@ import {
     PopupActionSetting,
     PopupActionEntry,
     ConfirmDialogSetting,
+    Label,
 } from "../../../base/widgets.slint";
 
 export component Header inherits HorizontalLayout {
@@ -101,13 +102,11 @@ export component Header inherits HorizontalLayout {
     spacing: Theme.spacing * 4;
     height: outer-hbox.preferred-height;
 
-    if current-transcribe.progress-type != TranscribeProgressType.None: VerticalLayout {
+    VerticalLayout {
         alignment: center;
         width: root.width - outer-hbox.preferred-width - parent.spacing;
 
-        HorizontalLayout {
-            spacing: Theme.spacing * 4;
-
+        if current-transcribe.progress-type != TranscribeProgressType.None: HorizontalLayout {
             ProgressBar {
                 private property <string> progress-text: progress-type-str(current-transcribe.progress-type);
 
@@ -119,6 +118,24 @@ export component Header inherits HorizontalLayout {
                 finished-progress-color: progress-type-color(current-transcribe.progress-type);
                 unfinished-text: self.progress-text + "  " + self.calc-percent(self.progress) + "%";
                 finished-text: self.progress-text;
+            }
+        }
+
+        if current-transcribe.progress-type == TranscribeProgressType.None: Rectangle {
+            height: 100%;
+            width: parent.width - Theme.padding * 4;
+            border-radius: Theme.border-radius;
+            background: Theme.secondary-background;
+
+            HorizontalLayout {
+                padding-left: Theme.padding * 4;
+                padding-right: Theme.padding * 4;
+
+                Label {
+                    width: 100%;
+                    text: current-transcribe.file-path;
+                    overflow: elide;
+                }
             }
         }
     }

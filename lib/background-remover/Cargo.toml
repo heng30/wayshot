@@ -12,18 +12,13 @@ description.workspace = true
 
 [dependencies]
 log.workspace = true
+ort.workspace = true
 image.workspace = true
 ndarray.workspace = true
 thiserror.workspace = true
 derivative.workspace = true
 derive_setters.workspace = true
 fast_image_resize.workspace = true
-ort = { workspace = true, features = [
-  "std",
-  "cuda",
-  "tls-rustls",
-  "download-binaries",
-] }
 
 [dev-dependencies]
 anyhow.workspace = true

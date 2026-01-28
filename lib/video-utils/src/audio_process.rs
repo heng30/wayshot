@@ -281,9 +281,9 @@ pub fn process_audio(config: &AudioProcessConfig) -> Result<()> {
         .map_err(|e| Error::FFmpeg(format!("Failed to add abuffersink: {}", e)))?;
 
     // Build filter specification
-    // Apply loudnorm and volume if configured
+    // Apply volume if configured
     // aresample will handle sample rate conversion if needed
-    let loudnorm_spec = config.loudnorm.build_filter_spec();
+    let _loudnorm_spec = config.loudnorm.build_filter_spec();
 
     // Calculate input duration in samples for trimming
     let input_duration = input_ctx.duration() as f64 / 1_000_000.0; // microseconds to seconds

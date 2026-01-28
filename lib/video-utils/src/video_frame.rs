@@ -110,9 +110,8 @@ pub fn extract_frame_at_time<P: AsRef<Path>>(
     // Decode frames
     let mut decoded_frame = ffmpeg::frame::Video::empty();
     let mut rgb_frame = ffmpeg::frame::Video::empty();
-    let mut packet = ffmpeg::Packet::empty();
 
-    for (stream, mut packet) in input_ctx.packets() {
+    for (stream, packet) in input_ctx.packets() {
         if stream.index() != video_stream_index {
             continue;
         }
@@ -256,9 +255,8 @@ pub fn extract_frames_interval<P: AsRef<Path>>(
     // Decode frames
     let mut decoded_frame = ffmpeg::frame::Video::empty();
     let mut rgb_frame = ffmpeg::frame::Video::empty();
-    let mut packet = ffmpeg::Packet::empty();
 
-    for (stream, mut packet) in input_ctx.packets() {
+    for (stream, packet) in input_ctx.packets() {
         if stream.index() != video_stream_index {
             continue;
         }

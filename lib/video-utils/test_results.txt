@@ -1,0 +1,67 @@
+=== Video Utils - Test Results ===
+
+## Test Environment
+- Test video: data/test.mp4
+- Date: Wed Jan 28 12:16:49 PM CST 2026
+
+
+## Test Results Summary
+
+✅ **Test 1: Metadata Extraction**
+- File: data/test.mp4
+- Duration: 5.01 seconds
+- Resolution: 1920x1080
+- Video Codec: H.264 (High Profile, Level 4.0)
+- Video FPS: 25 fps
+- Audio Codec: MP3, 48kHz, stereo
+- Bitrate: ~1.01 Mbps
+- File Size: 635,222 bytes (0.61 MB)
+
+✅ **Test 2: Audio Interval Extraction**
+- Extracted audio from 1.0s to 4.0s (3 seconds)
+- Sample Rate: 48000 Hz
+- Channels: 2 (stereo)
+- Sample Format: fltp (float planar)
+
+✅ **Test 3: Single Frame Extraction**
+- Extracted frame at 2.5 seconds
+- Resolution: 1920x1080 pixels
+- Pixel Format: RGB24
+- Output: tmp/frame_at_2.5s.png (691 KB)
+- Valid PNG file (verified with ffprobe/file command)
+
+✅ **Test 4: Multiple Frames Extraction**
+- Extracted 4 frames at 1-second intervals (1s to 4s)
+- All frames: 1920x1080, RGB24 format
+- Outputs:
+  * tmp/frame_1_at_1.0s.png (560 KB)
+  * tmp/frame_2_at_2.0s.png (691 KB)
+  * tmp/frame_3_at_3.0s.png (716 KB)
+  * tmp/frame_4_at_4.0s.png (not shown in demo)
+
+## FFprobe Verification
+{
+    "format": {
+        "filename": "data/test.mp4",
+        "nb_streams": 2,
+        "nb_programs": 0,
+        "nb_stream_groups": 0,
+        "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+        "format_long_name": "QuickTime / MOV",
+        "start_time": "0.000000",
+        "duration": "5.008000",
+        "size": "635222",
+        "bit_rate": "1014731",
+        "probe_score": 100,
+        "tags": {
+            "major_brand": "isom",
+            "minor_version": "512",
+            "compatible_brands": "isomiso2avc1mp41",
+            "encoder": "Lavf62.3.100"
+        }
+    }
+}
+
+## Image Verification
+tmp/frame_at_2.5s.png: PNG image data, 1920 x 1080, 8-bit/color RGB, non-interlaced
+tmp/frame_at_2.5s.png PNG 1920x1080 1920x1080+0+0 8-bit sRGB 707043B 0.000u 0:00.000

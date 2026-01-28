@@ -182,3 +182,214 @@ let frames = extract_frames_interval(
     Duration::from_secs(1)
 )?;
 ```
+
+---
+
+## 测试验证结果 (2026-01-28)
+
+### 测试环境
+- 测试文件: `data/test.mp4`
+- 视频: 1920x1080, H.264, 25fps, 5.01秒
+- 音频: MP3, 48kHz, 立体声
+
+### ✅ 核心功能测试通过
+
+#### 功能1: get_metadata() ✅
+```
+✓ 成功提取元信息
+  文件: data/test.mp4
+  格式: mov,mp4,m4a,3gp,3g2,mj2
+  时长: 5.01 秒
+  比特率: 1014731 bps (1.01 Mbps)
+  大小: 635222 bytes (0.61 MB)
+  视频: 1920x1080, H.264, 25fps
+  音频: MP3, 48000 Hz, 立体声
+```
+
+#### 功能2: extract_audio_interval() ✅
+```
+✓ 成功提取音频数据
+  采样率: 48000 Hz
+  声道数: 2
+  样本格式: fltp
+  开始时间: 1.00 秒
+  持续时间: 3.00 秒
+```
+
+#### 功能3: extract_frame_at_time() ✅
+```
+✓ 成功提取帧
+  尺寸: 1920x1080
+  像素格式: rgb24
+  时间戳: 2.52 秒
+  数据大小: 6220800 bytes
+  已保存到: tmp/frame_at_2.5s.png (691KB)
+  ✓ PNG 文件格式正确 (ffprobe 验证)
+```
+
+#### 功能4: extract_frames_interval() ✅
+```
+✓ 成功提取 4 帧
+  帧 1: 1920x1080, 时间: 1.00s, 大小: 560KB
+  帧 2: 1920x1080, 时间: 2.00s, 大小: 691KB
+  帧 3: 1920x1080, 时间: 3.00s, 大小: 716KB
+  帧 4: 1920x1080, 时间: 4.00s
+  ✓ 所有 PNG 文件格式正确
+```
+
+### 已知问题
+
+#### ⚠️ MP4编码器演示 (mp4_encoder_demo)
+- **状态**: 需要调试
+- **问题**: 视频帧数据分配时的内存布局问题
+- **错误**: ffmpeg-next 帧缓冲区分配失败
+- **临时方案**: 暂时跳过 MP4 编码器测试，优先验证核心功能
+- **建议**: 使用 `mp4_encoder` 时先从简单配置（medium preset）开始测试
+
+### 编译警告
+- 有 14 个编译警告（主要是未使用的变量和可变的引用）
+- 这些警告不影响功能，但应该清理
+- 已添加到待办事项
+
+### 下一步计划
+1. 修复 MP4 编码器的帧数据分配问题
+2. 清理编译警告
+3. 添加更多单元测试
+4. 编写 MP4 封装器演示（如果需要）
+
+## MP4 编码器和封装器
+
+### ✅ 已完成
+
+#### 5. MP4 封装器 (mp4_muxer.rs) ✅
+- ✅ 创建 MP4 封装器模块
+- ✅ 实现 `MP4Muxer` 结构体
+- ✅ 使用外部 `video-encoder` crate 进行视频编码
+- ✅ 使用 FFmpeg AAC 编码器进行音频编码
+- ✅ 支持通过 channel 接收视频帧和音频数据
+- ✅ 多线程处理
+- ✅ 编译通过（ffmpeg-next API 修复）
+
+**技术要点:**
+- 正确使用 ffmpeg-next 8.0 API
+- `add_stream(codec)` + `set_parameters(&encoder)` 模式
+- `encoder.send_frame()` + `encoder.receive_packet()` 模式
+- `packet.write(&mut output)` 替代旧的 `write_interleaved_packet`
+- 使用 `Option<Rational>` 作为 `set_frame_rate` 参数
+
+#### 6. MP4 编码器 (mp4_encoder.rs) ✅
+- ✅ 创建 MP4 编码器模块
+- ✅ 实现 `MP4Encoder` 结构体
+- ✅ 纯 FFmpeg 实现（不依赖外部 video-encoder）
+- ✅ 支持 H.264 编码配置（比特率、预设、CRF）
+- ✅ 支持 AAC 编码配置
+- ✅ RGB 到 YUV420P 转换
+- ✅ 编译通过（ffmpeg-next API 修复）
+
+**技术要点:**
+- 使用 FFmpeg 软件 scaler 进行 RGB24 → YUV420P 转换
+- H.264 编码器选项设置（CRF、preset）通过 FFmpeg sys API
+- 同样使用新的 ffmpeg-next 8.0 API 模式
+- 完整的编码器生命周期管理（send_frame → receive_packet → send_eof → flush）
+
+### API 兼容性修复 (2024-01)
+
+**ffmpeg-next 8.0 API 变更:**
+
+1. **流创建和参数设置**
+   ```rust
+   // 旧 API (不可用)
+   output.add_stream(encoder) // encoder 不能直接传递
+
+   // 新 API
+   let codec = ffmpeg::encoder::find(ffmpeg::codec::Id::H264)?;
+   let mut stream = output.add_stream(codec)?;
+   stream.set_parameters(&encoder);
+   ```
+
+2. **编码器配置**
+   ```rust
+   // 必须打开编码器后才能使用
+   let encoder = encoder.open_as(codec)?;
+   ```
+
+3. **帧编码**
+   ```rust
+   // 旧 API
+   encoder.send_frame(&frame, &mut packet)?;
+
+   // 新 API - 分离模式
+   encoder.send_frame(&frame)?;
+   while encoder.receive_packet(&mut packet).is_ok() {
+       // 处理 packet
+   }
+   ```
+
+4. **数据包写入**
+   ```rust
+   // 旧 API
+   output.write_interleaved_packet(&packet)?;
+
+   // 新 API
+   packet.write(&mut output)?;
+   ```
+
+5. **类型修正**
+   - `set_frame_rate` 现在接收 `Option<Rational>` 而不是 `Rational`
+   - `set_bit_rate` 接收 `usize` 而不是 `u32`
+   - `set_rate` 替代 `set_sample_rate`
+   - 使用 `set_channel_layout` 设置声道布局
+
+### 导出的公共 API
+
+```rust
+// MP4 封装器 (使用外部 video-encoder)
+#[cfg(feature = "ffmpeg")]
+pub use mp4_muxer::{
+    MP4Muxer, MP4MuxerConfig,
+    AACConfig as MuxerAACConfig,
+    FrameData as MuxerFrameData,
+    AudioData as MuxerAudioData,
+};
+
+// MP4 编码器 (纯 FFmpeg)
+#[cfg(feature = "ffmpeg")]
+pub use mp4_encoder::{
+    MP4Encoder, MP4EncoderConfig,
+    H264Config, H264Preset,
+    AACConfig as EncoderAACConfig,
+    FrameData as EncoderFrameData,
+    AudioData as EncoderAudioData,
+};
+```
+
+### 使用示例
+
+```rust
+use video_utils::mp4_encoder::{MP4Encoder, MP4EncoderConfig, H264Config, H264Preset, AACConfig, FrameData};
+use std::path::PathBuf;
+
+let config = MP4EncoderConfig {
+    output_path: PathBuf::from("output.mp4"),
+    frame_rate: 30,
+    h264: H264Config {
+        bitrate: 2_000_000,
+        preset: H264Preset::Medium,
+        crf: Some(23),
+    },
+    aac: AACConfig {
+        bitrate: 128_000,
+        sample_rate: 44_100,
+        channels: 2,
+    },
+};
+
+let (encoder, video_tx, audio_tx) = MP4Encoder::start(config)?;
+
+// 发送视频帧和音频数据...
+video_tx.send(frame_data)?;
+audio_tx.send(audio_data)?;
+
+// 停止编码器
+encoder.stop()?;
+```

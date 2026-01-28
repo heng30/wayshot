@@ -85,7 +85,7 @@ platform-dirs = "0.3"
 wio = "0.2"
 yuv = "0.8"
 mp4 = "0.14"
-nix = "0.30"
+nix = "0.31"
 opus = "0.3"
 pest = "2.8"
 x264 = "0.5"
@@ -148,10 +148,15 @@ unicode-segmentation = "1.12"
 wayland-protocols-wlr = "0.3"
 rodio = { version = "0.21", default-features = false }
 rustls = { version = "0.23", default-features = false }
-ort = { version = "2.0.0-rc.11", default-features = false }
 tokio-rustls = { version = "0.26", default-features = false }
 chinese-number = { version = "0.7", default-features = false }
 image = { version = "0.25", default-features = false, features = ["png"] }
+ort = { version = "2.0.0-rc.11", default-features = false, features = [
+  "std",
+  "cuda",
+  "tls-rustls",
+  "download-binaries",
+] }
 
 bot = { path = "lib/bot" }
 mp4m = { path = "lib/mp4m" }

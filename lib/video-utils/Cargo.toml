@@ -27,7 +27,7 @@ video-encoder = { path = "../video-encoder", optional = true }
 [features]
 default = []
 # default = ["ffmpeg"]
-ffmpeg = ["ffmpeg-next", "image", "video-encoder"]
+ffmpeg = ["ffmpeg-next", "image", "video-encoder/ffmpeg"]
 
 [dev-dependencies]
 anyhow.workspace = true

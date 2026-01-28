@@ -416,14 +416,12 @@ pub fn add_subtitles(config: &SubtitleBurnConfig) -> Result<()> {
         .map_err(|e| Error::FFmpeg(format!("Failed to write header: {}", e)))?;
 
     // Processing variables
-    let (mut in_frame, out_frame) = (ffmpeg::frame::Video::empty(), ffmpeg::frame::Video::empty());
-    let mut out_frame = ffmpeg::frame::Video::empty();
+    let (mut in_frame, mut out_frame) = (ffmpeg::frame::Video::empty(), ffmpeg::frame::Video::empty());
 
     let mut packet = ffmpeg::Packet::empty();
     let mut frame_count = 0;
     let frame_rate = decoder.frame_rate().unwrap_or(ffmpeg::Rational::new(30, 1));
     let mut last_pts: Option<i64> = None;
-    let mut last_dts: Option<i64> = None;
 
     // Process each packet
     for (stream, mut packet) in input_ctx.packets() {
@@ -496,9 +494,6 @@ pub fn add_subtitles(config: &SubtitleBurnConfig) -> Result<()> {
                     // Track last PTS for duration calculation
                     if let Some(pts) = packet.pts() {
                         last_pts = Some(pts);
-                    }
-                    if let Some(dts) = packet.dts() {
-                        last_dts = Some(dts);
                     }
 
                     packet

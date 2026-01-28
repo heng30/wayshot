@@ -13,86 +13,55 @@ fn main() {
         std::process::exit(1);
     }
 
-    println!("Video Metadata Example");
-    println!("======================\n");
+    println!("╔════════════════════════════════════════════════════════════════╗");
+    println!("║              Video Metadata Example                                ║");
+    println!("╚════════════════════════════════════════════════════════════════╝");
+    println!();
 
     match get_metadata(&test_video) {
         Ok(metadata) => {
-            println!("File: {}", metadata.path);
-            println!("Format: {} ({})", metadata.format.format_name, metadata.format.format_long_name);
-            println!("Duration: {:.2} seconds", metadata.duration);
-            println!("Bitrate: {} bps ({:.2} Mbps)", metadata.bitrate, metadata.bitrate as f64 / 1_000_000.0);
-            println!("Size: {} bytes ({:.2} MB)", metadata.size, metadata.size as f64 / 1_048_576.0);
-            println!("Streams: {}", metadata.format.nb_streams);
+            println!("Basic Information:");
+            println!("==================");
+            println!("  File:       {}", metadata.path);
+            println!("  Format:     {}", metadata.format_name);
+            println!("  Duration:   {:.2} seconds", metadata.duration);
+            println!("  Bitrate:    {} bps ({:.2} Mbps)",
+                metadata.bitrate,
+                metadata.bitrate as f64 / 1_000_000.0);
+            println!("  Size:       {} bytes ({:.2} MB)",
+                metadata.size,
+                metadata.size as f64 / 1_048_576.0);
             println!();
 
-            // Video streams
-            if !metadata.video_streams.is_empty() {
-                println!("Video Streams:");
-                for (i, video) in metadata.video_streams.iter().enumerate() {
-                    println!("  [Stream #{}]", i);
-                    println!("    Codec: {} ({})", video.codec, video.codec_long_name);
-                    println!("    Resolution: {}x{}", video.width, video.height);
-                    println!("    Frame Rate: {}", video.r_frame_rate);
-                    println!("    Pixel Format: {}", video.pix_fmt);
-                    println!("    Aspect Ratio: {}", video.display_aspect_ratio);
-                    if let Some(bitrate) = video.bitrate {
-                        println!("    Bitrate: {} bps ({:.2} Mbps)", bitrate, bitrate as f64 / 1_000_000.0);
-                    }
-                    if let Some(nb_frames) = video.nb_frames {
-                        println!("    Frames: {}", nb_frames);
-                    }
-                    println!();
-                }
-            }
+            println!("Streams:");
+            println!("========");
+            println!("  Video streams: {}", metadata.video_streams_count);
+            println!("  Audio streams: {}", metadata.audio_streams_count);
+            println!();
 
-            // Audio streams
-            if !metadata.audio_streams.is_empty() {
-                println!("Audio Streams:");
-                for (i, audio) in metadata.audio_streams.iter().enumerate() {
-                    println!("  [Stream #{}]", i);
-                    println!("    Codec: {} ({})", audio.codec, audio.codec_long_name);
-                    println!("    Sample Rate: {} Hz", audio.sample_rate);
-                    println!("    Channels: {}", audio.channels);
-                    println!("    Channel Layout: {}", audio.channel_layout);
-                    println!("    Sample Format: {}", audio.sample_fmt);
-                    if let Some(bitrate) = audio.bitrate {
-                        println!("    Bitrate: {} bps ({:.2} kbps)", bitrate, bitrate as f64 / 1_000.0);
-                    }
-                    if let Some(nb_frames) = audio.nb_frames {
-                        println!("    Frames: {}", nb_frames);
-                    }
-                    if let Some(bps) = audio.bits_per_sample {
-                        println!("    Bits per Sample: {}", bps);
-                    }
-                    println!();
-                }
+            println!("Summary:");
+            println!("========");
+            if metadata.video_streams_count > 0 {
+                println!("  ✓ This file contains video");
             }
-
-            // Subtitle streams
-            if !metadata.subtitle_streams.is_empty() {
-                println!("Subtitle Streams:");
-                for (i, subtitle) in metadata.subtitle_streams.iter().enumerate() {
-                    println!("  [Stream #{}]", i);
-                    println!("    Codec: {} ({})", subtitle.codec, subtitle.codec_long_name);
-                    if let Some(language) = &subtitle.language {
-                        println!("    Language: {}", language);
-                    }
-                    println!();
-                }
+            if metadata.audio_streams_count > 0 {
+                println!("  ✓ This file contains audio");
             }
+            println!();
 
-            // Output as JSON
-            println!("JSON Output:");
+            println!("Quick Info:");
             println!("===========");
-            match serde_json::to_string_pretty(&metadata) {
-                Ok(json) => println!("{}", json),
-                Err(e) => eprintln!("Failed to serialize to JSON: {}", e),
-            }
+            println!("  Resolution info: Use ffprobe for detailed stream information");
+            println!("  Command: ffprobe -v quiet -print_format json -show_streams \"{:?}\"", test_video);
         }
         Err(e) => {
             eprintln!("Error getting metadata: {}", e);
             std::process::exit(1);
         }
     }
+
+    println!();
+    println!("╔════════════════════════════════════════════════════════════════╗");
+    println!("║                     Test Complete                                  ║");
+    println!("╚════════════════════════════════════════════════════════════════╝");
 }
