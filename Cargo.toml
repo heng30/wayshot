@@ -181,3 +181,6 @@ background-remover = { path = "lib/background-remover" }
 screen-capture-windows = { path = "lib/screen-capture-windows" }
 screen-capture-wayland-wlr = { path = "lib/screen-capture-wayland-wlr" }
 screen-capture-wayland-portal = { path = "lib/screen-capture-wayland-portal" }
+
+[patch.crates-io]
+esaxx-rs = { path = "lib/esaxx-rs" }

@@ -1,9 +1,0 @@
-# On Windows, ort-sys uses prebuilt binaries compiled with /MD (dynamic CRT).
-# We must ensure all native dependencies (esaxx-rs, etc.) also use /MD to avoid LNK2038 errors.
-[target.x86_64-pc-windows-msvc.env]
-CFLAGS = "/MD"
-CXXFLAGS = "/MD"
-
-[target.aarch64-pc-windows-msvc.env]
-CFLAGS = "/MD"
-CXXFLAGS = "/MD"
