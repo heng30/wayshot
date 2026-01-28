@@ -22,11 +22,12 @@ image = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 ffmpeg-next = { workspace = true, optional = true }
 chinese-number = { workspace = true, features = ["chinese-to-number"] }
+video-encoder = { path = "../video-encoder", optional = true }
 
 [features]
 default = []
 # default = ["ffmpeg"]
-ffmpeg = ["ffmpeg-next", "image"]
+ffmpeg = ["ffmpeg-next", "image", "video-encoder"]
 
 [dev-dependencies]
 anyhow.workspace = true

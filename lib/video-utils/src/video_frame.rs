@@ -1,6 +1,7 @@
 use crate::{Error, Result};
 use ffmpeg_next as ffmpeg;
 use std::path::Path;
+use std::time::Duration;
 
 /// Video frame data
 #[derive(Debug, Clone)]
@@ -17,8 +18,8 @@ pub struct VideoFrame {
     /// Frame data (raw RGB bytes)
     pub data: Vec<u8>,
 
-    /// Presentation timestamp in seconds
-    pub pts: f64,
+    /// Presentation timestamp
+    pub pts: Duration,
 
     /// Frame number
     pub frame_number: usize,
@@ -29,7 +30,7 @@ pub struct VideoFrame {
 /// # Arguments
 ///
 /// * `video_path` - Path to the video file
-/// * `time` - Time in seconds
+/// * `time` - Time
 ///
 /// # Returns
 ///
@@ -39,13 +40,14 @@ pub struct VideoFrame {
 ///
 /// ```no_run
 /// use video_utils::video_frame::extract_frame_at_time;
+/// use std::time::Duration;
 ///
-/// let frame = extract_frame_at_time("video.mp4", 5.0).unwrap();
+/// let frame = extract_frame_at_time("video.mp4", Duration::from_secs(5)).unwrap();
 /// println!("Extracted frame: {}x{}", frame.width, frame.height);
 /// ```
 pub fn extract_frame_at_time<P: AsRef<Path>>(
     video_path: P,
-    time: f64,
+    time: Duration,
 ) -> Result<VideoFrame> {
     let video_path = video_path.as_ref();
     let path_str = video_path.to_string_lossy().to_string();
@@ -57,7 +59,7 @@ pub fn extract_frame_at_time<P: AsRef<Path>>(
         )));
     }
 
-    log::info!("Extracting frame at {:.2} seconds from {}", time, path_str);
+    log::info!("Extracting frame at {:.2} seconds from {}", time.as_secs_f64(), path_str);
 
     // Initialize FFmpeg
     ffmpeg::init()
@@ -78,7 +80,7 @@ pub fn extract_frame_at_time<P: AsRef<Path>>(
     let codec_par = video_stream.parameters();
 
     // Seek to the specified time
-    let seek_timestamp = (time * 10000.0) as i64; // Convert to AV_TIME_BASE
+    let seek_timestamp = (time.as_secs_f64() * 10000.0) as i64; // Convert to AV_TIME_BASE
     input_ctx
         .seek(seek_timestamp, ..)
         .map_err(|e| Error::FFmpeg(format!("Failed to seek: {}", e)))?;
@@ -124,7 +126,7 @@ pub fn extract_frame_at_time<P: AsRef<Path>>(
                 let frame_time = pts as f64 * time_base.numerator() as f64
                     / time_base.denominator() as f64;
 
-                if frame_time >= time {
+                if frame_time >= time.as_secs_f64() {
                     // Convert to RGB8
                     scaler.run(&decoded_frame, &mut rgb_frame)
                         .map_err(|e| Error::FFmpeg(format!("Scaler run failed: {}", e)))?;
@@ -143,7 +145,7 @@ pub fn extract_frame_at_time<P: AsRef<Path>>(
                             height,
                             pixel_format: "rgb24".to_string(),
                             data: frame_data,
-                            pts: frame_time,
+                            pts: Duration::from_secs_f64(frame_time),
                             frame_number: 0,
                         });
                     }
@@ -160,9 +162,9 @@ pub fn extract_frame_at_time<P: AsRef<Path>>(
 /// # Arguments
 ///
 /// * `video_path` - Path to the video file
-/// * `start_time` - Start time in seconds
-/// * `end_time` - End time in seconds
-/// * `interval` - Interval between frames in seconds
+/// * `start_time` - Start time
+/// * `end_time` - End time
+/// * `interval` - Interval between frames
 ///
 /// # Returns
 ///
@@ -172,15 +174,16 @@ pub fn extract_frame_at_time<P: AsRef<Path>>(
 ///
 /// ```no_run
 /// use video_utils::video_frame::extract_frames_interval;
+/// use std::time::Duration;
 ///
-/// let frames = extract_frames_interval("video.mp4", 0.0, 10.0, 1.0).unwrap();
+/// let frames = extract_frames_interval("video.mp4", Duration::from_secs(0), Duration::from_secs(10), Duration::from_secs(1)).unwrap();
 /// println!("Extracted {} frames", frames.len());
 /// ```
 pub fn extract_frames_interval<P: AsRef<Path>>(
     video_path: P,
-    start_time: f64,
-    end_time: f64,
-    interval: f64,
+    start_time: Duration,
+    end_time: Duration,
+    interval: Duration,
 ) -> Result<Vec<VideoFrame>> {
     let video_path = video_path.as_ref();
     let path_str = video_path.to_string_lossy().to_string();
@@ -195,9 +198,9 @@ pub fn extract_frames_interval<P: AsRef<Path>>(
     log::info!(
         "Extracting frames from {} ({:.2}s to {:.2}s, interval: {:.2}s)",
         path_str,
-        start_time,
-        end_time,
-        interval
+        start_time.as_secs_f64(),
+        end_time.as_secs_f64(),
+        interval.as_secs_f64()
     );
 
     // Initialize FFmpeg
@@ -241,11 +244,11 @@ pub fn extract_frames_interval<P: AsRef<Path>>(
     .map_err(|e| Error::FFmpeg(format!("Failed to create scaler: {}", e)))?;
 
     let mut frames = Vec::new();
-    let mut next_frame_time = start_time;
+    let mut next_frame_time = start_time.as_secs_f64();
     let mut frame_count = 0;
 
     // Seek to start time
-    let seek_timestamp = (start_time * 10000.0) as i64;
+    let seek_timestamp = (start_time.as_secs_f64() * 10000.0) as i64;
     input_ctx
         .seek(seek_timestamp, ..)
         .map_err(|e| Error::FFmpeg(format!("Failed to seek: {}", e)))?;
@@ -268,7 +271,7 @@ pub fn extract_frames_interval<P: AsRef<Path>>(
                 let frame_time = pts as f64 * time_base.numerator() as f64
                     / time_base.denominator() as f64;
 
-                if frame_time > end_time {
+                if frame_time > end_time.as_secs_f64() {
                     break;
                 }
 
@@ -290,12 +293,12 @@ pub fn extract_frames_interval<P: AsRef<Path>>(
                             height,
                             pixel_format: "rgb24".to_string(),
                             data: frame_data,
-                            pts: frame_time,
+                            pts: Duration::from_secs_f64(frame_time),
                             frame_number: frame_count,
                         });
 
                         frame_count += 1;
-                        next_frame_time += interval;
+                        next_frame_time += interval.as_secs_f64();
 
                         log::debug!(
                             "Extracted frame {} at {:.2}s",
@@ -328,11 +331,11 @@ pub fn extract_all_frames<P: AsRef<Path>>(video_path: P) -> Result<Vec<VideoFram
     // Get metadata first
     let metadata = super::metadata::get_metadata(video_path)?;
 
-    let duration = metadata.duration;
+    let duration = Duration::from_secs_f64(metadata.duration);
     let fps = 25.0; // Default to 25 fps
-    let interval = 1.0 / fps;
+    let interval = Duration::from_secs_f64(1.0 / fps);
 
-    extract_frames_interval(video_path, 0.0, duration, interval)
+    extract_frames_interval(video_path, Duration::from_secs(0), duration, interval)
 }
 
 /// Save frame as image file (PNG, JPG, etc.)

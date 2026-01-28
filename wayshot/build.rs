@@ -1,9 +1,6 @@
 fn main() {
     #[cfg(target_os = "windows")]
-    {
-        set_windows_info();
-        window_linker_params();
-    }
+    set_windows_info();
 
     _ = write_app_version();
 
@@ -42,11 +39,4 @@ fn write_app_version() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(target_os = "windows")]
 fn set_windows_info() {
     _ = embed_resource::compile("./windows/icon.rc", embed_resource::NONE);
-}
-
-#[cfg(target_os = "windows")]
-fn window_linker_params() {
-    if cfg!(target_env = "msvc") {
-        println!("cargo:rustc-cdylib-link-arg=/NODEFAULTLIB:libcmt");
-    }
 }

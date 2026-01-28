@@ -107,6 +107,11 @@
 - ✅ 软件缩放 (software scaling) - YUV420P to RGB24
 - ✅ 音频采样处理
 
+### 类型安全改进
+- ✅ 所有时间参数使用 `std::time::Duration` 而不是 `f64`
+- ✅ 更类型安全，避免单位混淆
+- ✅ 清晰的 API：`Duration::from_secs()`, `Duration::from_secs_f64()`, `Duration::from_millis()` 等
+
 ### API兼容性修复
 1. **解码器创建** - 使用 `Context::from_parameters()` 然后 `.decoder().video()`
 2. **像素格式** - 使用 `Pixel::RGB24` (3 bytes per pixel)
@@ -139,4 +144,41 @@ pub use video_frame::{
     save_frame_as_image,
     VideoFrame,
 };
+```
+
+### API 使用示例
+
+```rust
+use std::time::Duration;
+use video_utils::{
+    get_metadata,
+    extract_audio_interval,
+    extract_frame_at_time,
+    extract_frames_interval,
+};
+
+// 1. 获取视频元信息
+let metadata = get_metadata("video.mp4")?;
+println!("时长: {:.2}s", metadata.duration);
+
+// 2. 提取音频间隔 (1秒到3秒)
+let audio = extract_audio_interval(
+    "video.mp4",
+    Duration::from_secs(1),
+    Duration::from_secs(2)
+)?;
+
+// 3. 提取指定时间点的帧 (2.5秒)
+let frame = extract_frame_at_time(
+    "video.mp4",
+    Duration::from_secs_f64(2.5)
+)?;
+
+// 4. 提取多个帧 (每1秒提取一次，从1秒到4秒)
+let frames = extract_frames_interval(
+    "video.mp4",
+    Duration::from_secs(1),
+    Duration::from_secs(4),
+    Duration::from_secs(1)
+)?;
 ```

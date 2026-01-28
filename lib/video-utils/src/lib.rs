@@ -15,6 +15,14 @@ pub mod audio_extraction;
 #[cfg(feature = "ffmpeg")]
 pub mod video_frame;
 
+// MP4 封装器处于开发中，暂时禁用
+// #[cfg(feature = "ffmpeg")]
+// pub mod mp4_muxer;
+
+// MP4 编码器处于开发中，暂时禁用
+// #[cfg(feature = "ffmpeg")]
+// pub mod mp4_encoder;
+
 #[cfg(feature = "ffmpeg")]
 pub use subtitle_burn::{SubtitleBurnConfig, SubtitleStyle, add_subtitles, rgb_to_ass_color};
 
@@ -35,6 +43,17 @@ pub use video_frame::{
     save_frame_as_image,
     VideoFrame,
 };
+
+// MP4 封装器导出暂时禁用 (ffmpeg-next API 问题)
+// #[cfg(feature = "ffmpeg")]
+// pub use mp4_muxer::{MP4Muxer, MP4MuxerConfig, AACConfig, FrameData, AudioData};
+
+// MP4 编码器导出暂时禁用
+// #[cfg(feature = "ffmpeg")]
+// pub use mp4_encoder::{
+//     MP4Encoder, MP4EncoderConfig, H264Config, AACConfig, H264Preset,
+//     FrameData, AudioData,
+// };
 
 pub type Result<T> = std::result::Result<T, Error>;
 

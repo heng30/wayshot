@@ -1,0 +1,4 @@
+# Force dynamic CRT (/MD) on Windows to match pre-built binaries like ort-sys
+# This fixes LNK2038/LNK2005 errors caused by CRT mismatches between dependencies
+[target.'cfg(windows)']
+rustflags = ["-C", "target-feature=-crt-static"]
