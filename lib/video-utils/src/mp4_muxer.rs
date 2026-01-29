@@ -384,6 +384,7 @@ fn encode_and_write_audio(
     let mut frame = ffmpeg::frame::Audio::empty();
     let mut samples_data: Vec<Vec<f32>> = vec![vec![0.0f32; frame_size]; channels];
 
+    #[allow(clippy::needless_range_loop)]
     for ch in 0..channels {
         for i in 0..frame_size {
             let src_idx = i * channels + ch;

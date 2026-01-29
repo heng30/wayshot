@@ -4,6 +4,8 @@ use chrono::{NaiveTime, Timelike};
 use std::{fs, path::Path};
 use unicode_segmentation::UnicodeSegmentation;
 
+type SubtitleSplitResult = Option<((u64, u64, String), (u64, u64, String))>;
+
 #[derive(Debug, Clone, Default)]
 pub struct Subtitle {
     pub index: u32,
@@ -57,7 +59,7 @@ pub fn subtitle_to_srt(subtitle: &Subtitle) -> String {
 pub fn save_as_srt(subtitle: &[Subtitle], path: impl AsRef<Path>) -> Result<()> {
     let contents = subtitle
         .iter()
-        .map(|item| format!("{}\n\n", subtitle_to_srt(&item)))
+        .map(|item| format!("{}\n\n", subtitle_to_srt(item)))
         .collect::<String>();
 
     fs::write(path.as_ref(), contents)?;
@@ -65,11 +67,11 @@ pub fn save_as_srt(subtitle: &[Subtitle], path: impl AsRef<Path>) -> Result<()> 
     Ok(())
 }
 
-pub fn split_subtitle_into_two(
+pub fn split_subtitle(
     start_timestamp: u64,
     end_timestamp: u64,
     content: &str,
-) -> Option<((u64, u64, String), (u64, u64, String))> {
+) -> SubtitleSplitResult {
     if content.is_empty() || content.trim().len() <= 1 {
         return None;
     }
@@ -94,15 +96,13 @@ pub fn split_subtitle_into_two(
         (first_part, second_part)
     } else {
         let target_split = content.len() / 2;
-        let Some(best_split) = split_positions
+        let best_split = split_positions
             .iter()
             .min_by_key(|&&pos| (pos as isize - target_split as isize).abs())
-        else {
-            return None;
-        };
+            .copied()?;
 
-        let first_part = content[..*best_split].trim().to_string();
-        let second_part = content[*best_split..].trim().to_string();
+        let first_part = content[..best_split].trim().to_string();
+        let second_part = content[best_split..].trim().to_string();
         (first_part, second_part)
     };
 
@@ -153,12 +153,12 @@ pub fn chinese_numbers_to_primitive_numbers(chinese_numbers: &str) -> String {
             };
 
             // 如果后面跟着非数字上下文的字，保持'一'不变
-            if let Some(next) = next_char {
-                if non_number_context_after_yi.contains(&next) {
-                    result.push(ch);
-                    i += 1;
-                    continue;
-                }
+            if let Some(next) = next_char
+                && non_number_context_after_yi.contains(&next)
+            {
+                result.push(ch);
+                i += 1;
+                continue;
             }
 
             // 否则按正常数字处理

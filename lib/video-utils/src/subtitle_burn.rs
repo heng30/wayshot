@@ -124,11 +124,10 @@ impl SubtitleStyle {
         if let Some(margin_r) = self.margin_right {
             parts.push(format!("MarginR={}", margin_r));
         }
-        if let Some(border_radius) = self.border_radius {
-            if border_radius > 0 {
+        if let Some(border_radius) = self.border_radius
+            && border_radius > 0 {
                 parts.push(format!("BorderRadius={}", border_radius));
             }
-        }
         if let Some(padding) = self.padding {
             parts.push(format!("Padding={}", padding));
         }
@@ -426,8 +425,8 @@ pub fn add_subtitles(config: &SubtitleBurnConfig) -> Result<()> {
     // Process each packet
     for (stream, mut packet) in input_ctx.packets() {
         // Handle audio packets - copy them directly to output
-        if let Some(audio_idx) = audio_stream_index {
-            if stream.index() == audio_idx {
+        if let Some(audio_idx) = audio_stream_index
+            && stream.index() == audio_idx {
                 if let Some(out_audio_idx) = output_audio_stream_index {
                     packet.set_stream(out_audio_idx);
                     packet
@@ -436,7 +435,6 @@ pub fn add_subtitles(config: &SubtitleBurnConfig) -> Result<()> {
                 }
                 continue;
             }
-        }
 
         // Skip non-video, non-audio packets (subtitles, etc.)
         if stream.index() != video_stream_index {
@@ -460,7 +458,7 @@ pub fn add_subtitles(config: &SubtitleBurnConfig) -> Result<()> {
             // Add frame to filter
             in_filter
                 .source()
-                .add(&mut in_frame)
+                .add(&in_frame)
                 .map_err(|e| Error::FFmpeg(format!("Filter add failed: {}", e)))?;
 
             // Get filtered frames
@@ -478,15 +476,14 @@ pub fn add_subtitles(config: &SubtitleBurnConfig) -> Result<()> {
                     packet.set_stream(output_stream_index);
 
                     // If encoder didn't set PTS, use frame's PTS (in filter time_base)
-                    if packet.pts().is_none() {
-                        if let Some(pts) = frame_pts {
+                    if packet.pts().is_none()
+                        && let Some(pts) = frame_pts {
                             packet.set_pts(Some(pts));
                             // Also set DTS for simple encoding (no B-frames)
                             if packet.dts().is_none() {
                                 packet.set_dts(Some(pts));
                             }
                         }
-                    }
 
                     // Rescale timestamps to output stream time_base
                     packet.rescale_ts(time_base, output_stream_time_base);
@@ -519,7 +516,7 @@ pub fn add_subtitles(config: &SubtitleBurnConfig) -> Result<()> {
 
         in_filter
             .source()
-            .add(&mut in_frame)
+            .add(&in_frame)
             .map_err(|e| Error::FFmpeg(format!("Filter add failed: {}", e)))?;
 
         while out_filter.sink().frame(&mut out_frame).is_ok() {

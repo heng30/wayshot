@@ -82,14 +82,13 @@ impl AudioProcessConfig {
         }
 
         // Validate volume if set
-        if let Some(vol) = self.volume {
-            if vol <= 0.0 {
+        if let Some(vol) = self.volume
+            && vol <= 0.0 {
                 return Err(Error::InvalidConfig(format!(
                     "Volume must be positive, got: {}",
                     vol
                 )));
             }
-        }
 
         Ok(())
     }
@@ -296,9 +295,7 @@ pub fn process_audio(config: &AudioProcessConfig) -> Result<()> {
             vol
         )
     } else {
-        format!(
-            "aformat=sample_fmts=fltp,asetnsamples=1024"
-        )
+        "aformat=sample_fmts=fltp,asetnsamples=1024".to_string()
     };
 
     log::debug!("Filter spec: {}", filter_spec);
@@ -344,23 +341,15 @@ pub fn process_audio(config: &AudioProcessConfig) -> Result<()> {
     log::debug!("Input stream time_base: {:?}", input_stream_time_base);
 
     // Get video stream timebases for proper timestamp rescaling during stream copy
-    let input_video_time_base = if let Some(ref video_stream) = input_video_stream {
-        Some(video_stream.time_base())
-    } else {
-        None
-    };
+    let input_video_time_base = input_video_stream.as_ref().map(|video_stream| video_stream.time_base());
 
-    let output_video_time_base = if let Some(out_video_idx) = output_video_stream_index {
-        Some(output_ctx.stream(out_video_idx).unwrap().time_base())
-    } else {
-        None
-    };
+    let output_video_time_base = output_video_stream_index.map(|out_video_idx| output_ctx.stream(out_video_idx).unwrap().time_base());
 
     // Process each packet
     for (stream, mut packet) in input_ctx.packets() {
         // Handle video packets - copy them directly to output
-        if let Some(video_idx) = video_stream_index {
-            if stream.index() == video_idx {
+        if let Some(video_idx) = video_stream_index
+            && stream.index() == video_idx {
                 if let Some(out_video_idx) = output_video_stream_index {
                     packet.set_stream(out_video_idx);
                     // Rescale timestamps from input video stream timebase to output video stream timebase
@@ -373,7 +362,6 @@ pub fn process_audio(config: &AudioProcessConfig) -> Result<()> {
                 }
                 continue;
             }
-        }
 
         // Skip non-audio packets
         if stream.index() != audio_stream_index {

@@ -35,7 +35,7 @@ pub struct AudioData {
 }
 
 /// H.264 压缩预设
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum H264Preset {
     Ultrafast,
     Superfast,
@@ -253,7 +253,7 @@ fn encode_mp4(
     let mut video_pts = 1i64;
     let audio_samples_written = 0u64;
     let mut loop_iterations = 0u64;
-    const MAX_LOOP_ITERATIONS: u64 = 10000; // 10 seconds at 1ms sleep
+    const MAX_LOOP_ITERATIONS: u64 = 300000; // 5 minutes at 1ms sleep - allow for slow frame processing
 
     // 主循环
     loop {
@@ -342,6 +342,7 @@ fn add_video_stream<'a>(
 
     let mut encoder_ctx = ffmpeg::codec::context::Context::new_with_codec(codec);
 
+    #[allow(clippy::manual_c_str_literals)]
     unsafe {
         let ctx = encoder_ctx.as_mut_ptr();
         if let Some(crf) = config.crf {
@@ -453,7 +454,7 @@ fn to_ffmpeg_rgb_frame(frame: &FrameData) -> Result<ffmpeg::frame::Video> {
         (*ff_frame.as_mut_ptr()).linesize[0] = stride as i32;
 
         // 复制数据
-        let dst_slice = std::slice::from_raw_parts_mut(data_ptr as *mut u8, required_size);
+        let dst_slice = std::slice::from_raw_parts_mut(data_ptr, required_size);
         dst_slice.copy_from_slice(&frame.data[..required_size]);
     }
 
@@ -502,7 +503,7 @@ fn encode_and_write_audio(
     let mut frame = ffmpeg::frame::Audio::empty();
     // 必须设置格式和采样率
     frame.set_format(ffmpeg::format::Sample::F32(ffmpeg::format::sample::Type::Planar));
-    frame.set_rate(audio.sample_rate as u32);
+    frame.set_rate(audio.sample_rate);
     // 设置样本数量 (通过 unsafe 指针)
     unsafe {
         (*frame.as_mut_ptr()).nb_samples = frame_size as i32;
@@ -520,6 +521,7 @@ fn encode_and_write_audio(
     // 转换并复制数据到平面格式
     let mut samples_data: Vec<Vec<f32>> = vec![vec![0.0f32; frame_size]; channels];
 
+    #[allow(clippy::needless_range_loop)]
     for ch in 0..channels {
         for i in 0..frame_size {
             let src_idx = i * channels + ch;

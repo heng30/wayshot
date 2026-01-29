@@ -356,7 +356,7 @@ pub fn save_frame_as_image<P: AsRef<Path>>(frame: &VideoFrame, output_path: P) -
 
     // Save image
     img.save(output_path)
-        .map_err(|e| Error::IO(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to save image: {}", e))))?;
+        .map_err(|e| Error::IO(std::io::Error::other(format!("Failed to save image: {}", e))))?;
 
     log::info!("Saved frame to {}", path_str);
 

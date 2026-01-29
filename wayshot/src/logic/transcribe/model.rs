@@ -41,7 +41,7 @@ use std::{
 };
 use video_utils::subtitle::{
     Subtitle as ExportSubtitle, chinese_numbers_to_primitive_numbers, ms_to_srt_timestamp,
-    save_as_srt, split_subtitle_into_two, srt_timestamp_to_ms, valid_srt_timestamp,
+    save_as_srt, split_subtitle, srt_timestamp_to_ms, valid_srt_timestamp,
 };
 
 const TRANSCRIBE_ID: &str = "transcribe_id";
@@ -875,7 +875,7 @@ fn transcribe_subtitles_remove_separator(ui: &AppWindow) {
             for sep in &separators {
                 result = result.replace(*sep, " ");
             }
-            subtitle.original_text = result.into();
+            subtitle.original_text = result.trim().to_string().into();
             subtitle
         })
         .collect::<Vec<_>>();
@@ -991,7 +991,7 @@ fn transcribe_subtitle_split(ui: &AppWindow, index: i32) {
         return;
     }
 
-    let Some((first_part, second_part)) = split_subtitle_into_two(
+    let Some((first_part, second_part)) = split_subtitle(
         start_timestamp_ms.unwrap(),
         end_timestamp_ms.unwrap(),
         &subtitle.original_text,

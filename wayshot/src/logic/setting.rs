@@ -6,6 +6,42 @@ use crate::{
 };
 use slint::ComponentHandle;
 
+#[macro_export]
+macro_rules! app_setting {
+    ($ui:expr, $field:ident, $show_toast:expr, $toast_message:expr) => {{
+        use paste::paste;
+
+        paste! {
+            global_logic!($ui).[<on_get_setting_$field>](move || {
+                let config = config::all().$field;
+                config.into()
+            });
+        }
+
+        let ui_weak = $ui.as_weak();
+        paste! {
+            global_logic!($ui).[<on_set_setting_$field>](move |setting| {
+                let mut all = config::all();
+                all.$field = setting.into();
+                _ = config::save(all);
+
+                if $show_toast {
+                    toast_success!(ui_weak.unwrap(), $toast_message);
+                }
+            });
+        }
+    }};
+
+    ($ui:expr, $field:ident, $show_toast:expr) => {
+        app_setting!(
+            $ui,
+            $field,
+            $show_toast,
+            tr("save configuration successfully")
+        );
+    };
+}
+
 pub fn init(ui: &AppWindow) {
     init_setting(ui);
 
@@ -76,83 +112,14 @@ pub fn init(ui: &AppWindow) {
         global_store!(ui).set_setting_preference(setting);
     });
 
-    global_logic!(ui).on_get_setting_recorder(move || {
-        let config = config::all().recorder;
-        config.into()
-    });
-
-    let ui_weak = ui.as_weak();
-    global_logic!(ui).on_set_setting_recorder(move |setting| {
-        let mut all = config::all();
-        all.recorder = setting.into();
-        _ = config::save(all);
-
-        toast_success!(ui_weak.unwrap(), tr("save configuration successfully"));
-    });
-
-    global_logic!(ui).on_get_setting_control(move || {
-        let config = config::all().control;
-        config.into()
-    });
-
-    global_logic!(ui).on_set_setting_control(move |setting| {
-        let mut all = config::all();
-        all.control = setting.into();
-        _ = config::save(all);
-    });
-
-    global_logic!(ui).on_get_setting_cursor_tracker(move || {
-        let config = config::all().cursor_tracker;
-        config.into()
-    });
-
-    let ui_weak = ui.as_weak();
-    global_logic!(ui).on_set_setting_cursor_tracker(move |setting| {
-        let mut all = config::all();
-        all.cursor_tracker = setting.into();
-        _ = config::save(all);
-
-        toast_success!(ui_weak.unwrap(), tr("save configuration successfully"));
-    });
-
-    global_logic!(ui).on_get_setting_share_screen_client(move || {
-        let config = config::all().share_screen_client;
-        config.into()
-    });
-
-    global_logic!(ui).on_set_setting_share_screen_client(move |setting| {
-        let mut all = config::all();
-        all.share_screen_client = setting.into();
-        _ = config::save(all);
-    });
-
-    global_logic!(ui).on_get_setting_share_screen(move || {
-        let config = config::all().share_screen;
-        config.into()
-    });
-
-    let ui_weak = ui.as_weak();
-    global_logic!(ui).on_set_setting_share_screen(move |setting| {
-        let mut all = config::all();
-        all.share_screen = setting.into();
-        _ = config::save(all);
-
-        toast_success!(ui_weak.unwrap(), tr("save configuration successfully"));
-    });
-
-    global_logic!(ui).on_get_setting_push_stream(move || {
-        let config = config::all().push_stream;
-        config.into()
-    });
-
-    let ui_weak = ui.as_weak();
-    global_logic!(ui).on_set_setting_push_stream(move |setting| {
-        let mut all = config::all();
-        all.push_stream = setting.into();
-        _ = config::save(all);
-
-        toast_success!(ui_weak.unwrap(), tr("save configuration successfully"));
-    });
+    app_setting!(ui, recorder, true);
+    app_setting!(ui, control, false);
+    app_setting!(ui, cursor_tracker, true);
+    app_setting!(ui, share_screen_client, false);
+    app_setting!(ui, share_screen, true);
+    app_setting!(ui, push_stream, true);
+    app_setting!(ui, transcribe, false);
+    app_setting!(ui, ai_model, true);
 
     global_logic!(ui).on_get_setting_camera(move || {
         let config = config::all().control.camera_setting;
@@ -163,31 +130,6 @@ pub fn init(ui: &AppWindow) {
     global_logic!(ui).on_set_setting_camera(move |setting| {
         let mut all = config::all();
         all.control.camera_setting = setting.into();
-        _ = config::save(all);
-
-        toast_success!(ui_weak.unwrap(), tr("save configuration successfully"));
-    });
-
-    global_logic!(ui).on_get_setting_transcribe(move || {
-        let config = config::all().transcribe;
-        config.into()
-    });
-
-    global_logic!(ui).on_set_setting_transcribe(move |setting| {
-        let mut all = config::all();
-        all.transcribe = setting.into();
-        _ = config::save(all);
-    });
-
-    global_logic!(ui).on_get_setting_ai_model(move || {
-        let config = config::all().ai_model;
-        config.into()
-    });
-
-    let ui_weak = ui.as_weak();
-    global_logic!(ui).on_set_setting_ai_model(move |setting| {
-        let mut all = config::all();
-        all.ai_model = setting.into();
         _ = config::save(all);
 
         toast_success!(ui_weak.unwrap(), tr("save configuration successfully"));
