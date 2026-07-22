@@ -1,0 +1,200 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+} from "../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+    Select,
+} from "../../../../../base/widgets.slint";
+
+export component ParticleLifeParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Particle Count");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.particle-life.particle-count;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 5000 : input-value;
+                Store.video-editor-bg-animation-config.particle-life.particle-count = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Type Count");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.particle-life.type-count;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 6 : input-value;
+                Store.video-editor-bg-animation-config.particle-life.type-count = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Interaction Radius");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.particle-life.rmax.to-fixed(3);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.particle-life.rmax = value <= 0.0 ? 0.04 : value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Friction");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.particle-life.friction.to-fixed(2);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.particle-life.friction = value.clamp(0.0, 1.0);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Force");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.particle-life.force.to-fixed(1);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.particle-life.force = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Time Step");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.particle-life.dt.to-fixed(2);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.particle-life.dt = value <= 0.0 ? 0.05 : value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Particle Size");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.particle-life.particle-size.to-fixed(1);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.particle-life.particle-size = value <= 0.0 ? 4.0 : value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Matrix Seed");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.particle-life.matrix-seed;
+
+            accepted => {
+                Store.video-editor-bg-animation-config.particle-life.matrix-seed = round(self.text.to-float());
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.particle-life.bg-color-r = c.red;
+            Store.video-editor-bg-animation-config.particle-life.bg-color-g = c.green;
+            Store.video-editor-bg-animation-config.particle-life.bg-color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Background");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.particle-life.bg-color-r,
+                Store.video-editor-bg-animation-config.particle-life.bg-color-g,
+                Store.video-editor-bg-animation-config.particle-life.bg-color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    SettingDetailSwitch {
+        icon: Icons.wrap-light;
+        text: Logic.tr("Wrap");
+        checked: Store.video-editor-bg-animation-config.particle-life.wrap;
+        gain-focus-when-clicked: false;
+
+        toggled => {
+            Store.video-editor-bg-animation-config.particle-life.wrap = !Store.video-editor-bg-animation-config.particle-life.wrap;
+        }
+    }
+}
+

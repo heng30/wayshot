@@ -1,0 +1,468 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    DownloaderState,
+    AudioPlayerStatus,
+    Util,
+    VideoEditorSpeakersConfig,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    IconBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+    LineInput,
+    ProgressBar,
+    NoDataImg,
+    Skeleton,
+    SkeletonType,
+    SimpleAudioControl,
+} from "../../../../base/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+
+component LeftHeader inherits HorizontalLayout {
+    private property <bool> is-progressing: Store.video-editor-speakers-is-progressing;
+    private property <bool> has-audio: Store.video-editor-speakers-audio-player-status.length > 0;
+    private property <bool> has-speakers: Store.video-editor-speakers-audio-player-status.length > 1;
+    private property <float> progress: Store.video-editor-speakers-progress;
+
+    spacing: Theme.spacing * 8;
+    alignment: is-progressing ? space-between : end;
+
+    if is-progressing: HorizontalLayout {
+        width: root.width - rec.width - parent.spacing;
+        spacing: Theme.spacing * 4;
+
+        VerticalLayout {
+            width: parent.width - parent.spacing;
+            alignment: center;
+
+            ProgressBar {
+                width: parent.width;
+                height: Theme.icon-size;
+                progress: progress;
+            }
+        }
+    }
+
+    rec := Rectangle {
+        width: hbox.preferred-width;
+        height: hbox.preferred-height;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("import");
+                    icon: Icons.import2-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-speakers-import-audio();
+                    }
+                }
+
+                IconBtn {
+                    enabled: !is-progressing && has-audio;
+                    is-show-tip: true;
+                    tip: Logic.tr("process");
+                    icon: Icons.image-processing-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-speakers-process-audio();
+                    }
+                }
+
+                IconBtn {
+                    enabled: has-speakers;
+                    is-show-tip: true;
+                    tip: Logic.tr("export");
+                    icon: Icons.export-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-speakers-export-all-speakers();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("remove all");
+                    icon: Icons.clear-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-speakers-remove-all();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("setting");
+                    icon: Icons.setting-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Store.video-editor-is-show-speakers-setting-dialog = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+component SourcePlayer inherits VerticalLayout {
+    private property <AudioPlayerStatus> status: Store.video-editor-speakers-audio-player-status[0];
+
+    su := SimpleAudioControl {
+        is-playing: status.is-playing;
+        progress: status.progress;
+        current-sound: status.sound * 100;
+        current-time: Util.seconds-to-media-timestamp(self.progress * status.duration-ms / 1000.0);
+        end-time: Util.seconds-to-media-timestamp(status.duration-ms / 1000.0);
+        background: Theme.thirdly-background;
+        border-radius: Theme.border-radius;
+        border-width: Theme.default-border-width;
+        border-color: status.is-playing ? Theme.thirdly-brand-color : Theme.base-border-color;
+
+        private property <bool> inner-is-playing <=> status.is-playing;
+        changed inner-is-playing => {
+            self.is-playing = inner-is-playing;
+        }
+
+        play => {
+            Logic.video-editor-speakers-play-audio(0);
+        }
+
+        stop => {
+            Logic.video-editor-speakers-stop-audio(0);
+        }
+
+        sound-changed(s) => {
+            Logic.video-editor-speakers-audio-player-sound-changed(0, s / 100);
+        }
+
+        sound-released(s) => {
+            Logic.video-editor-speakers-audio-player-sound-released(0, s / 100);
+        }
+
+        progress-pressed => {
+            Logic.video-editor-speakers-stop-audio(0);
+        }
+
+        progress-released(v) => {
+            Logic.video-editor-speakers-audio-player-progress-released(0, v);
+        }
+    }
+}
+
+component SpeakerList inherits Rectangle {
+    private property <bool> is-progressing: Store.video-editor-speakers-is-progressing;
+
+    if !is-progressing && Store.video-editor-speakers-audio-player-status.length == 1: Rectangle {
+        border-radius: Theme.border-radius;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+        background: Theme.secondary-background;
+
+        NoDataImg {
+            image: Icons.no-message-fill;
+            text: Logic.tr("Click Process");
+            font-size: Theme.title3-font-size;
+            colorize: Theme.primary-text-color;
+
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    Logic.video-editor-speakers-process-audio();
+                }
+            }
+        }
+    }
+
+    if is-progressing: VerticalLayout {
+        x: 0;
+        y: 0;
+        alignment: start;
+        padding: Theme.padding * 2;
+
+        Skeleton {
+            width: parent.width - Theme.padding * 4;
+            height: Theme.icon-size * 6;
+            type: SkeletonType.List;
+        }
+    }
+
+    if !is-progressing && Store.video-editor-speakers-audio-player-status.length > 1: Flickable {
+        height: parent.height;
+        width: parent.width;
+        viewport-height: vbox.preferred-height;
+        viewport-width: parent.width;
+
+        vbox := VerticalLayout {
+            spacing: Theme.spacing * 2;
+            alignment: start;
+
+            for index in Store.video-editor-speakers-audio-player-status.length - 1: Rectangle {
+                private property <int> idx: index + 1;
+                private property <AudioPlayerStatus> status: Store.video-editor-speakers-audio-player-status[idx];
+
+                border-radius: Theme.border-radius;
+                border-width: Theme.default-border-width;
+                border-color: status.is-playing ? Theme.thirdly-brand-color : Theme.base-border-color;
+                background: Theme.thirdly-background;
+
+                VerticalLayout {
+                    spacing: Theme.spacing;
+                    padding: Theme.padding * 4;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 2;
+                        padding-left: Theme.padding * 2;
+                        padding-right: Theme.padding * 2;
+
+                        Label {
+                            text: status.name;
+                            font-size: Theme.default-font-size;
+                            color: Theme.primary-text-color;
+                            horizontal-stretch: 1;
+                        }
+
+                        IconBtn {
+                            is-show-tip: true;
+                            tip: Logic.tr("export");
+                            icon: Icons.export-light;
+                            icon-size: Theme.icon-size * 0.8;
+
+                            clicked => {
+                                Logic.video-editor-speakers-export-speaker(status.name);
+                            }
+                        }
+                    }
+
+                    SimpleAudioControl {
+                        is-playing: status.is-playing;
+                        progress: status.progress;
+                        current-sound: status.sound * 100;
+                        current-time: Util.seconds-to-media-timestamp(self.progress * status.duration-ms / 1000.0);
+                        end-time: Util.seconds-to-media-timestamp(status.duration-ms / 1000.0);
+                        is-hide-speed-btn: true;
+                        icon-size: Theme.icon-size * 0.8;
+                        inner-padding: Theme.padding;
+                        spacing: Theme.spacing * 2;
+
+                        private property <bool> inner-is-playing <=> status.is-playing;
+                        changed inner-is-playing => {
+                            self.is-playing = inner-is-playing;
+                        }
+
+                        play => {
+                            Logic.video-editor-speakers-play-audio(idx);
+                        }
+
+                        stop => {
+                            Logic.video-editor-speakers-stop-audio(idx);
+                        }
+
+                        sound-changed(s) => {
+                            Logic.video-editor-speakers-audio-player-sound-changed(idx, s / 100);
+                        }
+
+                        sound-released(s) => {
+                            Logic.video-editor-speakers-audio-player-sound-released(idx, s / 100);
+                        }
+
+                        progress-pressed => {
+                            Logic.video-editor-speakers-stop-audio(idx);
+                        }
+
+                        progress-released(v) => {
+                            Logic.video-editor-speakers-audio-player-progress-released(idx, v);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component SpeakersDialog inherits MovingDialog {
+    title: Logic.tr("Speaker Separator");
+    icon: Icons.voiceprint-light;
+    header-width: Theme.moving-dialog-width;
+    body-height: root.header-width * Theme.golden-ratio;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        private property <bool> has-audio: Store.video-editor-speakers-audio-player-status.length > 0;
+
+        LeftHeader { }
+
+        if has-audio: VerticalLayout {
+            spacing: Theme.spacing * 2;
+
+            SourcePlayer { }
+
+            if Store.video-editor-speakers-audio-player-status.length >= 1: SpeakerList { }
+        }
+
+        if !has-audio: Rectangle {
+            border-radius: Theme.border-radius;
+            border-width: Theme.default-border-width;
+            border-color: Theme.base-border-color;
+            background: Theme.secondary-background;
+
+            NoDataImg {
+                text: Logic.tr("Click Import");
+                image: Icons.media-light;
+                font-size: Theme.title3-font-size;
+                colorize: Theme.primary-text-color;
+
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        Logic.video-editor-speakers-import-audio();
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component SpeakersSettingDialog inherits MovingDialog {
+    title: Logic.tr("Speaker Separator Setting");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    private property <VideoEditorSpeakersConfig> config: Store.video-editor-speakers-config;
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Export directory");
+            }
+
+            LineInput {
+                read-only: true;
+                text: config.export-dir;
+                icon: Icons.file-open-light;
+                is-show-icon: true;
+
+                clicked => {
+                    Logic.video-editor-speakers-choose-export-dir();
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Models Directory");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                LineInput {
+                    read-only: true;
+                    text: config.models-dir;
+                    icon: Icons.file-open-light;
+                    is-show-icon: true;
+                    placeholder-text: "speakrs-models";
+
+                    clicked => {
+                        Logic.video-editor-speakers-choose-models-dir();
+                    }
+                }
+
+                for downloader[index] in Store.video-editor-speakers-models-downloader: VerticalLayout {
+                    alignment: center;
+
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: Theme.spacing * 4;
+
+                        private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+
+                        IconBtn {
+                            enabled: !downloading;
+                            is-show-tip: true;
+                            icon: Icons.download-light;
+                            colorize: Theme.icon-color;
+                            tip: downloading ? Logic.tr("please wait for download finished") : Logic.tr("download");
+                            mouse-cursor: self.enabled ? MouseCursor.pointer : MouseCursor.not-allowed;
+
+                            clicked => {
+                                Logic.video-editor-speakers-model-start-download(index);
+                            }
+                        }
+
+                        IconBtn {
+                            icon: Icons.browser-light;
+                            is-show-tip: true;
+                            tip: Logic.tr("open url");
+
+                            clicked => {
+                                Util.open-url("Default", downloader.url);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailSwitch {
+                icon: Icons.timeline-light;
+                icon-size: Theme.icon-size * 0.8;
+                text: Logic.tr("Timeline Mode");
+                checked: config.timeline-mode;
+
+                toggled => {
+                    config.timeline-mode = self.checked;
+                    Logic.video-editor-speakers-update-config(config);
+                }
+            }
+        }
+
+        if !config.timeline-mode: SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Merge Gap (Second)");
+            }
+
+            LineInput {
+                text: config.merge-gap > 0 ? config.merge-gap.to-fixed(1) : "0.5";
+                input-type: decimal;
+
+                accepted => {
+                    config.merge-gap = self.text.to-float();
+                    Logic.video-editor-speakers-update-config(config);
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,282 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+    ChapterSummaryProgressType,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    IconBtn,
+    ConfirmBtn,
+    CancelBtn,
+    ProgressBar,
+    NoMessageImg,
+    Skeleton,
+    SkeletonType,
+    CancelAndConfirmIconsBtn,
+    ConfirmDialogSetting,
+} from "../../../../base/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+import { TxtEdit } from "../../../../base/txtedit.slint";
+
+component LeftHeader inherits HorizontalLayout {
+    spacing: Theme.spacing * 8;
+    alignment: is-generating || !is-ai-available ? stretch : end;
+
+    private property <bool> is-ai-available;
+    private property <bool> is-generating: Store.video-editor-chapter-summary-progress-type == ChapterSummaryProgressType.Generating;
+
+    init => {
+        is-ai-available = Logic.is-ai-model-available();
+    }
+
+    if !is-ai-available: HorizontalLayout {
+        padding-left: Theme.padding * 4;
+
+        Label {
+            text: Logic.tr("Please set up the AI model and API key");
+            color: Theme.danger-color;
+            font-size: Theme.title5-font-size;
+        }
+    }
+
+    if is-generating: HorizontalLayout {
+        spacing: Theme.spacing * 4;
+
+        VerticalLayout {
+            alignment: center;
+
+            ProgressBar {
+                height: Theme.icon-size;
+                progress: Store.video-editor-chapter-summary-progress;
+            }
+        }
+
+        ElevatedBtn {
+            icon: Icons.stop-light;
+            colorize: Theme.danger-color;
+            gain-focus-when-clicked: false;
+
+            clicked => {
+                Logic.video-editor-chapter-summary-cancel();
+            }
+        }
+    }
+
+    rec := Rectangle {
+        width: hbox.preferred-width;
+        height: hbox.preferred-height;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    enabled: !is-generating && is-ai-available;
+                    is-show-tip: true;
+                    tip: Logic.tr("generate");
+                    icon: Icons.send-up-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-chapter-summary-start();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("copy");
+                    icon: Icons.copy-light;
+                    icon-size: Theme.icon-size;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-chapter-summary-copy();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("remove all");
+                    icon: Icons.delete-all-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Remove all items or not?"), "video-editor-chapter-summary-remove-all", "");
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+component ChapterCard inherits Rectangle {
+    in property <int> start-ms;
+    in property <int> end-ms;
+    in property <string> title;
+    in property <int> index;
+
+    height: vbox.preferred-height;
+    border-radius: Theme.border-radius;
+    background: Theme.thirdly-background;
+
+    vbox := VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        HorizontalLayout {
+            alignment: space-between;
+            spacing: Theme.spacing * 4;
+
+            HorizontalLayout {
+                alignment: start;
+                spacing: Theme.spacing * 2;
+
+                Label {
+                    text: Util.seconds-to-media-timestamp(start-ms / 1000);
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    Image {
+                        source: Icons.arrow-forward-light;
+                        width: Theme.icon-size * 0.8;
+                        height: self.width;
+                        colorize: Theme.primary-text-color;
+                    }
+                }
+
+                Label {
+                    text: Util.seconds-to-media-timestamp(end-ms / 1000);
+                }
+            }
+
+            HorizontalLayout {
+                alignment: end;
+                spacing: Theme.spacing * 8;
+
+                if !te.read-only: CancelAndConfirmIconsBtn {
+                    is-show-tip: false;
+                    icon-size: Theme.icon-size * 0.8;
+
+                    cancelled => {
+                        te.read-only = true;
+                        te.text = title;
+                    }
+                    confirmed => {
+                        te.read-only = true;
+                        Logic.video-editor-chapter-summary-update-chapter(index, te.text);
+                    }
+                }
+
+                IconBtn {
+                    icon: Icons.locate-to-light;
+                    icon-size: Theme.icon-size * 0.8;
+
+                    clicked => {
+                        Store.video-editor-timeline-offset = start-ms;
+                    }
+                }
+            }
+        }
+
+        te := TxtEdit {
+            text: title;
+            read-only: true;
+            height: self.font-size * 4;
+
+            TouchArea {
+                mouse-cursor: pointer;
+                enabled: te.read-only;
+
+                clicked => {
+                    te.read-only = false;
+                    te.focus();
+                }
+            }
+        }
+    }
+}
+
+export component ChapterSummaryDialog inherits MovingDialog {
+    title: Logic.tr("Chapter Summary");
+    icon: Icons.chapter-light;
+    header-width: Theme.moving-dialog-width;
+    head-y: self.height * 0.15;
+    enable-resize: true;
+    body-height: root.header-width * Theme.golden-ratio;
+
+    private property <ChapterSummaryProgressType> progress-type: Store.video-editor-chapter-summary-progress-type;
+    private property <bool> is-generating: progress-type == ChapterSummaryProgressType.Generating;
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        LeftHeader { }
+
+        if Store.video-editor-chapter-summary-entries.length == 0 && !is-generating: HorizontalLayout {
+            alignment: center;
+
+            TouchArea {
+                mouse-cursor: pointer;
+                width: parent.width * Theme.golden-ratio;
+
+                NoMessageImg {
+                    width: parent.width;
+                    text: Logic.tr("Click to Generate");
+                }
+
+                clicked => {
+                    Logic.video-editor-chapter-summary-start();
+                }
+            }
+        }
+
+        if is-generating: VerticalLayout {
+            alignment: start;
+            padding: Theme.padding * 2;
+
+            Skeleton {
+                width: parent.width - Theme.padding * 4;
+                height: Theme.icon-size * 8;
+                type: SkeletonType.List;
+            }
+        }
+
+        if Store.video-editor-chapter-summary-entries.length > 0: Rectangle {
+            background: Theme.secondary-background;
+
+            ScrollView {
+                viewport-height: vbox.preferred-height;
+
+                vbox := VerticalLayout {
+                    spacing: Theme.spacing;
+                    padding: Theme.padding * 2;
+
+                    for entry[index] in Store.video-editor-chapter-summary-entries: ChapterCard {
+                        index: index;
+                        start-ms: entry.start-ms;
+                        end-ms: entry.end-ms;
+                        title: entry.title;
+                    }
+                }
+            }
+        }
+    }
+}

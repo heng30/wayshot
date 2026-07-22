@@ -1,0 +1,21 @@
+[package]
+name = "term"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+log.workspace = true
+vte.workspace = true
+arboard.workspace = true
+thiserror.workspace = true
+derivative.workspace = true
+portable-pty.workspace = true
+alacritty_terminal.workspace = true
+serde = { workspace = true, features = ["derive"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+arboard = { workspace = true, features = ["wayland-data-control"] }
+
+[dev-dependencies]
+slint.workspace = true
+env_logger.workspace = true

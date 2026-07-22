@@ -9,14 +9,14 @@ fn main() -> anyhow::Result<()> {
         .with_model_weights(format!("{}/model.pt", model_dir))
         .with_tokenizer_path(format!("{}/Qwen3-0.6B/tokenizer.json", model_dir));
 
-    // let audio_path = "./data/nejia.wav";
-    let audio_path = "./data/65s.wav";
-    // let audio_path = "./data/long.wav";
+    let audio_path = "./data/nejia.wav";
 
     let input_audio_config = load_audio_file(audio_path)?;
 
+    let now = std::time::Instant::now();
     log::debug!("Loading model...");
     let mut model = FunAsrNanoGenerateModel::new(config, None, None)?;
+    log::debug!("Loading model spent {:?}", now.elapsed());
     let separator = "━".repeat(70);
     let mut total_tokens = 0;
 
@@ -29,6 +29,7 @@ fn main() -> anyhow::Result<()> {
         .with_prompt(Some("Transcribe the audio to text.".to_string()))
         .with_max_tokens(512);
 
+    let now = std::time::Instant::now();
     let response = model.generate(request, Some(vad_config), |chunk| {
         if !chunk.is_finished {
             total_tokens += chunk.num_tokens;
@@ -61,6 +62,7 @@ fn main() -> anyhow::Result<()> {
         Ok(())
     })?;
 
+    log::debug!("Generate spent {:?}", now.elapsed());
     log::debug!("📋 Full Transcription:");
     log::debug!("{}", separator);
     log::debug!("{}", response.text);

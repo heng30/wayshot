@@ -3,7 +3,7 @@ use derivative::Derivative;
 use derive_setters::Setters;
 use image::RgbaImage;
 use photon_rs::{PhotonImage, effects, monochrome};
-use rand::Rng;
+use rand::RngExt;
 use rayon::prelude::*;
 
 #[derive(Debug, Clone, Derivative, Setters)]

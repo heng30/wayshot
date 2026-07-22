@@ -1,0 +1,366 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoPreviewSize,
+    VideoEditorLayerImage,
+    GaussianBlurDetail,
+} from "../../../def.slint";
+import { VEFilter, FilterType } from "../filter.slint";
+import { IconBtn, Divider, Label } from "../../../../base/widgets.slint";
+import { MoveHandle } from "move-handle.slint";
+
+export component PreviewGaussianBlurLayers inherits Rectangle {
+    in-out property <[VideoEditorLayerImage]> layers;
+    private property <float> width-hight-rate: self.width / self.height;
+    private property <FilterType> selected-filter-type <=> VEFilter.selected-filter.ty;
+
+    for index in layers.length: rec := Rectangle {
+        x: 0;
+        y: 0;
+
+        private property <VideoEditorLayerImage> layer: layers[layers.length - 1 - index];
+        private property <bool> is-edited-track: Store.video-editor-current-edited-track-index == layer.track-index;
+
+        private property <bool> has-keyframes: Logic.video-editor-segment-has-keyframes(layer.track-index, layer.segment-index);
+        private property <GaussianBlurDetail> config: is-edited-track && has-keyframes ? VEFilter.from-gaussian-blur-json(VEFilter.selected-filter.detail) : layer.gaussian-blur;
+        private property <bool> is-previewing: Store.video-editor-is-previewing;
+
+        changed is-previewing => {
+            if (is-edited-track && !is-previewing && has-keyframes) {
+                VEFilter.modify-gaussian-blur-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+            }
+        }
+
+        if is-edited-track: container-rec := Rectangle {
+            width: img.width;
+            height: img.height;
+
+            TouchArea {
+                scroll-event(event) => {
+                    accept
+                }
+            }
+
+            img := Image {
+                private property <length> parent-width: rec.width;
+                private property <length> parent-height: rec.height;
+                private property <float> width-hight-rate: self.source.width / self.source.height;
+
+                changed parent-width => {
+                    self.update-size();
+                }
+
+                changed parent-height => {
+                    self.update-size();
+                }
+
+                function update-size() {
+                    if (root.width-hight-rate > self.width-hight-rate) {
+                        self.height = root.height;
+                        self.width = self.height * self.width-hight-rate;
+                    } else {
+                        self.width = root.width;
+                        self.height = self.width / self.width-hight-rate;
+                    }
+                }
+
+                function apply-resize(diff-x: length, diff-y: length, corner: int, orig-left: float, orig-top: float, orig-width: float, orig-height: float) {
+                    let norm-x = diff-x / self.width;
+                    let norm-y = diff-y / self.height;
+                    let min-width-norm = Theme.icon-size / self.width;
+                    let min-height-norm = Theme.icon-size / self.height;
+
+
+                    // corner 1: top-left, 2: top-right, 3: bottom-right, 4: bottom-left
+                    if (corner == 1) { // top-left
+                        let new-left = orig-left + norm-x;
+                        let new-top = orig-top + norm-y;
+                        let new-width = orig-width - norm-x;
+                        let new-height = orig-height - norm-y;
+                        if (new-left >= 0 && new-width >= min-width-norm) {
+                            config.left = new-left;
+                            config.width = new-width;
+                        }
+                        if (new-top >= 0 && new-height >= min-height-norm) {
+                            config.top = new-top;
+                            config.height = new-height;
+                        }
+                    } else if (corner == 2) { // top-right
+                        let new-width = orig-width + norm-x;
+                        let new-top = orig-top + norm-y;
+                        let new-height = orig-height - norm-y;
+                        if (config.left + new-width <= 1.0 && new-width >= min-width-norm) {
+                            config.width = new-width;
+                        }
+                        if (new-top >= 0 && new-height >= min-height-norm) {
+                            config.top = new-top;
+                            config.height = new-height;
+                        }
+                    } else if (corner == 3) { // bottom-right
+                        let new-width = orig_width + norm-x;
+                        let new-height = orig_height + norm-y;
+                        if (config.left + new-width <= 1.0 && new-width >= min-width-norm) {
+                            config.width = new-width;
+                        }
+                        if (config.top + new-height <= 1.0 && new-height >= min-height-norm) {
+                            config.height = new-height;
+                        }
+                    } else if (corner == 4) { // bottom-left
+                        let new-left = orig_left + norm-x;
+                        let new_width = orig_width - norm-x;
+                        let new_height = orig_height + norm-y;
+                        if (new-left >= 0 && new-width >= min-width-norm) {
+                            config.left = new-left;
+                            config.width = new-width;
+                        }
+                        if (config.top + new-height <= 1.0 && new-height >= min-height-norm) {
+                            config.height = new-height;
+                        }
+                    }
+                }
+
+                init => {
+                    self.update-size();
+                }
+
+                source: layer.original-image;
+                image-fit: ImageFit.contain;
+            }
+
+            if is-edited-track: Rectangle {
+                width: img.width;
+                height: img.height;
+
+                private property <length> min-blur-size: Theme.icon-size;
+
+                // Display values with minimum size clamping (only for visual display)
+                private property <length> display-left: config.left * img.width;
+                private property <length> display-top: config.top * img.height;
+                private property <length> display-width: max(min-blur-size, min(config.width * img.width, img.width - display-left));
+                private property <length> display-height: max(min-blur-size, min(config.height * img.height, img.height - display-top));
+                private property <length> display-right: display-left + display-width;
+                private property <length> display-bottom: display-top + display-height;
+
+                // Store original blur region values when drag starts
+                private property <float> orig-left;
+                private property <float> orig-top;
+                private property <float> orig-width;
+                private property <float> orig-height;
+
+                // Store initial mouse position (relative to img) when drag starts for handles
+                private property <length> handle-pressed-x;
+                private property <length> handle-pressed-y;
+
+                TouchArea {
+                    width: img.width;
+                    height: img.height;
+                    mouse-cursor: self.pressed ? grabbing : grab;
+
+                    private property <float> move-orig-left;
+                    private property <float> move-orig-top;
+
+                    pointer-event(event) => {
+                        if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                            move-orig-left = config.left;
+                            move-orig-top = config.top;
+                        }
+                    }
+
+                    moved => {
+                        let norm-x = (self.mouse-x - self.pressed-x) / img.width;
+                        let norm-y = (self.mouse-y - self.pressed-y) / img.height;
+
+                        let new-left = move-orig-left + norm-x;
+                        let new-top = move-orig-top + norm-y;
+
+                        config.left = max(0, min(1 - config.width, new-left));
+                        config.top = max(0, min(1 - config.height, new-top));
+                    }
+
+                    changed pressed => {
+                        if (!self.pressed) {
+                            VEFilter.modify-gaussian-blur-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                        }
+                    }
+                }
+
+                Rectangle {
+                    x: top-line.x;
+                    y: top-line.y;
+                    width: top-line.width;
+                    height: left-line.height;
+                    background: Theme.hover-background;
+                    opacity: Theme.golden-ratio;
+                }
+
+                top-line := HorizontalLayout {
+                    x: display-left;
+                    y: display-top - 1px;
+                    width: display-width;
+                    height: 2px;
+                    alignment: space-between;
+
+                    for index in ceil(self.width / Theme.icon-size / 2): Rectangle {
+                        width: Theme.icon-size;
+                        height: 100%;
+                        background: white;
+                    }
+                }
+
+                bottom-line := HorizontalLayout {
+                    x: display-left;
+                    y: display-bottom - 1px;
+                    width: display-width;
+                    height: 2px;
+                    alignment: space-between;
+
+                    for index in ceil(self.width / Theme.icon-size / 2): Rectangle {
+                        width: Theme.icon-size;
+                        height: 100%;
+                        background: white;
+                    }
+                }
+
+                left-line := VerticalLayout {
+                    x: display-left - 1px;
+                    y: display-top;
+                    width: 2px;
+                    height: display-height;
+                    alignment: space-between;
+
+                    for index in ceil(self.height / Theme.icon-size / 2): Rectangle {
+                        height: Theme.icon-size;
+                        width: 100%;
+                        background: white;
+                    }
+                }
+
+                right-line := VerticalLayout {
+                    x: display-right - 1px;
+                    y: display-top;
+                    width: 2px;
+                    height: display-height;
+                    alignment: space-between;
+
+                    for index in ceil(self.height / Theme.icon-size / 2): Rectangle {
+                        height: Theme.icon-size;
+                        width: 100%;
+                        background: white;
+                    }
+                }
+
+                // Top-left handle
+                top-left-handle := MoveHandle {
+                    x: display-left - self.width / 2;
+                    y: display-top - self.height / 2;
+                    index: 1;
+
+                    pressed-changed => {
+                        orig-left = config.left;
+                        orig-top = config.top;
+                        orig-width = config.width;
+                        orig-height = config.height;
+
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 1,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-gaussian-blur-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+
+                // Top-right handle
+                top-right-handle := MoveHandle {
+                    x: display-right - self.width / 2;
+                    y: display-top - self.height / 2;
+                    index: 2;
+
+                    pressed-changed => {
+                        orig-left = config.left;
+                        orig-top = config.top;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 2,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-gaussian-blur-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+
+                // Bottom-right handle
+                bottom-right-handle := MoveHandle {
+                    x: display_right - self.width / 2;
+                    y: display_bottom - self.height / 2;
+                    index: 3;
+
+                    pressed-changed => {
+                        orig-left = config.left;
+                        orig-top = config.top;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 3,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-gaussian-blur-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+
+                // Bottom-left handle
+                bottom-left-handle := MoveHandle {
+                    x: display_left - self.width / 2;
+                    y: display_bottom - self.height / 2;
+                    index: 4;
+
+                    pressed-changed => {
+                        orig-left = config.left;
+                        orig-top = config.top;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 4,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-gaussian-blur-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+            }
+        }
+    }
+}

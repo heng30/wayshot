@@ -1,0 +1,249 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+    DashStyle,
+} from "../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    Slider,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    Select,
+} from "../../../../../base/widgets.slint";
+
+export component RectDrawParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Dash Style");
+        }
+
+        dash-style-select := Select {
+            values: ["Solid", "Dash"];
+            current-value: Logic.dash-style-to-string(Store.video-editor-img-animation-config.rect-draw.dash-style);
+            gain-focus-when-clicked: false;
+
+            selected(index, value) => {
+                Store.video-editor-img-animation-config.rect-draw.dash-style = Logic.string-to-dash-style(value);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Position X");
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 4;
+
+            VerticalLayout {
+                alignment: center;
+
+                position-x-sl := Slider {
+                    minimum: 0.0;
+                    maximum: 1.0;
+                    value: Store.video-editor-img-animation-config.rect-draw.position-x;
+                    height: self.indicator-size * 0.3;
+
+                    changed(value) => {
+                        Store.video-editor-img-animation-config.rect-draw.position-x = value;
+                    }
+
+                    released(value) => {
+                        Store.video-editor-img-animation-config.rect-draw.position-x = value;
+                    }
+                }
+            }
+
+            Label {
+                vertical-alignment: center;
+                text: Store.video-editor-img-animation-config.rect-draw.position-x.to-fixed(2);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Position Y");
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 4;
+
+            VerticalLayout {
+                alignment: center;
+
+                position-y-sl := Slider {
+                    minimum: 0.0;
+                    maximum: 1.0;
+                    value: Store.video-editor-img-animation-config.rect-draw.position-y;
+                    height: self.indicator-size * 0.3;
+
+                    changed(value) => {
+                        Store.video-editor-img-animation-config.rect-draw.position-y = value;
+                    }
+
+                    released(value) => {
+                        Store.video-editor-img-animation-config.rect-draw.position-y = value;
+                    }
+                }
+            }
+
+            Label {
+                vertical-alignment: center;
+                text: Store.video-editor-img-animation-config.rect-draw.position-y.to-fixed(2);
+            }
+        }
+    }
+
+    if Store.video-editor-img-animation-config.rect-draw.dash-style == DashStyle.Dash: SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Dash Length");
+        }
+
+        dash-length-li := LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-img-animation-config.rect-draw.dash-length;
+
+            accepted => {
+                Store.video-editor-img-animation-config.rect-draw.dash-length = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Line Width");
+        }
+
+        line-width-li := LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-img-animation-config.rect-draw.line-width;
+
+            accepted => {
+                Store.video-editor-img-animation-config.rect-draw.line-width = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Rect Width");
+        }
+
+        rect-width-li := LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-img-animation-config.rect-draw.rect-width;
+
+            accepted => {
+                Store.video-editor-img-animation-config.rect-draw.rect-width = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Rect Height");
+        }
+
+        rect-height-li := LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-img-animation-config.rect-draw.rect-height;
+
+            accepted => {
+                Store.video-editor-img-animation-config.rect-draw.rect-height = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Corner Radius");
+        }
+
+        corner-radius-li := LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-img-animation-config.rect-draw.corner-radius;
+
+            accepted => {
+                Store.video-editor-img-animation-config.rect-draw.corner-radius = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-img-animation-config.rect-draw.color-r = c.red;
+            Store.video-editor-img-animation-config.rect-draw.color-g = c.green;
+            Store.video-editor-img-animation-config.rect-draw.color-b = c.blue;
+            Store.video-editor-img-animation-config.rect-draw.color-a = c.alpha;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-img-animation-config.rect-draw.color-r,
+                Store.video-editor-img-animation-config.rect-draw.color-g,
+                Store.video-editor-img-animation-config.rect-draw.color-b,
+                Store.video-editor-img-animation-config.rect-draw.color-a);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Duration (ms)");
+        }
+
+        duration-ms-li := LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-img-animation-config.rect-draw.duration-ms;
+
+            accepted => {
+                Store.video-editor-img-animation-config.rect-draw.duration-ms = round(self.text.to-float());
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("End Pause (seconds)");
+        }
+
+        end-pause-li := LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-img-animation-config.rect-draw.end-pause;
+
+            accepted => {
+                Store.video-editor-img-animation-config.rect-draw.end-pause = self.text.to-float();
+            }
+        }
+    }
+}

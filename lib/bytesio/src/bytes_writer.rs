@@ -1,7 +1,7 @@
 use super::{bytesio::TNetIO, errors::BytesWriteError};
 use byteorder::{ByteOrder, WriteBytesExt};
 use bytes::BytesMut;
-use rand::Rng;
+use rand::RngExt;
 use std::{io::Write, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::timeout};
 

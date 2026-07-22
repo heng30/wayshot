@@ -1,0 +1,64 @@
+import {
+    Theme,
+    Logic,
+} from "../../../../../def.slint";
+import {
+    Label,
+    Slider,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ClickAndEditLabel,
+    LineInput,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    FrameExtractDetail,
+    SegmentFilter,
+} from "../../../filter.slint";
+
+export component FrameExtract inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    private property <FrameExtractDetail> config: VEFilter.from-frame-extract-json(selected-filter.detail);
+
+    callback apply(idx: int, config: FrameExtractDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "frame extract") {
+            self.config = VEFilter.from-frame-extract-json(selected-filter.detail);
+            interval-li.text = self.config.frame-interval;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                enabled: selected-filter.enabled;
+                text: Logic.tr("Frame Interval");
+            }
+
+            VerticalLayout {
+                alignment: center;
+
+                interval-li := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: number;
+                    text: config.frame-interval;
+                    border-color: config.frame-interval != self.text.to-float() ? Theme.danger-color : self.default-border-color;
+
+                    accepted => {
+                        let value = self.text.to-float().round().max(1);
+                        self.text = value;
+                        config.frame-interval = value;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

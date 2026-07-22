@@ -1,10 +1,16 @@
-use crate::Result;
+use crate::{Error, Result};
 use chinese_number::{ChineseCountMethod, ChineseToNumber};
 use chrono::{NaiveTime, Timelike};
 use std::{fs, path::Path};
 use unicode_segmentation::UnicodeSegmentation;
 
 type SubtitleSplitResult = Option<((u64, u64, String), (u64, u64, String))>;
+
+#[derive(Debug, Clone, Default)]
+pub struct LrcEntry {
+    pub timestamp_ms: u64,
+    pub text: String,
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct Subtitle {
@@ -44,6 +50,21 @@ pub fn srt_timestamp_to_ms(timestamp: &str) -> Result<u64> {
 
 pub fn valid_srt_timestamp(timestamp: &str) -> bool {
     srt_timestamp_to_ms(timestamp).is_ok()
+}
+
+pub fn valid_srt_timestamps(start: &str, end: &str) -> Result<()> {
+    let start_ms = srt_timestamp_to_ms(start)
+        .map_err(|_e| Error::SrtParse(format!("invalid srt timestamp: {start}")))?;
+    let end_ms = srt_timestamp_to_ms(end)
+        .map_err(|_e| Error::SrtParse(format!("invalid srt timestamp: {end}")))?;
+
+    if start_ms >= end_ms {
+        return Err(Error::SrtParse(
+            "Start timestamp must be before end timestamp".to_string(),
+        ));
+    }
+
+    Ok(())
 }
 
 pub fn subtitle_to_srt(subtitle: &Subtitle) -> String {
@@ -127,7 +148,8 @@ pub fn chinese_numbers_to_primitive_numbers(chinese_numbers: &str) -> String {
     ];
 
     // 不应该转换的上下文：一后面跟这些字时，不转换为数字
-    let non_number_context_after_yi: &[char] = &['些', '样', '般', '直', '定', '经', '方', '下'];
+    let non_number_context_after_yi: &[char] =
+        &['些', '个', '样', '般', '直', '定', '经', '方', '下'];
 
     let chars: Vec<char> = chinese_numbers.chars().collect();
     let mut result = String::new();
@@ -292,4 +314,258 @@ fn try_smart_convert(number_str: &str) -> String {
     }
 
     result
+}
+
+/// Parse an LRC file into a list of timestamped entries.
+///
+/// Supports standard LRC format with timestamps like `[mm:ss.xx]` or `[mm:ss.xxx]`.
+/// Multiple timestamps per line are supported (e.g., `[00:10.00][00:20.00]Lyric`).
+/// Metadata tags like `[ti:...]`, `[ar:...]`, `[al:...]`, `[offset:...]` are handled.
+pub fn parse_lrc(content: &str) -> Vec<LrcEntry> {
+    let mut entries: Vec<LrcEntry> = Vec::new();
+    let mut offset_ms: i64 = 0;
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        // Parse metadata tags
+        if let Some(inner) = line.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
+            // Check if it's a metadata tag (contains ':')
+            if let Some(colon_pos) = inner.find(':') {
+                let tag = &inner[..colon_pos];
+                let value = &inner[colon_pos + 1..];
+
+                match tag {
+                    "offset" if let Ok(val) = value.parse::<i64>() => {
+                        offset_ms = val;
+                    }
+                    // Other metadata tags (ti, ar, al, by, etc.) are ignored for subtitle purposes
+                    _ => {}
+                }
+
+                // If the entire line is a single metadata tag, skip further parsing
+                if !inner.contains(']') {
+                    continue;
+                }
+            }
+        }
+
+        // Extract all timestamps from the line
+        let mut timestamps: Vec<u64> = Vec::new();
+        let mut text_start = 0;
+
+        let chars: Vec<char> = line.chars().collect();
+        let mut i = 0;
+        while i < chars.len() {
+            if chars[i] == '[' {
+                // Try to parse a timestamp
+                let mut j = i + 1;
+                while j < chars.len() && chars[j] != ']' {
+                    j += 1;
+                }
+                if j < chars.len() {
+                    let inner: String = chars[i + 1..j].iter().collect();
+                    if let Some(ms) = parse_lrc_timestamp(&inner) {
+                        timestamps.push(ms);
+                        text_start = j + 1;
+                        i = j + 1;
+                        continue;
+                    }
+                }
+            }
+            break;
+        }
+
+        if timestamps.is_empty() {
+            continue;
+        }
+
+        let text = chars[text_start..].iter().collect::<String>();
+        let text = text.trim().to_string();
+
+        if text.is_empty() {
+            continue;
+        }
+
+        for ts in timestamps {
+            let adjusted = if offset_ms >= 0 {
+                ts.saturating_add(offset_ms as u64)
+            } else {
+                ts.saturating_sub(offset_ms.unsigned_abs())
+            };
+            entries.push(LrcEntry {
+                timestamp_ms: adjusted,
+                text: text.clone(),
+            });
+        }
+    }
+
+    // Sort by timestamp
+    entries.sort_by_key(|e| e.timestamp_ms);
+    entries
+}
+
+/// Parse a single LRC timestamp like "01:23.45" or "1:23.456" into milliseconds.
+fn parse_lrc_timestamp(s: &str) -> Option<u64> {
+    // Format: mm:ss.xx or mm:ss.xxx or mm:ss
+    let parts: Vec<&str> = s.split(':').collect();
+    if parts.len() != 2 {
+        return None;
+    }
+
+    let minutes: u64 = parts[0].parse().ok()?;
+
+    let sec_parts: Vec<&str> = parts[1].split('.').collect();
+    let seconds: u64 = sec_parts[0].parse().ok()?;
+
+    let millis = if sec_parts.len() > 1 {
+        let frac = sec_parts[1];
+        match frac.len() {
+            1 => frac.parse::<u64>().ok()? * 100,
+            2 => frac.parse::<u64>().ok()? * 10,
+            3 => frac.parse::<u64>().ok()?,
+            _ => {
+                // Take first 3 digits
+                let digits: String = frac.chars().take(3).collect();
+                digits.parse::<u64>().ok()?
+            }
+        }
+    } else {
+        0
+    };
+
+    Some(minutes * 60000 + seconds * 1000 + millis)
+}
+
+/// Convert parsed LRC entries into Subtitle items with calculated end timestamps.
+/// The end timestamp of each entry is set to the start timestamp of the next entry.
+/// The last entry gets a default duration of 3 seconds.
+pub fn lrc_to_subtitles(entries: &[LrcEntry]) -> Vec<Subtitle> {
+    let default_duration_ms = 3000u64;
+
+    entries
+        .iter()
+        .enumerate()
+        .map(|(i, entry)| {
+            let end_timestamp = entries
+                .get(i + 1)
+                .map(|next| next.timestamp_ms)
+                .unwrap_or_else(|| entry.timestamp_ms + default_duration_ms);
+
+            Subtitle {
+                index: i as u32 + 1,
+                start_timestamp: entry.timestamp_ms,
+                end_timestamp,
+                text: entry.text.clone(),
+            }
+        })
+        .collect()
+}
+
+/// Parse an LRC file and convert to Subtitle items.
+pub fn parse_lrc_file(path: &Path) -> Result<Vec<Subtitle>> {
+    let content = fs::read_to_string(path)?;
+    let entries = parse_lrc(&content);
+    Ok(lrc_to_subtitles(&entries))
+}
+
+#[cfg(test)]
+mod tests_lrc {
+    use super::*;
+
+    #[test]
+    fn test_parse_lrc_basic() {
+        let content = "[00:10.00]Hello World\n[00:20.50]Second Line\n[01:30.99]Final Line";
+        let entries = parse_lrc(content);
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].timestamp_ms, 10_000);
+        assert_eq!(entries[0].text, "Hello World");
+        assert_eq!(entries[1].timestamp_ms, 20_500);
+        assert_eq!(entries[1].text, "Second Line");
+        assert_eq!(entries[2].timestamp_ms, 90_990);
+        assert_eq!(entries[2].text, "Final Line");
+    }
+
+    #[test]
+    fn test_parse_lrc_multiple_timestamps() {
+        let content = "[00:10.00][00:30.00]Repeated lyric";
+        let entries = parse_lrc(content);
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].timestamp_ms, 10_000);
+        assert_eq!(entries[0].text, "Repeated lyric");
+        assert_eq!(entries[1].timestamp_ms, 30_000);
+        assert_eq!(entries[1].text, "Repeated lyric");
+    }
+
+    #[test]
+    fn test_parse_lrc_metadata_tags() {
+        let content = "[ti:Song Title]\n[ar:Artist]\n[offset:500]\n[00:10.00]With offset";
+        let entries = parse_lrc(content);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].timestamp_ms, 10_500); // 10000 + 500 offset
+        assert_eq!(entries[0].text, "With offset");
+    }
+
+    #[test]
+    fn test_parse_lrc_negative_offset() {
+        let content = "[offset:-2000]\n[00:10.00]Shifted back";
+        let entries = parse_lrc(content);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].timestamp_ms, 8_000); // 10000 - 2000
+    }
+
+    #[test]
+    fn test_parse_lrc_empty_lines() {
+        let content = "\n[00:05.00]First\n\n\n[00:15.00]Second\n";
+        let entries = parse_lrc(content);
+        assert_eq!(entries.len(), 2);
+    }
+
+    #[test]
+    fn test_lrc_to_subtitles() {
+        let entries = vec![
+            LrcEntry {
+                timestamp_ms: 10_000,
+                text: "Line 1".into(),
+            },
+            LrcEntry {
+                timestamp_ms: 20_000,
+                text: "Line 2".into(),
+            },
+            LrcEntry {
+                timestamp_ms: 30_000,
+                text: "Line 3".into(),
+            },
+        ];
+        let subs = lrc_to_subtitles(&entries);
+        assert_eq!(subs.len(), 3);
+        assert_eq!(subs[0].start_timestamp, 10_000);
+        assert_eq!(subs[0].end_timestamp, 20_000);
+        assert_eq!(subs[1].start_timestamp, 20_000);
+        assert_eq!(subs[1].end_timestamp, 30_000);
+        // Last entry gets 3s default duration
+        assert_eq!(subs[2].start_timestamp, 30_000);
+        assert_eq!(subs[2].end_timestamp, 33_000);
+    }
+
+    #[test]
+    fn test_parse_lrc_timestamp_formats() {
+        // mm:ss.xx (2 decimal)
+        assert_eq!(parse_lrc_timestamp("01:23.45"), Some(83_450));
+        // mm:ss.xxx (3 decimal)
+        assert_eq!(parse_lrc_timestamp("01:23.456"), Some(83_456));
+        // mm:ss (no decimal)
+        assert_eq!(parse_lrc_timestamp("01:23"), Some(83_000));
+        // mm:ss.x (1 decimal)
+        assert_eq!(parse_lrc_timestamp("01:23.4"), Some(83_400));
+    }
+
+    #[test]
+    fn test_parse_lrc_invalid_timestamp() {
+        assert_eq!(parse_lrc_timestamp("invalid"), None);
+        assert_eq!(parse_lrc_timestamp("1:2:3"), None);
+    }
 }

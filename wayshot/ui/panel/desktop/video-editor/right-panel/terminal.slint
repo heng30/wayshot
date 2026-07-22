@@ -1,0 +1,376 @@
+import { Store } from "../../../../store.slint";
+import { Theme, Icons } from "../../../../base/theme.slint";
+import { Label, IconBtn } from "../../../../base/widgets.slint";
+
+// One coloured run of text on the terminal grid.  The Rust side groups
+// consecutive vt100 cells that share fg + bg + bold + italic + underline
+// into a single span and tags it with its grid position (row, col) and
+// width in cells, so the UI can place both a background fill and the text
+// with absolute monospace coordinates.
+// `bg` is transparent (alpha 0) when the cell uses the default background.
+export struct TermSpan {
+    text: string,
+    fg: color,
+    bg: color,
+    bold: bool,
+    row: int,
+    col: int,
+    cells: int,      // number of grid cells (1 for narrow, 2 for wide/CJK/emoji)
+    cjk: bool,       // contains CJK/emoji chars → use UI font for fallback
+    underline: bool,
+    italic: bool,
+}
+
+// Model for a single terminal tab in the tab bar.
+export struct TermTabModel {
+    title: string,
+}
+
+// Global singleton that holds terminal state and callbacks.
+// The Rust backend accesses this directly to set spans, cursor, scroll,
+// and to receive keyboard / mouse / clipboard events.
+export global TerminalState {
+    in-out property <[TermSpan]> spans;
+    in-out property <int> cursor-row: -1;
+    in-out property <int> cursor-col: -1;
+    in-out property <int> scroll-position;
+    in-out property <int> scroll-max: 1;
+
+    in-out property <int> active-tab-index;
+    in-out property <[TermTabModel]> tabs: [];
+
+    in-out property <string> term-font-family: "Noto Sans Mono CJK SC";
+    in-out property <length> term-font-size: Theme.default-font-size;
+    in-out property <color> term-bg: #1e1e1e;
+    in-out property <color> term-fg: #e6e6e6;
+    in-out property <color> term-cursor-color: #ffffff;
+
+    in-out property <length> cell-w: 1px;
+    in-out property <length> cell-h: 1px;
+    in-out property <length> term-area-width: 1px;
+    in-out property <length> term-area-height: 1px;
+    in-out property <float> term-cols: 10;
+    in-out property <float> term-rows: 5;
+
+    callback key-pressed-event(text: string, shift: bool, alt: bool, ctrl: bool);
+    callback key-released-event(text: string, shift: bool, alt: bool, ctrl: bool);
+    callback ime-commit(text: string);
+    callback mouse-pressed(button: int, x: int, y: int);
+    callback mouse-released(button: int, x: int, y: int);
+    callback mouse-moved(x: int, y: int);
+    callback mouse-wheel(delta: float);             // delta (positive=up, negative=down)
+    callback copy-request();
+    callback paste-request();
+    callback font-zoom-in();
+    callback font-zoom-out();
+    callback font-zoom-reset();
+    callback scroll-to(pos: int);
+    callback terminal-resize(cols: float, rows: float);
+
+    callback new-tab();
+    callback close-tab(index: int);
+    callback tab-changed(index: int);
+    callback theme-changed(is-dark: bool);
+}
+
+export component TabBar inherits Rectangle {
+    height: hbox.preferred-height;
+    background: Theme.secondary-background;
+
+    hbox := HorizontalLayout {
+        padding: Theme.padding;
+        spacing: Theme.spacing;
+        alignment: LayoutAlignment.start;
+
+        for tab[index] in TerminalState.tabs: Rectangle {
+            private property <bool> is-selected-tab: TerminalState.active-tab-index == index;
+
+            width: Theme.default-font-size * 6;
+            border-radius: Theme.border-radius;
+            background: Theme.is-dark ? (is-selected-tab ? root.background.brighter(80%) : root.background.darker(30%))
+                : (is-selected-tab ? root.background.darker(50%) : root.background.darker(10%));
+
+            TouchArea {
+                mouse-cursor: pointer;
+
+                clicked => {
+                    TerminalState.tab-changed(index);
+                }
+            }
+
+            HorizontalLayout {
+                alignment: space-between;
+                spacing: Theme.spacing;
+                padding: Theme.padding / 2;
+                padding-left: Theme.spacing * 2;
+                padding-right: Theme.spacing * 2;
+
+                Label {
+                    text: tab.title;
+                    overflow: elide;
+                    vertical-alignment: center;
+                    font-size: Theme.default-font-size * 0.8;
+                    color: is-selected-tab ? Theme.light-text-color : Theme.regular-text-color;
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    IconBtn {
+                        icon: Icons.close-light;
+                        icon-size: Theme.icon-size * Theme.golden-ratio;
+                        show-icon-hover-background: false;
+                        gain-focus-when-clicked: false;
+                        colorize: self.has-hover ? Theme.danger-color : (is-selected-tab ? Theme.light-text-color : Theme.regular-text-color);
+
+                        clicked => {
+                            TerminalState.close-tab(index);
+                        }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            padding-left: Theme.padding;
+
+            IconBtn {
+                icon: Icons.add-light;
+                icon-size: Theme.icon-size * 0.8;
+                show-icon-hover-background: false;
+                gain-focus-when-clicked: false;
+                colorize: self.has-hover ? Theme.primary-text-color : Theme.icon-color;
+
+                clicked => {
+                    TerminalState.new-tab();
+                }
+            }
+        }
+    }
+}
+
+
+export component Terminal inherits Rectangle {
+    property <bool> cursor-blink: true;
+
+    // Reactive cell dimensions — computed directly from the probe,
+    // used by all span layout below (matching the slint-term example).
+    property <length> cell-w: max(1px, cell-probe.preferred-width / 50);
+    property <length> cell-h: max(1px, cell-probe.preferred-height);
+    property <float> term-cols: max(10, floor(term-area.width / cell-w));
+    property <float> term-rows: max(5, floor(term-area.height / cell-h));
+    property <length> term-area-w <=> term-area.width;
+    property <length> term-area-h <=> term-area.height;
+    private property is-dark <=> Store.setting-preference.is-dark;
+
+    // Sync reactive values to TerminalState for the Rust backend.
+    changed cell-w => { TerminalState.cell-w = root.cell-w; }
+    changed cell-h => { TerminalState.cell-h = root.cell-h; }
+    changed term-cols => { TerminalState.term-cols = root.term-cols; }
+    changed term-rows => { TerminalState.term-rows = root.term-rows; }
+    changed term-area-w => { TerminalState.term-area-width = root.term-area-w; }
+    changed term-area-h => { TerminalState.term-area-height = root.term-area-h; }
+    changed is-dark => { TerminalState.theme-changed(is-dark); }
+
+    background: TerminalState.term-bg;
+
+    init => {
+        TerminalState.cell-w = root.cell-w;
+        TerminalState.cell-h = root.cell-h;
+        TerminalState.term-area-width = root.term-area-w;
+        TerminalState.term-area-height = root.term-area-h;
+        TerminalState.term-cols = root.term-cols;
+        TerminalState.term-rows = root.term-rows;
+    }
+
+    Timer {
+        running: ime-input.has-focus;
+        interval: 530ms;
+        triggered => { root.cursor-blink = !root.cursor-blink; }
+    }
+
+    Timer {
+        running: true;
+        interval: 100ms;
+        triggered => {
+            ime-input.focus();
+            self.running = false;
+        }
+    }
+
+    // --- Cell-size measurement probe ---
+    cell-probe := Text {
+        text: "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM";
+        font-family: TerminalState.term-font-family;
+        font-size: TerminalState.term-font-size;
+        opacity: 0;
+        y: -200px;
+        width: 0px;
+        height: 0px;
+    }
+
+    VerticalLayout {
+        TabBar { }
+
+        HorizontalLayout {
+            padding-left: Theme.padding * 2;
+
+            term-area := Rectangle {
+                width: parent.width - Theme.scrollbar-size - parent.padding-left;
+                background: TerminalState.term-bg;
+                clip: true;
+
+                // Background layer: draw span backgrounds with 1px overlap
+                // to eliminate sub-pixel gaps between adjacent rectangles
+                for span in TerminalState.spans: Rectangle {
+                    x: span.col * root.cell-w - 0.5px;
+                    y: span.row * root.cell-h - 0.5px;
+                    width: span.cells * root.cell-w + 1px;
+                    height: root.cell-h + 1px;
+                    background: span.bg;
+                }
+
+                // Text layer: draw text on top of backgrounds
+                for span in TerminalState.spans: Rectangle {
+                    x: span.col * root.cell-w;
+                    y: span.row * root.cell-h;
+                    width: span.cells * root.cell-w;
+                    height: root.cell-h;
+                    clip: span.cjk;
+
+                    Text {
+                        x: 0px;
+                        height: root.cell-h;
+                        text: span.text;
+                        color: span.fg;
+                        font-family: TerminalState.term-font-family;
+                        font-size: TerminalState.term-font-size;
+                        font-weight: span.bold ? 700 : 400;
+                        font-italic: span.italic;
+                        vertical-alignment: center;
+                    }
+                }
+
+                for span in TerminalState.spans: Rectangle {
+                    x: span.col * root.cell-w;
+                    y: (span.row + 1) * root.cell-h - 2px;
+                    width: span.cells * root.cell-w;
+                    height: 1px;
+                    background: span.fg;
+                    visible: span.underline;
+                }
+
+                Rectangle {
+                    x: TerminalState.cursor-col * root.cell-w;
+                    y: TerminalState.cursor-row * root.cell-h + root.cell-h * 0.1;
+                    width: root.cell-w;
+                    height: root.cell-h * 0.8;
+                    background: TerminalState.term-cursor-color;
+                    visible: TerminalState.cursor-row >= 0 && (root.cursor-blink || !ime-input.has-focus);
+                }
+
+                TouchArea {
+                    mouse-cursor: text;
+
+                    clicked => {
+                        ime-input.focus();
+                    }
+
+                    moved => {
+                        TerminalState.mouse-moved(self.mouse-x / 1px, self.mouse-y / 1px);
+                    }
+
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.down {
+                            TerminalState.mouse-pressed(
+                                    event.button == PointerEventButton.left ? 0 : event.button == PointerEventButton.middle ? 1 : 2,
+                                    self.mouse-x / 1px,
+                                    self.mouse-y / 1px);
+                        } else if event.kind == PointerEventKind.up {
+                            TerminalState.mouse-released(
+                                    event.button == PointerEventButton.left ? 0 : event.button == PointerEventButton.middle ? 1 : 2,
+                                    self.mouse-x / 1px,
+                                    self.mouse-y / 1px);
+                        }
+                    }
+
+                    scroll-event(event) => {
+                        TerminalState.mouse-wheel(event.delta-y / 1px);
+                        EventResult.accept
+                    }
+                }
+
+                ime-input := TextInput {
+                    x: 0;
+                    y: parent.height - 16px;
+                    width: parent.width;
+                    height: 1px;
+                    opacity: 0;
+                    single-line: true;
+
+                    key-pressed(event) => {
+                        TerminalState.key-pressed-event(
+                                event.text,
+                                event.modifiers.shift,
+                                event.modifiers.alt,
+                                event.modifiers.control);
+                        accept
+                    }
+
+                    key-released(event) => {
+                        TerminalState.key-released-event(
+                                event.text,
+                                event.modifiers.shift,
+                                event.modifiers.alt,
+                                event.modifiers.control);
+                        accept
+                    }
+
+                    edited => {
+                        let text = self.text;
+                        if text != "" {
+                            TerminalState.ime-commit(text);
+                            self.text = "";
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                width: Theme.scrollbar-size;
+                background: Theme.scrollbar-background;
+
+                Rectangle {
+                    x: 2px;
+                    width: Theme.scrollbar-size - Theme.padding;
+                    height: parent.height;
+                    background: transparent;
+
+                    property <int> visible-lines: term-area.height / 1px;
+                    property <int> total-lines: TerminalState.scroll-max + visible-lines;
+                    property <length> thumb-height: TerminalState.scroll-max > 0 ?
+                        (parent.height * visible-lines / total-lines).max(30px) : 30px;
+
+                    Rectangle {
+                        y: TerminalState.scroll-max > 0 ? (parent.height - thumb-height) * (1 - TerminalState.scroll-position / TerminalState.scroll-max) : parent.height;
+                        width: Theme.scrollbar-size - Theme.padding;
+                        height: thumb-height;
+                        background: Theme.scrollbar-color;
+                        border-radius: Theme.border-radius;
+                    }
+
+                    TouchArea {
+                        pointer-event(event) => {
+                            if (event.kind == PointerEventKind.down || event.kind == PointerEventKind.move) && TerminalState.scroll-max > 0 {
+                                let ratio = self.mouse-y / self.height;
+                                let pos = (1 - ratio) * TerminalState.scroll-max;
+                                TerminalState.scroll-to(pos);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

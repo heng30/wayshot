@@ -1,0 +1,18 @@
+[package]
+name = "dewatermark"
+version.workspace = true
+edition.workspace = true
+keywords = ["watermark", "inpainting", "lama", "onnx"]
+categories = ["multimedia::images", "computer-vision"]
+description = "Library for removing watermarks from images using LaMa inpainting"
+
+[dependencies]
+ort.workspace = true
+image.workspace = true
+ndarray.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+anyhow.workspace = true
+indicatif.workspace = true
+clap = { workspace = true, features = ["derive"] }

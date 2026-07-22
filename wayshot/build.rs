@@ -8,14 +8,7 @@ fn main() {
 }
 
 fn build_slint() {
-    #[cfg(feature = "desktop")]
     slint_build::compile("ui/desktop-window.slint").unwrap();
-
-    #[cfg(feature = "android")]
-    slint_build::compile("ui/android-window.slint").unwrap();
-
-    #[cfg(feature = "web")]
-    slint_build::compile("ui/web-window.slint").unwrap();
 }
 
 fn write_app_version() -> Result<(), Box<dyn std::error::Error>> {

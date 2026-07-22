@@ -1,0 +1,184 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Icons,
+    VideoEditorPlaylistItem,
+} from "../../../def.slint";
+import {
+    PopupActionSetting,
+} from "../../../../base/widgets.slint";
+import { MediaListPanel, PlaylistViewMode } from "playlist.slint";
+
+export component MediaLibrary inherits Rectangle {
+    media-list := MediaListPanel {
+        playlist <=> Store.video-editor-media-library;
+        in-edit-mode: Store.video-editor-media-library-in-edit-mode;
+        current-folder-id: Store.video-editor-media-library-current-folder-id;
+        breadcrumb: Store.video-editor-media-library-breadcrumb;
+        enable-mark: true;
+        show-subtitle-tab: false;
+        checked-index <=> Store.video-editor-media-library-checked-index;
+        is-searching <=> Store.video-editor-media-library-is-searching;
+        search-keyword <=> Store.video-editor-media-library-search-keyword;
+        view-mode: Store.video-editor-ui-state.library-view-mode == 1 ? PlaylistViewMode.Thumbnail : PlaylistViewMode.Detail;
+
+        changed view-mode => {
+            Store.video-editor-ui-state.library-view-mode = self.view-mode == PlaylistViewMode.Thumbnail ? 1 : 0;
+            Logic.video-editor-update-ui-state();
+        }
+
+        item-import => Logic.video-editor-library-item-import();
+        folder-import => Logic.video-editor-library-folder-import();
+        create-folder => Logic.video-editor-library-create-folder();
+        search(idx, kw) => Logic.video-editor-library-search(idx, kw);
+        all-files => Logic.video-editor-library-all-files();
+        all-videos => Logic.video-editor-library-all-videos();
+        all-audios => Logic.video-editor-library-all-audios();
+        all-images => Logic.video-editor-library-all-images();
+        all-subtitles => { /* library does not have subtitle tab */ }
+        enter-edit-mode => Logic.video-editor-library-enter-edit-mode();
+        exit-edit-mode => Logic.video-editor-library-exit-edit-mode();
+        toggle-select-all(selected) => Logic.video-editor-library-toggle-select-all(selected);
+        remove-selections => Logic.video-editor-library-remove-selections();
+        remove-all => Logic.video-editor-library-remove-all();
+        show-remove-all-confirm-dialog => Logic.video-editor-library-show-remove-all-confirm-dialog();
+        show-remove-selections-confirm-dialog => Logic.video-editor-library-show-remove-selections-confirm-dialog();
+        toggle-selection(index) => Logic.video-editor-library-toggle-selection(index);
+        toggle-mark(index) => Logic.video-editor-library-toggle-mark(index);
+        item-add-to-track(index) => Logic.video-editor-library-item-add-to-track(index);
+        item-add-to-track-end(index) => Logic.video-editor-library-item-add-to-track-end(index);
+        item-preview(index) => Logic.video-editor-library-item-preview(index);
+        item-remove(index) => Logic.video-editor-library-item-remove(index);
+        item-copy-path(index) => Logic.video-editor-library-item-copy-path(index);
+        item-open-directory(index) => Logic.video-editor-library-item-open-directory(index);
+        rename-folder(id) => Logic.video-editor-library-rename-folder(id);
+        remove-folder(id) => Logic.video-editor-library-remove-folder(id);
+        navigate-to-folder(id) => Logic.video-editor-library-navigate-to-folder(id);
+        navigate-up => Logic.video-editor-library-navigate-up();
+        move-item-to-folder(item-id, folder-id) => Logic.video-editor-library-move-item-to-folder(item-id, folder-id);
+        move-folder(folder-id, new-parent-id) => Logic.video-editor-library-move-folder(folder-id, new-parent-id);
+
+        folder-more-clicked(index, id, source-path, is-marked, ax, ay) => {
+            PopupActionSetting.show(ax, ay, [
+                {
+                    icon: Icons.edit-text-light,
+                    text: Logic.tr("Rename"),
+                    action: "video-editor-library-rename-folder",
+                    user-data: id,
+                },
+                {
+                    icon: Icons.favorite-fill,
+                    text: is-marked ? Logic.tr("Unfavorite") : Logic.tr("Favorite"),
+                    action: "video-editor-library-toggle-mark",
+                    user-data: index,
+                },
+                {
+                    disable: source-path == "",
+                    icon: Icons.sync-light,
+                    text: Logic.tr("Sync"),
+                    action: "video-editor-library-sync-folder",
+                    user-data: id,
+                },
+                {
+                    icon: Icons.delete-light,
+                    text: Logic.tr("Remove"),
+                    action: "video-editor-library-remove-folder",
+                    user-data: id,
+                },
+            ]);
+        }
+
+        item-more-clicked(index, is-marked, from-icon, ax, ay) => {
+            let item = Store.video-editor-media-library[index];
+            let exist-selected = Store.video-editor-media-library-selected-count > 0;
+            let disable-for-right-click-action = !from-icon && exist-selected && !item.is-selected;
+
+            PopupActionSetting.show(ax, ay, [
+                {
+                    disable: disable-for-right-click-action,
+                    icon: Icons.add-light,
+                    text: Logic.tr("Add"),
+                    action: "video-editor-library-item-add-to-track",
+                    user-data: index,
+                },
+                {
+                    disable: disable-for-right-click-action,
+                    icon: Icons.move-to-end-light,
+                    text: Logic.tr("Add End"),
+                    action: "video-editor-library-item-add-to-track-end",
+                    user-data: index,
+                },
+                { },
+                {
+                    disable: disable-for-right-click-action,
+                    icon: Icons.open-file-light,
+                    text: Logic.tr("Open Filepath"),
+                    action: "video-editor-library-item-open-directory",
+                    user-data: index,
+                },
+                {
+                    disable: disable-for-right-click-action,
+                    icon: Icons.favorite-fill,
+                    text: is-marked ? Logic.tr("Unfavorite") : Logic.tr("Favorite"),
+                    action: "video-editor-library-toggle-mark",
+                    user-data: index,
+                },
+                {
+                    disable: disable-for-right-click-action,
+                    icon: Icons.preview-light,
+                    text: Logic.tr("Preview"),
+                    action: "video-editor-library-item-preview",
+                    user-data: index,
+                },
+                { },
+                {
+                    disable: from-icon,
+                    icon: Icons.select-all-light,
+                    text: Logic.tr("Select All"),
+                    action: "video-editor-library-select-all",
+                },
+                {
+                    disable: disable-for-right-click-action,
+                    icon: Icons.copy-light,
+                    text: Logic.tr("Copy"),
+                    action: "video-editor-library-item-copy-path",
+                    user-data: index,
+                },
+                {
+                    disable: from-icon && exist-selected && !item.is-selected,
+                    icon: Icons.clear-light,
+                    text: Logic.tr("Remove"),
+                    action: "video-editor-library-item-remove",
+                    user-data: index,
+                },
+            ]);
+        }
+
+        header-more-clicked(ax, ay) => {
+            PopupActionSetting.show(ax, ay, [
+                {
+                    disable: media-list.view-mode == PlaylistViewMode.Thumbnail || media-list.checked-index != 0,
+                    icon: Icons.edit-light,
+                    text: Logic.tr("Edit"),
+                    action: "video-editor-library-enter-edit-mode",
+                },
+                {
+                    icon: Icons.refresh-light,
+                    text: Logic.tr("Refresh"),
+                    action: "video-editor-library-refresh",
+                },
+                {
+                    icon: Icons.select-all-light,
+                    text: Logic.tr("Select All"),
+                    action: "video-editor-library-select-all",
+                },
+                {
+                    icon: Icons.delete-all-light,
+                    text: Logic.tr("Remove All"),
+                    action: "video-editor-library-show-remove-all-confirm-dialog",
+                },
+            ]);
+        }
+    }
+}

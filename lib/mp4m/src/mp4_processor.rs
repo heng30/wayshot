@@ -18,7 +18,13 @@ const DEFAULT_SPS: [u8; 25] = [
 
 #[derive(Clone)]
 pub enum VideoFrameType {
-    Frame(Vec<u8>),
+    Frame { data: Vec<u8>, is_sync: bool },
+    End,
+}
+
+#[derive(Clone)]
+pub enum AudioFrameType {
+    Samples(Vec<f32>),
     End,
 }
 
@@ -72,8 +78,9 @@ pub struct Mp4Processor {
 
     aac_encoder: Vec<Encoder>,
     audio_config: Vec<AudioConfig>,
-    audio_receiver: Vec<Receiver<Vec<f32>>>,
+    audio_receiver: Vec<Receiver<AudioFrameType>>,
     audio_buffer_cache: Vec<Vec<f32>>,
+    audio_sender_dropped: Vec<bool>,
 }
 
 impl Mp4Processor {
@@ -89,6 +96,7 @@ impl Mp4Processor {
             audio_config: vec![],
             audio_receiver: vec![],
             audio_buffer_cache: vec![],
+            audio_sender_dropped: vec![],
         }
     }
 
@@ -99,7 +107,7 @@ impl Mp4Processor {
     pub fn add_audio_track(
         &mut self,
         config: AudioConfig,
-    ) -> Result<Sender<Vec<f32>>, Mp4ProcessorError> {
+    ) -> Result<Sender<AudioFrameType>, Mp4ProcessorError> {
         if config.spec.channels > 2 {
             return Err(Mp4ProcessorError::Mp4(
                 "Audio channels is great then 2".to_string(),
@@ -110,6 +118,7 @@ impl Mp4Processor {
         self.audio_config.push(config);
         self.audio_receiver.push(receiver);
         self.audio_buffer_cache.push(Vec::new());
+        self.audio_sender_dropped.push(false);
 
         // Initialize AAC encoder for this track
         let track_index = self.audio_config.len() - 1;
@@ -419,20 +428,18 @@ impl Mp4Processor {
         mp4_writer: &mut Mp4Writer<BufWriter<File>>,
         video_timestamp: &mut u64,
         data: Vec<u8>,
+        is_sync: bool,
     ) {
         self.total_video_frames += 1;
 
         // Calculate duration in 90kHz timescale units (90000 / fps)
         let duration = VIDEO_TIMESCALE / self.config.video_config.fps;
 
-        // Detect if this is a keyframe (I-frame) by checking for SPS/PPS or start code
-        let is_sync = Self::is_keyframe_length_prefixed(&data);
-
         let sample = Mp4Sample {
             start_time: *video_timestamp,
             duration,
             rendering_offset: 0,
-            is_sync, // Only mark keyframes as sync points
+            is_sync,
             bytes: data.into(),
         };
 
@@ -580,18 +587,32 @@ impl Mp4Processor {
     ) -> bool {
         let mut all_ended = true;
         for track_index in 0..self.audio_receiver.len() {
-            if let Ok(audio_data) = self.audio_receiver[track_index].try_recv() {
-                // log::info!("audio data len: {} bytes", audio_data.len());
+            if self.audio_sender_dropped[track_index] {
+                continue;
+            }
 
+            while let Ok(audio_data) = self.audio_receiver[track_index].try_recv() {
+                match audio_data {
+                    AudioFrameType::Samples(samples) => {
+                        all_ended = false;
+                        self.process_audio_frame(
+                            mp4_writer,
+                            audio_track_ids,
+                            track_index,
+                            audio_timestamps,
+                            audio_data_counters,
+                            samples,
+                        );
+                    }
+                    AudioFrameType::End => {
+                        log::info!("Audio track {} received End signal", track_index);
+                        self.audio_sender_dropped[track_index] = true;
+                    }
+                }
+            }
+
+            if !self.audio_sender_dropped[track_index] {
                 all_ended = false;
-                self.process_audio_frame(
-                    mp4_writer,
-                    audio_track_ids,
-                    track_index,
-                    audio_timestamps,
-                    audio_data_counters,
-                    audio_data,
-                );
             }
         }
         all_ended
@@ -635,15 +656,22 @@ impl Mp4Processor {
         audio_data_counters: &mut Vec<u64>,
     ) -> Result<(), Mp4ProcessorError> {
         let mut video_ended = false;
-        let mut audio_ended = false;
 
         loop {
+            // Always process audio in every iteration to prevent channel buildup
+            let all_audio_ended = self.process_audio_receivers(
+                mp4_writer,
+                &audio_track_ids,
+                audio_timestamps,
+                audio_data_counters,
+            );
+
             crossbeam::select! {
                 recv(self.h264_receiver) -> video_frame => {
                     match video_frame {
                         Ok(frame_data) => match frame_data {
-                            VideoFrameType::Frame(data) => {
-                                self.process_video_frame(mp4_writer, video_timestamp, data);
+                            VideoFrameType::Frame { data, is_sync } => {
+                                self.process_video_frame(mp4_writer, video_timestamp, data, is_sync);
                             },
                             VideoFrameType::End => {
                                 log::info!("h264_receiver receive `End`");
@@ -657,18 +685,8 @@ impl Mp4Processor {
                     }
                 }
                 default => {
-                    let all_ended = self.process_audio_receivers(
-                        mp4_writer,
-                        &audio_track_ids,
-                        audio_timestamps,
-                        audio_data_counters,
-                    );
-
-                    if all_ended {
-                        audio_ended = true;
-                    }
-
-                    if video_ended && audio_ended && self.h264_receiver.is_empty() {
+                    // When no video frame is available, check if we should exit
+                    if video_ended && all_audio_ended && self.h264_receiver.is_empty() {
                         // Flush any remaining cached audio data before breaking
                         self.flush_audio_cache(
                             mp4_writer,
@@ -676,6 +694,7 @@ impl Mp4Processor {
                             audio_timestamps,
                             audio_data_counters,
                         );
+                        log::info!("Processing loop complete");
                         break;
                     }
                 }

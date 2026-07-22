@@ -1,0 +1,26 @@
+{
+  "name": "HTDemucs-ORT",
+  "format": "ort",
+  "version": "0.1.0",
+  "opset": 18,
+  "sample_rate_hz": 44100,
+  "window": 343980,
+  "hop": 171990,
+  "stems": ["drums","bass","other","vocals"],
+  "inputs": [
+    { "name": "input", "layout": "BCT",  "dtype": "f32", "shape": ["1","2","343980"] },
+    { "name": "x",     "layout": "BSCF", "dtype": "f32", "shape": ["1","4","2048","336"] }
+  ],
+  "outputs": [
+    { "name": "add_67", "layout": "BSCT", "dtype": "f32", "shape": ["1","4","2","343980"] }
+  ],
+  "artifacts": [
+    {
+      "file": "htdemucs.ort",
+      "sha256": "09dc165512d8ef7480bcb2cacea9dda82d571f8dbf421d8c44a2ca5568bec729",
+      "size_bytes": 209884896,
+      "url": "https://huggingface.co/gentij/htdemucs-ort/resolve/main/htdemucs.ort"
+    }
+  ],
+  "entry": "htdemucs.ort"
+}

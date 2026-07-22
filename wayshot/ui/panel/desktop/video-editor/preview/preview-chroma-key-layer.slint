@@ -1,0 +1,116 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoEditorLayerImage,
+    ChromaKeyDetail,
+} from "../../../def.slint";
+import { VEFilter, FilterType } from "../filter.slint";
+
+export component PreviewChromaKeyLayer inherits Rectangle {
+    in-out property <[VideoEditorLayerImage]> layers;
+    private property <float> width-hight-rate: self.width / self.height;
+    private property <FilterType> selected-filter-type <=> VEFilter.selected-filter.ty;
+
+    for index in layers.length: rec := Rectangle {
+        x: 0;
+        y: 0;
+
+        private property <VideoEditorLayerImage> layer: layers[layers.length - 1 - index];
+        private property <bool> is-edited-track: Store.video-editor-current-edited-track-index == layer.track-index;
+        private property <ChromaKeyDetail> config: VEFilter.from-chroma-key-json(VEFilter.selected-filter.detail);
+        private property <bool> pick-color-mode: VEFilter.chroma-key-pick-color-mode && is-edited-track;
+
+        container-rec := Rectangle {
+            width: img.width;
+            height: img.height;
+
+            img := Image {
+                private property <length> parent-width: rec.width;
+                private property <length> parent-height: rec.height;
+                private property <float> width-hight-rate: self.source.width / self.source.height;
+
+                changed parent-width => {
+                    self.update-size();
+                }
+
+                changed parent-height => {
+                    self.update-size();
+                }
+
+                function update-size() {
+                    if (root.width-hight-rate > self.width-hight-rate) {
+                        self.height = root.height;
+                        self.width = self.height * self.width-hight-rate;
+                    } else {
+                        self.width = root.width;
+                        self.height = self.width / self.width-hight-rate;
+                    }
+                }
+
+                init => {
+                    self.update-size();
+                }
+
+                source: layer.original-image;
+                image-fit: ImageFit.contain;
+            }
+
+            if is-edited-track: Rectangle {
+                width: img.width;
+                height: img.height;
+
+                // Pick color mode overlay - cross cursor
+                if pick-color-mode: Rectangle {
+                    width: img.width;
+                    height: img.height;
+                    background: transparent;
+
+                    pick-ta := TouchArea {
+                        mouse-cursor: MouseCursor.crosshair;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {
+                                let img-x = self.mouse-x;
+                                let img-y = self.mouse-y;
+                                let picked-color = VEFilter.chroma-key-pick-color(VEFilter.selected-filter-index, img.source, img-x / img.width, img-y / img.height);
+
+                                config.target-color-r = picked-color.red;
+                                config.target-color-g = picked-color.green;
+                                config.target-color-b = picked-color.blue;
+                                config.target-color-a = picked-color.alpha;
+                                VEFilter.chroma-key-pick-color-mode = false;
+                                VEFilter.modify-chroma-key-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                            }
+                        }
+                    }
+
+                    // Crosshair indicator at cursor position
+                    Rectangle {
+                        x: pick-ta.mouse-x - self.width / 2;
+                        y: pick-ta.mouse-y - self.height / 2;
+                        width: Theme.icon-size;
+                        height: self.width;
+                        background: transparent;
+
+                        Rectangle {
+                            y: (parent.height - self.height) / 2;
+                            width: parent.width;
+                            height: Theme.default-border-width * 4;
+                            background: white;
+                        }
+
+                        Rectangle {
+                            x: (parent.width - self.width) / 2;
+                            width: Theme.default-border-width * 4;
+                            height: parent.height;
+                            background: white;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

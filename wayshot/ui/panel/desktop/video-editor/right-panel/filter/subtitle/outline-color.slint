@@ -1,0 +1,68 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Store,
+    Util,
+} from "../../../../../def.slint";
+import {
+    Label,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    OutlineColorDetail,
+} from "../../../filter.slint";
+
+export component OutlineColor inherits Rectangle {
+    in-out property <OutlineColorDetail> config;
+    in-out property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+    private property <int> video-editor-color-picker-id;
+
+    changed color-picker-confirmed-flag => {
+        if (video-editor-color-picker-id != Store.video-editor-color-picker-id) {
+            return;
+        }
+        let c = Store.video-editor-color-picker-color;
+        config.r = c.red;
+        config.g = c.green;
+        config.b = c.blue;
+        config.a = c.alpha;
+        apply(config);
+    }
+
+    callback apply(config: OutlineColorDetail);
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Outline color");
+        }
+
+        LineInput {
+            read-only: true;
+            border-color: Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+            icon: Icons.color-picker-light;
+            is-show-icon: true;
+            text: Util.color-picker-str(config.r, config.g, config.b, config.a);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+
+            changed has-focus => {
+                if (!self.has-focus) {
+                    Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                }
+            }
+
+            clicked => {
+                Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                root.video-editor-color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+}
+

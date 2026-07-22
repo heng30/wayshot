@@ -196,7 +196,7 @@ impl RecordingSession {
         self.video_encoder = Some(video_encoder);
 
         if let Some(ref sender) = self.h264_frame_sender {
-            if let Err(e) = sender.try_send(VideoFrameType::Frame(headers_data)) {
+            if let Err(e) = sender.try_send(VideoFrameType::Frame { data: headers_data, is_sync: true }) {
                 log::warn!("Try send h264 header frames faield: {e}");
             }
         }
@@ -306,7 +306,7 @@ impl RecordingSession {
                         .unwrap()
                         .encode_frame(img.into())
                     {
-                        Ok(EncodedFrame::Frame((_, encoded_frame))) => {
+                        Ok(EncodedFrame::Frame { data: encoded_frame, is_keyframe, .. }) => {
                             log::debug!(
                                 "total encoded frame[{total_frame_index}] {} bytes",
                                 encoded_frame.len()
@@ -314,7 +314,7 @@ impl RecordingSession {
 
                             if let Some(ref sender) = self.h264_frame_sender {
                                 if let Err(e) =
-                                    sender.try_send(VideoFrameType::Frame(encoded_frame))
+                                    sender.try_send(VideoFrameType::Frame { data: encoded_frame, is_sync: is_keyframe })
                                 {
                                     self.loss_frame_count.fetch_add(1, Ordering::Relaxed);
                                     log::warn!("Try send h264 body frame faield: {e}");
@@ -515,8 +515,8 @@ impl RecordingSession {
 
         if let Some(sender) = self.h264_frame_sender.clone()
             && let Some(ve) = self.video_encoder.take()
-            && let Err(e) = ve.flush(Box::new(move |data| {
-                if let Err(e) = sender.try_send(VideoFrameType::Frame(data)) {
+            && let Err(e) = ve.flush(Box::new(move |data, is_keyframe| {
+                if let Err(e) = sender.try_send(VideoFrameType::Frame { data, is_sync: is_keyframe }) {
                     log::warn!("Try send h264 flushed frame faield: {e}");
                 }
             }))

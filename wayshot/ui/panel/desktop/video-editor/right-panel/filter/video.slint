@@ -1,0 +1,522 @@
+import {
+    Theme,
+    Logic,
+} from "../../../../def.slint";
+import {
+    SegmentFilter,
+    FilterType,
+    VEFilter,
+} from "../../filter.slint";
+import { Crop } from "video/crop.slint";
+import { Flip } from "video/flip.slint";
+import { ChromaKey } from "video/chroma-key.slint";
+import { Zoom } from "video/zoom.slint";
+import { Transform } from "video/transform.slint";
+import { VideoFadeIn } from "video/video-fade-in.slint";
+import { VideoFadeOut } from "video/video-fade-out.slint";
+import { Slide } from "video/slide.slint";
+import { Wipe } from "video/wipe.slint";
+import { Opacity } from "video/opacity.slint";
+import { Vignette } from "video/vignette.slint";
+import { Border } from "video/border.slint";
+import { FlyIn } from "video/fly-in.slint";
+import { Mosaic } from "video/mosaic.slint";
+import { DrawCircle } from "video/draw-circle.slint";
+import { DrawRectangle } from "video/draw-rectangle.slint";
+import { Background } from "video/background.slint";
+import { HslAdjust } from "video/hsl-adjust.slint";
+import { Speed } from "video/speed.slint";
+import { FrameExtract } from "video/frame-extract.slint";
+import { Breathing } from "video/breathing.slint";
+import { LocalMagnify } from "video/local-magnify.slint";
+import { Magnifier } from "video/magnifier.slint";
+import { GaussianBlur } from "video/gaussian-blur.slint";
+import { DirectionalBlur } from "video/directional-blur.slint";
+import { Sharpen } from "video/sharpen.slint";
+import { EdgeDetect } from "video/edge_detect.slint";
+import { Grain } from "video/grain.slint";
+import { Grayscale } from "video/grayscale.slint";
+import { Fisheye } from "video/fisheye.slint";
+import { Focus } from "video/focus.slint";
+import { OldFilm } from "video/old_film.slint";
+import { Sketch } from "video/sketch.slint";
+import { Wave } from "video/wave.slint";
+import { TextHighlight } from "video/text-highlight.slint";
+import { LinearMask } from "video/linear-mask.slint";
+import { CircleMask } from "video/circle-mask.slint";
+import { MirrorMask } from "video/mirror-mask.slint";
+import { RectangleMask } from "video/rectangle-mask.slint";
+import { Shadow } from "video/shadow.slint";
+import { DeviceFrame } from "video/device-frame.slint";
+import { PageFlip } from "video/page-flip.slint";
+import { Genie } from "video/genie.slint";
+import { Grid } from "video/grid.slint";
+import { Split } from "video/split.slint";
+import { Live2d } from "video/live-2d.slint";
+
+export component FilterVideoDetail inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+
+    border-radius: Theme.border-radius;
+
+    if selected-filter.name.to-lowercase() == "flip": Flip {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-flip-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "chroma key": ChromaKey {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-chroma-key-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "transform": Transform {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-transform-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "crop": Crop {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-crop-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "zoom": Zoom {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-zoom-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "fade in": VideoFadeIn {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-video-fade-in-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "fade out": VideoFadeOut {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-video-fade-out-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "slide": Slide {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-slide-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "wipe": Wipe {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-wipe-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "fly in": FlyIn {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-fly-in-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "opacity": Opacity {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-opacity-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "vignette": Vignette {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-vignette-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "border": Border {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-border-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "mosaic": Mosaic {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-mosaic-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "draw circle": DrawCircle {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-draw-circle-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "draw rectangle": DrawRectangle {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-draw-rectangle-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "background": Background {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-background-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "hsl adjust": HslAdjust {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-hsl-adjust-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "speed": Speed {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-speed-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "frame extract": FrameExtract {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-frame-extract-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "breathing": Breathing {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-breathing-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "local magnify": LocalMagnify {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-local-magnify-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "magnifier": Magnifier {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-magnifier-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "gaussian blur": GaussianBlur {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-gaussian-blur-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "directional blur": DirectionalBlur {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-directional-blur-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "sharpen": Sharpen {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-sharpen-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "edge detect": EdgeDetect {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-edge-detect-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "grain": Grain {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-grain-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "grayscale": Grayscale {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-grayscale-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "fisheye": Fisheye {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-fisheye-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "focus": Focus {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-focus-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "old film": OldFilm {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-old-film-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "sketch": Sketch {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-sketch-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "wave": Wave {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-wave-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "text highlight": TextHighlight {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-text-highlight-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "linear mask": LinearMask {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-linear-mask-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "circle mask": CircleMask {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-circle-mask-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "mirror mask": MirrorMask {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-mirror-mask-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "rectangle mask": RectangleMask {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-rectangle-mask-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "shadow": Shadow {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-shadow-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "device frame": DeviceFrame {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-device-frame-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "genie": Genie {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-genie-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "page flip": PageFlip {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-page-flip-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "grid": Grid {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-grid-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "split": Split {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-split-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "live 2d": Live2d {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-live-2d-filter(idx, config, FilterType.Video);
+        }
+    }
+}

@@ -1,0 +1,150 @@
+import {
+    Theme,
+    Logic,
+    Store,
+} from "../../../../../def.slint";
+import {
+    IconBtn,
+    CheckBtn,
+    RadioBtn,
+    LineInput,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+    ConfirmDialogSetting,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    SlideDetail,
+} from "../../../filter.slint";
+
+export component Slide inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <SlideDetail> config: VEFilter.from-slide-json(selected-filter.detail);
+
+    callback apply(index: int, config: SlideDetail);
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Duration (ms)");
+                enabled: selected-filter.enabled;
+            }
+
+            LineInput {
+                enabled: selected-filter.enabled;
+                input-type: number;
+                text: config.duration-ms;
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    config.duration-ms = round(self.text.to-float());
+                    apply(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Position");
+                enabled: selected-filter.enabled;
+            }
+
+            VerticalLayout {
+                spacing: Theme.spacing * 4;
+                padding-left: Theme.padding * 2;
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: Logic.tr("At Start");
+                    checked: config.position == 0;
+
+                    check => {
+                        config.position = 0;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: Logic.tr("At End");
+                    checked: config.position == 1;
+
+                    check => {
+                        config.position = 1;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Direction");
+                enabled: selected-filter.enabled;
+            }
+
+            VerticalLayout {
+                spacing: Theme.spacing * 4;
+                padding-left: Theme.padding * 2;
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: config.position == 0 ? Logic.tr("From Left") : Logic.tr("To Left");
+                    checked: config.direction == 0;
+
+                    check => {
+                        config.direction = 0;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: config.position == 0 ? Logic.tr("From Right") : Logic.tr("To Right");
+                    checked: config.direction == 1;
+
+                    check => {
+                        config.direction = 1;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: config.position == 0 ? Logic.tr("From Top") : Logic.tr("To Top");
+                    checked: config.direction == 2;
+
+                    check => {
+                        config.direction = 2;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: config.position == 0 ? Logic.tr("From Bottom") : Logic.tr("To Bottom");
+                    checked: config.direction == 3;
+
+                    check => {
+                        config.direction = 3;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

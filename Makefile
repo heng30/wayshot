@@ -4,73 +4,46 @@ pwd = ${shell pwd}
 app-name = wayshot
 version = `git describe --tags --abbrev=0`
 
-build-env =
-android-build-env = SLINT_STYLE=material $(build-env)
-desktop-build-env = SLINT_STYLE=fluent CMAKE_POLICY_VERSION_MINIMUM=3.5 $(build-env)
-web-build-env = SLINT_STYLE=fluent $(build-env) RUSTFLAGS='--cfg getrandom_backend="wasm_js"'
-
+# windows, wayland-portal, wayland-wlr
+features ?= wayland-wlr
 run-env = RUST_LOG=debug
-proj-features = --features=${desktop-features},database,qrcode,center-window
-desktop-features ?= desktop-wayland-wlr
+build-env = SLINT_STYLE=fluent CMAKE_POLICY_VERSION_MINIMUM=3.5
+proj-features = --features=${features},database,qrcode,center-window
 
-all: desktop-build-release
+all: build-release
 
-android-build:
-	$(android-build-env) cargo apk build --lib -p ${app-name} --no-default-features --features=mobile,android
+build:
+	$(build-env) cargo build --bin ${app-name} --no-default-features --features=${features}
 
-android-build-release:
-	$(android-build-env) cargo apk build --lib --release -p ${app-name} --no-default-features --features=mobile,android
+build-release:
+	$(build-env) cargo build --release --bin ${app-name} --no-default-features --features=${features}
 
-android-debug:
-	$(android-build-env) $(run-env) cargo apk run --lib -p ${app-name} --no-default-features --features=mobile,android
+debug:
+	$(build-env) $(run-env) cargo run --bin ${app-name} --no-default-features --features=${features}
 
-desktop-build:
-	$(desktop-build-env) cargo build --bin ${app-name} --no-default-features --features=${desktop-features}
+debug-winit:
+	SLINT_BACKEND=winit-femtovg $(build-env) $(run-env) cargo run --bin ${app-name} --no-default-features --features=${features}
 
-desktop-build-release:
-	$(desktop-build-env) cargo build --release --bin ${app-name} --no-default-features --features=${desktop-features}
+run-release:
+	$(build-env) RUST_LOG=info cargo run --release --bin ${app-name} --no-default-features --features=${features}
 
-desktop-debug:
-	$(desktop-build-env) $(run-env) cargo run --bin ${app-name} --no-default-features --features=${desktop-features}
-
-desktop-debug-winit:
-	SLINT_BACKEND=winit-femtovg $(desktop-build-env) $(run-env) cargo run --bin ${app-name} --no-default-features --features=${desktop-features}
-
-desktop-run-release:
-	$(desktop-build-env) RUST_LOG=info cargo run --release --bin ${app-name} --no-default-features --features=${desktop-features}
-
-desktop-run-release-winit:
-	SLINT_BACKEND=winit-femtovg $(desktop-build-env) RUST_LOG=info cargo run --release --bin ${app-name} --no-default-features --features=${desktop-features}
-
-web-build:
-	cd $(app-name) && $(web-build-env) wasm-pack build --no-opt --dev --target web --out-dir ./web/pkg --no-default-features --features=web
-
-web-build-release:
-	- rm -rf ./web/dist/*
-	cd $(app-name) && $(web-build-env) wasm-pack build --no-opt --release --target web --out-dir ./web/dist/pkg --no-default-features --features=web
-	cd $(app-name) && cp -f ./web/index.html ./web/dist && cp -f ./ui/images/png/brand.png ./web/dist/pkg/favicon.png
-
-web-debug: web-build
-	cd $(app-name) && python3 -m http.server -d web 8000
+run-release-winit:
+	SLINT_BACKEND=winit-femtovg $(build-env) RUST_LOG=info cargo run --release --bin ${app-name} --no-default-features --features=${features}
 
 cursor-debug:
-	$(run-env) cargo run --bin wayshot-cursor
+	$(run-env) cargo run -p wayshot-cursor --bin wayshot-cursor
 
 cursor-release:
-	cargo build --release --bin wayshot-cursor
+	cargo build --release -p wayshot-cursor --bin wayshot-cursor
 
 tr:
-	cargo run --bin tr-helper
+	cargo run -p tr-helper --bin tr-helper
 
 icon:
-	cargo run --bin icon-helper -- -i ${app-name}/ui/images -o ${app-name}/ui/base
+	cargo run -p icon-helper --bin icon-helper -- -i ${app-name}/ui/images -o ${app-name}/ui/base
 
 icon-strip:
-	cargo run --bin icon-helper -- -i ${app-name}/ui/images -o ${app-name}/ui/base --strip
-
-packing-android:
-	cp -f target/release/apk/${app-name}.apk target/${app-name}-${version}-aarch64-linux-android.apk
-	echo "${app-name}-${version}-aarch64-linux-android.apk" > target/output-name
+	cargo run -p icon-helper --bin icon-helper -- -i ${app-name}/ui/images -o ${app-name}/ui/base --strip
 
 packing-linux:
 	cp -f target/release/${app-name} target/${app-name}-${version}-x86_64-linux
@@ -84,30 +57,14 @@ packing-darwin:
 	cp -f target/release/${app-name} target/${app-name}-${version}-x86_64-darwin
 	echo "${app-name}-${version}-x86_64-darwin" > target/output-name
 
-packing-web:
-	tar -zcf target/$(app-name)-$(version)-web.tar.gz ${app-name}/web/dist
-	echo "$(app-name)-$(version)-web.tar.gz" > target/output-name
-
-slint-viewer-android:
-	$(android-build-env) slint-viewer --auto-reload -I $(app-name)/ui ${app-name}/ui/android-window.slint
-
-slint-viewer-desktop:
-	$(desktop-build-env) slint-viewer --auto-reload -I $(app-name)/ui ${app-name}/ui/desktop-window.slint
-
-slint-viewer-web:
-	$(web-build-env) slint-viewer --auto-reload -I $(app-name)/ui ${app-name}/ui/web-window.slint
-
-test:
-	$(build-env) $(run-env) cargo test -- --nocapture
-
-timings:
-	$(build-env) cargo build --timings $(proj-features)
+slint-viewer:
+	$(build-env) slint-viewer --auto-reload -I $(app-name)/ui ${app-name}/ui/desktop-window.slint
 
 clippy:
 	cargo clippy $(proj-features)
 
 check:
-	$(desktop-build-env) cargo check --no-default-features $(proj-features) --bin ${app-name}
+	$(build-env) cargo check --no-default-features $(proj-features) --bin ${app-name}
 
 clean:
 	cargo clean
@@ -115,6 +72,14 @@ clean:
 deb:
 	cd package/deb && bash -e "./pkg-deb.sh"
 	mv package/deb/$(app-name).deb ./target
+
+appimage:
+	cd package/appimage && bash -e "./pkg-appimage.sh"
+	mv package/appimage/$(app-name).AppImage ./target
+
+flatpak:
+	cd package/flatpak && bash -e "./pkg-flatpak.sh"
+	mv package/flatpak/$(app-name).flatpak ./target
 
 app-name:
 	echo "$(app-name)" > target/app-name

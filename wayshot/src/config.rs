@@ -1,5 +1,5 @@
 use crate::slint_generatedAppWindow::{
-    BackgroundRemoverModel as UIBackgroundRemoverModel, FileType as UIFileType, Fps as UIFps,
+    BackgroundRemoverModel as UIBackgroundRemoverModel, Fps as UIFps,
     MixPositionWithPadding as UIMixPositionWithPadding,
     MixPositionWithPaddingTag as UIMixPositionWithPaddingTag, RTCIceServer as UIRTCIceServer,
     RealtimeImageEffect as UIRealtimeImageEffect, Resolution as UIResolution,
@@ -7,14 +7,15 @@ use crate::slint_generatedAppWindow::{
     SettingCamera as UISettingCamera, SettingControl as UISettingControl,
     SettingCursorTracker as UISettingCursorTracker, SettingPushStream as UISettingPushStream,
     SettingRecorder as UISettingRecorder, SettingShareScreen as UISettingShareScreen,
-    SettingShareScreenClient as UISettingShareScreenClient,
-    SettingTranscribe as UISettingTranscribe, TransitionType as UITransitionType,
+    SettingShareScreenClient as UISettingShareScreenClient, StartupTab as UIStartupTab,
+    TransitionType as UITransitionType,
 };
 use anyhow::{Context, Result, bail};
 use background_remover::Model as BackgroundRemoverModel;
 use image_effect::realtime::RealtimeImageEffect;
 use log::debug;
 use once_cell::sync::Lazy;
+use platform_dirs::AppDirs;
 use pmacro::SlintFromConvert;
 use recorder::TransitionType;
 use serde::{Deserialize, Serialize};
@@ -22,30 +23,8 @@ use slint::Model;
 use std::{fs, path::PathBuf, sync::Mutex};
 use uuid::Uuid;
 
-#[cfg(feature = "desktop")]
-use platform_dirs::AppDirs;
-
 const CARGO_TOML: &str = include_str!("../Cargo.toml");
 static CONFIG: Lazy<Mutex<Config>> = Lazy::new(|| Mutex::new(Config::default()));
-
-#[cfg(feature = "android")]
-pub struct AppDirs {
-    pub config_dir: PathBuf,
-    pub data_dir: PathBuf,
-}
-
-#[cfg(feature = "android")]
-impl AppDirs {
-    pub fn new(name: Option<&str>, _: bool) -> Option<Self> {
-        let root_dir = "/data/data";
-        let name = name.unwrap();
-
-        Some(Self {
-            config_dir: PathBuf::from(&format!("{root_dir}/{name}/config")),
-            data_dir: PathBuf::from(&format!("{root_dir}/{name}/data")),
-        })
-    }
-}
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct Config {
@@ -78,9 +57,6 @@ pub struct Config {
 
     #[serde(default)]
     pub control: Control,
-
-    #[serde(default)]
-    pub transcribe: Transcribe,
 
     #[serde(default)]
     pub share_screen: ShareScreen,
@@ -120,6 +96,10 @@ pub struct Preference {
     pub no_frame: bool,
 
     pub is_dark: bool,
+
+    #[derivative(Default(value = "UIStartupTab::Recorder"))]
+    #[serde(default)]
+    pub startup_tab: UIStartupTab,
 }
 
 #[derive(Serialize, Deserialize, Derivative, Debug, Clone, SlintFromConvert)]
@@ -346,26 +326,27 @@ pub struct AiModel {
     pub api_key: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
-#[derivative(Default)]
-#[serde(default)]
-#[from("UISettingTranscribe")]
-pub struct Transcribe {
-    pub model_path: String,
-    pub model_tokenizer_path: String,
-
-    #[derivative(Default(value = "200"))]
-    pub mini_silent_period_duration: i32,
-
-    #[derivative(Default(value = "0.5"))]
-    pub audio_sound: f32,
-}
-
-crate::impl_slint_enum_serde!(UIFileType, None, Audio, Video);
 crate::impl_slint_enum_serde!(UIBackgroundRemoverModel, Modnet, Rmbg14);
 crate::impl_slint_enum_serde!(UIFps, Fps24, Fps25, Fps30, Fps60);
-crate::impl_slint_enum_serde!(UIResolution, Original, P480, P720, P1080, P2K, P4K);
 crate::impl_slint_enum_serde!(UITransitionType, Linear, EaseIn, EaseOut);
+crate::impl_slint_enum_serde!(UIStartupTab, Recorder, VideoEditor, Transcribe, ShareScreen);
+crate::impl_slint_enum_serde!(
+    UIResolution,
+    Original,
+    P480,
+    P720,
+    P1080,
+    P2K,
+    P4K,
+    Portrait480P,
+    Portrait720P,
+    Portrait1080P,
+    Portrait4K,
+    Square480P,
+    Square720P,
+    Square1080P,
+    InstagramPortrait
+);
 crate::impl_slint_enum_serde!(
     UIMixPositionWithPaddingTag,
     TopLeft,
@@ -438,23 +419,7 @@ impl Config {
             .trim_matches('"')
             .to_string();
 
-        let pkg_name = if cfg!(feature = "desktop") {
-            self.app_name.clone()
-        } else {
-            metadata
-                .get("package")
-                .unwrap()
-                .get("metadata")
-                .unwrap()
-                .get("android")
-                .unwrap()
-                .get("package")
-                .unwrap()
-                .to_string()
-                .trim_matches('"')
-                .to_string()
-        };
-
+        let pkg_name = self.app_name.clone();
         let app_dirs = AppDirs::new(Some(&pkg_name), true).unwrap();
         self.crate_dirs(&app_dirs)?;
         self.load().with_context(|| "load config file failed")?;

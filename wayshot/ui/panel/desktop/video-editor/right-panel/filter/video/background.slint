@@ -1,0 +1,78 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Util,
+    Store,
+} from "../../../../../def.slint";
+import {
+    LineInput,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    BackgroundDetail,
+} from "../../../filter.slint";
+
+export component Background inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <BackgroundDetail> config: VEFilter.from-background-json(selected-filter.detail);
+    in-out property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+    private property <int> video-editor-color-picker-id;
+
+    changed color-picker-confirmed-flag => {
+        if (video-editor-color-picker-id != Store.video-editor-color-picker-id) {
+            return;
+        }
+        let c = Store.video-editor-color-picker-color;
+        config.color-r = c.red;
+        config.color-g = c.green;
+        config.color-b = c.blue;
+        config.color-a = c.alpha;
+        apply(index, config);
+    }
+
+    callback apply(index: int, config: BackgroundDetail);
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Color");
+                enabled: selected-filter.enabled;
+            }
+
+            LineInput {
+                read-only: true;
+                is-show-icon: true;
+                enabled: selected-filter.enabled;
+                text: Util.color-picker-str(config.color-r, config.color-g, config.color-b, config.color-a);
+                is-show-color-block: true;
+                color-block-color: Util.color-picker-hex-color(self.text);
+                icon: Icons.color-picker-light;
+                border-color: Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                clicked => {
+                    Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                    root.video-editor-color-picker-id = Store.video-editor-color-picker-id;
+                    Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                    Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}
+

@@ -1,0 +1,253 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Util,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+} from "../../../../../def.slint";
+import {
+    Select,
+    LineInput,
+    Slider,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ClickAndEditLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    Live2dDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component Live2d inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <Live2dDetail> config: VEFilter.from-live-2d-json(selected-filter.detail);
+    in-out property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+    private property <int> video-editor-color-picker-id;
+    private property <bool> model-exist: Logic.dir-exist(config.model-path);
+    private property <[string]> expressions: VEFilter.live-2d-expression-names(config.model-path);
+    private property <[string]> motions: VEFilter.live-2d-motion-names(config.model-path);
+
+    changed color-picker-confirmed-flag => {
+        if (video-editor-color-picker-id != Store.video-editor-color-picker-id) {
+            return;
+        }
+        let c = Store.video-editor-color-picker-color;
+        config.background-r = c.red;
+        config.background-g = c.green;
+        config.background-b = c.blue;
+        config.background-a = c.alpha;
+        apply(index, config);
+    }
+
+    callback apply(index: int, config: Live2dDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "live 2d") {
+            self.config = VEFilter.from-live-2d-json(selected-filter.detail);
+            fill-sl.value = self.config.model-view-fill;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Model");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                model-li := LineInput {
+                    private property <string> path: config.model-path;
+
+                    changed path => {
+                        if (path != "") {
+                            config.model-path = path;
+
+                            if motions.length > 0 {
+                                config.motion-index = 0;
+                            } else {
+                                config.motion-index = -1;
+                            }
+
+                            if expressions.length > 0 {
+                                config.expression-index = 0;
+                            } else {
+                                config.expression-index = -1;
+                            }
+
+                            apply(index, config);
+                        }
+                    }
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    enabled: selected-filter.enabled;
+                    read-only: true;
+                    is-show-icon: true;
+                    icon: Icons.open-file-light;
+                    text: path;
+                    border-color: model-exist || config.model-path == "" ? (Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%)) : Theme.danger-color;
+
+                    clicked => {
+                        self.path = VEFilter.live-2d-pick-model-dir();
+                    }
+                }
+            }
+        }
+
+        if motions.length > 0: SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Motion");
+                enabled: selected-filter.enabled;
+            }
+
+            Select {
+                enabled: selected-filter.enabled;
+                gain-focus-when-clicked: false;
+                background: Theme.thirdly-background;
+                values: motions;
+                current-value: config.motion-index >= 0 ? motions[config.motion-index] : "";
+
+                selected(idx, value) => {
+                    config.motion-index = idx;
+                    apply(index, config);
+                }
+            }
+        }
+
+        if expressions.length > 0: SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Expression");
+                enabled: selected-filter.enabled;
+            }
+
+            Select {
+                enabled: selected-filter.enabled;
+                gain-focus-when-clicked: false;
+                background: Theme.thirdly-background;
+                values: expressions;
+                current-value: config.expression-index >= 0 ? expressions[config.expression-index] : "";
+
+                selected(idx, value) => {
+                    config.expression-index = idx;
+                    apply(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Fill");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        fill-sl := Slider {
+                            minimum: 0.5;
+                            maximum: 5.0;
+                            value: config.model-view-fill;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            released(value) => {
+                                config.model-view-fill = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.model-view-fill.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            let val = text.to-float();
+                            if (val > 0.0) {
+                                config.model-view-fill = val;
+                            } else {
+                                config.model-view-fill = 1.85;
+                            }
+                            fill-sl.value = config.model-view-fill;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "model_view_fill", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "model_view_fill", VEFilter.make-float-value(config.model-view-fill));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Background");
+                enabled: selected-filter.enabled;
+            }
+
+            LineInput {
+                read-only: true;
+                is-show-icon: true;
+                enabled: selected-filter.enabled;
+                text: Util.color-picker-str(config.background-r, config.background-g, config.background-b, config.background-a);
+                is-show-color-block: true;
+                color-block-color: Util.color-picker-hex-color(self.text);
+                icon: Icons.color-picker-light;
+                border-color: Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                clicked => {
+                    Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                    root.video-editor-color-picker-id = Store.video-editor-color-picker-id;
+                    Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                    Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

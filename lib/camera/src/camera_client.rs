@@ -1,4 +1,4 @@
-use crate::{CameraError, CameraResult, rgb_to_rgba, rgba_to_rgb};
+use crate::{CameraError, CameraResult};
 use derivative::Derivative;
 use derive_setters::Setters;
 use image::{RgbImage, RgbaImage, imageops};
@@ -11,6 +11,7 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
+use video_utils::convert::{rgb_into_rgba, rgba_into_rgb};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PixelFormat {
@@ -119,7 +120,7 @@ impl CameraClient {
                     PixelFormat::RGBA => buffer.decode_image::<RgbAFormat>()?,
                     PixelFormat::RGB => {
                         if let Ok(rgb_image) = buffer.decode_image::<RgbFormat>() {
-                            rgb_to_rgba(rgb_image)
+                            rgb_into_rgba(rgb_image)
                         } else {
                             return Err(CameraError::NoFrameAvailable);
                         }
@@ -145,7 +146,7 @@ impl CameraClient {
                     PixelFormat::RGB => buffer.decode_image::<RgbFormat>()?,
                     PixelFormat::RGBA => {
                         if let Ok(rgba_image) = buffer.decode_image::<RgbAFormat>() {
-                            rgba_to_rgb(rgba_image)
+                            rgba_into_rgb(rgba_image)
                         } else {
                             return Err(CameraError::NoFrameAvailable);
                         }

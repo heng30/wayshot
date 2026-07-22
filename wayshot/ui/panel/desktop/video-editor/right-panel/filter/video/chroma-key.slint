@@ -1,0 +1,335 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Util,
+    KeyframeValueType,
+    KeyframeValue,
+} from "../../../../../def.slint";
+import {
+    ClickAndEditLabel,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    Slider,
+    LineInput,
+    GroupBox,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    ChromaKeyDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component ChromaKey inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <ChromaKeyDetail> config: VEFilter.from-chroma-key-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: ChromaKeyDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "chroma key") {
+            self.config = VEFilter.from-chroma-key-json(selected-filter.detail);
+            similarity-sl.value = self.config.similarity;
+            softness-sl.value = self.config.softness;
+            feather-sl.value = self.config.feather;
+            spill-sl.value = self.config.spill-reduction;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Similarity");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        similarity-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.similarity;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.similarity = value;
+                            }
+
+                            released(value) => {
+                                config.similarity = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.similarity.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.similarity = text.to-float().clamp(0, 1);
+                            similarity-sl.value = config.similarity;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "similarity", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "similarity", VEFilter.make-float-value(config.similarity));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Softness");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        softness-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.softness;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.softness = value;
+                            }
+
+                            released(value) => {
+                                config.softness = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.softness.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.softness = text.to-float().clamp(0, 1);
+                            softness-sl.value = config.softness;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "softness", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "softness", VEFilter.make-float-value(config.softness));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Feather");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        feather-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.feather;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.feather = value;
+                            }
+
+                            released(value) => {
+                                config.feather = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.feather.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.feather = text.to-float().clamp(0, 1);
+                            feather-sl.value = config.feather;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "feather", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "feather", VEFilter.make-float-value(config.feather));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Spill Reduction");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        spill-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.spill-reduction;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.spill-reduction = value;
+                            }
+
+                            released(value) => {
+                                config.spill-reduction = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.spill-reduction.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.spill-reduction = text.to-float().clamp(0, 1);
+                            spill-sl.value = config.spill-reduction;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "spill_reduction", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "spill_reduction", VEFilter.make-float-value(config.spill-reduction));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Target Color");
+                enabled: selected-filter.enabled;
+            }
+
+            LineInput {
+                read-only: true;
+                is-show-icon: true;
+                enabled: selected-filter.enabled;
+                text: Util.color-picker-str(config.target-color-r, config.target-color-g, config.target-color-b, config.target-color-a);
+                is-show-color-block: true;
+                color-block-color: Util.color-picker-hex-color(self.text);
+                icon: Icons.color-picker-light;
+                border-color: VEFilter.chroma-key-pick-color-mode ? Theme.brand-color : (Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%));
+                border-width: VEFilter.chroma-key-pick-color-mode ? 2px : 1px;
+
+                clicked => {
+                    VEFilter.chroma-key-pick-color-mode = true;
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

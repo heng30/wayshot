@@ -1,0 +1,217 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Store,
+} from "../../../../../def.slint";
+import {
+    Label,
+    IconBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    ZoomDetail,
+} from "../../../filter.slint";
+
+export component Zoom inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <ZoomDetail> config: VEFilter.from-zoom-json(selected-filter.detail);
+
+    callback apply(index: int, config: ZoomDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "zoom") {
+            self.config = VEFilter.from-zoom-json(selected-filter.detail);
+            zoom-in-duration-li.text = self.config.zoom-in-duration-ms;
+            hold-duration-li.text = self.config.hold-duration-ms;
+            zoom-out-duration-li.text = self.config.zoom-out-duration-ms;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Start Time");
+                enabled: selected-filter.enabled;
+                tip: Logic.tr("Effect starts after this time");
+            }
+
+            HorizontalLayout {
+                alignment: space-between;
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    start-lb := Label {
+                        text: Logic.ms-to-srt-timestamp-ui(config.relative-start-ms);
+                        color: selected-filter.enabled ? Theme.primary-text-color : Theme.disabled-color;
+                    }
+                }
+
+                IconBtn {
+                    enabled: selected-filter.enabled;
+                    icon: Icons.locate-to-light;
+                    is-show-tip: true;
+                    tip: Logic.tr("use timeline timestamp");
+                    icon-size: Theme.icon-size * 0.8;
+
+                    clicked => {
+                        config.relative-start-ms = Logic.video-editor-selected-segment-relative-start();
+                        if (selected-filter.enabled) {
+                            apply(index, config);
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Position");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                position-x-li := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: decimal;
+                    text: config.center-x.to-fixed(2);
+                    read-only: true;
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+                }
+
+                Label {
+                    text: "X";
+                    enabled: selected-filter.enabled;
+                    color: selected-filter.enabled ? Theme.primary-text-color : Theme.disabled-color;
+                }
+
+                position-y-li := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: decimal;
+                    text: config.center-y.to-fixed(2);
+                    read-only: true;
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Level");
+                enabled: selected-filter.enabled;
+            }
+
+            level-li := LineInput {
+                enabled: selected-filter.enabled;
+                input-type: decimal;
+                text: config.level.to-fixed(2);
+                read-only: true;
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Zoom in duration (ms)");
+                enabled: selected-filter.enabled;
+            }
+
+            zoom-in-duration-li := LineInput {
+                enabled: selected-filter.enabled;
+                input-type: number;
+                text: config.zoom-in-duration-ms;
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    config.zoom-in-duration-ms = round(self.text.to-float());
+                    apply(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Hold duration (ms)");
+                enabled: selected-filter.enabled;
+            }
+
+            hold-duration-li := LineInput {
+                enabled: selected-filter.enabled;
+                input-type: number;
+                text: config.hold-duration-ms;
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    config.hold-duration-ms = round(self.text.to-float());
+                    apply(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Zoom out duration (ms)");
+                enabled: selected-filter.enabled;
+            }
+
+            zoom-out-duration-li := LineInput {
+                enabled: selected-filter.enabled;
+                input-type: number;
+                text: config.zoom-out-duration-ms;
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    config.zoom-out-duration-ms = round(self.text.to-float());
+                    apply(index, config);
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

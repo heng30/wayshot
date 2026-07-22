@@ -60,23 +60,3 @@ pub fn init() {
         log::info!("User said {} for nokhwa", granted);
     });
 }
-
-pub fn rgb_to_rgba(rgb_image: image::RgbImage) -> RgbaImage {
-    use image::buffer::ConvertBuffer;
-
-    let (width, height) = rgb_image.dimensions();
-    let rgb_buffer: ImageBuffer<Rgb<u8>, Vec<u8>> =
-        ImageBuffer::from_raw(width, height, rgb_image.into_raw())
-            .expect("Failed to create RGB image buffer");
-    rgb_buffer.convert()
-}
-
-pub fn rgba_to_rgb(rgba_image: RgbaImage) -> image::RgbImage {
-    use image::buffer::ConvertBuffer;
-
-    let (width, height) = rgba_image.dimensions();
-    let rgba_buffer: ImageBuffer<Rgba<u8>, Vec<u8>> =
-        ImageBuffer::from_raw(width, height, rgba_image.into_raw())
-            .expect("Failed to create RGBA image buffer");
-    rgba_buffer.convert()
-}

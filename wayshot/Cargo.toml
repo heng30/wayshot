@@ -13,19 +13,70 @@ description.workspace = true
 
 [dependencies]
 log.workspace = true
-slint.workspace = true
-pmacro.workspace = true
-once_cell.workspace = true
-
-[target.'cfg(any(target_os = "windows", target_os = "linux", target_os = "macos", target_os = "android"))'.dependencies]
+lru.workspace = true
+bot.workspace = true
+term.workspace = true
+mp4m.workspace = true
+open.workspace = true
 rand.workspace = true
+wrtc.workspace = true
 toml.workspace = true
+hound.workspace = true
 paste.workspace = true
+infer.workspace = true
+cutout.workspace = true
+pmacro.workspace = true
 anyhow.workspace = true
+camera.workspace = true
+hf-hub.workspace = true
+fast2s.workspace = true
+chrono.workspace = true
+silero.workspace = true
+reqwest.workspace = true
+speakrs.workspace = true
+tempfile.workspace = true
+recorder.workspace = true
+crossbeam.workspace = true
+once_cell.workspace = true
+screenshot.workspace = true
+spin_sleep.workspace = true
 webbrowser.workspace = true
 derivative.workspace = true
-serde_with.workspace = true
 serde_json.workspace = true
+env_logger.workspace = true
+mp4-player.workspace = true
+downloader.workspace = true
+imagedl-rs.workspace = true
+musicdl-rs.workspace = true
+code-image.workspace = true
+mcp-server.workspace = true
+ttf-parser.workspace = true
+dewatermark.workspace = true
+ffmpeg-next.workspace = true
+audio-utils.workspace = true
+video-utils.workspace = true
+musicgen-rs.workspace = true
+lfm-vl-onnx.workspace = true
+clear-vision.workspace = true
+record-audio.workspace = true
+image-effect.workspace = true
+video-editor.workspace = true
+tokio-stream.workspace = true
+bili-danmaku.workspace = true
+deconvolution.workspace = true
+stem-splitter.workspace = true
+deepfilter-rs.workspace = true
+native-dialog.workspace = true
+video-encoder.workspace = true
+platform-dirs.workspace = true
+paddle-ocr-rs.workspace = true
+screen-capture.workspace = true
+image-animation.workspace = true
+subtitle-remover.workspace = true
+fast_image_resize.workspace = true
+background-remover.workspace = true
+background-animation.workspace = true
+similar-video-segment.workspace = true
 sqldb = { workspace = true, optional = true }
 image = { workspace = true, optional = true }
 qrcode = { workspace = true, optional = true }
@@ -33,51 +84,23 @@ uuid = { workspace = true, features = ["v4"] }
 tokio = { workspace = true, features = ["full"] }
 rustls = { workspace = true, features = ["ring"] }
 display-info = { workspace = true, optional = true }
-serde = { workspace = true, features = ["serde_derive"] }
-cutil = { workspace = true, features = ["str", "time", "number", "fs"] }
-
-[target.'cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))'.dependencies]
-bot.workspace = true
-open.workspace = true
-wrtc.workspace = true
-mp4m.workspace = true
-camera.workspace = true
-fast2s.workspace = true
-tempfile.workspace = true
-recorder.workspace = true
-clipboard.workspace = true
-crossbeam.workspace = true
-env_logger.workspace = true
-mp4-player.workspace = true
-downloader.workspace = true
-audio-utils.workspace = true
-video-utils.workspace = true
-async-openai.workspace = true
-image-effect.workspace = true
-native-dialog.workspace = true
-platform-dirs.workspace = true
-screen-capture.workspace = true
-fast_image_resize.workspace = true
-background-remover.workspace = true
 rodio = { workspace = true, features = ["playback"] }
-
-[target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
-fun-ast-nano.workspace = true
+slint = { workspace = true, features = ["backend-qt"] }
+tikv-jemallocator = { workspace = true, optional = true }
+serde = { workspace = true, features = ["serde_derive"] }
+scenesdetect = { workspace = true, features = ["serde"] }
+voxcpm-rs = { workspace = true, features = ["all-backends"] }
+arboard = { workspace = true, features = ["wayland-data-control"] }
+cutil = { workspace = true, features = ["str", "time", "number", "fs"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 duct.workspace = true
 
+[target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
+fun-ast-nano.workspace = true
+
 [target.'cfg(target_os = "macos")'.dependencies]
 fun-ast-nano = { workspace = true, features = ["metal"] }
-
-[target.'cfg(target_os = "android")'.dependencies]
-android_logger.workspace = true
-android_clipboard.workspace = true
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen.workspace = true
-getrandom = { workspace = true, features = ["wasm_js"] }
-console_log = { workspace = true, features = ["color"] }
 
 [build-dependencies]
 duct.workspace = true
@@ -87,17 +110,13 @@ slint-build.workspace = true
 embed-resource.workspace = true
 
 [features]
-default = ["desktop-wayland-wlr"]
-desktop = ["cutil/backup-recover", "database", "dep:image"]
-desktop-windows = ["desktop", "recorder/windows"]
-desktop-wayland-wlr = ["desktop", "recorder/wayland-wlr"]
-desktop-wayland-portal = ["desktop", "recorder/wayland-portal"]
-
-web = []
-mobile = ["android"]
-android = ["slint/backend-android-activity-06"]
-
+default = ["wayland-wlr", "jemalloc"]
+windows = ["recorder/windows", "common"]
+wayland-wlr = ["recorder/wayland-wlr", "common"]
+wayland-portal = ["recorder/wayland-portal", "common"]
+common = ["cutil/backup-recover", "database", "dep:image"]
 database = ["dep:sqldb"]
+jemalloc = ["dep:tikv-jemallocator"]
 qrcode = ["dep:image", "dep:qrcode"]
 center-window = ["dep:display-info"]
 
@@ -108,40 +127,4 @@ crate-type = ["cdylib", "lib"]
 [[bin]]
 path = "src/desktop.rs"
 name = "wayshot"
-required-features = ["desktop"]
-
-[package.metadata.android]
-package = "xyz.heng30.wayshot"
-build_targets = ["aarch64-linux-android"]
-resources = "./android/res"
-strip = "strip"
-
-[package.metadata.android.signing.dev]
-path = "android/keystore/debug.keystore"
-keystore_password = "123456"
-
-[package.metadata.android.signing.release]
-path = "android/keystore/release.keystore"
-keystore_password = "123456"
-
-[package.metadata.android.sdk]
-min_sdk_version = 23
-target_sdk_version = 32
-
-[[package.metadata.android.uses_permission]]
-name = "android.permission.INTERNET"
-
-[[package.metadata.android.uses_permission]]
-name = "android.permission.WRITE_EXTERNAL_STORAGE"
-
-[[package.metadata.android.uses_permission]]
-name = "android.permission.READ_EXTERNAL_STORAGE"
-
-[package.metadata.android.application]
-icon = "@mipmap/ic_launcher"
-theme = "@style/AppTheme"
-
-[package.metadata.android.application.activity]
-orientation = "portrait"
-launch_mode = "singleTop"
-always_retain_task_state = true
+required-features = ["common"]

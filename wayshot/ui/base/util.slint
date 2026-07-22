@@ -63,6 +63,14 @@ export global Util {
         return "00:00";
     }
 
+    pure callback color-picker-get(x: int, y: int, width: int, height: int) -> color;
+    pure callback color-picker-hex-color(color-hex: string) -> color;
+    pure callback color-picker-str(r: int, g: int, b: int, a: int) -> string;
+    pure callback color-picker-image() -> image;
+    color-picker-image => {
+        return Icons.brand;
+    }
+
     pure callback color-to-hex(r: int, g: int, b: int, a: int) -> string;
 
     pure callback cal-sound-wave(data: [float], container-width: float, data-width: float, is-mono: bool) -> [float];

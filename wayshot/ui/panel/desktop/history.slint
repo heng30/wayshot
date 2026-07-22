@@ -123,7 +123,7 @@ export component TableBody inherits ListView {
 
     for entry[index] in Store.history-entries: vbox := VerticalLayout {
         Rectangle {
-            background: ta.has-hover ? Theme.checked-background : (Math.mod(index, 2) == 0 ? Theme.table-item-first : Theme.table-item-second);
+            background: Theme.table-item-background(index, false, ta.has-hover);
 
             ta := TouchArea {
                 mouse-cursor: MouseCursor.pointer;
@@ -247,6 +247,17 @@ export component TableBody inherits ListView {
                         clicked => {
                             Logic.switch-tab(TabIndex.Player);
                             Logic.player-play(index);
+                        }
+                    }
+
+                    if entry.status.is-empty: IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("add to playlist");
+                        icon: Icons.playlist-light;
+                        tip-position: Top;
+
+                        clicked => {
+                            Logic.add-to-video-editor-playlist(index);
                         }
                     }
 

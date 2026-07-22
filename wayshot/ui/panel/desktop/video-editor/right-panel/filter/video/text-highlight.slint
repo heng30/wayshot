@@ -1,0 +1,204 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Util,
+    Store,
+} from "../../../../../def.slint";
+import {
+    Label,
+    ClickAndEditLabel,
+    LineInput,
+    Slider,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    TextHighlightDetail,
+} from "../../../filter.slint";
+
+export component TextHighlight inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <TextHighlightDetail> config: VEFilter.from-text-highlight-json(selected-filter.detail);
+    in-out property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+    private property <int> video-editor-color-picker-id-highlight;
+
+    changed color-picker-confirmed-flag => {
+        if (video-editor-color-picker-id-highlight != Store.video-editor-color-picker-id) {
+            return;
+        }
+        let c = Store.video-editor-color-picker-color;
+        config.highlight-color-r = c.red;
+        config.highlight-color-g = c.green;
+        config.highlight-color-b = c.blue;
+        config.highlight-color-a = c.alpha;
+        apply(index, config);
+    }
+
+    callback apply(index: int, config: TextHighlightDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "text highlight") {
+            self.config = VEFilter.from-text-highlight-json(selected-filter.detail);
+            pixel-input.text = self.config.pixel-per-second;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Highlight Color");
+                enabled: selected-filter.enabled;
+            }
+
+            LineInput {
+                read-only: true;
+                is-show-icon: true;
+                enabled: selected-filter.enabled;
+                text: Util.color-picker-str(config.highlight-color-r, config.highlight-color-g, config.highlight-color-b, config.highlight-color-a);
+                is-show-color-block: true;
+                color-block-color: Util.color-picker-hex-color(self.text);
+                icon: Icons.color-picker-light;
+                border-color: Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                clicked => {
+                    Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                    root.video-editor-color-picker-id-highlight = Store.video-editor-color-picker-id;
+                    Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                    Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+                }
+            }
+        }
+
+        // Background Color - click to pick from preview
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Background Color to Detect");
+                enabled: selected-filter.enabled;
+            }
+
+            LineInput {
+                read-only: true;
+                is-show-icon: true;
+                enabled: selected-filter.enabled;
+                text: Util.color-picker-str(config.background-color-r, config.background-color-g, config.background-color-b, 255);
+                is-show-color-block: true;
+                color-block-color: Util.color-picker-hex-color(self.text);
+                icon: Icons.color-picker-light;
+                border-color: VEFilter.text-highlight-pick-color-mode ? Theme.brand-color : (Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%));
+                border-width: VEFilter.chroma-key-pick-color-mode ? 2px : 1px;
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                clicked => {
+                    VEFilter.text-highlight-pick-color-mode = true;
+                }
+            }
+        }
+
+        // Pixel per Second (animation speed)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Pixel per Second");
+                enabled: selected-filter.enabled;
+            }
+
+            pixel-input := LineInput {
+                input-type: number;
+                enabled: selected-filter.enabled;
+                text: config.pixel-per-second;
+                placeholder-text: 500;
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    let val = self.text.to-float();
+                    if (val > 0) {
+                        config.pixel-per-second = round(val);
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        // Similarity Threshold
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Similarity Threshold");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    similarity-slider := Slider {
+                        enabled: selected-filter.enabled;
+                        minimum: 0.0;
+                        maximum: 1.0;
+                        value: config.similarity-threshold;
+                        indicator-size: Theme.default-font-size;
+                        height: self.indicator-size * 0.3;
+                        unfinished-progress-color: Theme.thirdly-background;
+
+                        changed(value) => {
+                            config.similarity-threshold = value.to-fixed(2).to-float();
+                        }
+
+                        released(value) => {
+                            config.similarity-threshold = value.to-fixed(2).to-float();
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                Label {
+                    enabled: selected-filter.enabled;
+                    vertical-alignment: center;
+                    text: config.similarity-threshold.to-fixed(2);
+                }
+            }
+        }
+
+        // Invert mode toggle
+        SettingDetailSwitch {
+            enabled: selected-filter.enabled;
+            icon: Icons.invert-light;
+            icon-size: Theme.icon-size * 0.7;
+            text: Logic.tr("Invert");
+            checked: config.invert;
+            gain-focus-when-clicked: false;
+            background: Theme.thirdly-background;
+
+            toggled => {
+                config.invert = !config.invert;
+                apply(index, config);
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

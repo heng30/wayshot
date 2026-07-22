@@ -21,13 +21,13 @@
 //! async fn main() -> Result<()> {
 //!     // Create database
 //!     create_db("/path/to/database.db").await?;
-//!     
+//!
 //!     // Create table
 //!     entry::new("users").await?;
-//!     
+//!
 //!     // Insert data
 //!     entry::insert("users", "user-123", "user data").await?;
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -36,9 +36,9 @@ use anyhow::Result;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use sqlx::{
+    AssertSqlSafe, Pool,
     migrate::MigrateDatabase,
     sqlite::{Sqlite, SqlitePoolOptions},
-    Pool,
 };
 use tokio::sync::Mutex;
 
@@ -147,7 +147,7 @@ pub async fn is_table_exist(table_name: &str) -> Result<()> {
 /// This operation is destructive and cannot be undone.
 /// Make sure to backup important data before calling this function.
 pub async fn drop_table(table_name: &str) -> Result<()> {
-    sqlx::query(&format!("DROP TABLE {}", table_name))
+    sqlx::query(AssertSqlSafe(format!("DROP TABLE {}", table_name)))
         .execute(&pool().await)
         .await?;
 
@@ -170,17 +170,17 @@ mod tests {
     #[tokio::test]
     async fn test_create_db() -> Result<()> {
         let _mtx = MTX.lock().await;
-        
+
         let test_db_path = "/tmp/test-create-db.db";
-        
+
         // Clean up any existing test database
         let _ = std::fs::remove_file(test_db_path);
-        
+
         create_db(test_db_path).await?;
-        
+
         // Verify database file was created
         assert!(std::path::Path::new(test_db_path).exists());
-        
+
         Ok(())
     }
 
@@ -191,13 +191,13 @@ mod tests {
 
         let test_db_path = "/tmp/test-is-table-exist.db";
         init(test_db_path).await;
-        
+
         // Test non-existent table
         assert!(is_table_exist("hello").await.is_err());
-        
+
         // Test existing table
         assert!(is_table_exist("test").await.is_ok());
-        
+
         Ok(())
     }
 
@@ -208,16 +208,16 @@ mod tests {
 
         let test_db_path = "/tmp/test-drop-table.db";
         init(test_db_path).await;
-        
+
         // Test dropping non-existent table
         assert!(drop_table("hello").await.is_err());
-        
+
         // Test dropping existing table
         assert!(drop_table("test").await.is_ok());
-        
+
         // Verify table no longer exists
         assert!(is_table_exist("test").await.is_err());
-        
+
         Ok(())
     }
 
@@ -251,7 +251,7 @@ mod tests {
         let cloned = original.clone();
         assert_eq!(original.uuid, cloned.uuid);
         assert_eq!(original.data, cloned.data);
-        
+
         // Verify they are separate instances
         assert!(!std::ptr::eq(&original, &cloned));
     }

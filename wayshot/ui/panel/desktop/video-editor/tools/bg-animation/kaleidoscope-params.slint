@@ -1,0 +1,122 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+} from "../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../base/widgets.slint";
+
+export component KaleidoscopeParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Segments");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.kaleidoscope.segments;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 8 : input-value;
+                Store.video-editor-bg-animation-config.kaleidoscope.segments = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Rotation Speed");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.kaleidoscope.rotation-speed.to-fixed(2);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.kaleidoscope.rotation-speed = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Scale");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.kaleidoscope.scale.to-fixed(1);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.kaleidoscope.scale = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Complexity");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.kaleidoscope.complexity;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 6 : input-value;
+                Store.video-editor-bg-animation-config.kaleidoscope.complexity = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.kaleidoscope.bg-color-r = c.red;
+            Store.video-editor-bg-animation-config.kaleidoscope.bg-color-g = c.green;
+            Store.video-editor-bg-animation-config.kaleidoscope.bg-color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Background Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.kaleidoscope.bg-color-r,
+                Store.video-editor-bg-animation-config.kaleidoscope.bg-color-g,
+                Store.video-editor-bg-animation-config.kaleidoscope.bg-color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+}

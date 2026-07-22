@@ -1,0 +1,217 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoPreviewSize,
+    VideoEditorLayerImage,
+    FocusDetail,
+} from "../../../def.slint";
+import { VEFilter, FilterType } from "../filter.slint";
+import { IconBtn, Divider, Label } from "../../../../base/widgets.slint";
+import { MoveHandle } from "move-handle.slint";
+
+export component PreviewFocusLayer inherits Rectangle {
+    in-out property <[VideoEditorLayerImage]> layers;
+    private property <float> width-hight-rate: self.width / self.height;
+    private property <FilterType> selected-filter-type <=> VEFilter.selected-filter.ty;
+
+    for index in layers.length: rec := Rectangle {
+        x: 0;
+        y: 0;
+
+        private property <VideoEditorLayerImage> layer: layers[layers.length - 1 - index];
+        private property <bool> is-edited-track: Store.video-editor-current-edited-track-index == layer.track-index;
+        private property <bool> has-keyframes: Logic.video-editor-segment-has-keyframes(layer.track-index, layer.segment-index);
+        private property <FocusDetail> config: is-edited-track && has-keyframes ? VEFilter.from-focus-json(VEFilter.selected-filter.detail) : layer.focus;
+        private property <bool> is-previewing: Store.video-editor-is-previewing;
+
+        changed is-previewing => {
+            if (is-edited-track && !is-previewing && has-keyframes) {
+                VEFilter.modify-focus-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+            }
+        }
+
+        container-rec := Rectangle {
+            width: img.width;
+            height: img.height;
+
+            img := Image {
+                private property <length> parent-width: rec.width;
+                private property <length> parent-height: rec.height;
+                private property <float> width-hight-rate: self.source.width / self.source.height;
+
+                changed parent-width => {
+                    self.update-size();
+                }
+
+                changed parent-height => {
+                    self.update-size();
+                }
+
+                function update-size() {
+                    if (root.width-hight-rate > self.width-hight-rate) {
+                        self.height = root.height;
+                        self.width = self.height * self.width-hight-rate;
+                    } else {
+                        self.width = root.width;
+                        self.height = self.width / self.width-hight-rate;
+                    }
+                }
+
+                init => {
+                    self.update-size();
+                }
+
+                source: layer.original-image;
+                image-fit: ImageFit.contain;
+            }
+
+            if is-edited-track: Rectangle {
+                width: img.width;
+                height: img.height;
+
+                // Focus radius scaled to preview resolution
+                private property <length> focus-radius-preview: VEFilter.scale-pixel-for-resolution(config.focus-radius, img.height / 1px) * 1px;
+                // Feather zone scaled
+                private property <length> feather-preview: VEFilter.scale-pixel-for-resolution(config.feather, img.height / 1px) * 1px;
+                // Blur radius scaled (shown as indicator)
+                private property <length> blur-radius-preview: VEFilter.scale-pixel-for-resolution(config.blur-radius, img.height / 1px) * 1px;
+
+                // Feather zone ring (outer ring showing transition area)
+                feather-rec := Rectangle {
+                    x: config.center-x * parent.width - self.width / 2;
+                    y: config.center-y * parent.height - self.height / 2;
+                    width: (focus-radius-preview + feather-preview) * 2;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    border-width: 1px;
+                    border-color: rgba(255, 255, 255, 0.4);
+                    background: transparent;
+                }
+
+                // Blur indicator ring (shows blur radius influence area)
+                blur-rec := Rectangle {
+                    x: config.center-x * parent.width - self.width / 2;
+                    y: config.center-y * parent.height - self.height / 2;
+                    width: (focus-radius-preview + feather-preview + blur-radius-preview) * 2;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    border-width: 1px;
+                    border-color: rgba(255, 255, 255, 0.2);
+                    background: transparent;
+                }
+
+                // Focus circle (main sharp area)
+                focus-rec := Rectangle {
+                    x: config.center-x * parent.width - self.width / 2;
+                    y: config.center-y * parent.height - self.height / 2;
+                    width: focus-radius-preview * 2;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    border-width: 2px;
+                    border-color: white;
+                    background: transparent;
+
+                    TouchArea {
+                        private property <bool> can-move;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left) {
+                                if (event.kind == PointerEventKind.down) {
+                                    can-move = true
+                                } else if (event.kind == PointerEventKind.up) {
+                                    can-move = false;
+                                    VEFilter.modify-focus-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                                }
+                            }
+                        }
+
+                        moved => {
+                            if (!can-move) {
+                                return;
+                            }
+                            let cx = focus-rec.x + focus-rec.width / 2 + self.mouse-x - self.pressed-x;
+                            let cy = focus-rec.y + focus-rec.height / 2 + self.mouse-y - self.pressed-y;
+                            config.center-x = clamp(cx / img.width, 0, 1);
+                            config.center-y = clamp(cy / img.height, 0, 1);
+                        }
+                    }
+
+                    // Focus radius handle (right side of focus circle)
+                    focus-radius-handle := Rectangle {
+                        x: parent.width - self.width / 2;
+                        y: parent.height / 2 - self.height / 2;
+                        width: Theme.icon-size * 0.7;
+                        height: self.width;
+                        border-radius: self.width / 2;
+                        background: Theme.thirdly-brand-color;
+                        border-width: 2px;
+                        border-color: white;
+
+                        TouchArea {
+                            mouse-cursor: MouseCursor.ew-resize;
+                            private property <bool> can-resize;
+
+                            pointer-event(event) => {
+                                if (event.button == PointerEventButton.left) {
+                                    if (event.kind == PointerEventKind.down) {
+                                        can-resize = true;
+                                    } else if (event.kind == PointerEventKind.up) {
+                                        can-resize = false;
+                                        VEFilter.modify-focus-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                                    }
+                                }
+                            }
+
+                            moved => {
+                                if (!can-resize) {
+                                    return;
+                                }
+                                let delta = (self.mouse-x - self.pressed-x) / 1px * 1080 / (img.height / 1px);
+                                config.focus-radius = clamp(config.focus-radius + delta, 0, 2000);
+                            }
+                        }
+                    }
+                }
+
+                // Blur radius handle (right side of blur ring)
+                blur-radius-handle := Rectangle {
+                    x: config.center-x * img.width + focus-radius-preview + feather-preview + blur-radius-preview - self.width / 2;
+                    y: config.center-y * img.height - self.height / 2;
+                    width: Theme.icon-size * 0.7;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    background: black;
+                    border-width: 2px;
+                    border-color: white;
+
+                    TouchArea {
+                        mouse-cursor: MouseCursor.ew-resize;
+                        private property <bool> can-resize;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left) {
+                                if (event.kind == PointerEventKind.down) {
+                                    can-resize = true;
+                                } else if (event.kind == PointerEventKind.up) {
+                                    can-resize = false;
+                                    VEFilter.modify-focus-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                                }
+                            }
+                        }
+
+                        moved => {
+                            if (!can-resize) {
+                                return;
+                            }
+                            let delta = (self.mouse-x - self.pressed-x) / 1px * 1080 / (img.height / 1px);
+                            config.blur-radius = clamp(config.blur-radius + delta, 0, 100);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

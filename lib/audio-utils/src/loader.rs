@@ -4,14 +4,12 @@ use derive_setters::Setters;
 use std::{fs::File, path::Path, time::Duration};
 use symphonia::{
     core::{
-        audio::{AudioBuffer, AudioBufferRef, Signal},
-        codecs::DecoderOptions,
+        audio::{Audio, AudioBuffer, GenericAudioBufferRef, sample::Sample},
+        codecs::audio::AudioDecoderOptions,
         errors::Error as SymphoniaError,
-        formats::FormatOptions,
+        formats::{FormatOptions, probe::Hint},
         io::MediaSourceStream,
         meta::MetadataOptions,
-        probe::Hint,
-        sample::Sample,
     },
     default,
 };
@@ -44,45 +42,45 @@ where
     S: Sample + Copy,
     F: FnMut(S) -> f32,
 {
-    let spec = *buf.spec();
-    let channels = spec.channels.count();
+    let spec = buf.spec();
+    let channels = spec.channels().count();
     let frames = buf.frames();
     let mut samples = Vec::with_capacity(frames * channels);
 
     for frame in 0..frames {
         for channel in 0..channels {
-            samples.push(convert_fn(buf.chan(channel)[frame]));
+            samples.push(convert_fn(buf.plane(channel).unwrap()[frame]));
         }
     }
     samples
 }
 
-fn convert_audio_buffer_to_f32(audio_buffer: AudioBufferRef) -> Vec<f32> {
+fn convert_audio_buffer_to_f32(audio_buffer: GenericAudioBufferRef<'_>) -> Vec<f32> {
     match audio_buffer {
-        AudioBufferRef::S8(buf) => convert_planar(&buf, |s| s as f32 / i8::MAX as f32),
-        AudioBufferRef::U8(buf) => convert_planar(&buf, |s| {
+        GenericAudioBufferRef::S8(buf) => convert_planar(buf, |s| s as f32 / i8::MAX as f32),
+        GenericAudioBufferRef::U8(buf) => convert_planar(buf, |s| {
             let half = (u8::MAX / 2 + 1) as f32;
             (s as f32 - half) / half
         }),
-        AudioBufferRef::S16(buf) => convert_planar(&buf, |s| s as f32 / i16::MAX as f32),
-        AudioBufferRef::U16(buf) => convert_planar(&buf, |s| {
+        GenericAudioBufferRef::S16(buf) => convert_planar(buf, |s| s as f32 / i16::MAX as f32),
+        GenericAudioBufferRef::U16(buf) => convert_planar(buf, |s| {
             let half = (u16::MAX / 2 + 1) as f32;
             (s as f32 - half) / half
         }),
-        AudioBufferRef::S24(buf) => {
-            convert_planar(&buf, |s| s.inner() as f32 / (i32::MAX >> 8) as f32)
+        GenericAudioBufferRef::S24(buf) => {
+            convert_planar(buf, |s| s.inner() as f32 / (i32::MAX >> 8) as f32)
         }
-        AudioBufferRef::U24(buf) => convert_planar(&buf, |s| {
+        GenericAudioBufferRef::U24(buf) => convert_planar(buf, |s| {
             let half = ((1u32 << 24) / 2 + 1) as f32;
             (s.inner() as f32 - half) / half
         }),
-        AudioBufferRef::S32(buf) => convert_planar(&buf, |s| s as f32 / i32::MAX as f32),
-        AudioBufferRef::U32(buf) => convert_planar(&buf, |s| {
+        GenericAudioBufferRef::S32(buf) => convert_planar(buf, |s| s as f32 / i32::MAX as f32),
+        GenericAudioBufferRef::U32(buf) => convert_planar(buf, |s| {
             let half = (u32::MAX / 2 + 1) as f32;
             (s as f32 - half) / half
         }),
-        AudioBufferRef::F32(buf) => convert_planar(&buf, |s| s),
-        AudioBufferRef::F64(buf) => convert_planar(&buf, |s| s as f32),
+        GenericAudioBufferRef::F32(buf) => convert_planar(buf, |s| s),
+        GenericAudioBufferRef::F64(buf) => convert_planar(buf, |s| s as f32),
     }
 }
 
@@ -99,22 +97,30 @@ pub fn load_audio_file(path: impl AsRef<Path>) -> Result<AudioConfig> {
 
     let meta_opts: MetadataOptions = Default::default();
     let fmt_opts: FormatOptions = Default::default();
-    let probed = default::get_probe()
-        .format(&hint, mss, &fmt_opts, &meta_opts)
+    let mut format = default::get_probe()
+        .probe(&hint, mss, fmt_opts, meta_opts)
         .map_err(|e| AudioProcessError::Audio(format!("Failed to probe format: {e}")))?;
-
-    let mut format = probed.format;
 
     // Find the first audio track by checking for sample_rate (audio-specific property)
     let track = format
         .tracks()
         .iter()
-        .find(|t| t.codec_params.sample_rate.is_some())
+        .find(|t| {
+            t.codec_params
+                .as_ref()
+                .and_then(|p| p.audio())
+                .and_then(|a| a.sample_rate)
+                .is_some()
+        })
         .ok_or_else(|| AudioProcessError::Audio("No audio track found".to_string()))?;
 
-    let codec_params = &track.codec_params;
+    let codec_params = track
+        .codec_params
+        .as_ref()
+        .and_then(|p| p.audio())
+        .ok_or_else(|| AudioProcessError::Audio("No audio codec params".to_string()))?;
     let mut decoder = default::get_codecs()
-        .make(codec_params, &DecoderOptions::default())
+        .make_audio_decoder(codec_params, &AudioDecoderOptions::default())
         .map_err(|e| AudioProcessError::Audio(format!("Failed to create decoder: {e}")))?;
 
     let track_id = track.id;
@@ -123,7 +129,12 @@ pub fn load_audio_file(path: impl AsRef<Path>) -> Result<AudioConfig> {
     // Decode first packet to get audio format info
     let (sample_rate, channel_count) = loop {
         let packet = match format.next_packet() {
-            Ok(packet) => packet,
+            Ok(Some(packet)) => packet,
+            Ok(None) => {
+                return Err(AudioProcessError::Audio(
+                    "No audio packets found".to_string(),
+                ));
+            }
             Err(SymphoniaError::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
                 return Err(AudioProcessError::Audio(
                     "No audio packets found".to_string(),
@@ -137,16 +148,18 @@ pub fn load_audio_file(path: impl AsRef<Path>) -> Result<AudioConfig> {
             }
         };
 
-        if packet.track_id() != track_id {
+        if packet.track_id != track_id {
             continue;
         }
 
         match decoder.decode(&packet) {
             Ok(audio_buffer) => {
-                let spec = *audio_buffer.spec();
+                let spec = audio_buffer.spec();
+                let rate = spec.rate();
+                let channels = spec.channels().count();
                 let samples = convert_audio_buffer_to_f32(audio_buffer);
                 all_samples.extend_from_slice(&samples);
-                break (spec.rate, spec.channels.count());
+                break (rate, channels);
             }
             Err(SymphoniaError::IoError(_)) | Err(SymphoniaError::DecodeError(_)) => continue,
             Err(e) => {
@@ -162,7 +175,8 @@ pub fn load_audio_file(path: impl AsRef<Path>) -> Result<AudioConfig> {
     // Continue decoding the rest of the packets
     loop {
         let packet = match format.next_packet() {
-            Ok(packet) => packet,
+            Ok(Some(packet)) => packet,
+            Ok(None) => break,
             Err(SymphoniaError::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
                 break;
             }
@@ -174,7 +188,7 @@ pub fn load_audio_file(path: impl AsRef<Path>) -> Result<AudioConfig> {
             }
         };
 
-        if packet.track_id() != track_id {
+        if packet.track_id != track_id {
             continue;
         }
 

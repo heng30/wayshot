@@ -28,6 +28,14 @@ jobs:
       - run: echo "The ${{ github.workspace }} is now ready to test your code on the runner."
       - run: ls ${{ github.workspace }}
 
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+
       - name: Install dependencies
         run: |
           $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
@@ -45,7 +53,7 @@ jobs:
       - run: echo "end install Rust..."
 
       - run: echo "start build..."
-      - run: make desktop-build-release desktop-features=desktop-windows
+      - run: make build-release features=windows
       - run: echo "end build..."
 
       - name: Get the release version from the tag
@@ -55,6 +63,17 @@ jobs:
       - run: echo "start packing..."
       - run: make app-name
 
+      - name: Extract Qt dependencies only
+        shell: bash
+        run: |
+          cd target
+          binary_name=`cat app-name`
+          mkdir qt_dependencies
+          cp -rf release/$binary_name.exe qt_dependencies/
+          cd qt_dependencies
+          "${{ env.QT_ROOT_DIR }}/bin/windeployqt6.exe" --release --compiler-runtime --no-system-d3d-compiler --no-opengl-sw $binary_name.exe
+          rm $binary_name.exe
+
       # - name: Test packing package
       #   shell: bash
       #   run: |
@@ -63,6 +82,7 @@ jobs:
       #     mkdir $binary_name
       #     output="$binary_name-${{ env.VERSION }}-x86_64-windows.tar.gz"
       #     cp -rf release/$binary_name.exe $binary_name/
+      #     cp -rf qt_dependencies/* $binary_name/
       #     cp -rf ../wayshot/windows/dll/x264.dll $binary_name/
       #
       #     ffmpeg_dir=$(echo "${{ env.FFMPEG_DIR }}" | sed 's/\\/\//g')
@@ -82,6 +102,7 @@ jobs:
           mkdir $binary_name
           output="$binary_name-${{ env.VERSION }}-x86_64-windows.tar.gz"
           cp -rf release/$binary_name.exe $binary_name/
+          cp -rf qt_dependencies/* $binary_name/
           cp -rf ../wayshot/windows/dll/x264.dll $binary_name/
 
           ffmpeg_dir=$(echo "${{ env.FFMPEG_DIR }}" | sed 's/\\/\//g')

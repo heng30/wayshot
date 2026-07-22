@@ -1,0 +1,136 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+} from "../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    Select,
+} from "../../../../../base/widgets.slint";
+
+export component WaveParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Wave Count");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.wave.wave-count;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 3 : input-value;
+                Store.video-editor-bg-animation-config.wave.wave-count = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Wave Height");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.wave.wave-height.to-fixed(1);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.wave.wave-height = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Wave Opacity");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.wave.wave-opacity.to-fixed(2);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.wave.wave-opacity = value <= 0.0 ? 0.25 : value.min(1.0);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.wave.wave-color-r = c.red;
+            Store.video-editor-bg-animation-config.wave.wave-color-g = c.green;
+            Store.video-editor-bg-animation-config.wave.wave-color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Wave Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.wave.wave-color-r,
+                Store.video-editor-bg-animation-config.wave.wave-color-g,
+                Store.video-editor-bg-animation-config.wave.wave-color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Wave Period (seconds)");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.wave.duration.to-fixed(1);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.wave.duration = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Gradient Duration (seconds)");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.wave.gradient-duration.to-fixed(1);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.wave.gradient-duration = self.text.to-float();
+            }
+        }
+    }
+}

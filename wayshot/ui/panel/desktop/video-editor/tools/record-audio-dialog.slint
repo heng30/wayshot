@@ -1,0 +1,177 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    MediaType,
+    Util,
+    VideoEditorRecordAudioConfig,
+} from "../../../def.slint";
+import {
+    Label,
+    AudioLevel,
+    MovingDialog,
+    ElevatedBtn,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+    Select,
+    CheckBtn,
+} from "../../../../base/widgets.slint";
+
+export component RecordAudioDialog inherits MovingDialog {
+    title: Logic.tr("Record Audio");
+    icon: Icons.audio-light;
+    header-width: out-vbox.preferred-width;
+    head-y: root.height * 0.2;
+
+    private property record-duration <=> Store.video-editor-record-audio-duration;
+    private property <VideoEditorRecordAudioConfig> cache-config <=> Store.video-editor-record-audio-config;
+
+    public function stop() {
+        record-duration = 0;
+        Logic.video-editor-stop-recording-audio();
+    }
+
+    out-vbox := VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 4;
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            icon: Icons.file-open-light;
+            text: cache-config.save-dir;
+            vpadding: Theme.padding;
+            placeholder-text: Logic.tr("Please select a save directory");
+            enabled: !Store.video-editor-is-recording-audio;
+
+            clicked => {
+                Logic.video-editor-record-audio-select-dir();
+            }
+        }
+
+        Select {
+            enabled: !Store.video-editor-is-recording-audio;
+            gain-focus-when-clicked: false;
+            vpadding: Theme.padding;
+            values: Store.video-editor-audio-devices;
+            current-value: cache-config.device.is-empty ? Logic.tr("Please select a input device") : cache-config.device;
+
+            selected(current-index, current-value) => {
+                cache-config.device = current-value;
+                Logic.video-editor-record-audio-update(cache-config);
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                Label {
+                    text: Logic.tr("Gain (dB):");
+                    vertical-alignment: center;
+                    enabled: !Store.video-editor-is-recording-audio;
+                }
+
+                LineInput {
+                    input-type: InputType.decimal;
+                    text: cache-config.gain.to-fixed(2);
+                    vpadding: Theme.padding / 2;
+                    enabled: !Store.video-editor-is-recording-audio;
+
+                    accepted => {
+                        cache-config.gain = self.text.to-float();
+                        Logic.video-editor-record-audio-update(cache-config);
+                    }
+                }
+            }
+
+            CheckBtn {
+                text: Logic.tr("Mono");
+                checked: cache-config.mono;
+                enabled: !Store.video-editor-is-recording-audio;
+
+                toggled => {
+                    cache-config.mono = self.checked;
+                    Logic.video-editor-record-audio-update(cache-config);
+                }
+            }
+        }
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 4;
+
+            vbox := VerticalLayout {
+                spacing: Theme.spacing;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing;
+                    alignment: start;
+
+                    Label {
+                        text: "L";
+                        width: Theme.default-font-size;
+                        vertical-alignment: center;
+                        font-size: Theme.default-font-size * 0.8;
+                        enabled: !Store.video-editor-is-recording-audio;
+                    }
+
+                    AudioLevel {
+                        db: Store.video-editor-is-recording-audio ? Store.video-editor-record-audio-volume.left : -200;
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing;
+                    alignment: start;
+
+                    Label {
+                        text: "R";
+                        width: Theme.default-font-size;
+                        vertical-alignment: center;
+                        font-size: Theme.default-font-size * 0.8;
+                        enabled: !Store.video-editor-is-recording-audio;
+                    }
+
+                    AudioLevel {
+                        db: Store.video-editor-is-recording-audio ? Store.video-editor-record-audio-volume.right : -200;
+                    }
+                }
+            }
+
+            Label {
+                text: Util.seconds-to-media-timestamp(record-duration);
+            }
+
+            if Store.video-editor-is-recording-audio: HorizontalLayout {
+                alignment: center;
+                spacing: Theme.spacing * 2;
+
+                ElevatedBtn {
+                    background: self.has-hover ? Theme.danger-color.darker(30%) : Theme.danger-color;
+                    icon: Icons.stop-light;
+                    colorize: Theme.light-text-color;
+                    width: vbox.preferred-height;
+
+                    clicked => {
+                        root.stop();
+                    }
+                }
+            }
+
+            if !Store.video-editor-is-recording-audio: ElevatedBtn {
+                background: self.has-hover ? Theme.thirdly-brand-color.darker(30%) : Theme.thirdly-brand-color;
+                icon: Icons.control-start-light;
+                colorize: Theme.light-text-color;
+                width: vbox.preferred-height;
+
+                clicked => {
+                    Logic.video-editor-start-recording-audio();
+                }
+            }
+        }
+    }
+}

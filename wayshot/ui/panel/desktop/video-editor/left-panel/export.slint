@@ -1,0 +1,455 @@
+import { ListView } from "std-widgets.slint";
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    MediaType,
+    SubtitleType,
+    VideoEditorExportQueueItem,
+    VideoEditorExportVideoConfig,
+    VideoEditorExportAudioConfig,
+} from "../../../def.slint";
+import {
+    Label,
+    IconBtn,
+    ProgressBar,
+    MovingDivider,
+    NoDataImg,
+    PopupActionEntry,
+    PopupActionSetting,
+    TextBtnWithoutIcon,
+    SettingDetailInner,
+    SettingDetail,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+    ConfirmBtn,
+    RadioBtn,
+    Select,
+    SettingDetailSwitch,
+} from "../../../../base/widgets.slint";
+
+component TaskItem inherits Rectangle {
+    in property <int> index;
+    in property <VideoEditorExportQueueItem> export-item;
+
+    public pure function get-media-icon(ty: MediaType) -> image {
+        if (ty == MediaType.Video) {
+            return Icons.video-light;
+        } else if (ty == MediaType.Audio) {
+            return Icons.audio-light;
+        } else if (ty == MediaType.Image) {
+            return Icons.image-fill;
+        } else if (ty == MediaType.Subtitle) {
+            return Icons.subtitle-light;
+        } else {
+            return Icons.text-light;
+        }
+    }
+
+    border-radius: Theme.border-radius;
+    background: Theme.table-item-background(index, false, ta.has-hover);
+
+    ta := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+    }
+
+    hbox := HorizontalLayout {
+        spacing: Theme.spacing * 2;
+        padding: Theme.padding * 2;
+
+        HorizontalLayout {
+            horizontal-stretch: 1;
+            spacing: Theme.spacing * 4;
+
+            Label {
+                text: index + 1;
+            }
+
+            VerticalLayout {
+                alignment: center;
+
+                Image {
+                    height: Theme.icon-size * Theme.golden-ratio;
+                    width: self.height;
+                    source: get-media-icon(export-item.media-type);
+                    colorize: Theme.icon-color;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+
+                ProgressBar {
+                    height: Theme.default-font-size * 1.1;
+                    progress: clamp(export-item.progress, 0, 1);
+                    unfinished-progress-color: Theme.placeholder-text-color;
+                    finished-progress-color: export-item.is-cancelled ? Theme.warning-color : Theme.thirdly-brand-color;
+                }
+            }
+        }
+
+        more-icon := IconBtn {
+            icon: Icons.more-v-light;
+            icon-size: Theme.icon-size * 0.8;
+            show-icon-hover-background: false;
+
+            clicked => {
+                PopupActionSetting.show(self.absolute-position.x, self.absolute-position.y + self.preferred-height, [
+                    {
+                        icon: Icons.cancel-light,
+                        text: Logic.tr("Cancel"),
+                        action: "video-editor-export-queue-cancel",
+                        user-data: index,
+                    },
+                    {
+                        disable: !export-item.is-cancelled && export-item.progress > 0 && export-item.progress < 1.0,
+                        icon: Icons.clear-light,
+                        text: Logic.tr("Remove"),
+                        action: "video-editor-export-queue-remove",
+                        user-data: index,
+                    },
+                ]);
+            }
+        }
+    }
+}
+
+component TaskView inherits ListView {
+    in-out property <[VideoEditorExportQueueItem]> export-queue <=> Store.video-editor-export-queue;
+
+    for item[index] in export-queue: TaskItem {
+        index: index;
+        export-item: item;
+    }
+}
+
+component ExportQueue inherits Rectangle {
+    if Store.video-editor-export-queue.length == 0: Flickable {
+        NoDataImg {
+            width: min(parent.height * 0.8, Theme.icon-size * 15);
+            image: Icons.empty-fill;
+            colorize: Theme.icon-color;
+            text: Logic.tr("No Task");
+            font-size: Theme.default-font-size * Theme.golden-ratio;
+        }
+    }
+
+    if Store.video-editor-export-queue.length > 0: TaskView { }
+}
+
+component ExportDetailTab inherits Rectangle {
+    in-out property <int> checked-index: 0;
+
+    background: Theme.thirdly-background;
+    width: hbox.preferred-width + Theme.padding * 8;
+    height: hbox.preferred-height + Theme.padding * 2;
+    border-radius: self.height / 2;
+    border-width: Theme.default-border-width;
+    border-color: Theme.base-border-color;
+
+    hbox := HorizontalLayout {
+        x: Theme.padding * 4;
+        y: Theme.padding;
+
+        spacing: Theme.spacing * 4;
+
+        TextBtnWithoutIcon {
+            text: Logic.tr("Video");
+            border-radius: self.height / 3;
+            text-color: checked-index == 0 ? Theme.light-text-color : Theme.regular-text-color;
+            background: checked-index == 0 ? Theme.thirdly-brand-color : transparent;
+
+            clicked => {
+                checked-index = 0;
+            }
+        }
+
+        TextBtnWithoutIcon {
+            text: Logic.tr("Audio");
+            border-radius: self.height / 3;
+            text-color: checked-index == 1 ? Theme.light-text-color : Theme.regular-text-color;
+            background: checked-index == 1 ? Theme.thirdly-brand-color : transparent;
+
+            clicked => {
+                checked-index = 1;
+            }
+        }
+
+        TextBtnWithoutIcon {
+            text: Logic.tr("Subtitle");
+            border-radius: self.height / 3;
+            text-color: checked-index == 2 ? Theme.light-text-color : Theme.regular-text-color;
+            background: checked-index == 2 ? Theme.thirdly-brand-color : transparent;
+
+            clicked => {
+                checked-index = 2;
+            }
+        }
+    }
+}
+
+component ExportDetailVideo inherits SettingDetail {
+    private property <VideoEditorExportVideoConfig> cache-config: Store.video-editor-export-video-config;
+
+    is-show-header: false;
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Resolution");
+            }
+
+            resolution-select := Select {
+                border-width: 0;
+                values: [
+                    "Original",
+                    "480P",
+                    "720P",
+                    "1080P",
+                    "2K",
+                    "4K",
+                    "Portrait 480P",
+                    "Portrait 720P",
+                    "Portrait 1080P",
+                    "Portrait 4K",
+                    "Square 480P",
+                    "Square 720P",
+                    "Square 1080P",
+                    "Instagram Portrait"
+                ];
+                current-value: Logic.resolution-to-string(cache-config.resolution);
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("FPS");
+            }
+
+            fps-select := Select {
+                border-width: 0;
+                values: [24, 25, 30, 60];
+                current-value: Logic.fps-to-int(cache-config.fps);
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Audio channels");
+            }
+
+            channels-select := Select {
+                border-width: 0;
+                values: [1, 2];
+                current-value: Logic.audio-channels-to-int(cache-config.channels);
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Audio sample rate");
+            }
+
+            audio-sample-select := Select {
+                border-width: 0;
+                values: [8000, 16000, 24000, 32000, 44100, 48000, 96000, 192000];
+                current-value: Logic.audio-sample-rate-to-int(cache-config.sample-rate);
+            }
+        }
+
+        SettingDetailInnerVbox {
+            low-memory-mode-check := SettingDetailSwitch {
+                icon: Icons.memory-light;
+                text: Logic.tr("Low memory mode");
+                checked: cache-config.low-memory-mode;
+            }
+        }
+
+        HorizontalLayout {
+            alignment: end;
+            padding-top: Theme.padding * 2;
+            padding-right: Theme.padding * 2;
+            padding-bottom: Theme.padding * 2;
+
+            ConfirmBtn {
+                icon-size: Theme.icon-size * 0.8;
+                icon: Icons.export-light;
+                text: Logic.tr("Export");
+
+                clicked => {
+                    cache-config.resolution = Logic.resolution-from-string(resolution-select.current-value);
+                    cache-config.fps = Logic.fps-from-int(fps-select.current-value.to-float());
+                    cache-config.channels = Logic.audio-channels-from-int(channels-select.current-value.to-float());
+                    cache-config.sample-rate = Logic.audio-sample-rate-from-int( audio-sample-select.current-value.to-float());
+                    cache-config.low-memory-mode = low-memory-mode-check.checked;
+                    Logic.video-editor-export-video(cache-config);
+                }
+            }
+        }
+    }
+}
+
+component ExportDetailAudio inherits SettingDetail {
+    private property <VideoEditorExportAudioConfig> cache-config: Store.video-editor-export-audio-config;
+
+    is-show-header: false;
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Format");
+            }
+
+            format-select := Select {
+                border-width: 0;
+                values: ["Aac", "Flac", "Mp3", "Ogg", "Wav"];
+                current-value: Logic.audio-format-to-str(cache-config.format);
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("channels");
+            }
+
+            channels-select := Select {
+                border-width: 0;
+                values: [1, 2];
+                current-value: Logic.audio-channels-to-int(cache-config.channels);
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Sample rate");
+            }
+
+            audio-sample-select := Select {
+                border-width: 0;
+                values: [8000, 16000, 24000, 32000, 44100, 48000, 96000, 192000];
+                current-value: Logic.audio-sample-rate-to-int(cache-config.sample-rate);
+            }
+        }
+
+        HorizontalLayout {
+            alignment: end;
+            padding-right: Theme.padding * 2;
+            padding-bottom: Theme.padding * 2;
+
+            ConfirmBtn {
+                icon-size: Theme.icon-size * 0.8;
+                icon: Icons.export-light;
+                text: Logic.tr("Export");
+
+                clicked => {
+                    cache-config.format = Logic.audio-format-from-str(format-select.current-value);
+                    cache-config.channels = Logic.audio-channels-from-int(channels-select.current-value.to-float());
+                    cache-config.sample-rate = Logic.audio-sample-rate-from-int( audio-sample-select.current-value.to-float());
+                    Logic.video-editor-export-audio(cache-config);
+                }
+            }
+        }
+    }
+}
+
+component ExportDetailSubtitle inherits SettingDetail {
+    private property <SubtitleType> subtitle-type: SubtitleType.Srt;
+
+    is-show-header: false;
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            spacing: Theme.spacing * 6;
+            padding: Theme.padding * 2;
+            padding-top: Theme.padding * 4;
+
+            RadioBtn {
+                text: "SRT";
+                checked: subtitle-type == SubtitleType.Srt;
+                check => {
+                    subtitle-type = SubtitleType.Srt;
+                }
+            }
+
+            RadioBtn {
+                text: Logic.tr("VTT");
+                checked: subtitle-type == SubtitleType.Vtt;
+                check => {
+                    subtitle-type = SubtitleType.Vtt;
+                }
+            }
+
+            RadioBtn {
+                text: Logic.tr("ASS");
+                checked: subtitle-type == SubtitleType.Ass;
+                check => {
+                    subtitle-type = SubtitleType.Ass;
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: end;
+            padding-right: Theme.padding * 2;
+            padding-bottom: Theme.padding * 2;
+
+            ConfirmBtn {
+                icon-size: Theme.icon-size * 0.8;
+                icon: Icons.export-light;
+                text: Logic.tr("Export");
+
+                clicked => {
+                    Logic.video-editor-export-subtitle(subtitle-type);
+                }
+            }
+        }
+    }
+}
+
+component ExportDetail inherits Rectangle {
+    tab := ExportDetailTab {
+        x: (root.width - self.width) / 2;
+        y: 0;
+    }
+
+    if tab.checked-index == 0: ExportDetailVideo {
+        y: tab.y + tab.height + Theme.spacing * 2;
+        height: root.height - self.y;
+    }
+
+    if tab.checked-index == 1: ExportDetailAudio {
+        y: tab.y + tab.height + Theme.spacing * 2;
+        height: root.height - self.y;
+    }
+
+    if tab.checked-index == 2: ExportDetailSubtitle {
+        y: tab.y + tab.height + Theme.spacing * 2;
+        height: root.height - self.y;
+    }
+}
+
+export component Export inherits Rectangle {
+    ed := ExportDetail {
+        y: 0;
+        height: root.height - td.height - eq.height;
+    }
+
+    td := MovingDivider {
+        y: ed.y + ed.height;
+        orientation: horizontal;
+
+        moved => {
+            eq.height = clamp(eq.height + (self.pressed-y - self.mouse-y), eq.min-height, eq.max-height);
+        }
+    }
+
+    eq := ExportQueue {
+        y: td.y + td.height;
+        height: Theme.icon-size * 3;
+        min-height: 0;
+        max-height: Theme.icon-size * 8;
+    }
+}

@@ -1,0 +1,339 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Util,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+} from "../../../../../def.slint";
+import {
+    ClickAndEditLabel,
+    LineInput,
+    Slider,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    SketchDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+import { Icons } from "../../../../../../base/icon.slint";
+
+export component Sketch inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <SketchDetail> config: VEFilter.from-sketch-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+    in-out property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+    private property <int> video-editor-color-picker-id-paper;
+    private property <int> video-editor-color-picker-id-pencil;
+
+    changed color-picker-confirmed-flag => {
+        if (video-editor-color-picker-id-paper != Store.video-editor-color-picker-id) {
+            if (video-editor-color-picker-id-pencil != Store.video-editor-color-picker-id) {
+                return;
+            }
+        }
+        let c = Store.video-editor-color-picker-color;
+        if (video-editor-color-picker-id-paper == Store.video-editor-color-picker-id) {
+            config.paper-color-r = c.red;
+            config.paper-color-g = c.green;
+            config.paper-color-b = c.blue;
+            config.paper-color-a = c.alpha;
+        }
+        if (video-editor-color-picker-id-pencil == Store.video-editor-color-picker-id) {
+            config.pencil-color-r = c.red;
+            config.pencil-color-g = c.green;
+            config.pencil-color-b = c.blue;
+            config.pencil-color-a = c.alpha;
+        }
+        apply(index, config);
+    }
+
+    callback apply(index: int, config: SketchDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "sketch") {
+            self.config = VEFilter.from-sketch-json(selected-filter.detail);
+            line-intensity-sl.value = self.config.line-intensity;
+            line-width-sl.value = self.config.line-width;
+            detail-level-sl.value = self.config.detail-level;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        // Line Intensity
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Line Intensity");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        line-intensity-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.line-intensity;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.line-intensity = value;
+                            }
+
+                            released(value) => {
+                                config.line-intensity = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.line-intensity.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.line-intensity = text.to-float().clamp(0, 1);
+                            line-intensity-sl.value = config.line-intensity;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "line_intensity", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "line_intensity", VEFilter.make-float-value(config.line-intensity));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Line Width
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Line Width");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        line-width-sl := Slider {
+                            minimum: 1.0;
+                            maximum: 10.0;
+                            value: config.line-width;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.line-width = value;
+                            }
+
+                            released(value) => {
+                                config.line-width = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.line-width.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.line-width = text.to-float().clamp(0, 5);
+                            line-width-sl.value = config.line-width;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "line_width", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "line_width", VEFilter.make-float-value(config.line-width));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Detail Level
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Detail Level");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        detail-level-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.detail-level;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.detail-level = value;
+                            }
+
+                            released(value) => {
+                                config.detail-level = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.detail-level.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.detail-level = text.to-float().clamp(0, 10);
+                            detail-level-sl.value = config.detail-level;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "detail_level", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "detail_level", VEFilter.make-float-value(config.detail-level));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Paper Color (RGBA)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Paper Color");
+                enabled: selected-filter.enabled;
+            }
+
+            LineInput {
+                read-only: true;
+                is-show-icon: true;
+                enabled: selected-filter.enabled;
+                text: Util.color-picker-str(config.paper-color-r, config.paper-color-g, config.paper-color-b, config.paper-color-a);
+                is-show-color-block: true;
+                color-block-color: Util.color-picker-hex-color(self.text);
+                icon: Icons.color-picker-light;
+                border-color: Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                clicked => {
+                    Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                    root.video-editor-color-picker-id-paper = Store.video-editor-color-picker-id;
+                    Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                    Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+                }
+            }
+        }
+
+        // Pencil Color (RGBA)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Pencil Color");
+                enabled: selected-filter.enabled;
+            }
+
+            LineInput {
+                read-only: true;
+                is-show-icon: true;
+                enabled: selected-filter.enabled;
+                text: Util.color-picker-str(config.pencil-color-r, config.pencil-color-g, config.pencil-color-b, config.pencil-color-a);
+                is-show-color-block: true;
+                color-block-color: Util.color-picker-hex-color(self.text);
+                icon: Icons.color-picker-light;
+                border-color: Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                clicked => {
+                    Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                    root.video-editor-color-picker-id-pencil = Store.video-editor-color-picker-id;
+                    Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                    Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}
+

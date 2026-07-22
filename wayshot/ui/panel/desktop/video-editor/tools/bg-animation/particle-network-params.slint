@@ -1,0 +1,200 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+} from "../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+    Select,
+} from "../../../../../base/widgets.slint";
+
+export component ParticleNetworkParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Density");
+        }
+
+        Select {
+            values: [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            current-value: Store.video-editor-bg-animation-config.particle-network.density;
+            gain-focus-when-clicked: false;
+
+            selected(index, value) => {
+                Store.video-editor-bg-animation-config.particle-network.density = round(value.to-float());
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.particle-network.line-color-r = c.red;
+            Store.video-editor-bg-animation-config.particle-network.line-color-g = c.green;
+            Store.video-editor-bg-animation-config.particle-network.line-color-b = c.blue;
+            Store.video-editor-bg-animation-config.particle-network.line-color-a = c.alpha;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Line Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.particle-network.line-color-r,
+                Store.video-editor-bg-animation-config.particle-network.line-color-g,
+                Store.video-editor-bg-animation-config.particle-network.line-color-b,
+                Store.video-editor-bg-animation-config.particle-network.line-color-a);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.particle-network.particle-color-r = c.red;
+            Store.video-editor-bg-animation-config.particle-network.particle-color-g = c.green;
+            Store.video-editor-bg-animation-config.particle-network.particle-color-b = c.blue;
+            Store.video-editor-bg-animation-config.particle-network.particle-color-a = c.alpha;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Particle Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.particle-network.particle-color-r,
+                Store.video-editor-bg-animation-config.particle-network.particle-color-g,
+                Store.video-editor-bg-animation-config.particle-network.particle-color-b,
+                Store.video-editor-bg-animation-config.particle-network.particle-color-a);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.particle-network.bg-color-r = c.red;
+            Store.video-editor-bg-animation-config.particle-network.bg-color-g = c.green;
+            Store.video-editor-bg-animation-config.particle-network.bg-color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Background");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.particle-network.bg-color-r,
+                Store.video-editor-bg-animation-config.particle-network.bg-color-g,
+                Store.video-editor-bg-animation-config.particle-network.bg-color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    SettingDetailSwitch {
+        icon: Icons.pointer-light;
+        text: Logic.tr("Pointer");
+        checked: Store.video-editor-bg-animation-config.particle-network.pointer-enabled;
+        gain-focus-when-clicked: false;
+
+        toggled => {
+            Store.video-editor-bg-animation-config.particle-network.pointer-enabled = !Store.video-editor-bg-animation-config.particle-network.pointer-enabled;
+        }
+    }
+
+    if Store.video-editor-bg-animation-config.particle-network.pointer-enabled: SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Pointer Range");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.particle-network.pointer-range.to-fixed(1);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.particle-network.pointer-range = value <= 0.0 ? 120.0 : value;
+            }
+        }
+    }
+
+    if Store.video-editor-bg-animation-config.particle-network.pointer-enabled: SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Pointer Count");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.particle-network.pointer-count;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 3 : input-value;
+                Store.video-editor-bg-animation-config.particle-network.pointer-count = value;
+                self.text = value;
+            }
+        }
+    }
+}
+

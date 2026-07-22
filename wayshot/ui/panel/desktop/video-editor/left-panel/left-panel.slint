@@ -1,0 +1,74 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+} from "../../../def.slint";
+import {
+    TabBtns,
+} from "../../../../base/widgets.slint";
+import { Export } from "export.slint";
+import { Playlist } from "playlist.slint";
+import { MediaLibrary } from "media-library.slint";
+import { OnlineSearch } from "online-search.slint";
+
+export component LeftPanel inherits Rectangle {
+    private property <int> selected-index <=> Store.video-editor-left-panel-selected-index;
+    changed selected-index => {
+        tab-btn.update-selected-index(selected-index);
+    }
+
+    min-width: hbox.preferred-width;
+    clip: true;
+
+    VerticalLayout {
+        padding-top: Theme.padding;
+        padding-left: Theme.padding;
+        spacing: Theme.spacing;
+
+        Rectangle {
+            Playlist {
+                visible: selected-index == 0;
+                width: root.width - parent.padding-left;
+            }
+
+            MediaLibrary {
+                visible: selected-index == 1;
+                width: root.width - parent.padding-left;
+            }
+
+            OnlineSearch {
+                visible: selected-index == 2;
+                width: root.width - parent.padding-left;
+            }
+
+            Export {
+                visible: selected-index == 3;
+                width: root.width - parent.padding-left;
+            }
+        }
+
+        hbox := HorizontalLayout {
+            alignment: LayoutAlignment.center;
+            padding-right: Theme.padding;
+
+            tab-btn := TabBtns {
+                init => {
+                    self.update-selected-index(selected-index);
+                }
+
+                items: [
+                    { icon: Icons.playlist-light, text: Logic.tr("Playlist") },
+                    { icon: Icons.media-library-light, text: Logic.tr("Library") },
+                    { icon: Icons.search-light, text: Logic.tr("Online Search") },
+                    { icon: Icons.export-light, text: Logic.tr("Export") },
+                ];
+
+                clicked(index) => {
+                    selected-index = index;
+                }
+            }
+        }
+    }
+}

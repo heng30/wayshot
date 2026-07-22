@@ -1,0 +1,374 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoEditorPreferenceConfig,
+    VideoEditorPreferenceTrackConfig,
+    VideoEditorPreferenceCacheConfig,
+    VideoEditorPreferenceMcpConfig,
+    McpTransport,
+} from "../../def.slint";
+import {
+    IconBtn,
+    TabBtns,
+    Label,
+    LineInput,
+    Dialog,
+    Select,
+    SettingDetailInner,
+    SettingDetail,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+    Slider,
+} from "../../../base/widgets.slint";
+import { LongScreenshotDialog } from "tools/long-screenshot-dialog.slint";
+
+component Track inherits SettingDetail {
+    private property <VideoEditorPreferenceTrackConfig> cache-config: Store.video-editor-preference-config.track;
+
+    is-show-header: false;
+
+    public function get() -> VideoEditorPreferenceTrackConfig {
+        return cache-config;
+    }
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailSwitch {
+                icon: Icons.grid-light;
+                text: self.checked ? Logic.tr("Compact mode enabled") : Logic.tr("Compact mode disabled");
+                checked: cache-config.compact-mode;
+
+                toggled => {
+                    cache-config.compact-mode = self.checked;
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailSwitch {
+                icon: Icons.thumbnails-light;
+                text: self.checked ? Logic.tr("Show thumbnails") : Logic.tr("Don't show thumbnail");
+                checked: cache-config.show-thumbnail;
+
+                toggled => {
+                    cache-config.show-thumbnail = self.checked;
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailSwitch {
+                icon: Icons.filename-light;
+                text: self.checked ? Logic.tr("Show filename enabled") : Logic.tr("Don't show filename");
+                checked: cache-config.show-filename;
+
+                toggled => {
+                    cache-config.show-filename = self.checked;
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Segment sanp threshold duration (ms)");
+            }
+
+            LineInput {
+                input-type: number;
+                text: cache-config.snap-threshold-ms;
+
+                accepted => {
+                    cache-config.snap-threshold-ms = round(self.text.to-float());
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            as-hbox := HorizontalLayout {
+                alignment: start;
+                spacing: Theme.spacing * 4;
+
+                as-dl := SettingDetailLabel {
+                    text: Logic.tr("Audio waveform amplification");
+                    tip: Logic.tr("Adjust the amplitude scale for audio track waveform display");
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    amplification-slider := Slider {
+                        minimum: 1.0;
+                        maximum: 5.0;
+                        height: Theme.default-font-size / 2;
+                        finished-progress-color: Theme.thirdly-brand-color;
+                        indicator-size: self.has-hover ? self.height * 3 : 0;
+                        value: clamp(cache-config.audio-track-waveform-amplification, self.minimum, self.maximum);
+                        width: root.width - as-hbox.spacing * 2 - as-dl.preferred-width - as-lb.width - Theme.padding * 4;
+
+                        released(value) => {
+                            cache-config.audio-track-waveform-amplification = value;
+                        }
+                    }
+                }
+
+                as-lb := Label {
+                    text: round(amplification-slider.value * 10) / 10;
+                    width: Theme.default-font-size * 2;
+                }
+            }
+        }
+    }
+}
+
+component Cache inherits SettingDetail {
+    private property <VideoEditorPreferenceCacheConfig> cache-config: Store.video-editor-preference-config.cache;
+
+    is-show-header: false;
+
+    public function get() -> VideoEditorPreferenceCacheConfig {
+        cache-config.max-frames = round(max-cache-li.text.to-float());
+        cache-config.max-cache-duration = round(preview-cache-duration-li.text.to-float());
+        return cache-config;
+    }
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Global max cached frames");
+                tip: Logic.tr("Use the LRU algorithm to cache recently decoded images");
+            }
+
+            max-cache-li := LineInput {
+                text: cache-config.max-frames;
+                input-type: InputType.number;
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Preview max cache duration (seconds)");
+                tip: Logic.tr("Maximum cache time during preview");
+            }
+
+            preview-cache-duration-li := LineInput {
+                text: cache-config.max-cache-duration;
+                input-type: InputType.number;
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            Label {
+                text: Logic.tr("Restart to take effect");
+                font-size: Theme.title3-font-size;
+                color: Theme.warning-color;
+            }
+        }
+    }
+}
+
+component Mcp inherits SettingDetail {
+    private property <VideoEditorPreferenceMcpConfig> cache-config: Store.video-editor-preference-config.mcp;
+
+    is-show-header: false;
+
+    public function get() -> VideoEditorPreferenceMcpConfig {
+        cache-config.port = round(port-li.text.to-float());
+        return cache-config;
+    }
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailSwitch {
+                icon: Icons.mcp-light;
+                icon-size: Theme.icon-size * 0.8;
+                text: self.checked ? Logic.tr("MCP server enabled") : Logic.tr("MCP server disabled");
+                checked: cache-config.enabled;
+
+                toggled => {
+                    cache-config.enabled = self.checked;
+                }
+            }
+        }
+
+        Rectangle {
+            background: Theme.secondary-background;
+            height: state-hbox.preferred-height;
+
+            private property <bool> is-runing <=> Store.video-editor-mcp-is-runing;
+
+            state-hbox := HorizontalLayout {
+                padding: Theme.padding * 2;
+                alignment: space-between;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        Image {
+                            colorize: cache-config.enabled ? Theme.icon-color : Theme.disabled-color;
+                            source: Icons.state-light;
+                            width: Theme.icon-size * 0.8;
+                            height: self.width;
+                        }
+                    }
+
+                    Label {
+                        vertical-alignment: center;
+                        enabled: cache-config.enabled;
+                        font-size: Theme.title3-font-size;
+                        text: Logic.tr("MCP server state");
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    Rectangle {
+                        width: Theme.icon-size;
+                        height: self.width;
+                        border-radius: self.width / 2;
+                        background: cache-config.enabled ? (is-runing ? Theme.success-color : Theme.danger-color) : Theme.disabled-color;
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Transport");
+                tip: Logic.tr("Communication protocol for MCP server");
+                enabled: cache-config.enabled;
+            }
+
+            transport-select := Select {
+                enabled: cache-config.enabled;
+                gain-focus-when-clicked: false;
+                values: ["Stdio", "HTTP", "Both"];
+                current-index: cache-config.transport == McpTransport.Http ? 1 : (cache-config.transport == McpTransport.Both ? 2 : 0);
+                current-value: cache-config.transport == McpTransport.Http ? self.values[1] : (cache-config.transport == McpTransport.Both ? self.values[2] : self.values[0]);
+
+                selected(index, value) => {
+                    if (index == 0) {
+                        cache-config.transport = McpTransport.Stdio;
+                    } else if (index == 1) {
+                        cache-config.transport = McpTransport.Http;
+                    } else {
+                        cache-config.transport = McpTransport.Both;
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("HTTP port");
+                tip: Logic.tr("Port number for MCP HTTP server (used when transport is HTTP or Both)");
+                enabled: cache-config.transport != McpTransport.Stdio && cache-config.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 8;
+                padding-right: Theme.padding * 4;
+
+                port-li := LineInput {
+                    text: cache-config.port;
+                    input-type: InputType.number;
+                    enabled: cache-config.transport != McpTransport.Stdio && cache-config.enabled;
+                }
+
+                if port-li.enabled: Label {
+                    enabled: cache-config.transport != McpTransport.Stdio && cache-config.enabled;
+                    text: "http://localhost:" + port-li.text + "/mcp";
+                }
+            }
+        }
+
+        Label {
+            horizontal-alignment: center;
+            text: Logic.tr("Restart video editor to apply MCP changes");
+            font-size: Theme.title3-font-size;
+            color: Theme.warning-color;
+        }
+    }
+}
+
+component SettingPanle inherits SettingDetail {
+    in-out property <int> selected-index: 0;
+
+    is-show-header: false;
+
+    public function apply() {
+        if (selected-index == 0) {
+            Logic.video-editor-update-preference-track-config(track.get());
+        } else if (selected-index == 1) {
+            Logic.video-editor-update-preference-cache-config(cache.get());
+        } else if (selected-index == 2) {
+            Logic.video-editor-update-preference-mcp-config(mcp.get());
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding;
+        spacing: Theme.spacing;
+
+        hbox := HorizontalLayout {
+            alignment: LayoutAlignment.center;
+            padding-right: Theme.padding;
+
+            TabBtns {
+                items: [
+                    { icon: Icons.video-track-light, text: Logic.tr("Track") },
+                    { icon: Icons.cache-light, text: Logic.tr("Cache") },
+                    { icon: Icons.mcp-light, text: "MCP" },
+                ];
+
+                clicked(index) => {
+                    selected-index = index;
+                }
+            }
+        }
+
+        Rectangle {
+            track := Track {
+                visible: selected-index == 0;
+            }
+
+            cache := Cache {
+                visible: selected-index == 1;
+            }
+
+            mcp := Mcp {
+                visible: selected-index == 2;
+            }
+        }
+    }
+}
+
+export component PreferenceSettingDialog inherits Dialog {
+    title: Logic.tr("Preference");
+    confirm-text: Logic.tr("Apply");
+    is-prevent-event-forward: true;
+    is-hide-cancel-btn: true;
+
+    in-out property <length> inner-height: Theme.dialog-inner-height;
+
+    setting := SettingPanle {
+        height: inner-height;
+    }
+
+    cancel-clicked => {
+        self.escape();
+    }
+
+    ok-clicked => {
+        setting.apply();
+        self.escape();
+    }
+}

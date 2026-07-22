@@ -1,9 +1,12 @@
 pub mod audio;
+pub mod audio_level;
 pub mod loader;
 pub mod vad;
 
 #[cfg(feature = "extraction")]
 pub mod extract;
+
+pub use audio::time_stretch_preserving_pitch;
 
 pub type Result<T> = std::result::Result<T, AudioProcessError>;
 

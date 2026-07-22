@@ -1,0 +1,62 @@
+[package]
+name = "video-editor"
+license.workspace = true
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[dependencies]
+log.workspace = true
+lru.workspace = true
+mp4m.workspace = true
+usvg.workspace = true
+resvg.workspace = true
+image.workspace = true
+rayon.workspace = true
+hound.workspace = true
+webpx.workspace = true
+rubato.workspace = true
+realfft.workspace = true
+denoise.workspace = true
+fdk-aac.workspace = true
+turn-rs.workspace = true
+num_enum.workspace = true
+vorbis_rs.workspace = true
+stacksafe.workspace = true
+crossbeam.workspace = true
+thiserror.workspace = true
+imageproc.workspace = true
+photon-rs.workspace = true
+live2d-rs.workspace = true
+derivative.workspace = true
+flac-codec.workspace = true
+serde_json.workspace = true
+draw-utils.workspace = true
+cosmic-text.workspace = true
+ffmpeg-next.workspace = true
+audio-utils.workspace = true
+video-utils.workspace = true
+pitch_shift.workspace = true
+video-encoder.workspace = true
+derive_setters.workspace = true
+mp3lame-encoder.workspace = true
+fast_image_resize.workspace = true
+uuid = { workspace = true, features = ["v4"] }
+yuv = { workspace = true, features = ["rayon"] }
+cutil = { workspace = true, features = ["str"] }
+serde = { workspace = true, features = ["derive"] }
+chrono = { workspace = true, features = ["serde"] }
+rodio = { workspace = true, features = ["playback"] }
+indexmap = { workspace = true, features = ["serde"] }
+
+[dev-dependencies]
+eframe.workspace = true
+tempfile.workspace = true
+env_logger.workspace = true
+egui_extras.workspace = true
+portable-atomic = { workspace = true, features = ["float"] }

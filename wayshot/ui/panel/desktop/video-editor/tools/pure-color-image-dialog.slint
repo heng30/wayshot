@@ -1,0 +1,107 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Icons,
+    PureColorImageConfig,
+} from "../../../def.slint";
+import {
+    MovingDialog,
+    ConfirmBtn,
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    Select,
+} from "../../../../base/widgets.slint";
+
+export component PureColorImageDialog inherits MovingDialog {
+    title: Logic.tr("Pure Color Image");
+    icon: Icons.color-picker-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+    private property <int> color-picker-id;
+    private property <image> preview-image;
+    private property <bool> has-preview: preview-image.width > 0;
+    private property <PureColorImageConfig> config <=> Store.video-editor-pure-color-image-config;
+
+    changed color-picker-confirmed-flag => {
+        if (color-picker-id != Store.video-editor-color-picker-id) {
+            return;
+        }
+        Logic.video-editor-generate-pure-color-image(Store.video-editor-color-picker-color, config);
+        Store.video-editor-is-show-pure-color-image-dialog = false;
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 4;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Save Directory");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing;
+
+                LineInput {
+                    text: config.save-dir;
+                    is-show-icon: true;
+                    icon: Icons.file-open-light;
+                    read-only: true;
+                    border-color: Logic.dir-exist(config.save-dir) ? self.default-border-color : Theme.danger-color;
+
+                    clicked => {
+                        Logic.video-editor-pure-color-image-select-dir();
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Resolution");
+            }
+
+            resolution-select := Select {
+                border-width: 0;
+                values: [
+                    "480P",
+                    "720P",
+                    "1080P",
+                    "2K",
+                    "4K",
+                    "Portrait 480P",
+                    "Portrait 720P",
+                    "Portrait 1080P",
+                    "Portrait 4K",
+                    "Square 480P",
+                    "Square 720P",
+                    "Square 1080P",
+                    "Instagram Portrait"
+                ];
+                current-value: Logic.resolution-from-width-height(config.width, config.height);
+
+                selected(current-index, current-value) => {
+                    let res = Logic.resolution-to-width-height(current-value);
+                    config.width = res[0];
+                    config.height = res[1];
+                    Logic.video-editor-update-pure-color-image-config(config);
+                }
+            }
+        }
+
+        ConfirmBtn {
+            text: Logic.tr("Select Color");
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+}

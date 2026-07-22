@@ -1,0 +1,27 @@
+[package]
+name = "similar-video-segment"
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+license.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[dependencies]
+log.workspace = true
+mp4m.workspace = true
+hound.workspace = true
+image.workspace = true
+thiserror.workspace = true
+ffmpeg-next.workspace = true
+video-encoder.workspace = true
+fast_image_resize.workspace = true
+yuv = { workspace = true, features = ["rayon"] }
+video-utils = { workspace = true, features = ["ffmpeg"] }
+
+[dev-dependencies]
+env_logger.workspace = true
+clap = { workspace = true, features = ["derive"] }

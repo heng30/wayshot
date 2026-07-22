@@ -1,0 +1,280 @@
+import { ListView } from "std-widgets.slint";
+import {
+    Theme,
+    Store,
+    Logic,
+    Icons,
+    FontEntry,
+    VEFilter,
+} from "../def.slint";
+import {
+    Label,
+    IconBtn,
+    MovingDialog,
+    NoDataImg,
+    CenterLayout,
+    LineInput,
+} from "../../base/widgets.slint";
+import {
+    LongScreenshotDialog,
+} from "video-editor/tools/long-screenshot-dialog.slint";
+
+component HeadBar inherits HorizontalLayout {
+    alignment: space-between;
+
+    private property <bool> show-search-bar;
+
+    VerticalLayout {
+        alignment: center;
+        padding-left: Theme.padding * 4;
+
+        Label {
+            text: Logic.tr("Font: ") + Store.font-entries.length;
+            font-size: Theme.title3-font-size;
+        }
+    }
+
+    Rectangle {
+        width: hbox.preferred-width;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 4;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            if show-search-bar: LineInput {
+                width: Theme.default-font-size * 16;
+                vpadding: Theme.padding / 2;
+
+                edited => {
+                    Logic.search-font-entries(self.text);
+                }
+
+                key-pressed(event) => {
+                    if (event.text == Key.Escape) {
+                        show-search-bar = false;
+                        Logic.refresh-font-entries();
+                    }
+                }
+
+                Timer {
+                    interval: 200ms;
+                    running: true;
+
+                    triggered() => {
+                        parent.focus();
+                        self.running = false;
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("search");
+                    icon: Icons.search-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        show-search-bar = !show-search-bar;
+                        if (!show-search-bar) {
+                            Logic.refresh-font-entries();
+                        }
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("refresh");
+                    icon: Icons.refresh-light;
+                    icon-size: Theme.icon-size * 0.8;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.refresh-font-entries();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("import font");
+                    icon: Icons.import-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.import-font-files();
+                    }
+                }
+            }
+        }
+    }
+}
+
+component FontItem inherits Rectangle {
+    in property <int> index;
+    in property <FontEntry> entry;
+    in-out property <length> family-width;
+    in-out property <length> style-width;
+    out property <length> family-preferred-width <=> family-lb.preferred-width;
+    out property <length> style-preferred-width <=> style-lb.preferred-width;
+
+    background: Theme.table-item-background(index, false, ta.has-hover);
+
+    ta := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+
+        clicked => {
+            Store.selected-font-entry = entry;
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        HorizontalLayout {
+            alignment: space-between;
+            spacing: Theme.spacing * 4;
+
+            HorizontalLayout {
+                alignment: start;
+                spacing: Theme.spacing * 4;
+
+                Label {
+                    text: index + 1;
+                    color: Theme.secondary-text-color;
+                }
+
+                IconBtn {
+                    icon: Icons.star-round-fill;
+                    icon-size: Theme.icon-size;
+                    colorize: entry.marked ? Theme.warning-color : Theme.icon-color;
+                    hover-color: mod(index, 2) == 0 ? Theme.table-item-second : Theme.table-item-first;
+
+                    clicked => {
+                        Logic.toggle-font-marked(index);
+                    }
+                }
+
+                family-lb := Label {
+                    text: entry.family;
+                    font-weight: Theme.bold-font-weight;
+                    width: root.family-width;
+                }
+
+                style-lb := Label {
+                    text: entry.style;
+                    color: Theme.secondary-text-color;
+                    horizontal-alignment: left;
+                    width: root.style-width;
+                }
+
+                Label {
+                    text: entry.path;
+                    font-size: Theme.default-font-size * 0.8;
+                    color: Theme.secondary-text-color;
+                    horizontal-alignment: left;
+                    overflow: elide;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    icon: Icons.copy-light;
+
+                    clicked => {
+                        Logic.copy-to-clipboard(entry.path);
+                    }
+                }
+            }
+        }
+
+        if entry.display-image.width > 0: VerticalLayout {
+            alignment: center;
+            padding: Theme.padding;
+
+            HorizontalLayout {
+                alignment: center;
+
+                img := Image {
+                    source: entry.display-image;
+                    height: Theme.icon-size * 2;
+                    colorize: Theme.primary-text-color;
+                }
+            }
+        }
+    }
+}
+
+export component FontDialog inherits MovingDialog {
+    title: Logic.tr("Font");
+    icon: Icons.font-light;
+    head-y: self.height * 0.2;
+    enable-resize: true;
+    header-width: Theme.moving-dialog-width;
+    body-height: root.header-width * Theme.golden-ratio;
+
+    init => {
+        self.head-x = ((root.width - self.header-width) / 2).max(0);
+        Logic.init-font-dialog();
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        HeadBar {
+            vertical-stretch: 0;
+        }
+
+        if Store.font-entries.length == 0: CenterLayout {
+            vertical-stretch: 1;
+
+            NoDataImg {
+                width: root.header-width * Theme.golden-ratio;
+                text: Logic.tr("No found system fonts");
+                font-size: Theme.default-font-size;
+            }
+        }
+
+        if Store.font-entries.length > 0: Rectangle {
+            width: parent.width - parent.padding * 2;
+            border-radius: Theme.border-radius;
+            border-color: Theme.base-border-color;
+            border-width: Theme.default-border-width;
+
+            ListView {
+                x: parent.border-width;
+                y: parent.border-width;
+                height: parent.height;
+                width: parent.width - parent.border-width * 2;
+                preferred-width: self.width;
+
+                private property <length> font-item-max-family-width;
+                private property <length> font-item-max-style-width;
+
+                for entry[index] in Store.font-entries: FontItem {
+                    index: index;
+                    entry: entry;
+                    width: parent.width;
+                    family-width: parent.font-item-max-family-width;
+                    style-width: parent.font-item-max-style-width;
+
+                    init => {
+                        parent.font-item-max-family-width = max(parent.font-item-max-family-width, self.family-preferred-width);
+                        parent.font-item-max-style-width = max(parent.font-item-max-style-width, self.style-preferred-width);
+                    }
+                }
+            }
+        }
+    }
+}

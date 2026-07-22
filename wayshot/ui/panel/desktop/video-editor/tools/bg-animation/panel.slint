@@ -1,0 +1,430 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+} from "../../../../def.slint";
+import { AnimationType } from "export.slint";
+import {
+    SideBarEntry,
+} from "../../../../../base/def.slint";
+import {
+    Label,
+    MovingDialog,
+    Select,
+    ConfirmBtn,
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    NoDataImg,
+    SideBar,
+    CheckBtn,
+    CircleProgress,
+} from "../../../../../base/widgets.slint";
+import { GridParams } from "grid-params.slint";
+import { MovingGridParams } from "moving-grid-params.slint";
+import { GlitchParams } from "glitch-params.slint";
+import { NoiseFlowParams } from "noise-flow-params.slint";
+import { BokehParams } from "bokeh-params.slint";
+import { MatrixRainParams } from "matrix-rain-params.slint";
+import { FluidParams } from "fluid-params.slint";
+import { KaleidoscopeParams } from "kaleidoscope-params.slint";
+import { LightEffectsParams } from "light-effects-params.slint";
+import { InkDissipationParams } from "ink-params.slint";
+import { ParticleLifeParams } from "particle-life-params.slint";
+import { ParticleNetworkParams } from "particle-network-params.slint";
+import { FlowFieldParams } from "flow-field-params.slint";
+import { ShapeParams } from "shape-params.slint";
+import { BlackHoleParams } from "black-hole-params.slint";
+import { GalaxyParams } from "galaxy-params.slint";
+import { TriangleParams } from "triangle-params.slint";
+import { WaveParams } from "wave-params.slint";
+import { CrossLineParams } from "cross-line-params.slint";
+
+export component BackgroundAnimationDialog inherits MovingDialog {
+    title: Logic.tr("Background Animation");
+    icon: Icons.animation-light;
+    header-width: Theme.moving-dialog-width;
+    body-height: root.header-width * Theme.golden-ratio;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+
+    private property <AnimationType> selected-animation: Store.video-editor-bg-animation-config.animation-type;
+    private property <bool> is-recording: Store.video-editor-bg-animation-is-recording;
+    private property <bool> is-previewing: Store.video-editor-bg-animation-is-previewing;
+    private property <image> preview-image: Store.video-editor-bg-animation-preview-image;
+    private property <bool> enabled-record: Store.video-editor-bg-animation-record-enabled;
+    private property <bool> has-preview: preview-image.width > 0;
+
+    private property <[SideBarEntry]> animation-entries: [
+        {
+            key: "Grid",
+            is-open: false,
+            category: Logic.tr("Grid"),
+            icon: Icons.grid-light,
+            children: []
+        },
+        {
+            key: "FlowField",
+            is-open: false,
+            category: Logic.tr("Flow Field"),
+            icon: Icons.flow-light,
+            children: []
+        },
+        {
+            key: "Bokeh",
+            is-open: false,
+            category: Logic.tr("Bokeh"),
+            icon: Icons.bokeh-light,
+            children: []
+        },
+        {
+            key: "Fluid",
+            is-open: false,
+            category: Logic.tr("Fluid"),
+            icon: Icons.fluid-light,
+            children: []
+        },
+        {
+            key: "Shape",
+            is-open: false,
+            category: Logic.tr("Shape"),
+            icon: Icons.shape-light,
+            children: []
+        },
+        {
+            key: "BlackHole",
+            is-open: false,
+            category: Logic.tr("Black Hole"),
+            icon: Icons.black-hole-light,
+            children: []
+        },
+        {
+            key: "Galaxy",
+            is-open: false,
+            category: Logic.tr("Galaxy"),
+            icon: Icons.particle-light,
+            children: []
+        },
+        {
+            key: "Wave",
+            is-open: false,
+            category: Logic.tr("Wave"),
+            icon: Icons.wave-light,
+            children: []
+        },
+        {
+            key: "Triangle",
+            is-open: false,
+            category: Logic.tr("Triangle"),
+            icon: Icons.triangle-circle-light,
+            children: []
+        },
+        {
+            key: "CrossLine",
+            is-open: false,
+            category: Logic.tr("Cross Line"),
+            icon: Icons.moving-light,
+            children: []
+        },
+        {
+            key: "MatrixRain",
+            is-open: false,
+            category: Logic.tr("Matrix Rain"),
+            icon: Icons.matrix-light,
+            children: []
+        },
+        {
+            key: "Kaleidoscope",
+            is-open: false,
+            category: Logic.tr("Kaleidoscope"),
+            icon: Icons.kaleidoscope-light,
+            children: []
+        },
+        {
+            key: "LightEffects",
+            is-open: false,
+            category: Logic.tr("Light Effects"),
+            icon: Icons.light-light,
+            children: []
+        },
+        {
+            key: "Glitch",
+            is-open: false,
+            category: Logic.tr("Glitch"),
+            icon: Icons.glitch-light,
+            children: []
+        },
+        {
+            key: "NoiseFlow",
+            is-open: false,
+            category: Logic.tr("Noise Flow"),
+            icon: Icons.noise-light,
+            children: []
+        },
+        {
+            key: "InkDissipation",
+            is-open: false,
+            category: Logic.tr("Ink Dissipation"),
+            icon: Icons.ink-light,
+            children: []
+        },
+        {
+            key: "ParticleLife",
+            is-open: false,
+            category: Logic.tr("Particle Life"),
+            icon: Icons.particle-light,
+            children: []
+        },
+        {
+            key: "ParticleNetwork",
+            is-open: false,
+            category: Logic.tr("Particle Network"),
+            icon: Icons.network2-light,
+            children: []
+        },
+        {
+            key: "MovingGrid",
+            is-open: false,
+            category: Logic.tr("Moving Grid"),
+            icon: Icons.moving-light,
+            children: []
+        },
+    ];
+
+    changed selected-animation => {
+        Store.video-editor-bg-animation-config.animation-type = selected-animation;
+    }
+
+    HorizontalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        private property <length> inner-width: self.width - self.spacing * 2 - self.padding * 2;
+        private property <length> sidebar-width: Theme.default-font-size * 12;
+        private property <length> params-width: Theme.default-font-size * 13;
+        private property <length> preview-width: self.inner-width - sidebar-width - params-width;
+
+        SideBar {
+            width: sidebar-width;
+            entries: animation-entries;
+            selected-key: Logic.animation-type-to-string(selected-animation);
+            is-show-search: false;
+            category-font-size: Theme.title5-font-size;
+
+            clicked(category, title, key) => {
+                Store.video-editor-bg-animation-config.animation-type = Logic.string-to-animation-type(key);
+            }
+        }
+
+        Rectangle {
+            clip: true;
+            width: preview-width;
+            background: Theme.secondary-background;
+
+            VerticalLayout {
+                spacing: Theme.spacing * 2;
+                padding: Theme.padding * 2;
+
+                VerticalLayout {
+                    vertical-stretch: 1;
+
+                    Rectangle {
+                        background: black;
+                        border-radius: Theme.border-radius;
+
+                        if !has-preview && (!is-recording || !is-previewing): NoDataImg {
+                            image: Icons.preview-light;
+                            colorize: gray;
+                            text: Logic.tr("No Preview");
+                        }
+
+                        if !enabled-record && has-preview: VerticalLayout {
+                            width: parent.width - Theme.padding * 4;
+                            height: parent.height - Theme.padding * 4;
+
+                            img := Image {
+                                width: parent.width;
+                                height: parent.height;
+                                source: root.preview-image;
+                                image-fit: contain;
+                            }
+                        }
+
+                        if enabled-record && is-recording: CircleProgress {
+                            ring-width: Theme.icon-size * Theme.golden-ratio;
+                            radius: Theme.icon-size * 5;
+                            progress: Store.video-editor-bg-animation-record-progress;
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 10;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        record-ck := CheckBtn {
+                            text: enabled-record ? Logic.tr("Record enabled") : Logic.tr("Record disabled");
+                            checked: enabled-record;
+                            gain-focus-when-clicked: false;
+                            enabled: !is-previewing && !is-recording;
+
+                            toggled => {
+                                enabled-record = !enabled-record;
+
+                                if (enabled-record) {
+                                    if (is-previewing) {
+                                        Logic.video-editor-bg-animation-stop-preview();
+                                    }
+                                    duration-li.focus();
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+
+                        Label {
+                            enabled: duration-li.enabled;
+                            text: Logic.tr("Duration (seconds)");
+                        }
+
+                        duration-li := LineInput {
+                            enabled: record-ck.enabled && enabled-record;
+                            input-type: InputType.number;
+                            text: Store.video-editor-bg-animation-config.duration;
+                            vpadding: Theme.padding;
+
+                            accepted => {
+                                Store.video-editor-bg-animation-config.duration = round(self.text.to-float());
+                            }
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: start;
+                    spacing: Theme.spacing * 2;
+
+                    if !enabled-record: VerticalLayout {
+                        if is-previewing: ConfirmBtn {
+                            text: Logic.tr("Stop Preview");
+                            icon: Icons.control-stop-light;
+                            auto-size-vpadding: Theme.padding * 2;
+                            bg-color: Theme.success-color;
+
+                            clicked => {
+                                Logic.video-editor-bg-animation-stop-preview();
+                            }
+                        }
+
+                        if !is-previewing: ConfirmBtn {
+                            text: Logic.tr("Start Preview");
+                            icon: Icons.control-start-light;
+                            auto-size-vpadding: Theme.padding * 2;
+
+                            clicked => {
+                                Logic.video-editor-bg-animation-start-preview(Store.video-editor-bg-animation-config);
+                            }
+                        }
+                    }
+
+                    if enabled-record: VerticalLayout {
+                        if is-recording: ConfirmBtn {
+                            text: Logic.tr("Stop Record");
+                            icon: Icons.control-stop-light;
+                            auto-size-vpadding: Theme.padding * 2;
+                            bg-color: Theme.success-color;
+
+                            clicked => {
+                                Logic.video-editor-bg-animation-stop-record();
+                            }
+                        }
+
+                        if !is-recording: ConfirmBtn {
+                            text: Logic.tr("Start Record");
+                            icon: Icons.control-start-light;
+                            auto-size-vpadding: Theme.padding * 2;
+
+                            clicked => {
+                                Logic.video-editor-bg-animation-start-record(Store.video-editor-bg-animation-config);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Flickable {
+            interactive: false;
+            width: params-width;
+            viewport-height: params-vbox.preferred-height;
+
+            params-vbox := VerticalLayout {
+                x: 0;
+                y: 0;
+                width: parent.width;
+                spacing: Theme.spacing * 4;
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Resolution");
+                    }
+
+                    resolution-select := Select {
+                        values: ["480P", "720P", "1080P", "2K", "4K"];
+                        current-value: Logic.resolution-from-width-height(
+                            Store.video-editor-bg-animation-config.width,
+                            Store.video-editor-bg-animation-config.height);
+                        gain-focus-when-clicked: false;
+
+                        selected(index, value) => {
+                            let wh = Logic.resolution-to-width-height(value);
+                            Store.video-editor-bg-animation-config.width = wh[0];
+                            Store.video-editor-bg-animation-config.height = wh[1];
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("FPS");
+                    }
+
+                    fps-select := Select {
+                        values: [24, 25, 30, 60];
+                        current-value: Store.video-editor-bg-animation-config.fps;
+                        gain-focus-when-clicked: false;
+
+                        selected(index, value) => {
+                            Store.video-editor-bg-animation-config.fps = round(value.to-float());
+                        }
+                    }
+                }
+
+                if selected-animation == AnimationType.Grid: GridParams { }
+                if selected-animation == AnimationType.MovingGrid: MovingGridParams { }
+                if selected-animation == AnimationType.Glitch: GlitchParams { }
+                if selected-animation == AnimationType.NoiseFlow: NoiseFlowParams { }
+                if selected-animation == AnimationType.Bokeh: BokehParams { }
+                if selected-animation == AnimationType.MatrixRain: MatrixRainParams { }
+                if selected-animation == AnimationType.Fluid: FluidParams { }
+                if selected-animation == AnimationType.Kaleidoscope: KaleidoscopeParams { }
+                if selected-animation == AnimationType.LightEffects: LightEffectsParams { }
+                if selected-animation == AnimationType.InkDissipation: InkDissipationParams { }
+                if selected-animation == AnimationType.ParticleLife: ParticleLifeParams { }
+                if selected-animation == AnimationType.ParticleNetwork: ParticleNetworkParams { }
+                if selected-animation == AnimationType.FlowField: FlowFieldParams { }
+                if selected-animation == AnimationType.Shape: ShapeParams { }
+                if selected-animation == AnimationType.BlackHole: BlackHoleParams { }
+                if selected-animation == AnimationType.Galaxy: GalaxyParams { }
+                if selected-animation == AnimationType.Triangle: TriangleParams { }
+                if selected-animation == AnimationType.Wave: WaveParams { }
+                if selected-animation == AnimationType.CrossLine: CrossLineParams { }
+            }
+        }
+    }
+}

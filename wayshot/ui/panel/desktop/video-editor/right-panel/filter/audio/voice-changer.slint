@@ -1,0 +1,173 @@
+import {
+    Theme,
+    Logic,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+} from "../../../../../def.slint";
+import {
+    ClickAndEditLabel,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    Slider,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    VoiceChangerDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component VoiceChanger inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <VoiceChangerDetail> config: VEFilter.from-voice-changer-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    changed selected-filter => {
+        if (selected-filter.name == "voice changer") {
+            self.config = VEFilter.from-voice-changer-json(selected-filter.detail);
+            pitch-sl.value = self.config.pitch-semitones;
+            formant-sl.value = self.config.formant-semitones;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Pitch (semitones)");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        pitch-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 5.0;
+                            value: config.pitch-semitones;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.pitch-semitones = value;
+                            }
+
+                            released(value) => {
+                                config.pitch-semitones = value;
+                                VEFilter.modify-voice-changer-filter(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.pitch-semitones.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.pitch-semitones = text.to-float().clamp(0, 5);
+                            pitch-sl.value = config.pitch-semitones;
+                            VEFilter.modify-voice-changer-filter(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "pitch_semitones", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "pitch_semitones", VEFilter.make-float-value(config.pitch-semitones));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Formant (semitones)");
+                tip: Logic.tr("Positive = more feminine, negative = more masculine");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        formant-sl := Slider {
+                            minimum: -6.0;
+                            maximum: 6.0;
+                            value: config.formant-semitones;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.formant-semitones = value;
+                            }
+
+                            released(value) => {
+                                config.formant-semitones = value;
+                                VEFilter.modify-voice-changer-filter(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.formant-semitones.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.formant-semitones = text.to-float().clamp(-6, 6);
+                            formant-sl.value = config.formant-semitones;
+                            VEFilter.modify-voice-changer-filter(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "formant_semitones", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "formant_semitones", VEFilter.make-float-value(config.formant-semitones));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

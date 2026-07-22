@@ -1,0 +1,53 @@
+import {
+    Theme,
+    Logic,
+    Store,
+} from "../../../../../def.slint";
+import {
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    FadeOutDetail,
+} from "../../../filter.slint";
+
+export component FadeOut inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <FadeOutDetail> config: VEFilter.from-fade-out-json(selected-filter.detail);
+
+    SettingDetailInner {
+        interactive: false;
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Duration (ms)");
+                enabled: selected-filter.enabled;
+            }
+
+            LineInput {
+                enabled: selected-filter.enabled;
+                input-type: number;
+                text: config.duration-ms;
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    config.duration-ms = self.text.to-float();
+                    VEFilter.modify-fade-out-filter(index, config);
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}
+

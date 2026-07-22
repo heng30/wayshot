@@ -1,0 +1,94 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    GlobalFilterType,
+} from "../../../../def.slint";
+import {
+    SideBarEntry,
+} from "../../../../../base/def.slint";
+import {
+    Label,
+    SideBar,
+    MovingDialog,
+} from "../../../../../base/widgets.slint";
+import { ProgressBarPanel } from "progress-bar.slint";
+import { TimerPanel } from "timer.slint";
+import { GlobalSpeedPanel } from "speed.slint";
+import { RotationPanel } from "rotation.slint";
+import { DanmakuPanel } from "danmaku.slint";
+
+export component GlobalFilterDialog inherits MovingDialog {
+    title: Logic.tr("Global Filter");
+    icon: Icons.filter-light;
+    header-width: Theme.moving-dialog-width;
+    body-height: root.header-width * Theme.golden-ratio;
+    min-body-height: Theme.moving-dialog-min-height * 2;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+
+    private property <GlobalFilterType> selected-filter: Store.video-editor-global-filter-config.filter-type;
+    private property <[SideBarEntry]> filter-entries: [
+        {
+            key: "GlobalSpeed",
+            is-open: false,
+            category: Logic.tr("Speed Change"),
+            icon: Icons.speed-line-light,
+            children: []
+        },
+        {
+            key: "Rotation",
+            is-open: false,
+            category: Logic.tr("Rotation"),
+            icon: Icons.rotation-light,
+            children: []
+        },
+        {
+            key: "Danmaku",
+            is-open: false,
+            category: Logic.tr("Danmaku"),
+            icon: Icons.subtitle-light,
+            children: []
+        },
+        {
+            key: "ProgressBar",
+            is-open: false,
+            category: Logic.tr("Progress Bar"),
+            icon: Icons.progress-bar-light,
+            children: []
+        },
+        {
+            key: "Timer",
+            is-open: false,
+            category: Logic.tr("Timer"),
+            icon: Icons.timer-light,
+            children: []
+        },
+    ];
+
+    HorizontalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        private property <length> sidebar-width: Theme.default-font-size * 12;
+
+        SideBar {
+            width: sidebar-width;
+            entries: filter-entries;
+            selected-key: Logic.global-filter-type-to-string(selected-filter);
+            is-show-search: false;
+            category-font-size: Theme.title5-font-size;
+
+            clicked(category, title, key) => {
+                Store.video-editor-global-filter-config.filter-type = Logic.string-to-global-filter-type(key);
+            }
+        }
+
+        if selected-filter == GlobalFilterType.Timer: TimerPanel { }
+        if selected-filter == GlobalFilterType.ProgressBar: ProgressBarPanel { }
+        if selected-filter == GlobalFilterType.GlobalSpeed: GlobalSpeedPanel { }
+        if selected-filter == GlobalFilterType.Rotation: RotationPanel { }
+        if selected-filter == GlobalFilterType.Danmaku: DanmakuPanel { }
+    }
+}

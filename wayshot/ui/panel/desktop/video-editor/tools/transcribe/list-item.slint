@@ -1,0 +1,274 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    Transcribe,
+    Subtitle,
+} from "../../../../def.slint";
+import {
+    IconBtn,
+    GainFocus,
+    PopupActionSetting,
+    PopupActionEntry,
+    Label,
+    ClickAndEditLabel,
+    ElevatedBtn,
+    SoundWaveForm,
+} from "../../../../../base/widgets.slint";
+
+export component SubtitleListItem inherits Rectangle {
+    in-out property <int> index;
+    in-out property <Subtitle> entry;
+    private property <bool> show-playing-animation: Store.video-editor-transcribe.enable-playing-index && Store.video-editor-transcribe.playing-index == index * 2 && Store.video-editor-transcribe-audio-player-is-playing;
+
+    private property <[PopupActionEntry]> subtitle-popup-entry: [
+        {
+            icon: Icons.split-down-light,
+            text: Logic.tr("Split"),
+            action: "video-editor-transcribe-subtitle-split",
+            user-data: index,
+        },
+        {
+            icon: Icons.merge-above-light,
+            text: Logic.tr("Merge Above"),
+            action: "video-editor-transcribe-subtitle-merge-above",
+            user-data: index,
+        },
+        {
+            icon: Icons.cell-insert-above-light,
+            text: Logic.tr("Insert Above"),
+            action: "video-editor-transcribe-subtitle-insert-above",
+            user-data: index,
+        },
+        {
+            icon: Icons.cell-insert-below-light,
+            text: Logic.tr("Insert Below"),
+            action: "video-editor-transcribe-subtitle-insert-below",
+            user-data: index,
+        },
+        {
+            icon: Icons.delete-light,
+            text: Logic.tr("Remove"),
+            action: "video-editor-transcribe-subtitle-remove",
+            user-data: index,
+        },
+    ];
+
+    height: vbox.preferred-height;
+    border-radius: Theme.border-radius;
+    background: Theme.secondary-background;
+    border-width: Theme.default-border-width * (show-playing-animation ? 2 : 1);
+    border-color: show-playing-animation ? Theme.thirdly-brand-color : (entry.is-timestamp-overlap ? Theme.danger-color : Theme.base-border-color.brighter(Theme.is-dark ? 50% : 0%));
+
+    ta := GainFocus {
+        clicked => {
+            orginal-input.is-edit = false;
+        }
+    }
+
+    vbox := VerticalLayout {
+        alignment: start;
+        spacing: Theme.spacing * 2;
+        padding: root.border-width;
+
+        Rectangle {
+            background: Theme.thirdly-background;
+            border-top-left-radius: root.border-radius;
+            border-top-right-radius: root.border-radius;
+
+            hbox := HorizontalLayout {
+                alignment: space-between;
+                padding-left: Theme.padding * 2;
+                padding-right: Theme.padding * 2;
+
+                HorizontalLayout {
+                    alignment: start;
+
+                    timestamp-hbox := HorizontalLayout {
+                        spacing: Theme.spacing * 2;
+                        alignment: start;
+
+                        Label {
+                            width: self.font-size * 2;
+                            text: index + 1 + ".";
+                            font-weight: Theme.bold-font-weight;
+                        }
+
+                        start-timestamp-input := Label {
+                            private property <bool> is-valid-timestamp: Logic.is-valid-subtitle-timestamp(self.text);
+
+                            text: entry.start-timestamp;
+                            color: is-valid-timestamp ? Theme.regular-text-color : Theme.warning-color;
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+
+                            Image {
+                                width: Theme.icon-size;
+                                height: self.width;
+                                source: Icons.arrow-forward-light;
+                                colorize: Theme.regular-text-color;
+                            }
+                        }
+
+                        end-timestamp-input := Label {
+                            private property <bool> is-valid-timestamp: Logic.is-valid-subtitle-timestamp(self.text);
+
+                            text: entry.end-timestamp;
+                            color: is-valid-timestamp ? Theme.regular-text-color : Theme.warning-color;
+                        }
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+                        padding-left: Theme.padding * 8;
+                        padding-right: Theme.padding * 4;
+                        padding-top: Theme.padding;
+                        padding-bottom: Theme.padding;
+
+                        SoundWaveForm {
+                            width: min(root.width - timestamp-hbox.preferred-width - icon-hbox.preferred-width - hbox.padding-left - hbox.padding-right - parent.padding-left - parent.padding-right, 450px);
+                            height: Theme.icon-size * 1.6;
+                            control-handle-size: Theme.icon-size * Theme.golden-ratio;
+                            amplitude-scale: max(0, entry.audio-wave-amplitude);
+                            wave-data: entry.audio-samples;
+                            disable-amplitude: true;
+                            show-control-handle: false;
+                            is-mono: true;
+
+                            changed has-hover => {
+                                self.show-control-handle = self.has-hover;
+                            }
+
+                            moved(percent) => {
+                                Logic.video-editor-transcribe-sound-wave-moved(index, percent)
+                            }
+
+                            zoom-changed(level) => {
+                                Logic.video-editor-transcribe-sound-wave-zoom-changed(index, level);
+                            }
+
+                            start-position-changed(pos) => {
+                                self.reset-control-handle-pos();
+                                Logic.video-editor-transcribe-sound-wave-start-position-changed(index, pos);
+                            }
+
+                            end-position-changed(pos) => {
+                                self.reset-control-handle-pos();
+                                Logic.video-editor-transcribe-sound-wave-end-position-changed(index, pos);
+                            }
+                        }
+                    }
+                }
+
+                icon-hbox := HorizontalLayout {
+                    spacing: Theme.padding * 4;
+                    alignment: end;
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("play");
+                        icon: Icons.control-start-light;
+
+                        clicked => {
+                            Store.video-editor-transcribe.enable-playing-index = false;
+                            Logic.video-editor-transcribe-play-audio(entry.start-timestamp, entry.end-timestamp);
+                        }
+                    }
+
+                    IconBtn {
+                        icon: Icons.more-v-light;
+                        clicked => {
+                            PopupActionSetting.show(self.absolute-position.x + self.width, self.absolute-position.y, subtitle-popup-entry);
+                        }
+                    }
+                }
+            }
+        }
+
+        subtitle-vbox := VerticalLayout {
+            padding: Theme.padding * 2;
+            padding-top: 0;
+            spacing: entry.correction-text.is-empty ? 0 : Theme.spacing * 2;
+
+            HorizontalLayout {
+                alignment: center;
+
+                orginal-input := ClickAndEditLabel {
+                    use-fixed-width: true;
+                    width: parent.width - parent.spacing;
+                    text: entry.original-text;
+                    wrap: word-wrap;
+                    text-color: Theme.primary-text-color;
+                    allow-breaking-text-binding-when-edit: false;
+                    font-size: Theme.default-font-size + 2px;
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-transcribe-focus-audio-player-flag = !Store.video-editor-transcribe-focus-audio-player-flag;
+                        }
+                    }
+
+                    accepted(text) => {
+                        self.is-edit = false;
+                        Logic.video-editor-transcribe-subtitle-update(index, text);
+                    }
+
+                    clicked => {
+                        self.is-edit = true;
+                    }
+                }
+            }
+
+            if !entry.correction-text.is-empty: Rectangle {
+                background: Theme.thirdly-background;
+                border-radius: Theme.border-radius;
+
+                HorizontalLayout {
+                    alignment: space-between;
+                    spacing: Theme.spacing * 2;
+                    padding: Theme.padding * 2;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 2;
+
+                        VerticalLayout {
+                            alignment: center;
+
+                            Image {
+                                width: Theme.default-font-size;
+                                height: self.width;
+                                source: Icons.polish-fill;
+                                colorize: Theme.warning-color;
+                            }
+                        }
+
+                        Label {
+                            text: entry.correction-text;
+                            font-size: Theme.default-font-size + 2px;
+                            wrap: word-wrap;
+                        }
+                    }
+
+                    if entry.original-text != entry.correction-text: VerticalLayout {
+                        alignment: center;
+
+                        ElevatedBtn {
+                            icon: Icons.checked-light;
+                            width: Theme.icon-size * 0.8;
+                            colorize: Colors.white;
+                            background: self.has-hover ? Theme.success-color.darker(20%) : Theme.success-color;
+
+                            clicked => {
+                                Logic.video-editor-transcribe-subtitle-accept-correction(index);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

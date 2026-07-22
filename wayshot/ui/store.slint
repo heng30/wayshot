@@ -1,3 +1,41 @@
+import { PlaylistItem } from "base/def.slint";
+import {
+    SegmentFilter,
+    TransformDetail,
+    CropDetail,
+    ZoomDetail,
+    FlyInDetail,
+    MosaicDetail,
+    DrawCircleDetail,
+    DrawRectangleDetail,
+    LocalMagnifyDetail,
+    MagnifierDetail,
+    TextHighlightDetail,
+    LinearMaskDetail,
+    CircleMaskDetail,
+    MirrorMaskDetail,
+    RectangleMaskDetail,
+    FocusDetail,
+    GaussianBlurDetail,
+} from "panel/desktop/video-editor/filter.slint";
+import {
+    BackgroundAnimationConfig,
+} from "panel/desktop/video-editor/tools/bg-animation/export.slint";
+import {
+    ImageAnimationConfig,
+    ImageAnimationType,
+    ImageScrollAnimConfig,
+    GradeMarkAnimConfig,
+    GradeMarkType,
+    ArrowAnimConfig,
+    RectDrawAnimConfig,
+    DashStyle,
+} from "panel/desktop/video-editor/tools/img-animation/export.slint";
+import {
+    GlobalFilterType,
+    GlobalFilterConfig,
+} from "panel/desktop/video-editor/tools/global-filter/export.slint";
+
 export enum DeviceType {
     Desktop,
     Mobile,
@@ -15,6 +53,7 @@ export enum TabIndex {
     Home,
     History,
     Player,
+    VideoEditor,
     Transcribe,
     ShareScreen,
 }
@@ -27,7 +66,6 @@ export enum PopupIndex {
     Backup,
     Recover,
     Setting,
-
     Source,
 }
 
@@ -54,6 +92,13 @@ export enum MobileSettingDetailIndex {
     Help,
 }
 
+export enum StartupTab {
+    Recorder,
+    VideoEditor,
+    Transcribe,
+    ShareScreen,
+}
+
 export struct SettingPreference {
     win-width: string,
     win-height: string,
@@ -63,12 +108,13 @@ export struct SettingPreference {
     always-on-top: bool,
     no-frame: bool,
     is-dark: bool,
+    startup-tab: StartupTab,
 }
 
 export struct SettingBackup {
-   configuration: bool,
-   data: bool,
-   cache: bool,
+    configuration: bool,
+    data: bool,
+    cache: bool,
 }
 
 //////////////////////////////// Logic Struct Start ////////////////////////////////
@@ -87,6 +133,46 @@ export enum Resolution {
     P1080,
     P2K,
     P4K,
+    Portrait480P,    // 480x854 (9:16)
+    Portrait720P,    // 720x1280 (9:16)
+    Portrait1080P,   // 1080x1920 (9:16)
+    Portrait4K,      // 2160x3840 (9:16)
+    Square480P,      // 480x480 (1:1)
+    Square720P,      // 720x720 (1:1)
+    Square1080P,     // 1080x1080 (1:1)
+    InstagramPortrait, // 1080x1350 (4:5)
+}
+
+export enum AudioFormat {
+    Aac,
+    Mp3,
+    Ogg,
+    Wav,
+    Flac,
+}
+
+export enum AudioChannels {
+    Mono,
+    Stereo,
+}
+
+export enum AudioSampleRate {
+    Hz8000,
+    Hz16000,
+    Hz24000,
+    Hz32000,
+    Hz44100,
+    Hz48000,
+    Hz96000,
+    Hz192000,
+}
+
+export enum MediaType {
+    Video,
+    Audio,
+    Image,
+    Subtitle,
+    Text,
 }
 
 export enum TransitionType {
@@ -166,7 +252,7 @@ export enum MixPositionWithPaddingTag {
 }
 
 export struct MixPositionWithPadding {
-    tag:  MixPositionWithPaddingTag,
+    tag: MixPositionWithPaddingTag,
     padding1: int,
     padding2: int,
 }
@@ -180,34 +266,27 @@ export struct SettingCamera {
     border-color-index: int,
     border_color: string,
     mirror-horizontal: bool,
-
     is-circle-shape: bool,
     cropping-x: float,
     cropping-y: float,
     rect-cropping-width: int,
     rect-cropping-height: int,
     circle-cropping-radius: int,
-
     background-remover: SettingBackgroundRemover,
 }
 
 export struct SettingControl {
     screen: string,
-
     audio: string,
     audio-gain: float,
     enable-audio: bool,
-
     speaker-gain: float,
     enable-speaker: bool,
-
     camera: string,
     enable-camera: bool,
     camera-setting: SettingCamera,
-
     enable-stats: bool,
     enable-preview: bool,
-
     realtime_image-effect: RealtimeImageEffect,
 }
 
@@ -232,19 +311,14 @@ export struct RTCIceServer {
 
 export struct SettingShareScreen {
     save-mp4: bool,
-
     listen-addr: string,
     auth-token: string,
-
     enable-turn-server: bool,
     turn-server: RTCIceServer,
-
     enable-stun-server: bool,
     stun-server: RTCIceServer,
-
     host-ips: [string],
     disable-host-ipv6: bool,
-
     enable-https: bool,
     cert-file: string,
     key-file: string,
@@ -265,7 +339,7 @@ export struct StatsInfo {
     share-screen-connections: int,
 }
 
-export enum RecordStatus{
+export enum RecordStatus {
     Stopped,
     Recording,
 }
@@ -276,7 +350,7 @@ export enum SourceType {
     Camera,
 }
 
-export struct Source{
+export struct Source {
     ty: SourceType,
     name: string,
 }
@@ -310,6 +384,85 @@ export struct Downloader {
     filename: string,
 }
 
+export enum OnlineSearchImageMediaType {
+    Image,
+    Audio,
+}
+
+export struct OnlineSearchImageParam {
+    keyword: string,
+    ty: string,
+    color: string,
+    size: string,
+}
+
+export struct OnlineSearchImageSourceEntry {
+    name: string,
+    enabled: bool,
+    is-testing: bool,
+    can-access: bool,
+    proxy-type: string,
+}
+
+export struct OnlineSearchImageSetting {
+    id: string,
+    download-dir: string,
+    http-proxy-url: string,
+    socks5-proxy-url: string,
+    search-limits: int,
+    sources: [OnlineSearchImageSourceEntry],
+}
+
+
+export struct OnlineSearchImageResultItem {
+    source: string,
+    thumbnail-url: string,
+    download-urls: [string],
+    description: string,
+    identifier: string,
+    thumbnail: image,
+    is-downloading: bool,
+    is-downloaded: bool,
+}
+
+export struct OnlineSearchAudioParam {
+    keyword: string,
+    download-lrc: bool,
+    download-cover: bool,
+}
+
+export struct OnlineSearchAudioSourceEntry {
+    name: string,
+    enabled: bool,
+    is-testing: bool,
+    can-access: bool,
+    proxy-type: string,
+}
+
+export struct OnlineSearchAudioSetting {
+    id: string,
+    download-dir: string,
+    search-limits: int,
+    sources: [OnlineSearchAudioSourceEntry],
+}
+
+export struct OnlineSearchAudioResultItem {
+    source: string,
+    song-name: string,
+    singers: string,
+    album: string,
+    duration: string,
+    ext: string,
+    file-size: string,
+    bitrate: int,
+    cover-url: string,
+    download-url: string,
+    identifier: string,
+    thumbnail: image,
+    is-downloading: bool,
+    is-downloaded: bool,
+}
+
 export enum TranscribeProgressType {
     None,
     Finished,
@@ -317,6 +470,88 @@ export enum TranscribeProgressType {
     Failed,
     Transcribe,
     CorrectSubtitles,
+    ImportingAudio,
+}
+
+export enum SmartClipProgressType {
+    None,
+    Finished,
+    Cancelled,
+    Failed,
+    ImportingAudio,
+    Transcribing,
+    AiSplitting,
+}
+
+export struct SmartClipEntry {
+    start-ms: int,
+    end-ms: int,
+    text: string,
+    is-kept: bool,
+}
+
+export struct SmartClip {
+    entries: [SmartClipEntry],
+    media-duration-ms: float,
+    progress: float,
+    progress-type: SmartClipProgressType,
+}
+
+export enum SmartMixProgressType {
+    None,
+    TranscribingAudio,
+    RecognizingVisual,
+    AiMatching,
+    Finished,
+    Cancelled,
+    Failed,
+}
+
+export struct SmartMixSetting {
+    vl-fp32-model-dir: string,
+    vl-fp16-model-dir: string,
+    vl-q4-model-dir: string,
+    vl-q8-model-dir: string,
+    vl-precision: string,
+    vl-resolution: string,
+    vl-prompt: string,
+    vl-max-tokens: int,
+    video-sample-fps: int,
+    reuse-media: bool,
+    sequential-match: bool,
+    must-cover-all-audio: bool,
+}
+
+export struct SmartMixEntry {
+    start-ms: int,
+    end-ms: int,
+    text: string,
+}
+
+export struct SmartMixVisualItem {
+    track-index: int,
+    segment-index: int,
+    is-image: bool,
+    filename: string,
+    description: string,
+    duration-ms: int,
+}
+
+export struct SmartMixMatchItem {
+    audio-index: int,
+    visual-index: int,
+    source-offset-ms: int,
+    duration-ms: int,
+    filename: string,
+}
+
+export struct SmartMix {
+    audio-entries: [SmartMixEntry],
+    visual-items: [SmartMixVisualItem],
+    match-items: [SmartMixMatchItem],
+    progress: float,
+    progress-type: SmartMixProgressType,
+    is-auto-find-tracks: bool,
 }
 
 export enum FileType {
@@ -328,32 +563,26 @@ export enum FileType {
 export struct SettingTranscribe {
     model-path: string,
     model-tokenizer-path: string,
-    mini-silent-period-duration: int,
+    keep-leading-silence-ms: int,
     audio-sound: float,
+    audio-speed: float,
 }
 
 export struct Subtitle {
     start-timestamp: string,
     end-timestamp: string,
-
     original-text: string,
     correction-text: string,
-
     audio-wave-amplitude: float,
     audio-samples: [float],
-
     is-timestamp-overlap: bool,
 }
 
 export struct Transcribe {
-    id: string,
-    file-path: string,
-    is-file-exist: bool,
-    file-type: FileType,
     subtitles: [Subtitle],
-
     media-duration-ms: float,
     playing-index: int,
+    enable-playing-index: bool,
     progress: float,
     progress-type: TranscribeProgressType,
 }
@@ -364,37 +593,615 @@ export struct SettingAiModel {
     api-key: string,
 }
 
+export struct VideoEditorUIState {
+    id: string,
+    tracks-height: string,
+    left-panel-width: string,
+    right-panel-width: string,
+    tracks-zoom-level: string,
+    preview-volume: float,
+
+    // 是否联动轨道内的segment，如果为true，则需要调整受影响的segment时间轴
+    enabled-link-track: bool,
+
+    // 是否联动所有轨道，如果为true，则需要调整受影响的所有轨道的segment时间轴
+    enabled-link-all-tracks: bool,
+
+    // 预览窗口网格大小：0 表示关闭，其他值如 3 表示 3x3 网格
+    preview-grid-size: int,
+
+    // 播放列表和媒体库的视图模式：0 = 列表模式, 1 = 缩略图模式
+    playlist-view-mode: int,
+    library-view-mode: int,
+}
+
+export enum VideoEditorTrackType {
+    Video,
+    Audio,
+    Subtitle,
+    Image,
+    Text,
+}
+
+
+export struct VideoEditorTrackSegment {
+    uuid: string,
+    hiding: bool,
+    audio-muted: bool,
+    filename: string,
+    duration: int,          // ms - timeline 显示时长（受 playback_speed 影响）
+    original-duration: int, // ms - 源内容原始时长（不受 playback_speed 影响）
+    timeline-offset: int,   // ms
+    source-offset: int,     // ms - 源文件中的起始位置
+    source-duration: int,   // ms - 源文件的总时长，用于限制右边沿拉伸
+    playback-speed: float,  // 播放速度倍率 (默认 1.0, 范围 0.1-10.0)
+    subtitle-text: string,
+    overlay-text: string,
+    left-thumbnail: image,
+    right-thumbnail: image,
+    preview-audio-channels: int,
+    preview-audio-samples: [float], // 只用于预览，可能经过重采样和平均化
+    preview-audio-amplitude-scale: float,
+    filters: [SegmentFilter], // 每个segment拥有的滤镜
+}
+
+export struct VideoEditorTrack {
+    locked: bool,
+    hiding: bool,
+    muted: bool,
+    name: string,
+    duration: int, // ms
+    ty: VideoEditorTrackType,
+    segments: [VideoEditorTrackSegment],
+}
+
+export struct VideoEditorTracksManager {
+    duration: int, // ms
+    tracks: [VideoEditorTrack],
+}
+
+export struct VideoEditorPreviewConfig {
+    fps: Fps,
+    resolution: Resolution,
+    channels: AudioChannels,
+    sample-rate: AudioSampleRate,
+}
+
+export struct VideoEditorNewProjectConfig {
+    name: string,
+    preview-config: VideoEditorPreviewConfig,
+}
+
+export struct SelectedTrackIndex {
+    index: int,
+    modifiers: KeyboardModifiers,
+}
+
+export struct SelectedSegmentIndex {
+    index: int,
+    track-index: int,
+    modifiers: KeyboardModifiers,
+}
+
+export struct VideoEditorPlaylistItem {
+    file-path: string,
+    name: string,
+    media-type: MediaType,
+    duration: string,
+    file-size: string,
+    thumbnail: image,
+    is-selected: bool,
+    is-marked: bool,
+    is-folder: bool,
+    folder-id: string,
+    item-id: string,
+    folder-source-path: string,
+}
+
+export struct VideoEditorExportQueueItem {
+    id: string,
+    name: string,
+    media-type: MediaType,
+    progress: float,
+    is-cancelled: bool,
+}
+
+export struct VideoEditorExportVideoConfig {
+    fps: Fps,
+    resolution: Resolution,
+    channels: AudioChannels,
+    sample-rate: AudioSampleRate,
+    low-memory-mode: bool,
+}
+
+export struct VideoEditorExportAudioConfig {
+    format: AudioFormat,
+    channels: AudioChannels,
+    sample_rate: AudioSampleRate,
+}
+
+export  struct VideoEditorVolume { left: float, right: float }
+export enum SubtitleType { Srt, Vtt, Ass }
+
+export struct VideoEditorSubtitle {
+    start-timestamp: string,
+    end-timestamp: string,
+    subtitle: string,
+}
+
+export struct VideoEditorRecentEntry {
+    name: string,
+    path: string,
+    modified-at: string,
+}
+
+export struct VideoPreviewSize {
+    width: int,
+    height: int,
+}
+
+export struct SnapResult {
+    position: int,
+    snapped: bool,
+}
+
+export struct VideoEditorPreferenceTrackConfig {
+    show-thumbnail: bool,
+    show-filename: bool,
+    snap-threshold-ms: int,
+    audio-track-waveform-amplification: float,
+    compact-mode: bool,
+}
+
+export struct VideoEditorPreferenceCacheConfig {
+    max-frames: int,         // 全局缓存图片数量，默认 100
+    max-cache-duration: int, // 预览最大缓存时长（秒），默认 5
+}
+
+export enum McpTransport {
+    Stdio,
+    Http,
+    Both,
+}
+
+export struct VideoEditorPreferenceMcpConfig {
+    enabled: bool,
+    transport: McpTransport,
+    port: int,
+}
+
+export struct VideoEditorPreferenceConfig {
+    track: VideoEditorPreferenceTrackConfig,
+    cache: VideoEditorPreferenceCacheConfig,
+    mcp: VideoEditorPreferenceMcpConfig,
+}
+
+export struct VideoEditorRecoveryInfo {
+    temp-file-path: string,      // 恢复文件路径
+    original-project-path: string, // 原始项目路径
+    saved-time: string,          // 保存时间（用于显示）
+}
+
+export struct VideoEditorSegmentMetadata {
+    // Common fields
+    filename: string,
+    file-path: string,
+    file-size: string,
+    duration: string,
+    bitrate: string,
+    format: string,
+    media-type: MediaType,
+
+    // Video specific
+    video-width: int,
+    video-height: int,
+    video-fps: float,
+    video-codec: string,
+    video-language: string,
+
+    // Audio specific
+    audio-sample-rate: int,
+    audio-channels: int,
+    audio-codec: string,
+    audio-language: string,
+}
+
+export struct VideoEditorRecordAudioConfig {
+    save-dir: string,
+    device: string,
+    gain: float,
+    mono: bool,
+}
+
+// 单个图层信息
+export struct VideoEditorLayerImage {
+    track-index: int,       // 轨道索引
+    segment-index: int,     // segment 索引，-1 表示无
+    original-image: image,  // 原始图层图像
+    image: image,           // 经过filter处理图层图像
+
+    // 滤镜
+    transform: TransformDetail,
+    crop: CropDetail,
+    zoom: ZoomDetail,
+    fly-in: FlyInDetail,
+    mosaic: MosaicDetail,
+    draw-circle: DrawCircleDetail,
+    draw-rectangle: DrawRectangleDetail,
+    local-magnify: LocalMagnifyDetail,
+    magnifier: MagnifierDetail,
+    text-highlight: TextHighlightDetail,
+    linear-mask: LinearMaskDetail,
+    circle-mask: CircleMaskDetail,
+    mirror-mask: MirrorMaskDetail,
+    rectangle-mask: RectangleMaskDetail,
+    focus: FocusDetail,
+    gaussian-blur: GaussianBlurDetail,
+}
+
+export enum FontSource {
+    System,
+    Imported,
+}
+
+export struct FontEntry {
+    id: string,
+    family: string,
+    path: string,
+    style: string,
+    marked: bool,
+    source: FontSource,
+    display-image: image,
+}
+
+export struct TextElement {
+    text: string,
+    position-x: float,  // 0-1 normalized
+    position-y: float,
+    opacity: float,     // 0-1
+    rotation: angle,
+    // Style fields
+    font-path: string,
+    font-family: string,
+    font-style: string,
+    font-size: int,
+    primary-color-r: int,
+    primary-color-g: int,
+    primary-color-b: int,
+    primary-color-a: int,
+    outline-width: int,
+    outline-color-r: int,
+    outline-color-g: int,
+    outline-color-b: int,
+    outline-color-a: int,
+    background-color-r: int,
+    background-color-g: int,
+    background-color-b: int,
+    background-color-a: int,
+    border-radius: int,
+    padding: int,
+    border-width: int,
+    border-color-r: int,
+    border-color-g: int,
+    border-color-b: int,
+    border-color-a: int,
+    alignment: int,  // 0=Left, 1=Center, 2=Right, default Center(1)
+}
+
+export struct PresetTextStyle {
+    name: string,
+    style: TextElement,
+}
+
+export struct CodeImageConfig {
+    id: string,
+    code: string,
+    language: string,
+    syntax-theme: string,
+    font-size: float,
+    ascii-font-family: string,
+    ascii-font-path: string,
+    ascii-font-style: string,
+    non-ascii-font-family: string,
+    non-ascii-font-path: string,
+    non-ascii-font-style: string,
+    line-height-ratio: float,
+    padding: float,
+    scale: float,
+    line-numbers: bool,
+    bg-color: string,
+    enable-terminal: bool,
+    terminal-style: string,
+    terminal-title: string,
+}
+
+export struct PureColorImageConfig {
+    id: string,
+    width: int,
+    height: int,
+    save-dir: string,
+}
+
+export struct TTSConfig {
+    id: string,
+    use-gpu: bool,
+    reference-audio-path: string,
+    save-dir: string,
+    model-dir: string,
+    max-char-count: int,
+    max-token-count: int,
+    cfg-value: float,
+    context-reset-interval: int,
+    preamble: string,
+}
+
+export struct TTSVoice {
+    name: string,
+    path: string,
+    marked: bool,
+    built-in: bool,
+}
+
+export struct TTSEntry {
+    text: string,
+    samples: [float],
+    is-generating: bool,
+    duration: int,
+}
+
+export struct VideoEditorBgRemoverConfig {
+    id: string,
+    selected-model-index: int,
+    export-dir: string,
+    modnet-path: string,
+    rmbg-path: string,
+}
+
+export struct VideoEditorDewatermarkConfig {
+    id: string,
+    export-dir: string,
+    lama-path: string,
+}
+
+export struct VideoEditorSubtitleRemoverConfig {
+    id: string,
+    export-dir: string,
+    lama-path: string,
+    is-segment-save: bool,
+    segment-duration: int,
+}
+
+export struct VideoEditorCutoutConfig {
+    id: string,
+    export-dir: string,
+    selected-model-index: int,
+    u2net-path: string,
+    u2netp-path: string,
+    u2net-cloth-seg-path: string,
+    u2net-human-seg-path: string,
+    isnet-anime-path: string,
+    isnet-general-use-path: string,
+    silueta-path: string,
+    threshold: int,
+    binary: bool,
+    sticker-color-r: int,
+    sticker-color-g: int,
+    sticker-color-b: int,
+    sticker-color-a: int,
+}
+
+export struct VideoEditorClearVisionConfig {
+    id: string,
+    export-dir: string,
+    swinir-path: string,
+
+    // deconvolution
+    psf-type: string,
+    sigma: float,
+    iterations: int,
+    motion-length: int,
+    motion-angle: float,
+    defocus-radius: int,
+    sigma-major: float,
+    sigma-minor: float,
+    oriented-angle: float,
+    box-width: int,
+    box-height: int,
+    disk-radius: int,
+    lorentz-gamma: float,
+    lobe-separation: float,
+
+    // deconvolution - algorithm
+    algorithm: string,
+    tv-weight: float,
+    wiener-nsr: float,
+    relaxation: float,
+    tikhonov-lambda: float,
+    inverse-cutoff: float,
+    ista-lambda: float,
+    ista-step-size: float,
+}
+
+export struct VideoEditorStemSplitterConfig {
+    id: string,
+    export-dir: string,
+    model-path: string,
+}
+
+export struct VideoEditorDeepFilterConfig {
+    id: string,
+    selected-model-index: int,
+    export-dir: string,
+    dfn2-model-dir: string,
+    dfn2-ll-model-dir: string,
+    dfn2-h0-model-dir: string,
+    dfn3-model-dir: string,
+    dfn3-ll-model-dir: string,
+    dfn3-h0-model-dir: string,
+}
+
+export struct VideoEditorSimilarVideoSegmentConfig {
+    export-dir: string,
+    similarity-threshold: float,
+    sample-interval: int,
+    before-duration-secs: float,
+    after-duration-secs: float,
+    keep-audio: bool,
+}
+
+export struct VideoEditorSimilarVideoSegmentItem {
+    path: string,
+    filename: string,
+    status: int,
+    error-msg: string,
+    match-count: int,
+}
+
+export enum MusicGenModel {
+    Small,
+    SmallFp16,
+    SmallQuant,
+    Medium,
+    MediumFp16,
+    MediumQuant,
+    Large,
+}
+
+export struct VideoEditorMusicGenConfig {
+    id: string,
+    selected-model-index: int,
+    export-dir: string,
+    small-model-dir: string,
+    small-fp16-model-dir: string,
+    small-quant-model-dir: string,
+    medium-model-dir: string,
+    medium-fp16-model-dir: string,
+    medium-quant-model-dir: string,
+    large-model-dir: string,
+    duration: int,
+    prompt: string,
+}
+
+export struct VideoEditorSpeakersConfig {
+    id: string,
+    export-dir: string,
+    models-dir: string,
+    merge-gap: float,
+    timeline-mode: bool,
+}
+
+
+export struct OcrTextBlock {
+    text: string,
+    x1: int,
+    y1: int,
+    x2: int,
+    y2: int,
+}
+
+export enum OcrTaskMode {
+    Text,
+    Spotting,
+}
+
+export struct VideoEditorOCRConfig {
+    id: string,
+    model-dir: string,
+    task-mode: OcrTaskMode,
+    timeout: int,
+}
+
+export struct AudioPlayerStatus {
+    name: string,
+    sound: float,
+    progress: float,
+    duration-ms: int,
+    is-playing: bool,
+    is-processing: bool,
+}
+
+
+export enum SceneDetectorAlgorithm {
+    Content,
+    Adaptive,
+    Histogram,
+    Threshold,
+}
+
+export struct SceneDetectConfig {
+    algorithm: SceneDetectorAlgorithm,
+    min-duration: int,
+    content-threshold: float,
+    adaptive-threshold: float,
+    histogram-threshold: float,
+    threshold-threshold: float,
+}
+
+export enum ChapterSummaryProgressType {
+    None,
+    Generating,
+    Finished,
+    Failed,
+    Cancelled,
+}
+
+export struct ChapterSummaryEntry {
+    start-ms: int,
+    end-ms: int,
+    title: string,
+}
+
+export enum SubtitleTranslateProgressType {
+    None,
+    Translating,
+    Finished,
+    Failed,
+    Cancelled,
+}
+
+export struct SubtitleTranslateConfig {
+    id: string,
+    prompt: string,
+    batch-size: int,
+    max-retries: int,
+}
+
 //////////////////////////////// Logic Struct End  ////////////////////////////////
 
-import { PlaylistItem } from "base/def.slint";
-
 export global Store {
+    function startup-tab-to-tab-index(tab: StartupTab) -> TabIndex {
+        if (tab == StartupTab.VideoEditor) {
+            return TabIndex.VideoEditor;
+        } else if (tab == StartupTab.Transcribe) {
+            return TabIndex.Transcribe;
+        } else if (tab == StartupTab.ShareScreen) {
+            return TabIndex.ShareScreen;
+        } else {
+            return TabIndex.Home;
+        }
+    }
+
     in-out property <DeviceType> device-type: DeviceType.Desktop;
     in-out property <bool> is-first-run;
     in-out property <bool> is-show-landing-page;
     in-out property <bool> is-show-help-btn;
     in-out property <bool> is-show-remove-caches-btn;
 
-    // desktop
     in-out property <TabIndex> previous-tab-index: TabIndex.Home;
-    in-out property <TabIndex> current-tab-index: TabIndex.Home;
+    in-out property <TabIndex> current-tab-index: startup-tab-to-tab-index(setting-preference.startup-tab);
     in-out property <PopupIndex> current-popup-index: PopupIndex.None;
     in-out property <SettingDetailIndex> current-setting-detail-index: SettingDetailIndex.Preference;
 
-    // android
-    in-out property <MobileTabIndex> previous-mobile-tab-index: MobileTabIndex.Home;
-    in-out property <MobileTabIndex> current-mobile-tab-index: MobileTabIndex.Home;
-    in-out property <MobileSettingDetailIndex> current-mobile-setting-detail-index: MobileSettingDetailIndex.Preference;
-
     in-out property <SettingPreference> setting-preference: {
-        win-width: 800,
+        win-width: 700,
         win-height: 640,
         font-size: "16",
         font-family: "Source Han Sans CN",
         language: "en",
         always-on-top: false,
         no-frame: true,
-        is-dark: false,
+        is-dark: true,
+        startup-tab: StartupTab.VideoEditor,
     };
 
     //////////////////////////////// Logic Start ////////////////////////////////
@@ -412,21 +1219,11 @@ export global Store {
     in-out property <int> speaker-audio-db: -60;
     in-out property <bool> start-recording-timer;
 
-    in-out property <[string]> audio-sources: ["sound-card-1", "sound-card-2"];
-    in-out property <[string]> video-sources: ["eDP-1", "eDP-2"];
-    in-out property <[string]> camera-sources: ["camera-1", "camera-2"];
-
-    in-out property <[Source]> sources: [
-        { ty: SourceType.Audio, name: "sound-card-2" },
-        { ty: SourceType.Video, name: "eDP-1" },
-        { ty: SourceType.Camera, name: "camera-2" },
-    ];
-
-    in-out property <StatsInfo> stats-info: {
-        fps: 0.0,
-        loss: 0.0,
-        total: 0,
-    };
+    in-out property <[Source]> sources: [];
+    in-out property <[string]> audio-sources: [];
+    in-out property <[string]> video-sources: [];
+    in-out property <[string]> camera-sources: [];
+    in-out property <StatsInfo> stats-info;
 
     in-out property <SettingControl> setting-control:  {
         screen: sources[1].name,
@@ -448,10 +1245,10 @@ export global Store {
         }
     };
 
+    in-out property <bool> is-show-realtime-image-effect-dialog;
     in-out property <SettingShareScreen> setting-share-screen;
     in-out property <string> setting-share-screen-cert-file;
     in-out property <string> setting-share-screen-key-file;
-
     in-out property <SettingPushStream> setting-push-stream;
 
     in-out property <bool> is-show-camera-setting-dialog;
@@ -471,47 +1268,496 @@ export global Store {
         Colors.pink
     ];
 
-    in-out property <[HistoryEntry]> history-entries: [
-        { file: "file-1", size: "10M", duration: "4:00" },
-        { file: "file-1", size: "100M" },
-    ];
-
+    in-out property <[HistoryEntry]> history-entries: [];
     in-out property <image> player-image;
     in-out property <float> player-progress;
     in-out property <bool> player-is-playing;
-    in-out property <SettingPlayer> setting-player: { current-time: "00:00", end-time: "4:00", sound: 50 };
-
-    in-out property <[PlaylistItem]> playlist-entries: [
-        { title: "Video1", duration: "3:45" },
-        { title: "Video2", duration: "4:20" },
-    ];
+    in-out property <SettingPlayer> setting-player;
+    in-out property <[PlaylistItem]> playlist-entries: [];
 
     in-out property <image> share-screen-player-image;
     in-out property <int> share-screen-playing-duration;
     in-out property <bool> share-screen-is-playing-cache;
     in-out property <ConnectionStatus> share-screen-client-connection-status: ConnectionStatus.Disconnected;
 
-    in-out property <bool> is-show-realtime-image-effect-dialog;
+    in-out property <int> video-editor-current-edited-track-index: -1;
+    in-out property <[SelectedTrackIndex]> video-editor-selected-tracks-index: [];
+    in-out property <[SelectedSegmentIndex]> video-editor-selected-segments-index: [];
+    in-out property <KeyboardModifiers> video-editor-keyboard-modifiers;
+    in-out property <bool> video-editor-is-show-unsave-change-dialog;
+    in-out property <bool> video-editor-is-show-recovery-dialog;
+    in-out property <VideoEditorRecoveryInfo> video-editor-recovery-info;
+    in-out property <bool> video-editor-is-in-quit-state;
+    in-out property <bool> video-editor-is-show-recent-dialog;
+    in-out property <bool> video-editor-is-show-metadata-dialog;
+    in-out property <bool> video-editor-is-show-help-dialog;
+    in-out property <bool> video-editor-is-show-preview-setting-dialog;
+    in-out property <bool> video-editor-is-show-preference-setting-dialog;
+    in-out property <int> video-editor-record-audio-duration;
+    in-out property <bool> video-editor-is-unsaved;
+    in-out property <bool> video-editor-is-previewing;
+    in-out property <bool> video-editor-track-selected-flag; // 用于触发UI更新检查是否选中当前track
+    in-out property <bool> video-editor-segment-selected-flag; // 用于触发UI更新检查是否选中当前segment
+    in-out property <bool> video-editor-segment-filter-flag; // 用于触发UI更新检查是否选中当前segment的filter列表
+    in-out property <bool> video-editor-timeline-flag; // 用于触发时间轴UI更新
+    in-out property <int> video-editor-timeline-offset;
 
-    in-out property <[Downloader]> transcribe-models-dowloader: [{ }, { }];
-    in-out property <SettingTranscribe> transcribe-setting;
-    in-out property <SettingTranscribe> transcribe-setting-cache;
-    in-out property <float> transcribe-audio-player-progress;
-    in-out property <bool> transcribe-audio-player-is-playing;
-    in-out property <bool> transcribe-can-recovered;
-    in-out property <bool> transcribe-is-initialized;
-    in-out property <Transcribe> transcribe: {
-        is-file-exist: true,
-        file-path: "/tmp/test.mp3",
-        subtitles: [
-            {
-                start-timestamp: "00:00:00,000",
-                end-timestamp: "00:00:05,100",
-                original-text: "It's a test text",
-                correction-text: "It's correction text",
-                audio-wave-amplitude: 1.0,
+    // 拖拽 playlist/library 条目状态
+    in-out property <bool> video-editor-item-is-dragging;
+    in-out property <bool> video-editor-item-is-in-tracks-area;
+    in-out property <bool> video-editor-item-is-add-to-new-track;
+    in-out property <int> video-editor-left-panel-selected-index;
+    in-out property <VideoEditorPlaylistItem> video-editor-drag-item;
+    in-out property <Point> video-editor-drag-item-absolute-position;
+    in-out property <Point> video-editor-tracks-area-absolute-top-left-position;
+    in-out property <Point> video-editor-tracks-area-absolute-bottom-right-position;
+    in-out property <int> video-editor-item-drag-target-track-index: -1;
+    in-out property <int> video-editor-item-drag-timeline-offset-ms;
+    in-out property <int> video-editor-item-new-track-insert-index: -1;
+    in-out property <length> video-editor-item-tracks-viewport-x;
+    in-out property <length> video-editor-item-tracks-viewport-y;
+    in-out property <length> video-editor-item-track-header-width;
+
+    // 拖拽轨道头改变轨道位置
+    in-out property <int> video-editor-drag-track-index: -1;
+    in-out property <int> video-editor-drag-track-target-index: -1;
+    in-out property <bool> video-editor-track-header-is-dragging;
+    in-out property <Point> video-editor-track-header-area-absolute-top-left-position;
+
+    // 拖拽预览状态: 拖拽时只更新UI，释放时才提交到后台
+    in-out property <bool> video-editor-segment-is-dragging;
+    in-out property <string> video-editor-drag-segment-uuid;
+    in-out property <int> video-editor-drag-preview-offset;   // ms
+    in-out property <int> video-editor-drag-preview-duration; // ms
+    // 联动预览: 记录拖拽的segment位置，用于后续segment联动
+    in-out property <int> video-editor-drag-segment-track-index: -1;
+    in-out property <int> video-editor-drag-segment-index: -1;
+    in-out property <int> video-editor-drag-delta-ms; // 拖拽偏移量（相对于原始位置）
+    in-out property <bool> video-editor-drag-is-move; // 标记当前拖拽是否为移动操作（非resize）
+    // 联动所有轨道时的最小timeline-offset，用于限制向左移动
+    in-out property <int> video-editor-drag-min-all-tracks-offset;
+    // 拖拽开始时 segment 的原始时间范围，用于跨轨道重叠检测
+    in-out property <int> video-editor-drag-original-offset;
+    in-out property <int> video-editor-drag-original-duration;
+
+    // 跨轨道 segment 拖拽状态，可以自由放置segment位置（包含在原本轨道移动segment）
+    in-out property <bool> video-editor-segment-cross-track-dragging;  // 是否正在跨轨道拖拽
+    in-out property <int> video-editor-segment-cross-track-target-index: -1;  // 目标轨道索引
+    in-out property <int> video-editor-segment-cross-track-timeline-offset-ms;  // 目标位置时间偏移
+    in-out property <bool> video-editor-segment-cross-track-will-split;  // 是否会分割目标segment
+    in-out property <int> video-editor-segment-cross-track-split-segment-index: -1;  // 将被分割的segment索引
+
+    // 播放列表和媒体库预览设置
+    in-out property <bool> video-editor-is-show-item-preview-dialog;
+    in-out property <VideoEditorPlaylistItem> video-editor-preview-item;
+    in-out property <image> video-editor-item-preview-image;
+    in-out property <bool> video-editor-item-preview-is-playing;
+    in-out property <float> video-editor-item-preview-progress;
+    in-out property <string> video-editor-item-preview-end-time;
+    in-out property <string> video-editor-item-preview-current-time;
+    in-out property <[VideoEditorSubtitle]> video-editor-item-preview-subtitle-entries:[];
+
+    // 调色板
+    in-out property <bool> video-editor-color-picker-toggle-flag;
+    in-out property <bool> video-editor-color-picker-confirmed-flag;
+    in-out property <color> video-editor-color-picker-color;
+    in-out property <int> video-editor-color-picker-id;
+
+    in-out property <image> video-editor-preview-image;
+    in-out property <[VideoEditorLayerImage]> video-editor-preview-layer-images: [
+        {
+            track-index: 0,
+            segment-index: 0,
+            original-image: @image-url("../ui/images/png/brand.png"),
+            image: @image-url("../ui/images/png/brand.png"),
+            transform: {
+                zoom-level: 1,
+                center-x-percent: 0.5,
+                center-y-percent: 0.5,
+                rotation: 0deg,
             },
-        ],
+        },
+        {
+            track-index: 2,
+            segment-index: 0,
+            original-image: @image-url("../ui/images/png/github-action-release.png"),
+            image: @image-url("../ui/images/png/github-action-release.png"),
+            transform: {
+                zoom-level: 1,
+                center-x-percent: 0.5,
+                center-y-percent: 0.5,
+                rotation: 0deg,
+            },
+        },
+    ];
+    in-out property <int> video-editor-subtitle-checked-index; // 区分new和modify tab
+    in-out property <VideoEditorSubtitle> video-editor-current-edited-subtitle;
+    in-out property <VideoEditorVolume> video-editor-preview-volume: { left: -200, right: -200 };
+    in-out property <[VideoEditorRecentEntry]> video-editor-recent-entries: [];
+    in-out property <[VideoEditorExportQueueItem]> video-editor-export-queue: [];
+    in-out property <VideoEditorNewProjectConfig> video-editor-new-project-config;
+    in-out property <VideoEditorExportVideoConfig> video-editor-export-video-config;
+    in-out property <VideoEditorExportAudioConfig> video-editor-export-audio-config;
+    in-out property <VideoEditorUIState> video-editor-ui-state: { tracks-height: 0.25, tracks-zoom-level: 1.0 };
+    in-out property <VideoEditorPreferenceConfig> video-editor-preference-config;
+    in-out property <bool> video-editor-mcp-is-runing;
+    out property <int> video-editor-max-zoom-level: 5;
+
+    in-out property <bool> video-editor-playlist-in-edit-mode;
+    in-out property <bool> video-editor-playlist-is-searching;
+    in-out property <int> video-editor-playlist-checked-index;
+    in-out property <string> video-editor-playlist-search-keyword;
+    in-out property <int> video-editor-playlist-selected-count;
+    in-out property <bool> video-editor-media-library-in-edit-mode;
+    in-out property <bool> video-editor-media-library-is-searching;
+    in-out property <int> video-editor-media-library-checked-index;
+    in-out property <string> video-editor-media-library-search-keyword;
+    in-out property <int> video-editor-media-library-selected-count;
+    in-out property <int> video-editor-playlist-selection-anchor: -1;
+    in-out property <int> video-editor-media-library-selection-anchor: -1;
+    in-out property <[VideoEditorPlaylistItem]> video-editor-playlist: [];
+    in-out property <[VideoEditorPlaylistItem]> video-editor-media-library: [];
+    in-out property <string> video-editor-playlist-current-folder-id;
+    in-out property <string> video-editor-media-library-current-folder-id;
+    in-out property <[VideoEditorPlaylistItem]> video-editor-playlist-breadcrumb: [];
+    in-out property <[VideoEditorPlaylistItem]> video-editor-media-library-breadcrumb: [];
+
+    // 拖拽 playlist/library 条目到文件夹
+    in-out property <bool> video-editor-item-is-over-folder;
+    in-out property <string> video-editor-item-drop-target-folder-id;
+    in-out property <length> video-editor-library-item-height;
+    in-out property <int> video-editor-library-drag-item-index: -1;
+    in-out property <Point> video-editor-library-drag-item-start-absolute-position;
+    in-out property <Point> video-editor-thumbnail-view-absolute-position;
+    in-out property <length> video-editor-thumbnail-item-size;
+
+    in-out property <bool> video-editor-is-show-rename-dialog;
+    in-out property <string> video-editor-rename-dialog-id;
+    in-out property <string> video-editor-rename-dialog-text;
+    in-out property <string> video-editor-rename-dialog-title;
+    in-out property <string> video-editor-rename-dialog-action;
+    in-out property <string> video-editor-rename-dialog-context;
+
+    in-out property <bool> video-editor-is-recording-audio;
+    in-out property <bool> video-editor-is-show-record-audio-dialog;
+    in-out property <[string]> video-editor-audio-devices: [];
+    in-out property <VideoEditorRecordAudioConfig> video-editor-record-audio-config;
+    in-out property <VideoEditorVolume> video-editor-record-audio-volume: { left: -200, right: -200 };
+
+    in-out property <string> video-editor-selected-keyframe-property-name;
+    in-out property <bool> video-editor-focus-flag;
+
+    in-out property <bool> video-editor-is-show-backup-progress-dialog;
+    in-out property <float> video-editor-backup-progress;
+    in-out property <bool> video-editor-backup-is-canceled;
+
+    in-out property <bool> video-editor-is-show-code-image-dialog;
+    in-out property <CodeImageConfig> video-editor-code-image-config;
+
+    in-out property <bool> video-editor-is-show-pure-color-image-dialog;
+    in-out property <PureColorImageConfig> video-editor-pure-color-image-config;
+
+    in-out property <TTSConfig> video-editor-tts-config;
+    in-out property <bool> video-editor-is-show-tts-dialog;
+    in-out property <bool> video-editor-is-show-tts-add-dialog;
+    in-out property <bool> video-editor-is-show-tts-setting-dialog;
+    in-out property <bool> video-editor-tts-is-generating-all;
+    in-out property <bool> video-editor-tts-update-total-time-flag;
+    in-out property <float> video-editor-tts-generating-all-progress;
+    in-out property <string> video-editor-tts-input-text;
+    in-out property <int> video-editor-tts-audio-playing-index: -1;
+    in-out property <bool> video-editor-tts-audio-player-is-playing;
+    in-out property <float> video-editor-tts-audio-player-progress;
+    in-out property <float> video-editor-tts-audio-sound: video-editor-ui-state.preview-volume / 100;
+    in-out property <[Downloader]> video-editor-tts-models-dowloader: [{ }];
+    in-out property <[TTSVoice]> video-editor-tts-voices: [];
+    in-out property <[TTSEntry]> video-editor-tts-entries: [];
+
+    in-out property <bool> video-editor-transcribe-is-show-dialog;
+    in-out property <bool> video-editor-transcribe-is-show-original-text-dialog;
+    in-out property <bool> video-editor-transcribe-is-show-setting-dialog;
+    in-out property <bool> video-editor-transcribe-is-show-replace-dialog;
+    in-out property <bool> video-editor-transcribe-focus-audio-player-flag;
+    in-out property <float> video-editor-transcribe-audio-player-progress;
+    in-out property <bool> video-editor-transcribe-audio-player-is-playing;
+    in-out property <Transcribe> video-editor-transcribe;
+    in-out property <SettingTranscribe> video-editor-transcribe-setting;
+    in-out property <[Downloader]> video-editor-transcribe-models-dowloader: [{ }, { }];
+
+    in-out property <bool> video-editor-smart-clip-is-show-dialog;
+    in-out property <bool> video-editor-smart-clip-is-show-reference-dialog;
+    in-out property <float> video-editor-smart-clip-audio-player-progress;
+    in-out property <bool> video-editor-smart-clip-audio-player-is-playing;
+    in-out property <float> video-editor-smart-clip-audio-sound: video-editor-ui-state.preview-volume / 100;
+    in-out property <float> video-editor-smart-clip-audio-duration-ms;
+    in-out property <float> video-editor-smart-clip-audio-speed: 1.0;
+    in-out property <int> video-editor-smart-clip-playing-index: -1;
+    in-out property <int> video-editor-smart-clip-segment-track-index;
+    in-out property <int> video-editor-smart-clip-segment-index;
+    in-out property <bool> video-editor-smart-clip-is-show-setting-dialog;
+    in-out property <SmartClip> video-editor-smart-clip;
+    in-out property <[Downloader]> video-editor-smart-clip-models-dowloader: [{ }, { }];
+
+    in-out property <bool> video-editor-smart-mix-is-show-dialog;
+    in-out property <bool> video-editor-smart-mix-is-show-setting-dialog;
+    in-out property <SmartMix> video-editor-smart-mix;
+    in-out property <SmartMixSetting> video-editor-smart-mix-setting;
+    in-out property <[Downloader]> video-editor-smart-mix-models-downloader: [{ }, { }, { }, { }];
+
+    in-out property <bool> video-editor-is-show-bg-remover-dialog;
+    in-out property <bool> video-editor-is-show-bg-remover-setting-dialog;
+    in-out property <image> video-editor-bg-remover-image;
+    in-out property <image> video-editor-bg-remover-processed-image;
+    in-out property <bool> video-editor-bg-remover-is-processing;
+    in-out property <float> video-editor-bg-remover-progress;
+    in-out property <VideoEditorBgRemoverConfig> video-editor-bg-remover-config;
+    in-out property <[Downloader]> video-editor-bg-remover-models-downloader: [{ }, { }];
+
+    in-out property <bool> video-editor-is-show-musicgen-dialog;
+    in-out property <bool> video-editor-is-show-musicgen-setting-dialog;
+    in-out property <bool> video-editor-musicgen-is-generating;
+    in-out property <float> video-editor-musicgen-progress;
+    in-out property <float> video-editor-musicgen-audio-player-progress;
+    in-out property <bool> video-editor-musicgen-audio-player-is-playing;
+    in-out property <float> video-editor-musicgen-audio-sound: video-editor-ui-state.preview-volume / 100;
+    in-out property <VideoEditorMusicGenConfig> video-editor-musicgen-config;
+    in-out property <[Downloader]> video-editor-musicgen-models-downloader: [{ }, { }, { }, { }, { }, { }, { }];
+    in-out property <int> video-editor-musicgen-audio-duration-ms;
+
+    in-out property <bool> video-editor-is-show-dewatermark-dialog;
+    in-out property <bool> video-editor-is-show-dewatermark-setting-dialog;
+    in-out property <float> video-editor-dewatermark-brush-size: 100;
+    in-out property <image> video-editor-dewatermark-mask-overlay;
+    in-out property <bool> video-editor-dewatermark-is-processing;
+    in-out property <bool> video-editor-dewatermark-is-brush-mode;
+    in-out property <image> video-editor-dewatermark-image;
+    in-out property <image> video-editor-dewatermark-processed-image;
+    in-out property <VideoEditorDewatermarkConfig> video-editor-dewatermark-config;
+    in-out property <[Downloader]> video-editor-dewatermark-models-downloader: [{ }];
+
+    in-out property <bool> video-editor-is-show-subtitle-remover-dialog;
+    in-out property <bool> video-editor-is-show-subtitle-remover-setting-dialog;
+    in-out property <image> video-editor-subtitle-remover-image;
+    in-out property <image> video-editor-subtitle-remover-rectangle-overlay;
+    in-out property <bool> video-editor-subtitle-remover-is-processing;
+    in-out property <float> video-editor-subtitle-remover-progress;
+    in-out property <string> video-editor-subtitle-remover-current-time: "00:00";
+    in-out property <string> video-editor-subtitle-remover-total-time: "00:00";
+    in-out property <float> video-editor-subtitle-remover-slider-position;
+    in-out property <VideoEditorSubtitleRemoverConfig> video-editor-subtitle-remover-config;
+    in-out property <[Downloader]> video-editor-subtitle-remover-models-downloader: [{ }];
+    in-out property <int> video-editor-subtitle-remover-rect-x;
+    in-out property <int> video-editor-subtitle-remover-rect-y;
+    in-out property <int> video-editor-subtitle-remover-rect-width;
+    in-out property <int> video-editor-subtitle-remover-rect-height;
+
+    in-out property <bool> video-editor-is-show-cutout-dialog;
+    in-out property <bool> video-editor-is-show-cutout-setting-dialog;
+    in-out property <image> video-editor-cutout-image;
+    in-out property <image> video-editor-cutout-processed-image;
+    in-out property <bool> video-editor-cutout-is-processing;
+    in-out property <bool> video-editor-cutout-is-brush-mode;
+    in-out property <float> video-editor-cutout-brush-size: 100;
+    in-out property <image> video-editor-cutout-mask-overlay;
+    in-out property <VideoEditorCutoutConfig> video-editor-cutout-config;
+    in-out property <[Downloader]> video-editor-cutout-models-downloader: [{ }, { }, { }, { }, { }, { }, { }];
+
+    in-out property <bool> video-editor-is-show-clear-vision-dialog;
+    in-out property <bool> video-editor-is-show-clear-vision-setting-dialog;
+    in-out property <bool> video-editor-clear-vision-is-processing;
+    in-out property <float> video-editor-clear-vision-progress;
+    in-out property <image> video-editor-clear-vision-image;
+    in-out property <image> video-editor-clear-vision-processed-image;
+    in-out property <int> video-editor-clear-vision-active-tab;
+    in-out property <VideoEditorClearVisionConfig> video-editor-clear-vision-config;
+    in-out property <[Downloader]> video-editor-clear-vision-models-downloader: [{ }];
+
+    in-out property <bool> video-editor-is-show-stem-splitter-dialog;
+    in-out property <bool> video-editor-stem-splitter-is-progressing;
+    in-out property <float> video-editor-stem-splitter-progress;
+    in-out property <bool> video-editor-is-show-stem-splitter-setting-dialog;
+    in-out property <[AudioPlayerStatus]> video-editor-stem-splitter-audio-player-status: [];
+    in-out property <VideoEditorStemSplitterConfig> video-editor-stem-splitter-config;
+    in-out property <[Downloader]> video-editor-stem-splitter-models-downloader: [{ }];
+
+    in-out property <bool> video-editor-is-show-deep-filter-dialog;
+    in-out property <bool> video-editor-deep-filter-is-progressing;
+    in-out property <float> video-editor-deep-filter-progress;
+    in-out property <bool> video-editor-is-show-deep-filter-setting-dialog;
+    in-out property <[AudioPlayerStatus]> video-editor-deep-filter-audio-player-status: [];
+    in-out property <VideoEditorDeepFilterConfig> video-editor-deep-filter-config;
+    in-out property <[Downloader]> video-editor-deep-filter-models-downloader: [{ }, { }, { }, { }, { }, { }];
+
+    in-out property <bool> video-editor-is-show-similar-video-segment-dialog;
+    in-out property <bool> video-editor-is-show-similar-video-segment-setting-dialog;
+    in-out property <bool> video-editor-similar-video-segment-is-progressing;
+    in-out property <int> video-editor-similar-video-segment-current-index: -1;
+    in-out property <string> video-editor-similar-video-segment-query-image-path;
+    in-out property <[VideoEditorSimilarVideoSegmentItem]> video-editor-similar-video-segment-items: [];
+    in-out property <VideoEditorSimilarVideoSegmentConfig> video-editor-similar-video-segment-config;
+
+    in-out property <bool> video-editor-is-show-speakers-dialog;
+    in-out property <bool> video-editor-speakers-is-progressing;
+    in-out property <float> video-editor-speakers-progress;
+    in-out property <bool> video-editor-is-show-speakers-setting-dialog;
+    in-out property <[AudioPlayerStatus]> video-editor-speakers-audio-player-status: [];
+    in-out property <VideoEditorSpeakersConfig> video-editor-speakers-config;
+    in-out property <[Downloader]> video-editor-speakers-models-downloader: [{ }];
+
+    in-out property <bool> video-editor-is-show-scene-detect-dialog;
+    in-out property <bool> video-editor-scene-detect-is-progressing;
+    in-out property <float> video-editor-scene-detect-progress;
+    in-out property <SceneDetectConfig> video-editor-scene-detect-config;
+    in-out property <int> video-editor-scene-detect-track-index;
+    in-out property <int> video-editor-scene-detect-segment-index;
+
+    in-out property <bool> video-editor-is-show-long-screenshot-dialog;
+    in-out property <image> video-editor-long-screenshot-first-frame;
+    in-out property <CropDetail> video-editor-long-screenshot-crop;
+    in-out property <bool> video-editor-long-screenshot-is-progressing;
+    in-out property <float> video-editor-long-screenshot-progress;
+    in-out property <int> video-editor-long-screenshot-track-index;
+    in-out property <int> video-editor-long-screenshot-segment-index;
+
+    in-out property <bool> video-editor-is-show-chapter-summary-dialog;
+    in-out property <float> video-editor-chapter-summary-progress;
+    in-out property <ChapterSummaryProgressType> video-editor-chapter-summary-progress-type;
+    in-out property <[ChapterSummaryEntry]> video-editor-chapter-summary-entries;
+
+    in-out property <bool> video-editor-is-show-memo-dialog;
+    in-out property <string> video-editor-global-memo-text;
+    in-out property <string> video-editor-project-memo-text;
+
+    in-out property <bool> video-editor-is-show-subtitle-translate-dialog;
+    in-out property <float> video-editor-subtitle-translate-progress;
+    in-out property <SubtitleTranslateProgressType> video-editor-subtitle-translate-progress-type;
+    in-out property <SubtitleTranslateConfig> video-editor-subtitle-translate-config;
+
+    in-out property <bool> video-editor-is-show-ocr-dialog;
+    in-out property <bool> video-editor-is-show-ocr-setting-dialog;
+    in-out property <bool> video-editor-ocr-is-processing;
+    in-out property <image> video-editor-ocr-image;
+    in-out property <string> video-editor-ocr-text;
+    in-out property <[OcrTextBlock]> video-editor-ocr-blocks: [];
+    in-out property <VideoEditorOCRConfig> video-editor-ocr-config;
+    in-out property <[Downloader]> video-editor-ocr-models-downloader: [{ }];
+
+    in-out property <bool> video-editor-is-show-bg-animation-dialog;
+    in-out property <image> video-editor-bg-animation-preview-image;
+    in-out property <bool> video-editor-bg-animation-is-previewing;
+    in-out property <bool> video-editor-bg-animation-is-recording;
+    in-out property <bool> video-editor-bg-animation-record-enabled;
+    in-out property <float> video-editor-bg-animation-record-progress;
+    in-out property <BackgroundAnimationConfig> video-editor-bg-animation-config;
+
+    in-out property <bool> video-editor-is-show-img-animation-dialog;
+    in-out property <image> video-editor-img-animation-preview-image;
+    in-out property <bool> video-editor-img-animation-is-previewing;
+    in-out property <bool> video-editor-img-animation-is-recording;
+    in-out property <bool> video-editor-img-animation-record-enabled;
+    in-out property <float> video-editor-img-animation-record-progress;
+    in-out property <ImageAnimationConfig> video-editor-img-animation-config;
+
+    in-out property <bool> video-editor-is-show-global-filter-dialog;
+    in-out property <{ x: float, y: float }> video-editor-global-filter-timer-position-lacation;
+    in-out property <int> video-editor-global-filter-timer-position-location-id: -1;
+    in-out property <bool> video-editor-global-filter-timer-is-show-position-location-panle;
+    in-out property <bool> video-editor-global-filter-progress-bar-update-flag;
+
+    in-out property <bool> video-editor-global-filter-danmaku-is-show-add-items-dialog;
+    in-out property <string> video-editor-global-filter-danmaku-add-items-text;
+    in-out property <int> video-editor-global-filter-danmaku-add-items-segment-index: -1;
+    in-out property <bool> video-editor-global-filter-danmaku-is-show-fetch-items-dialog;
+    in-out property <bool> video-editor-global-filter-danmaku-is-fetching;
+    in-out property <string> video-editor-global-filter-danmaku-fetch-items-text;
+    in-out property <int> video-editor-global-filter-danmaku-fetch-items-segment-index: -1;
+    in-out property <GlobalFilterConfig> video-editor-global-filter-config;
+
+    in-out property <bool> is-show-font-dialog;
+    in-out property <FontEntry> selected-font-entry;
+    in-out property <[FontEntry]> font-entries: [];
+
+    in-out property <bool> video-editor-is-editing-text-segment;
+    in-out property <TextElement> video-editor-current-text-element;
+    in-out property <bool> is-show-preset-text-style-panel;
+    in-out property <bool> is-show-preset-text-style-new-lineinput;
+    in-out property <[PresetTextStyle]> preset-text-styles: [];
+
+    in-out property <bool> video-editor-online-search-image-focus-flag;
+    in-out property <bool> video-editor-online-search-image-is-searching;
+    in-out property <bool> video-editor-is-show-online-search-image-setting-dialog;
+    in-out property <OnlineSearchImageMediaType> video-editor-online-search-image-media-type: OnlineSearchImageMediaType.Image;
+    in-out property <[OnlineSearchImageResultItem]> video-editor-online-search-image-results: [];
+    in-out property <OnlineSearchImageSetting> video-editor-online-search-image-setting: { sources: [] };
+    in-out property <OnlineSearchImageParam> video-editor-online-search-image-param;
+    in-out property <int> video-editor-online-search-image-result-count;
+
+    in-out property <bool> video-editor-online-search-audio-focus-flag;
+    in-out property <bool> video-editor-online-search-audio-is-searching;
+    in-out property <bool> video-editor-is-show-online-search-audio-setting-dialog;
+    in-out property <[OnlineSearchAudioResultItem]> video-editor-online-search-audio-results: [];
+    in-out property <OnlineSearchAudioSetting> video-editor-online-search-audio-setting: { sources: [] };
+    in-out property <OnlineSearchAudioParam> video-editor-online-search-audio-param;
+    in-out property <int> video-editor-online-search-audio-result-count;
+
+    in-out property <VideoEditorTracksManager> video-editor-tracks-manager:
+    {
+        duration: 740000,
+        tracks: [
+            {
+                hiding: false,
+                duration: 704000,
+                ty: VideoEditorTrackType.Video,
+                segments: [
+                    {
+                        uuid: "test-1",
+                        // hiding: true,
+                        audio-muted: true,
+                        duration: 200000,
+                        filename: "xxxx",
+                        timeline-offset: 0,
+                        source-offset: 0,
+                        preview-audio-samples:  [0.1, -0.2, 0.3, -0.8, 0.3, -0.5],
+                        filters: [
+                            {
+                                enabled: true,
+                                name: "brightness",
+                            },
+                            {
+                                enabled: false,
+                                name: "contrast",
+                            },
+                        ],
+                    },
+                    {
+                        uuid: "test-2",
+                        filename: "yyyy",
+                        duration: 500000,
+                        timeline-offset: 204000,
+                        source-offset: 3000,
+                    },
+                ],
+            },
+            {
+                hiding: false,
+                duration: 602000,
+                ty: VideoEditorTrackType.Audio,
+                segments: [
+                    {
+                        uuid: "test-3",
+                        duration: 200000,
+                        timeline-offset: 1000,
+                        source-offset: 0,
+                    },
+                    {
+                        uuid: "test-4",
+                        duration: 400000,
+                        timeline-offset: 202000,
+                        source-offset: 3000,
+                    },
+                ],
+            },
+        ]
     };
 
     //////////////////////////////// Logic End  ////////////////////////////////

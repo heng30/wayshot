@@ -1,0 +1,108 @@
+import {
+    Theme,
+    Logic,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+} from "../../../../../def.slint";
+import {
+    Slider,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ClickAndEditLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    OpacityDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component Opacity inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <OpacityDetail> config: VEFilter.from-opacity-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: OpacityDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "opacity") {
+            self.config = VEFilter.from-opacity-json(selected-filter.detail);
+            opacity-sl.value = self.config.opacity;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Opacity");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        opacity-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.opacity;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.opacity = value;
+                            }
+
+                            released(value) => {
+                                config.opacity = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.opacity.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.opacity = text.to-float().clamp(0, 1);
+                            opacity-sl.value = config.opacity;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "opacity", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "opacity", VEFilter.make-float-value(config.opacity));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

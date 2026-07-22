@@ -1,0 +1,103 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+} from "../../../../def.slint";
+import {
+    SegmentFilter,
+} from "../../filter.slint";
+import { Gain } from "audio/gain.slint";
+import { FadeIn } from "audio/fade-in.slint";
+import { FadeOut } from "audio/fade-out.slint";
+import { Compressor } from "audio/compressor.slint";
+import { Limiter } from "audio/limiter.slint";
+import { NoiseGate } from "audio/noise-gate.slint";
+import { Normalize } from "audio/normalize.slint";
+import { Mute } from "audio/mute.slint";
+import { CopyChannel } from "audio/copy-channel.slint";
+import { VoiceChanger } from "audio/voice-changer.slint";
+import { Speed } from "audio/speed.slint";
+import { NoDataImg } from "../../../../../base/no-data.slint";
+
+export component FilterAudioDetail inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+
+    private property <string> name: selected-filter.name.to-lowercase();
+
+    border-radius: Theme.border-radius;
+
+    if name == "gain": Gain {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+    }
+
+    if name == "fade in": FadeIn {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+    }
+
+    if name == "fade out": FadeOut {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+    }
+
+    if name == "compressor": Compressor {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+    }
+
+    if name == "limiter": Limiter {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+    }
+
+    if name == "noise gate": NoiseGate {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+    }
+
+    if name == "normalize": Normalize {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+    }
+
+    if name == "mute": Mute {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+    }
+
+    if name == "copy channel": CopyChannel {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+    }
+
+    if name == "voice changer": VoiceChanger {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+    }
+
+    if name == "speed": Speed {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+    }
+
+    if name == "denoise": NoDataImg {
+        width: parent.width * Theme.golden-ratio;
+        image: Icons.empty-fill;
+        colorize: Theme.icon-color;
+    }
+}

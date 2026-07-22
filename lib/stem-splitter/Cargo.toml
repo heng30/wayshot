@@ -1,0 +1,29 @@
+[package]
+name = "stem-splitter"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+log.workspace = true
+ort.workspace = true
+rayon.workspace = true
+ndarray.workspace = true
+rustfft.workspace = true
+once_cell.workspace = true
+thiserror.workspace = true
+serde_json.workspace = true
+num-complex.workspace = true
+serde = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+hound.workspace = true
+approx.workspace = true
+clap = { workspace = true, features = ["derive"] }
+
+[features]
+default = ["cuda", "coreml", "directml", "onednn", "xnnpack"]
+cuda = ["ort/cuda"]
+coreml = ["ort/coreml"]
+onednn = ["ort/onednn"]
+xnnpack = ["ort/xnnpack"]
+directml = ["ort/directml"]

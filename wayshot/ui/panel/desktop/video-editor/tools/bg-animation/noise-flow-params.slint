@@ -1,0 +1,152 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+} from "../../../../def.slint";
+import {
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    Select,
+} from "../../../../../base/widgets.slint";
+
+export component NoiseFlowParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Animation Speed");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.noise-flow.animation-speed.to-fixed(2);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.noise-flow.animation-speed = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Noise Scale");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.noise-flow.noise-scale.to-fixed(4);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.noise-flow.noise-scale = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.noise-flow.palette-r[0] = c.red;
+            Store.video-editor-bg-animation-config.noise-flow.palette-g[0] = c.green;
+            Store.video-editor-bg-animation-config.noise-flow.palette-b[0] = c.blue;
+            Store.video-editor-bg-animation-config.noise-flow.palette-a[0] = c.alpha;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Palette Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.noise-flow.palette-r[0],
+                Store.video-editor-bg-animation-config.noise-flow.palette-g[0],
+                Store.video-editor-bg-animation-config.noise-flow.palette-b[0],
+                Store.video-editor-bg-animation-config.noise-flow.palette-a[0]);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.noise-flow.bg-color-r = c.red;
+            Store.video-editor-bg-animation-config.noise-flow.bg-color-g = c.green;
+            Store.video-editor-bg-animation-config.noise-flow.bg-color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Background Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.noise-flow.bg-color-r,
+                Store.video-editor-bg-animation-config.noise-flow.bg-color-g,
+                Store.video-editor-bg-animation-config.noise-flow.bg-color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Flow Direction");
+        }
+
+        function index-to-str(index: int) -> string {
+            if index == 0 {
+                return "Right";
+            } else if index == 1 {
+                return "Down";
+            } else {
+                return "Diagonal";
+            }
+        }
+
+        Select {
+            values: [Logic.tr("Right"), Logic.tr("Down"), Logic.tr("Diagonal")];
+            current-value: Logic.tr(Store.video-editor-bg-animation-config.noise-flow.flow-direction);
+            gain-focus-when-clicked: false;
+
+            selected(index, value) => {
+                Store.video-editor-bg-animation-config.noise-flow.flow-direction = index-to-str(index);
+            }
+        }
+    }
+}

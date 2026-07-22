@@ -1,0 +1,634 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    CropDetail,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    IconBtn,
+    ElevatedBtn,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ProgressBar,
+    ConfirmBtn,
+    CancelBtn,
+    Select,
+    NoDataImg,
+} from "../../../../base/widgets.slint";
+import { MoveHandle } from "../preview/move-handle.slint";
+
+export component LongScreenshotDialog inherits MovingDialog {
+    title: Logic.tr("Export Long Screenshot");
+    icon: Icons.image-light;
+    header-width: Theme.moving-dialog-width;
+    body-height: self.header-width * 0.8;
+    head-y: self.height * 0.1;
+
+    private property <int> algorithm;
+    private property <bool> is-progressing: Store.video-editor-long-screenshot-is-progressing;
+    private property <length> min-crop-size: Theme.icon-size;
+    private property <CropDetail> config: Store.video-editor-long-screenshot-crop;
+
+    // Store original crop values when drag starts
+    private property <float> orig-left;
+    private property <float> orig-top;
+    private property <float> orig-width;
+    private property <float> orig-height;
+    private property <length> handle-pressed-x;
+    private property <length> handle-pressed-y;
+
+    init => {
+        Store.video-editor-long-screenshot-crop = { left: 0, top: 0, width: 1, height: 1, shape: 0 };
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 4;
+
+        preview-container := Rectangle {
+            clip: true;
+            background: Theme.secondary-background;
+
+            if img.source.width == 0: NoDataImg {
+                width: parent.width - Theme.padding * 4;
+                height: Theme.icon-size * 15;
+                text: Logic.tr("Click to Load Image");
+                image: Icons.preview-light;
+                colorize: Theme.primary-text-color;
+                font-size: Theme.title3-font-size;
+
+                TouchArea {
+                    mouse-cursor: pointer;
+
+                    clicked => {
+                        Logic.video-editor-long-screenshot-load-image();
+                    }
+                }
+            }
+
+            Rectangle {
+                width: img.width;
+                height: img.height;
+                background: black;
+            }
+
+            img := Image {
+                private property <float> width-height-rate: self.source.width / self.source.height;
+
+                function update-size() {
+                    let parent-w = preview-container.width;
+                    let parent-h = preview-container.height;
+                    if (parent-w / parent-h > self.width-height-rate) {
+                        self.height = parent-h;
+                        self.width = self.height * self.width-height-rate;
+                    } else {
+                        self.width = parent-w;
+                        self.height = self.width / self.width-height-rate;
+                    }
+                }
+
+                function apply-resize(diff-x: length, diff-y: length, corner: int, o-left: float, o-top: float, o-width: float, o-height: float) {
+                    let norm-x = diff-x / self.width;
+                    let norm-y = diff-y / self.height;
+                    let min-width-norm = min-crop-size / self.width;
+                    let min-height-norm = min-crop-size / self.height;
+
+                    // Rectangle mode: same as preview-crop-layers
+                    // corner 1: top-left, 2: top-right, 3: bottom-right, 4: bottom-left
+                    // 5: top edge, 6: right edge, 7: bottom edge, 8: left edge
+                    if (corner == 1) { // top-left
+                        let new-left = o-left + norm-x;
+                        let new-top = o-top + norm-y;
+                        let new-width = o-width - norm-x;
+                        let new-height = o-height - norm-y;
+                        if (new-left >= 0 && new-width >= min-width-norm) {
+                            config.left = new-left;
+                            config.width = new-width;
+                        }
+                        if (new-top >= 0 && new-height >= min-height-norm) {
+                            config.top = new-top;
+                            config.height = new-height;
+                        }
+                    } else if (corner == 2) { // top-right
+                        let new-width = o-width + norm-x;
+                        let new-top = o-top + norm-y;
+                        let new-height = o-height - norm-y;
+                        if (config.left + new-width <= 1.0 && new-width >= min-width-norm) {
+                            config.width = new-width;
+                        }
+                        if (new-top >= 0 && new-height >= min-height-norm) {
+                            config.top = new-top;
+                            config.height = new-height;
+                        }
+                    } else if (corner == 3) { // bottom-right
+                        let new-width = o-width + norm-x;
+                        let new-height = o-height + norm-y;
+                        if (config.left + new-width <= 1.0 && new-width >= min-width-norm) {
+                            config.width = new-width;
+                        }
+                        if (config.top + new-height <= 1.0 && new-height >= min-height-norm) {
+                            config.height = new-height;
+                        }
+                    } else if (corner == 4) { // bottom-left
+                        let new-left = o-left + norm-x;
+                        let new-width = o-width - norm-x;
+                        let new-height = o-height + norm-y;
+                        if (new-left >= 0 && new-width >= min-width-norm) {
+                            config.left = new-left;
+                            config.width = new-width;
+                        }
+                        if (config.top + new-height <= 1.0 && new-height >= min-height-norm) {
+                            config.height = new-height;
+                        }
+                    } else if (corner == 5) { // top edge
+                        let new-top = o-top + norm-y;
+                        let new-height = o-height - norm-y;
+                        if (new-top >= 0 && new-height >= min-height-norm) {
+                            config.top = new-top;
+                            config.height = new-height;
+                        }
+                    } else if (corner == 6) { // right edge
+                        let new-width = o-width + norm-x;
+                        if (config.left + new-width <= 1.0 && new-width >= min-width-norm) {
+                            config.width = new-width;
+                        }
+                    } else if (corner == 7) { // bottom edge
+                        let new-height = o-height + norm-y;
+                        if (config.top + new-height <= 1.0 && new-height >= min-height-norm) {
+                            config.height = new-height;
+                        }
+                    } else if (corner == 8) { // left edge
+                        let new-left = o-left + norm-x;
+                        let new-width = o-width - norm-x;
+                        if (new-left >= 0 && new-width >= min-width-norm) {
+                            config.left = new-left;
+                            config.width = new-width;
+                        }
+                    }
+                }
+
+                init => {
+                    self.update-size();
+                }
+
+                source: Store.video-editor-long-screenshot-first-frame;
+                image-fit: ImageFit.contain;
+            }
+
+            // Crop overlay
+            if Store.video-editor-long-screenshot-first-frame.width > 0: Rectangle {
+                width: img.width;
+                height: img.height;
+
+                private property <length> display-left: config.left * img.width;
+                private property <length> display-top: config.top * img.height;
+                private property <length> display-width: max(min-crop-size, min(config.width * img.width, img.width - display-left));
+                private property <length> display-height: max(min-crop-size, min(config.height * img.height, img.height - display-top));
+                private property <length> display-right: display-left + display-width;
+                private property <length> display-bottom: display-top + display-height;
+
+                // Move TouchArea: covers entire img area (not just crop region, to avoid jitter)
+                TouchArea {
+                    width: img.width;
+                    height: img.height;
+                    mouse-cursor: self.pressed ? grabbing : grab;
+
+                    private property <float> move-orig-left;
+                    private property <float> move-orig-top;
+
+                    pointer-event(event) => {
+                        if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                            // Only start move if click is inside crop region
+                            if (self.mouse-x >= display-left && self.mouse-x <= display-right && self.mouse-y >= display-top && self.mouse-y <= display-bottom) {
+                                move-orig-left = config.left;
+                                move-orig-top = config.top;
+                            }
+                        }
+                    }
+
+                    moved => {
+                        if (self.pressed && move-orig-left >= 0) {
+                            let norm-x = (self.mouse-x - self.pressed-x) / img.width;
+                            let norm-y = (self.mouse-y - self.pressed-y) / img.height;
+                            let new-left = max(0, min(1 - config.width, move-orig-left + norm-x));
+                            let new-top = max(0, min(1 - config.height, move-orig-top + norm-y));
+                            config.left = new-left;
+                            config.top = new-top;
+                        }
+                    }
+
+                    changed pressed => {
+                        if (!self.pressed) {
+                            Store.video-editor-long-screenshot-crop = config;
+                        }
+                    }
+                }
+
+                // Clear the crop region (punch hole in dim overlay)
+                Rectangle {
+                    x: display-left;
+                    y: display-top;
+                    width: display-width;
+                    height: display-height;
+                    background: transparent;
+                }
+
+                // Crop border
+                Rectangle {
+                    x: display-left;
+                    y: display-top;
+                    width: display-width;
+                    height: display-height;
+                    border-width: 2px;
+                    border-color: Theme.secondary-brand-color;
+                    background: #ffffff44;
+                }
+
+                top-edge := Rectangle {
+                    x: display-left;
+                    y: display-top - Theme.icon-size / 2;
+                    width: display-width;
+                    height: Theme.icon-size;
+
+                    TouchArea {
+                        mouse-cursor: ns-resize;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                                orig-left = config.left;
+                                orig-top = config.top;
+                                orig-width = config.width;
+                                orig-height = config.height;
+                                handle-pressed-x = parent.x + self.mouse-x;
+                                handle-pressed-y = parent.y + self.mouse-y;
+                            }
+                        }
+
+                        moved => {
+                            if (self.pressed) {
+                                let diff-x = (parent.x + self.mouse-x) - handle-pressed-x;
+                                let diff-y = (parent.y + self.mouse-y) - handle-pressed-y;
+                                img.apply-resize(diff-x, diff-y, 5, orig-left, orig-top, orig-width, orig-height);
+                            }
+                        }
+
+                        changed pressed => {
+                            if (!self.pressed) {
+                                Store.video-editor-long-screenshot-crop = config;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        y: parent.height / 2 - 1px;
+                        width: parent.width;
+                        height: 2px;
+
+                        HorizontalLayout {
+                            width: parent.width;
+                            height: parent.height;
+                            alignment: space-between;
+
+                            for index in ceil(self.width / Theme.icon-size / 2): Rectangle {
+                                width: Theme.icon-size;
+                                height: 100%;
+                                background: white;
+                            }
+                        }
+                    }
+                }
+
+                bottom-edge := Rectangle {
+                    x: display-left;
+                    y: display-bottom - Theme.icon-size / 2;
+                    width: display-width;
+                    height: Theme.icon-size;
+
+                    TouchArea {
+                        mouse-cursor: ns-resize;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                                orig-left = config.left;
+                                orig-top = config.top;
+                                orig-width = config.width;
+                                orig-height = config.height;
+                                handle-pressed-x = parent.x + self.mouse-x;
+                                handle-pressed-y = parent.y + self.mouse-y;
+                            }
+                        }
+
+                        moved => {
+                            if (self.pressed) {
+                                let diff-x = (parent.x + self.mouse-x) - handle-pressed-x;
+                                let diff-y = (parent.y + self.mouse-y) - handle-pressed-y;
+                                img.apply-resize(diff-x, diff-y, 7, orig-left, orig-top, orig-width, orig-height);
+                            }
+                        }
+
+                        changed pressed => {
+                            if (!self.pressed) {
+                                Store.video-editor-long-screenshot-crop = config;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        y: parent.height / 2 - 1px;
+                        width: parent.width;
+                        height: 2px;
+
+                        HorizontalLayout {
+                            width: parent.width;
+                            height: parent.height;
+                            alignment: space-between;
+
+                            for index in ceil(self.width / Theme.icon-size / 2): Rectangle {
+                                width: Theme.icon-size;
+                                height: 100%;
+                                background: white;
+                            }
+                        }
+                    }
+                }
+
+                left-edge := Rectangle {
+                    x: display-left - Theme.icon-size / 2;
+                    y: display-top;
+                    width: Theme.icon-size;
+                    height: display-height;
+
+                    TouchArea {
+                        mouse-cursor: ew-resize;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                                orig-left = config.left;
+                                orig-top = config.top;
+                                orig-width = config.width;
+                                orig-height = config.height;
+                                handle-pressed-x = parent.x + self.mouse-x;
+                                handle-pressed-y = parent.y + self.mouse-y;
+                            }
+                        }
+
+                        moved => {
+                            if (self.pressed) {
+                                let diff-x = (parent.x + self.mouse-x) - handle-pressed-x;
+                                let diff-y = (parent.y + self.mouse-y) - handle-pressed-y;
+                                img.apply-resize(diff-x, diff-y, 8, orig-left, orig-top, orig-width, orig-height);
+                            }
+                        }
+
+                        changed pressed => {
+                            if (!self.pressed) {
+                                Store.video-editor-long-screenshot-crop = config;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        x: parent.width / 2 - 1px;
+                        width: 2px;
+                        height: parent.height;
+
+                        VerticalLayout {
+                            width: parent.width;
+                            height: parent.height;
+                            alignment: space-between;
+
+                            for index in ceil(self.height / Theme.icon-size / 2): Rectangle {
+                                height: Theme.icon-size;
+                                width: 100%;
+                                background: white;
+                            }
+                        }
+                    }
+                }
+
+                right-edge := Rectangle {
+                    x: display-right - Theme.icon-size / 2;
+                    y: display-top;
+                    width: Theme.icon-size;
+                    height: display-height;
+
+                    TouchArea {
+                        mouse-cursor: ew-resize;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                                orig-left = config.left;
+                                orig-top = config.top;
+                                orig-width = config.width;
+                                orig-height = config.height;
+                                handle-pressed-x = parent.x + self.mouse-x;
+                                handle-pressed-y = parent.y + self.mouse-y;
+                            }
+                        }
+
+                        moved => {
+                            if (self.pressed) {
+                                let diff-x = (parent.x + self.mouse-x) - handle-pressed-x;
+                                let diff-y = (parent.y + self.mouse-y) - handle-pressed-y;
+                                img.apply-resize(diff-x, diff-y, 6, orig-left, orig-top, orig-width, orig-height);
+                            }
+                        }
+
+                        changed pressed => {
+                            if (!self.pressed) {
+                                Store.video-editor-long-screenshot-crop = config;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        x: parent.width / 2 - 1px;
+                        width: 2px;
+                        height: parent.height;
+
+                        VerticalLayout {
+                            width: parent.width;
+                            height: parent.height;
+                            alignment: space-between;
+
+                            for index in ceil(self.height / Theme.icon-size / 2): Rectangle {
+                                height: Theme.icon-size;
+                                width: 100%;
+                                background: white;
+                            }
+                        }
+                    }
+                }
+
+                // Top-left handle
+                top-left-handle := MoveHandle {
+                    x: display-left - self.width / 2;
+                    y: display-top - self.height / 2;
+                    index: 1;
+
+                    pressed-changed => {
+                        orig-left = config.left;
+                        orig-top = config.top;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 1,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        Store.video-editor-long-screenshot-crop = config;
+                    }
+                }
+
+                // Top-right handle
+                top-right-handle := MoveHandle {
+                    x: display-right - self.width / 2;
+                    y: display-top - self.height / 2;
+                    index: 2;
+
+                    pressed-changed => {
+                        orig-left = config.left;
+                        orig-top = config.top;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 2,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        Store.video-editor-long-screenshot-crop = config;
+                    }
+                }
+
+                // Bottom-right handle
+                bottom-right-handle := MoveHandle {
+                    x: display-right - self.width / 2;
+                    y: display-bottom - self.height / 2;
+                    index: 3;
+
+                    pressed-changed => {
+                        orig-left = config.left;
+                        orig-top = config.top;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 3,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        Store.video-editor-long-screenshot-crop = config;
+                    }
+                }
+
+                // Bottom-left handle
+                bottom-left-handle := MoveHandle {
+                    x: display-left - self.width / 2;
+                    y: display-bottom - self.height / 2;
+                    index: 4;
+
+                    pressed-changed => {
+                        orig-left = config.left;
+                        orig-top = config.top;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 4,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        Store.video-editor-long-screenshot-crop = config;
+                    }
+                }
+            }
+        }
+
+        if is-progressing: HorizontalLayout {
+            spacing: Theme.spacing * 4;
+
+            VerticalLayout {
+                alignment: center;
+
+                ProgressBar {
+                    height: Theme.icon-size;
+                    progress: Store.video-editor-long-screenshot-progress;
+                }
+            }
+
+            ElevatedBtn {
+                icon: Icons.stop-light;
+                colorize: Theme.danger-color;
+                gain-focus-when-clicked: false;
+
+                clicked => {
+                    Logic.video-editor-long-screenshot-cancel();
+                }
+            }
+        }
+
+        if !is-progressing: HorizontalLayout {
+            spacing: Theme.spacing * 4;
+
+            Select {
+                horizontal-stretch: 1;
+                gain-focus-when-clicked: false;
+                current-index: algorithm;
+                current-value: self.values[self.current-index];
+                values: [
+                    Logic.tr("Template"),
+                    Logic.tr("Col Sample"),
+                ];
+
+                selected(idx, val) => {
+                    root.algorithm = idx;
+                }
+            }
+
+            ConfirmBtn {
+                text: Logic.tr("Export");
+                icon: Icons.export-light;
+                gain-focus-when-clicked: false;
+
+                clicked => {
+                    Store.video-editor-long-screenshot-crop = config;
+                    Logic.video-editor-long-screenshot-apply(
+                        Store.video-editor-long-screenshot-track-index,
+                        Store.video-editor-long-screenshot-segment-index,
+                        Store.video-editor-long-screenshot-crop,
+                        root.algorithm,
+                    );
+                }
+            }
+        }
+    }
+}

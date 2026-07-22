@@ -1,0 +1,63 @@
+[package]
+edition = "2024"
+rust-version = "1.88"
+name = "speakrs"
+version = "0.5.0"
+authors = ["Praveen Perera"]
+build = false
+include = ["/src/**", "/examples/**", "/README.md", "/LICENSE", "/Cargo.toml"]
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "Fast Rust speaker diarization with pyannote-level accuracy and native CPU acceleration"
+documentation = "https://docs.rs/speakrs"
+readme = "README.md"
+keywords = ["speaker", "diarization", "audio", "pyannote", "onnx"]
+categories = ["multimedia::audio", "science"]
+license = "Apache-2.0"
+repository = "https://github.com/avencera/speakrs"
+
+[features]
+default = ["online"]
+online = ["dep:hf-hub", "hf-hub/blocking"]
+
+[lib]
+name = "speakrs"
+path = "src/lib.rs"
+
+[[example]]
+name = "assign_transcript_speakers"
+path = "examples/assign_transcript_speakers.rs"
+
+[[example]]
+name = "diarize_wav"
+path = "examples/diarize_wav.rs"
+
+[[example]]
+name = "print_turns"
+path = "examples/print_turns.rs"
+
+[[example]]
+name = "queued"
+path = "examples/queued.rs"
+
+[[example]]
+name = "speaker_airtime"
+path = "examples/speaker_airtime.rs"
+
+[dependencies]
+ort.workspace = true
+rayon.workspace = true
+kodama.workspace = true
+tracing.workspace = true
+ndarray.workspace = true
+thiserror.workspace = true
+ndarray-npy.workspace = true
+crossbeam-channel.workspace = true
+hf-hub = { workspace = true, optional = true }
+
+[dev-dependencies]
+approx.workspace = true
+serde_json.workspace = true

@@ -1,0 +1,831 @@
+import { ListView } from "std-widgets.slint";
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    TextElement,
+    FontEntry,
+} from "../../../def.slint";
+import {
+    Label,
+    IconBtn,
+    LineInput,
+    Slider,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    PopupActionEntry,
+    PopupActionSetting,
+    Select,
+    TxtEdit,
+    ConfirmBtn,
+} from "../../../../base/widgets.slint";
+import { VEFilter, KeyframeValue } from "../filter.slint";
+import { KeyframeButton } from "filter/keyframe-btn.slint";
+
+
+component TextEditorStylePanel inherits Rectangle {
+    x: Theme.padding / 2;
+
+    in-out property <TextElement> current-element <=> Store.video-editor-current-text-element;
+    in-out property <bool> toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+    private property <int> track-index: Store.video-editor-current-edited-track-index;
+    private property <int> segment-index: Store.video-editor-selected-segments-index.length > 0 ? Store.video-editor-selected-segments-index[0].index : -1;
+    private property <int> timeline-offset: Store.video-editor-timeline-offset;
+
+    changed current-element => {
+        center-x-li.text = current-element.position-x.to-fixed(2);
+        center-y-li.text = current-element.position-y.to-fixed(2);
+        rotation-li.text = (current-element.rotation / 1deg).to-fixed(0);
+        opacity-li.text = current-element.opacity.to-fixed(2);
+        font-size-li.text = current-element.font-size;
+        outline-width-li.text = current-element.outline-width;
+        border-radius-li.text = current-element.border-radius;
+        padding-li.text = current-element.padding;
+        border-width-li.text = current-element.border-width;
+    }
+
+    changed timeline-offset => {
+        if (Store.video-editor-is-editing-text-segment && track-index >= 0 && segment-index >= 0) {
+            let interpolated = Logic.video-editor-get-text-element-at-playhead(track-index, segment-index);
+            center-x-li.text = interpolated.position-x.to-fixed(2);
+            center-y-li.text = interpolated.position-y.to-fixed(2);
+            rotation-li.text = (interpolated.rotation / 1deg).to-fixed(0);
+            opacity-li.text = interpolated.opacity.to-fixed(2);
+        }
+    }
+
+    function update-element() {
+        Logic.video-editor-update-text-element(current-element);
+    }
+
+    Timer {
+        interval: 200ms;
+        running: true;
+
+        triggered() => {
+            if (text-input.text.is-empty) {
+                text-input.focus();
+            }
+            self.running = false;
+        }
+    }
+
+    VerticalLayout {
+        spacing: Theme.spacing;
+        padding-bottom: Theme.padding * 2;
+
+        Rectangle {
+            background: Theme.secondary-background;
+
+            HorizontalLayout {
+                alignment: space-between;
+                padding: Theme.padding;
+                padding-left: Theme.padding * 2;
+
+                if !Store.is-show-preset-text-style-new-lineinput: Label {
+                    font-size: Theme.title3-font-size;
+                    text: Logic.tr("Text Setting");
+                }
+
+                if Store.is-show-preset-text-style-new-lineinput: LineInput {
+                    font-size: Theme.default-font-size * 0.8;
+                    vpadding: Theme.padding;
+                    icon: Icons.check-box-light;
+                    icon-size: Theme.icon-size * Theme.golden-ratio;
+                    is-show-icon: true;
+                    show-icon-hover-background: false;
+                    placeholder-text: Logic.tr("enter name");
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    fs-timer := Timer {
+                        interval: 200ms;
+                        running: true;
+                        triggered() => {
+                            parent.focus();
+                            self.running = false;
+                        }
+                    }
+
+                    clicked => {
+                        Logic.video-editor-create-preset-text-style(self.text);
+                    }
+
+                    accepted => {
+                        self.clicked();
+                    }
+
+                    key-pressed(key-event) => {
+                        if key-event.text == Key.Escape {
+                            Store.is-show-preset-text-style-new-lineinput = false;
+                        }
+                    }
+                }
+
+                IconBtn {
+                    icon: Icons.more-v-light;
+
+                    clicked => {
+                        PopupActionSetting.show(self.absolute-position.x, self.absolute-position.y + self.preferred-height, [
+                            {
+                                icon: Icons.add2-light,
+                                text: Logic.tr("Create Preset Style"),
+                                action: "video-editor-create-preset-text-style",
+                            },
+                            {
+                                icon: Icons.menu-light,
+                                text: Logic.tr("Select Preset Style"),
+                                action: "video-editor-show-select-preset-text-style",
+                            },
+                        ]);
+                    }
+                }
+            }
+        }
+
+        Flickable {
+            interactive: false;
+
+            VerticalLayout {
+                spacing: Theme.spacing * 4;
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Text");
+                    }
+
+                    text-input := TxtEdit {
+                        text: current-element.text;
+                        border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+                        height: self.font-size * 6;
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+                    }
+
+                    if current-element.text != text-input.text: HorizontalLayout {
+                        alignment: end;
+                        padding-top: Theme.padding * 2;
+
+                        ConfirmBtn {
+                            clicked => {
+                                current-element.text = text-input.text;
+                                update-element();
+                            }
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    HorizontalLayout {
+                        alignment: space-between;
+
+                        SettingDetailLabel {
+                            text: Logic.tr("Position");
+                        }
+
+                        HorizontalLayout {
+                            spacing: Theme.spacing;
+
+                            VerticalLayout {
+                                alignment: center;
+
+                                IconBtn {
+                                    icon: Icons.refresh-light;
+                                    icon-size: Theme.icon-size * Theme.golden-ratio;
+
+                                    clicked => {
+                                        current-element.position-x = 0.5;
+                                        current-element.position-y = 0.5;
+                                        update-element();
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing;
+
+                        HorizontalLayout {
+                            spacing: Theme.spacing * 2;
+
+                            center-x-li := LineInput {
+                                input-type: InputType.decimal;
+                                text: current-element.position-x.to-fixed(2);
+                                read-only: true;
+
+                                changed has-focus => {
+                                    if (!self.has-focus) {
+                                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                                    }
+                                }
+                            }
+
+                            Label {
+                                text: "X";
+                            }
+
+                            center-y-li := LineInput {
+                                input-type: InputType.decimal;
+                                text: current-element.position-y.to-fixed(2);
+                                read-only: true;
+
+                                changed has-focus => {
+                                    if (!self.has-focus) {
+                                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                                    }
+                                }
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            KeyframeButton {
+                                has-keyframe: Logic.video-editor-text-property-has-keyframe-at-playhead(track-index, segment-index, "position", toggle-keyframe-flag);
+
+                                clicked => {
+                                    if (self.has-keyframe) {
+                                        Logic.video-editor-remove-text-keyframe("position", Store.video-editor-timeline-offset);
+                                    } else {
+                                        let value = VEFilter.make-float2-value(current-element.position-x, current-element.position-y);
+                                        Logic.video-editor-add-text-keyframe("position", Store.video-editor-timeline-offset, value);
+                                    }
+                                    toggle-keyframe-flag = !toggle-keyframe-flag;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    HorizontalLayout {
+                        alignment: space-between;
+
+                        SettingDetailLabel {
+                            text: Logic.tr("Rotation");
+                            tip: Logic.tr("positive=clockwise, negative=counter-clockwise (Scroll or Shift+Scroll)");
+                        }
+
+                        HorizontalLayout {
+                            spacing: Theme.spacing;
+
+                            VerticalLayout {
+                                alignment: center;
+
+                                IconBtn {
+                                    icon: Icons.refresh-light;
+                                    icon-size: Theme.icon-size * Theme.golden-ratio;
+
+                                    clicked => {
+                                        current-element.rotation = 0deg;
+                                        update-element();
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 2;
+                        rotation-li := LineInput {
+                            input-type: InputType.decimal;
+                            text: (current-element.rotation / 1deg).to-fixed(0);
+                            border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                            changed has-focus => {
+                                if (!self.has-focus) {
+                                    Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                                }
+                            }
+
+                            accepted => {
+                                let value = self.text.to-float();
+                                current-element.rotation = value * 1deg;
+                                update-element();
+
+                                if (Logic.video-editor-text-property-has-keyframe-at-playhead(track-index, segment-index, "rotation", toggle-keyframe-flag)) {
+                                    let kf_value = VEFilter.make-float-value(value);
+                                    Logic.video-editor-update-text-keyframe-value("rotation", Store.video-editor-timeline-offset, kf_value);
+                                }
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+
+                            KeyframeButton {
+                                has-keyframe: Logic.video-editor-text-property-has-keyframe-at-playhead(track-index, segment-index, "rotation", toggle-keyframe-flag);
+
+                                clicked => {
+                                    if (self.has-keyframe) {
+                                        Logic.video-editor-remove-text-keyframe("rotation", Store.video-editor-timeline-offset);
+                                    } else {
+                                        let value = VEFilter.make-float-value(current-element.rotation / 1deg);
+                                        Logic.video-editor-add-text-keyframe("rotation", Store.video-editor-timeline-offset, value);
+                                    }
+                                    toggle-keyframe-flag = !toggle-keyframe-flag;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Opacity");
+                    }
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing;
+
+                        opacity-li := LineInput {
+                            input-type: InputType.decimal;
+                            text: current-element.opacity.to-fixed(2);
+                            border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                            changed has-focus => {
+                                if (!self.has-focus) {
+                                    Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                                }
+                            }
+
+                            accepted => {
+                                let val = self.text.to-float();
+                                let clamped_val = val < 0.0 ? 0.0 : (val > 1.0 ? 1.0 : val);
+                                current-element.opacity = clamped_val;
+                                update-element();
+
+                                if (Logic.video-editor-text-property-has-keyframe-at-playhead(track-index, segment-index, "opacity", toggle-keyframe-flag)) {
+                                    let kf_value = VEFilter.make-float-value(clamped_val);
+                                    Logic.video-editor-update-text-keyframe-value("opacity", Store.video-editor-timeline-offset, kf_value);
+                                }
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+
+                            KeyframeButton {
+                                has-keyframe: Logic.video-editor-text-property-has-keyframe-at-playhead(track-index, segment-index, "opacity", toggle-keyframe-flag);
+
+                                clicked => {
+                                    if (self.has-keyframe) {
+                                        Logic.video-editor-remove-text-keyframe("opacity", Store.video-editor-timeline-offset);
+                                    } else {
+                                        let value = VEFilter.make-float-value(current-element.opacity);
+                                        Logic.video-editor-add-text-keyframe("opacity", Store.video-editor-timeline-offset, value);
+                                    }
+                                    toggle-keyframe-flag = !toggle-keyframe-flag;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    private property <FontEntry> selected-font <=> Store.selected-font-entry;
+                    private property <bool> font-exist: Logic.file-exist(current-element.font-path);
+
+                    changed selected-font => {
+                        font-li.text = selected-font.family;
+                        current-element.font-path = selected-font.path;
+                        current-element.font-family = selected-font.family;
+                        current-element.font-style = selected-font.style;
+                        update-element();
+                    }
+
+                    SettingDetailLabel {
+                        text: Logic.tr("Font");
+                    }
+
+                    font-li := LineInput {
+                        border-color: font-exist ? (Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%)) : Theme.danger-color;
+                        read-only: true;
+                        icon: Icons.font-light;
+                        is-show-icon: true;
+                        icon-size: Theme.icon-size * Theme.golden-ratio;
+                        text: current-element.font-family;
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        clicked => {
+                            Store.is-show-font-dialog = true;
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Font size");
+                    }
+
+                    font-size-li := LineInput {
+                        input-type: number;
+                        text: current-element.font-size;
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        accepted => {
+                            current-element.font-size = round(self.text.to-float());
+                            update-element();
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+                    private property <int> color-picker-id;
+
+                    changed color-picker-confirmed-flag => {
+                        if (color-picker-id != Store.video-editor-color-picker-id) {
+                            return;
+                        }
+                        let c = Store.video-editor-color-picker-color;
+                        current-element.primary-color-r = c.red;
+                        current-element.primary-color-g = c.green;
+                        current-element.primary-color-b = c.blue;
+                        current-element.primary-color-a = c.alpha;
+                        update-element();
+                    }
+
+                    SettingDetailLabel {
+                        text: Logic.tr("Color");
+                    }
+
+                    LineInput {
+                        read-only: true;
+                        is-show-icon: true;
+                        text: Util.color-picker-str(current-element.primary-color-r, current-element.primary-color-g, current-element.primary-color-b, current-element.primary-color-a);
+                        is-show-color-block: true;
+                        color-block-color: Util.color-picker-hex-color(self.text);
+                        icon: Icons.color-picker-light;
+                        border-color: Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        clicked => {
+                            Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                            color-picker-id = Store.video-editor-color-picker-id;
+                            Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                            Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Outline width");
+                    }
+
+                    outline-width-li := LineInput {
+                        input-type: number;
+                        text: current-element.outline-width;
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        accepted => {
+                            current-element.outline-width = round(self.text.to-float());
+                            update-element();
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+                    private property <int> color-picker-id;
+
+                    changed color-picker-confirmed-flag => {
+                        if (color-picker-id != Store.video-editor-color-picker-id) {
+                            return;
+                        }
+                        let c = Store.video-editor-color-picker-color;
+                        current-element.outline-color-r = c.red;
+                        current-element.outline-color-g = c.green;
+                        current-element.outline-color-b = c.blue;
+                        current-element.outline-color-a = c.alpha;
+                        update-element();
+                    }
+
+                    SettingDetailLabel {
+                        text: Logic.tr("Outline color");
+                    }
+
+                    LineInput {
+                        read-only: true;
+                        is-show-icon: true;
+                        text: Util.color-picker-str(current-element.outline-color-r, current-element.outline-color-g, current-element.outline-color-b, current-element.outline-color-a);
+                        is-show-color-block: true;
+                        color-block-color: Util.color-picker-hex-color(self.text);
+                        icon: Icons.color-picker-light;
+                        border-color: Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        clicked => {
+                            Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                            color-picker-id = Store.video-editor-color-picker-id;
+                            Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                            Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+                    private property <int> color-picker-id;
+
+                    changed color-picker-confirmed-flag => {
+                        if (color-picker-id != Store.video-editor-color-picker-id) {
+                            return;
+                        }
+                        let c = Store.video-editor-color-picker-color;
+                        current-element.background-color-r = c.red;
+                        current-element.background-color-g = c.green;
+                        current-element.background-color-b = c.blue;
+                        current-element.background-color-a = c.alpha;
+                        update-element();
+                    }
+
+                    SettingDetailLabel {
+                        text: Logic.tr("Background");
+                    }
+
+                    LineInput {
+                        read-only: true;
+                        is-show-icon: true;
+                        text: Util.color-picker-str(current-element.background-color-r, current-element.background-color-g, current-element.background-color-b, current-element.background-color-a);
+                        is-show-color-block: true;
+                        color-block-color: Util.color-picker-hex-color(self.text);
+                        icon: Icons.color-picker-light;
+                        border-color: Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        clicked => {
+                            Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                            color-picker-id = Store.video-editor-color-picker-id;
+                            Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                            Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Border radius");
+                    }
+
+                    border-radius-li := LineInput {
+                        input-type: number;
+                        text: current-element.border-radius;
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        accepted => {
+                            current-element.border-radius = round(self.text.to-float());
+                            update-element();
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Border width");
+                    }
+
+                    border-width-li := LineInput {
+                        input-type: number;
+                        text: current-element.border-width;
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        accepted => {
+                            current-element.border-width = round(self.text.to-float());
+                            update-element();
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+                    private property <int> color-picker-id;
+
+                    changed color-picker-confirmed-flag => {
+                        if (color-picker-id != Store.video-editor-color-picker-id) {
+                            return;
+                        }
+                        let c = Store.video-editor-color-picker-color;
+                        current-element.border-color-r = c.red;
+                        current-element.border-color-g = c.green;
+                        current-element.border-color-b = c.blue;
+                        current-element.border-color-a = c.alpha;
+                        update-element();
+                    }
+
+                    SettingDetailLabel {
+                        text: Logic.tr("Border color");
+                    }
+
+                    LineInput {
+                        read-only: true;
+                        is-show-icon: true;
+                        text: Util.color-picker-str(current-element.border-color-r, current-element.border-color-g, current-element.border-color-b, current-element.border-color-a);
+                        is-show-color-block: true;
+                        color-block-color: Util.color-picker-hex-color(self.text);
+                        icon: Icons.color-picker-light;
+                        border-color: Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        clicked => {
+                            Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                            color-picker-id = Store.video-editor-color-picker-id;
+                            Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                            Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Padding");
+                    }
+
+                    padding-li := LineInput {
+                        input-type: number;
+                        text: current-element.padding;
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        accepted => {
+                            current-element.padding = round(self.text.to-float());
+                            update-element();
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Text Alignment");
+                    }
+
+                    Select {
+                        private property <[string]> options: [Logic.tr("Left"), Logic.tr("Center"), Logic.tr("Right")];
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        values: self.options;
+                        current-index: current-element.alignment;
+                        current-value: self.options[current-element.alignment];
+                        vpadding: Theme.padding;
+                        gain-focus-when-clicked: false;
+
+                        selected(index, value) => {
+                            current-element.alignment = index;
+                            update-element();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component PresetTextStyleDetail inherits Rectangle {
+    x: Theme.padding / 2;
+
+    in-out property <TextElement> current-element <=> Store.video-editor-current-text-element;
+
+    VerticalLayout {
+        spacing: Theme.spacing * 2;
+        padding-bottom: Theme.padding * 2;
+
+        Rectangle {
+            background: Theme.secondary-background;
+
+            HorizontalLayout {
+                alignment: space-between;
+                padding: Theme.padding;
+                padding-left: Theme.padding * 2;
+
+                IconBtn {
+                    icon: Icons.back-light;
+                    show-icon-hover-background: false;
+
+                    clicked => {
+                        Store.is-show-preset-text-style-panel = false;
+                    }
+                }
+            }
+        }
+
+        ListView {
+            for entry[index] in Store.preset-text-styles: Rectangle {
+                border-radius: Theme.border-radius;
+                background: Theme.table-item-background(index, false, ta.has-hover);
+
+                ta := TouchArea {
+                    mouse-cursor: MouseCursor.pointer;
+
+                    clicked => {
+                        let saved-text = current-element.text;
+                        current-element = entry.style;
+                        current-element.text = saved-text;
+                        Logic.video-editor-apply-preset-text-style(current-element);
+                    }
+                }
+
+                hbox := HorizontalLayout {
+                    alignment: space-between;
+                    spacing: Theme.spacing * 2;
+                    padding: Theme.padding * 2;
+                    padding-right: Theme.padding * 3;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+                        alignment: start;
+
+                        Label {
+                            text: index + 1;
+                        }
+
+                        Label {
+                            text: entry.name;
+                            overflow: elide;
+                        }
+                    }
+
+                    IconBtn {
+                        icon: Icons.delete-light;
+                        hover-color: mod(index, 2) == 1 ? Theme.table-item-first : Theme.table-item-second;
+
+                        clicked => {
+                            Logic.video-editor-remove-preset-text-style(index);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+export component TextEditorPanel inherits Rectangle {
+    if Store.is-show-preset-text-style-panel: PresetTextStyleDetail { }
+    if !Store.is-show-preset-text-style-panel: TextEditorStylePanel { }
+}

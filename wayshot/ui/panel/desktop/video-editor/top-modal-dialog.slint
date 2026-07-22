@@ -1,0 +1,122 @@
+import { Store, Logic, Theme, Util } from "../../def.slint";
+import {
+    Blanket,
+    UnsaveChangeDialog,
+    RecoveryDialog,
+    RenameDialog,
+} from "../../../base/widgets.slint";
+import { PreferenceSettingDialog } from "preference-setting-dialog.slint";
+import { PreviewSettingDialog } from "preview/preview-setting-dialog.slint";
+
+export component TopModalDialog inherits Rectangle {
+    callback app-focus();
+
+    if Store.video-editor-is-show-unsave-change-dialog || Store.video-editor-is-show-recovery-dialog || Store.video-editor-is-show-preview-setting-dialog || Store.video-editor-is-show-preference-setting-dialog || Store.video-editor-is-show-rename-dialog: Blanket {
+        clicked => {
+            Store.video-editor-is-show-unsave-change-dialog = false;
+            Store.video-editor-is-show-recovery-dialog = false;
+            Store.video-editor-is-show-preview-setting-dialog = false;
+            Store.video-editor-is-show-preference-setting-dialog = false;
+            Store.video-editor-is-show-rename-dialog = false;
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-preview-setting-dialog: PreviewSettingDialog {
+        width: Math.min(Theme.dialog-max-width * Theme.golden-ratio, root.width * Theme.golden-ratio);
+        inner-height: Math.max(root.height * Theme.golden-ratio, Theme.dialog-inner-height);
+
+        escape => {
+            Store.video-editor-is-show-preview-setting-dialog = false;
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-preference-setting-dialog: PreferenceSettingDialog {
+        width: Math.min(Theme.dialog-max-width, root.width * Theme.golden-ratio);
+        inner-height: Math.max(root.height * Theme.golden-ratio, Theme.dialog-inner-height);
+
+        escape => {
+            Store.video-editor-is-show-preference-setting-dialog = false;
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-unsave-change-dialog: UnsaveChangeDialog {
+        title: Store.video-editor-is-in-quit-state ? Logic.tr("Quit Project") : Logic.tr("Close Project");
+        content: Store.video-editor-is-in-quit-state ? Logic.tr("Quit project or not") : Logic.tr("Save project or not?");
+
+        cancelled => {
+            Store.video-editor-is-show-unsave-change-dialog = false;
+
+            if (Store.video-editor-is-in-quit-state) {
+                Store.video-editor-is-in-quit-state = false;
+            }
+            app-focus();
+        }
+
+        saved => {
+            Logic.video-editor-close-project_with_save();
+            Store.video-editor-is-show-unsave-change-dialog = false;
+            app-focus();
+        }
+
+        unsaved => {
+            Logic.video-editor-close-project_without_save();
+            Store.video-editor-is-show-unsave-change-dialog = false;
+
+            if (Store.video-editor-is-in-quit-state) {
+                Util.close-window();
+            }
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-recovery-dialog: RecoveryDialog {
+        save-time: Store.video-editor-recovery-info.saved-time;
+
+        recovered => {
+            Logic.video-editor-recover-from-autosave();
+            Store.video-editor-is-show-recovery-dialog = false;
+            app-focus();
+        }
+
+        ignored => {
+            Logic.video-editor-ignore-recovery();
+            Store.video-editor-is-show-recovery-dialog = false;
+            app-focus();
+        }
+
+        cancelled => {
+            Logic.video-editor-cancel-recovery();
+            Store.video-editor-is-show-recovery-dialog = false;
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-rename-dialog: RenameDialog {
+        width: Math.min(Theme.dialog-max-width, Theme.default-font-size * 30);
+        title: Store.video-editor-rename-dialog-title;
+        text <=> Store.video-editor-rename-dialog-text;
+
+        Timer {
+            interval: 200ms;
+            running: true;
+            triggered() => {
+                parent.focus();
+                self.running = false;
+            }
+        }
+
+        rename(name) => {
+            Store.video-editor-is-show-rename-dialog = false;
+            Logic.video-editor-rename-dialog-confirmed(name);
+            app-focus();
+        }
+
+        escape => {
+            Store.video-editor-is-show-rename-dialog = false;
+            app-focus();
+        }
+    }
+}

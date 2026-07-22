@@ -1,0 +1,88 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    SmartClipEntry,
+} from "../../../../def.slint";
+import {
+    Label,
+    CheckBtn,
+    IconBtn,
+} from "../../../../../base/widgets.slint";
+
+export component SmartClipListItem inherits Rectangle {
+    in-out property <int> index;
+    in-out property <SmartClipEntry> entry;
+
+    height: hbox.preferred-height;
+    border-radius: Theme.border-radius;
+    border-width: Theme.default-border-width;
+    background: Theme.thirdly-background;
+    border-color: Store.video-editor-smart-clip-playing-index == index ? Theme.thirdly-brand-color : (entry.is-kept ? transparent : Theme.danger-color);
+
+    hbox := HorizontalLayout {
+        spacing: Theme.spacing * 4;
+        padding: Theme.padding * 3;
+        alignment: space-between;
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 4;
+            alignment: start;
+
+            VerticalLayout {
+                alignment: center;
+
+                CheckBtn {
+                    checked: entry.is-kept;
+
+                    toggled => {
+                        Logic.video-editor-smart-clip-toggle-entry(index);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+                alignment: start;
+                vertical-stretch: 0;
+                horizontal-stretch: 0;
+
+                Label {
+                    text: Logic.ms-to-srt-timestamp-ui(entry.start-ms);
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    Image {
+                        width: Theme.icon-size * 0.6;
+                        height: self.width;
+                        source: Icons.arrow-forward-light;
+                        colorize: Theme.regular-text-color;
+                    }
+                }
+
+                Label {
+                    text: Logic.ms-to-srt-timestamp-ui(entry.end-ms);
+                }
+            }
+
+            Label {
+                text: entry.text;
+                wrap: word-wrap;
+                font-size: Theme.default-font-size;
+                horizontal-stretch: 1;
+            }
+        }
+
+        IconBtn {
+            icon: Icons.control-start-light;
+
+            clicked() => {
+                Logic.video-editor-smart-clip-play-entry(index);
+            }
+        }
+    }
+}

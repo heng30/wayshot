@@ -1,0 +1,260 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    Transcribe,
+    SettingTranscribe,
+    DownloaderState,
+} from "../../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    LineInput,
+    ConfirmBtn,
+    CancelBtn,
+    TabBtns,
+    TextBtnWithoutIcon,
+    IconBtn,
+    TxtEdit,
+    ElevatedBtn,
+    ConfirmDialogSetting,
+    SimpleAudioControl,
+    CancelAndConfirmIconsBtn,
+    ToolTipSetting,
+    ProgressBar,
+    ToastSetting,
+    ToastStatus,
+    NoMessageImg,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    Blanket,
+    FilePicker,
+} from "../../../../../base/widgets.slint";
+import { Header } from "header.slint";
+import { Subtitles } from "subtitles.slint";
+
+export component TranscribeDialog inherits MovingDialog {
+    title: Logic.tr("Transcribe");
+    icon: Icons.transcribe-light;
+    header-width: Theme.moving-dialog-width;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+    body-height: root.header-width * Theme.golden-ratio;
+
+    private property <Transcribe> current-transcribe <=> Store.video-editor-transcribe;
+
+    init => {
+        if (!Logic.video-editor-transcribe-setting-is-valid()) {
+            Store.video-editor-transcribe-is-show-setting-dialog = true;
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        header := Header {
+            show-replace-dialog => {
+                Store.video-editor-transcribe-is-show-replace-dialog = true;
+            }
+        }
+
+        Subtitles { }
+
+        SimpleAudioControl {
+            is-playing: Store.video-editor-transcribe-audio-player-is-playing;
+            progress: Store.video-editor-transcribe-audio-player-progress;
+            current-sound: Store.video-editor-transcribe-setting.audio-sound * 100;
+            current-speed: Store.video-editor-transcribe-setting.audio-speed;
+            current-time: Util.seconds-to-media-timestamp(self.progress * Store.video-editor-transcribe.media-duration-ms / 1000);
+            end-time: Util.seconds-to-media-timestamp(Store.video-editor-transcribe.media-duration-ms / 1000);
+            is-hide-speed-btn: false;
+
+            private property <bool> focus-flag <=> Store.video-editor-transcribe-focus-audio-player-flag;
+            changed focus-flag => {
+                self.focus();
+            }
+
+            private property inner-is-playing <=> Store.video-editor-transcribe-audio-player-is-playing;
+            changed inner-is-playing => {
+                self.is-playing = inner-is-playing;
+            }
+
+            play => {
+                Store.video-editor-transcribe.enable-playing-index = true;
+                let start-timestamp = Logic.ms-to-srt-timestamp-ui(Store.video-editor-transcribe.media-duration-ms * self.progress);
+                let end-timestamp = Logic.ms-to-srt-timestamp-ui(Store.video-editor-transcribe.media-duration-ms);
+
+                Logic.video-editor-transcribe-play-audio(start-timestamp, end-timestamp);
+            }
+
+            stop => {
+                Store.video-editor-transcribe.enable-playing-index = false;
+                Logic.video-editor-transcribe-stop-audio();
+            }
+
+            sound-changed(sound) => {
+                Logic.video-editor-transcribe-audio-player-sound-changed(sound / 100);
+            }
+
+            sound-released(sound) => {
+                Logic.video-editor-transcribe-audio-player-sound-released(sound / 100);
+            }
+
+            progress-changed(value) => {
+                Logic.video-editor-transcribe-audio-player-progress-changed(value);
+            }
+
+            progress-released(value) => {
+                Store.video-editor-transcribe.enable-playing-index = true;
+                Logic.video-editor-transcribe-audio-player-progress-released(value);
+            }
+
+            progress-pressed(value) => {
+                Store.video-editor-transcribe.enable-playing-index = false;
+                Logic.video-editor-transcribe-audio-player-progress-pressed(value);
+            }
+
+            speed-changed(speed) => {
+                Logic.video-editor-transcribe-audio-player-speed-changed(speed);
+            }
+        }
+    }
+}
+
+
+export component TranscribeSettingDialog inherits MovingDialog {
+    title: Logic.tr("Transcribe Setting");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    private property setting <=> Store.video-editor-transcribe-setting;
+
+    SettingDetailInner {
+        for downloader[index] in Store.video-editor-transcribe-models-dowloader: VerticalLayout {
+            alignment: start;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                pure function get-border-color(status: DownloaderState, exist-color: color, no-exist-color: color) -> color {
+                    if status == DownloaderState.Finished {
+                        return exist-color;
+                    } else {
+                        return Logic.file-exist(index == 0 ? setting.model-path : setting.model-tokenizer-path) ? exist-color : no-exist-color;
+                    }
+                }
+
+                model-path-li := LineInput {
+                    horizontal-stretch: 2;
+                    read-only: true;
+                    is-show-icon: true;
+                    icon: Icons.file-open-light;
+                    placeholder-text: index == 0 ? "model.pt" : "Qwen3-0.6B/tokenizer.json";
+                    text: index == 0 ? setting.model-path : setting.model-tokenizer-path;
+                    border-color: get-border-color(downloader.state, self.default-border-color, Theme.danger-color);
+
+                    clicked => {
+                        Logic.video-editor-transcribe-choose-model-path(index);
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                        alignment: center;
+
+                        ProgressBar {
+                            height: model-path-li.preferred-height * 2 / 3;
+                            font-size: Theme.default-font-size * 2 / 3;
+                            finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                            progress: downloader.progress;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: Theme.spacing * 4;
+
+                        private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+
+                        IconBtn {
+                            is-show-tip: true;
+                            icon: downloading ? Icons.stop-light : Icons.download-light;
+                            colorize: downloading ? Theme.danger-color : Theme.icon-color;
+                            tip: downloading ? Logic.tr("cancel") : Logic.tr("download");
+
+                            clicked => {
+                                if (downloading) {
+                                    Logic.video-editor-transcribe-model-cancel-download(index, downloader.url);
+                                } else {
+                                    Logic.video-editor-transcribe-model-start-download(index, downloader.url);
+                                }
+                            }
+                        }
+
+                        IconBtn {
+                            icon: Icons.browser-light;
+                            is-show-tip: true;
+                            tip: Logic.tr("open url");
+
+                            clicked => {
+                                Util.open-url("Default", downloader.url);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+export component TranscribeTextDialog inherits MovingDialog {
+    title: Logic.tr("Transcribe Original Text");
+    icon: Icons.add2-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+    enable-resize: true;
+    body-height: root.header-width * Theme.golden-ratio;
+
+    VerticalLayout {
+        spacing: Theme.spacing * 2;
+        padding: Theme.padding * 2;
+
+        Timer {
+            interval: 100ms;
+            running: true;
+
+            triggered() => {
+                input-te.focus();
+                self.running = false;
+            }
+        }
+
+        input-te := TxtEdit {
+            placeholder: Logic.tr("reference text");
+        }
+
+        ConfirmBtn {
+            text: Logic.tr("Correct");
+            icon: Icons.correction-light;
+            icon-size: Theme.icon-size * 0.8;
+            height: self.font-size + Theme.padding * 4;
+
+            clicked => {
+                if !input-te.text.is-empty {
+                    Logic.video-editor-transcribe-subtitles-correction-with-text(input-te.text);
+                    input-te.clear();
+                    Store.video-editor-transcribe-is-show-original-text-dialog = false;
+                }
+            }
+        }
+    }
+}

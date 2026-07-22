@@ -1,0 +1,151 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+} from "../../../def.slint";
+import {
+    MovingDialog,
+    IconBtn,
+    TabBtns,
+    ConfirmDialogSetting,
+    TxtEdit,
+} from "../../../../base/widgets.slint";
+
+export component MemoDialog inherits MovingDialog {
+    title: Logic.tr("Memo");
+    icon: Icons.edit-text-light;
+    header-width: Theme.moving-dialog-width;
+    head-y: self.height * 0.15;
+    enable-resize: true;
+    body-height: root.header-width * Theme.golden-ratio;
+
+    in-out property <int> active-tab;
+    in-out property <string> global-memo <=> Store.video-editor-global-memo-text;
+    in-out property <string> project-memo <=> Store.video-editor-project-memo-text;
+
+    function save-current-text() {
+        if (active-tab == 0) {
+            global-memo = te-global.text;
+        } else {
+            project-memo = te-project.text;
+        }
+        Logic.video-editor-memo-save(active-tab);
+    }
+
+    Timer {
+        interval: 200ms;
+        running: true;
+        triggered() => {
+            te-global.focus();
+            self.running = false;
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        Rectangle {
+            HorizontalLayout {
+                alignment: center;
+                spacing: Theme.spacing * 2;
+
+                tabs := TabBtns {
+                    items: [
+                        { icon: Icons.global-light, text: Logic.tr("Global") },
+                        { icon: Icons.project-light, text: Logic.tr("Project") },
+                    ];
+
+                    clicked(index) => {
+                        root.active-tab = index;
+                        if (root.active-tab == 0) {
+                            te-global.focus();
+                        } else {
+                            te-project.focus();
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+                alignment: end;
+
+                rec := Rectangle {
+                    width: hbox.preferred-width;
+                    height: hbox.preferred-height;
+                    border-radius: self.height / 2;
+                    background: Theme.thirdly-background;
+                    border-width: Theme.default-border-width;
+                    border-color: Theme.base-border-color;
+
+                    hbox := HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+                        padding: Theme.padding * 2;
+                        padding-left: Theme.padding * 4;
+                        padding-right: Theme.padding * 4;
+
+                        IconBtn {
+                            is-show-tip: true;
+                            tip: Logic.tr("save");
+                            icon: Icons.save-light;
+                            gain-focus-when-clicked: false;
+
+                            clicked => {
+                                root.save-current-text();
+                            }
+                        }
+
+                        IconBtn {
+                            is-show-tip: true;
+                            tip: Logic.tr("abandon changes");
+                            icon: Icons.abandon-light;
+                            gain-focus-when-clicked: false;
+
+                            clicked => {
+                                if active-tab == 0 {
+                                    te-global.text = root.global-memo;
+                                } else {
+                                    te-project.text = root.project-memo;
+                                }
+                            }
+                        }
+
+                        IconBtn {
+                            is-show-tip: true;
+                            tip: Logic.tr("copy");
+                            icon: Icons.copy-light;
+                            gain-focus-when-clicked: false;
+
+                            clicked => {
+                                let text = active-tab == 0 ? te-global.text : te-project.text;
+                                Logic.copy-to-clipboard(text);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            te-global := TxtEdit {
+                visible: root.active-tab == 0;
+                text: root.global-memo;
+                border-color: root.global-memo != self.text ? Theme.danger-color : self.default-border-color;
+                placeholder: Logic.tr("Global memo, saved to database");
+            }
+
+            te-project := TxtEdit {
+                init => {
+                    Logic.video-editor-load-project-memo();
+                }
+
+                visible: root.active-tab == 1;
+                text: root.project-memo;
+                border-color: root.project-memo != self.text ? Theme.danger-color : self.default-border-color;
+                placeholder: Logic.tr("Project memo, saved to project file");
+            }
+        }
+    }
+}

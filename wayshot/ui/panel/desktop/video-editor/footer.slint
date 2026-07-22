@@ -1,0 +1,122 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoEditorSegmentMetadata,
+    MediaType,
+} from "../../def.slint";
+import {
+    Label,
+    PopupActionEntry,
+    PopupActionSetting,
+    TextBtnWithoutIcon,
+} from "../../../base/widgets.slint";
+
+export component Footer inherits Rectangle {
+    background: Theme.secondary-background;
+    height: hbox.preferred-height;
+
+    private property <bool> is-mcp-runing <=> Store.video-editor-mcp-is-runing;
+    private property <bool> mcp-enabled: Store.video-editor-preference-config.mcp.enabled;
+    private property <bool> has-selected-segment: Store.video-editor-selected-segments-index.length > 0;
+    private property <VideoEditorSegmentMetadata> meta: Logic.video-editor-selected-segment-metadata(Store.video-editor-segment-selected-flag);
+    private property <color> label-color: Theme.have-read-text-color;
+
+    hbox := HorizontalLayout {
+        alignment: space-between;
+        spacing: Theme.spacing * 2;
+        padding-left: Theme.padding * 2;
+        padding-right: Theme.padding * 2;
+
+        // Left: segment basic metadata (horizontal)
+        HorizontalLayout {
+            alignment: start;
+
+            if has-selected-segment: VerticalLayout {
+                alignment: center;
+
+                Label {
+                    text: meta.filename;
+                    color: label-color;
+                    overflow: elide;
+                }
+            }
+
+            if has-selected-segment: VerticalLayout {
+                alignment: center;
+
+                Label {
+                    text: " | " + meta.file-size;
+                    color: label-color;
+                    vertical-alignment: center;
+                }
+            }
+
+            if has-selected-segment && (meta.media-type == MediaType.Video || meta.media-type == MediaType.Audio):  VerticalLayout {
+                alignment: center;
+
+                Label {
+                    text: " | " + meta.duration;
+                    color: label-color;
+                    vertical-alignment: center;
+                }
+            }
+
+            if has-selected-segment && (meta.media-type == MediaType.Video || meta.media-type == MediaType.Audio): VerticalLayout {
+                alignment: center;
+
+                Label {
+                    text: " | " + meta.bitrate;
+                    color: label-color;
+                    vertical-alignment: center;
+                }
+            }
+
+            if has-selected-segment && meta.media-type == MediaType.Video: VerticalLayout {
+                alignment: center;
+
+                Label {
+                    text: " | " + meta.video-width + "x" + meta.video-height;
+                    color: label-color;
+                    vertical-alignment: center;
+                }
+            }
+
+            if has-selected-segment && meta.media-type == MediaType.Image: VerticalLayout {
+                alignment: center;
+
+                Label {
+                    text: " | " + meta.video-width + "x" + meta.video-height;
+                    color: label-color;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: end;
+            spacing: Theme.spacing * 2;
+
+            HorizontalLayout {
+                alignment: end;
+                spacing: Theme.spacing * 2;
+
+                Label {
+                    text: "MCP";
+                    color: label-color;
+                    vertical-alignment: center;
+                }
+
+                Rectangle {
+                    width: Theme.icon-size * 0.5;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    background: mcp-enabled ? (is-mcp-runing ? Theme.success-color : Theme.danger-color) : Theme.disabled-color;
+                    y: (parent.height - self.height) / 2;
+                }
+            }
+        }
+    }
+}

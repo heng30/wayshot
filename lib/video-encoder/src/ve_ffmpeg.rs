@@ -45,11 +45,28 @@ impl FfmpegVideoEncoder {
         };
 
         let mut opts = Dictionary::new();
-        opts.set("preset", if config.annexb { "faster" } else { "superfast" });
+
+        let preset = config
+            .preset
+            .as_ref()
+            .map(|p| p.as_str())
+            .unwrap_or_else(|| if config.annexb { "faster" } else { "superfast" });
+        opts.set("preset", preset);
+
         opts.set("profile", "baseline");
-        opts.set("crf", "23");
+
+        let crf = config.crf.unwrap_or(23);
+        opts.set("crf", &crf.to_string());
+
         opts.set("g", &fps.to_string()); // max_keyframe_interval
-        opts.set("tune", "zerolatency");
+
+        let tune = config
+            .tune
+            .as_ref()
+            .map(|t| t.as_str())
+            .unwrap_or("zerolatency");
+        opts.set("tune", tune);
+
         opts.set("forced-idr", "1"); // Force keyframes more regularly
 
         let x264_params = format!(
@@ -123,7 +140,12 @@ impl VideoEncoder for FfmpegVideoEncoder {
             Ok(_) => {
                 if let Some(data) = packet.data() {
                     self.frame_index += 1;
-                    Ok(EncodedFrame::Frame((self.frame_index, data.to_vec())))
+                    let is_keyframe = packet.flags().contains(packet::Flags::KEY);
+                    Ok(EncodedFrame::Frame {
+                        timestamp: self.frame_index,
+                        data: data.to_vec(),
+                        is_keyframe,
+                    })
                 } else {
                     return Err(EncoderError::VideoEncodingFailed(
                         "FFmpeg encoder encode data is empty".to_string(),
@@ -195,7 +217,7 @@ impl VideoEncoder for FfmpegVideoEncoder {
         Ok(vec![])
     }
 
-    fn flush(mut self: Box<Self>, mut cb: Box<dyn FnMut(Vec<u8>) + 'static>) -> Result<()> {
+    fn flush(mut self: Box<Self>, mut cb: Box<dyn FnMut(Vec<u8>, bool) + 'static>) -> Result<()> {
         let mut empty_count = 0;
         let max_empty_attempts = 3;
 
@@ -206,7 +228,8 @@ impl VideoEncoder for FfmpegVideoEncoder {
                     empty_count += 1;
 
                     if let Some(data) = packet.data() {
-                        cb(data.to_vec());
+                        let is_keyframe = packet.flags().contains(packet::Flags::KEY);
+                        cb(data.to_vec(), is_keyframe);
                         empty_count = 0;
                     } else {
                         if empty_count >= max_empty_attempts {

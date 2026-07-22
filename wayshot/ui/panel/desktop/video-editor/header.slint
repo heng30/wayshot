@@ -1,0 +1,324 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+} from "../../def.slint";
+import {
+    Label,
+    PopupActionEntry,
+    PopupActionSetting,
+    TextBtnWithoutIcon,
+} from "../../../base/widgets.slint";
+
+export component Header inherits Rectangle {
+    background: Theme.secondary-background;
+    height: hbox.preferred-height;
+
+    hbox := HorizontalLayout {
+        alignment: start;
+        padding-left: Theme.padding * 2;
+        padding-right: Theme.padding * 2;
+        padding-bottom: Theme.padding;
+        spacing: Theme.spacing * 3;
+
+        TextBtnWithoutIcon {
+            text: Logic.tr("File");
+            font-size: Theme.title4-font-size;
+
+            private property <[PopupActionEntry]> file-action-entries: [
+                {
+                    icon: Icons.new-light,
+                    text: Logic.tr("New"),
+                    shotcut: "Ctrl+N",
+                    action: "video-editor-new-project",
+                    disable: Store.video-editor-tracks-manager.tracks.length > 0,
+                },
+                {
+                    icon: Icons.open-project-light,
+                    text: Logic.tr("Open"),
+                    shotcut: "Ctrl+O",
+                    action: "video-editor-open-project",
+                },
+                {
+                    icon: Icons.recent-light,
+                    text: Logic.tr("Recent"),
+                    shotcut: "Ctrl+Shift+R",
+                    action: "video-editor-show-recent-dialog",
+                },
+                { },
+                {
+                    icon: Icons.save-light,
+                    text: Logic.tr("Save"),
+                    shotcut: "Ctrl+S",
+                    action: "video-editor-save-project",
+                },
+                {
+                    icon: Icons.save-as-light,
+                    text: Logic.tr("Save As"),
+                    shotcut: "Ctrl+Shift+S",
+                    action: "video-editor-save-as-project",
+                },
+                {
+                    icon: Icons.backup-light,
+                    text: Logic.tr("Backup"),
+                    shotcut: "Ctrl+B",
+                    action: "video-editor-backup-project",
+                },
+                { },
+                {
+                    icon: Icons.close-project-light,
+                    text: Logic.tr("Close"),
+                    shotcut: "Ctrl+W",
+                    action: "video-editor-close-project",
+                },
+                {
+                    icon: Icons.quit-light,
+                    text: Logic.tr("Quit"),
+                    shotcut: "Ctrl+Q",
+                    action: "video-editor-quit",
+                },
+            ];
+
+            clicked => {
+                PopupActionSetting.show(self.absolute-position.x, self.absolute-position.y + self.preferred-height, file-action-entries);
+            }
+        }
+
+        TextBtnWithoutIcon {
+            text: Logic.tr("Edit");
+            font-size: Theme.title4-font-size;
+
+            private property <[PopupActionEntry]> edit-action-entries: [
+                {
+                    icon: Icons.undo-light,
+                    text: Logic.tr("Undo"),
+                    shotcut: "Ctrl+Z",
+                    action: "video-editor-undo",
+                },
+                {
+                    icon: Icons.redo-light,
+                    text: Logic.tr("Redo"),
+                    shotcut: "Ctrl+Shift+Z",
+                    action: "video-editor-redo",
+                },
+                { },
+                {
+                    icon: Icons.copy-light,
+                    text: Logic.tr("Copy"),
+                    shotcut: "Ctrl+C",
+                    action: "video-editor-copy",
+                },
+                {
+                    icon: Icons.cut-light,
+                    text: Logic.tr("Cut"),
+                    shotcut: "Ctrl+X",
+                    action: "video-editor-cut",
+                },
+                {
+                    icon: Icons.content-paste-light,
+                    text: Logic.tr("Paste"),
+                    shotcut: "Ctrl+V",
+                    action: "video-editor-paste",
+                },
+            ];
+
+            clicked => {
+                PopupActionSetting.show(self.absolute-position.x, self.absolute-position.y + self.preferred-height, edit-action-entries);
+            }
+        }
+
+        TextBtnWithoutIcon {
+            text: Logic.tr("Tool");
+            font-size: Theme.title4-font-size;
+
+            private property <[PopupActionEntry]> view-action-entries: [
+                {
+                    icon: Icons.audio-light,
+                    text: Logic.tr("Record Audio"),
+                    shotcut: "Ctrl+Shift+D",
+                    action: "video-editor-show-record-audio-dialog",
+                },
+                {
+                    icon: Icons.transcribe-light,
+                    text: Logic.tr("Audio to Subtitle"),
+                    shotcut: "Ctrl+Shift+T",
+                    action: "video-editor-transcribe-audio",
+                },
+                {
+                    icon: Icons.tts-light,
+                    text: Logic.tr("Text to Speak"),
+                    shotcut: "Ctrl+Shift+B",
+                    action: "video-editor-show-tts-dialog",
+                },
+                {
+                    icon: Icons.segmentation-light,
+                    text: Logic.tr("Stem Splitter"),
+                    shotcut: "Ctrl+Shift+L",
+                    action: "video-editor-show-stem-splitter-dialog",
+                },
+                {
+                    icon: Icons.denoise-light,
+                    text: Logic.tr("Denoise"),
+                    shotcut: "Ctrl+Alt+F",
+                    action: "video-editor-show-deep-filter-dialog",
+                },
+                {
+                    icon: Icons.voiceprint-light,
+                    text: Logic.tr("Speaker Separator"),
+                    shotcut: "Ctrl+Shift+K",
+                    action: "video-editor-show-speakers-dialog",
+                },
+                {
+                    icon: Icons.music-light,
+                    text: Logic.tr("Music Generation"),
+                    shotcut: "Ctrl+Alt+G",
+                    action: "video-editor-show-musicgen-dialog",
+                },
+                { },
+                {
+                    icon: Icons.subtitle-light,
+                    text: Logic.tr("Subtitle Translate"),
+                    shotcut: "Ctrl+Shift+Y",
+                    action: "video-editor-show-subtitle-translate-dialog",
+                },
+                {
+                    icon: Icons.subtitles-slash-light,
+                    text: Logic.tr("Subtitle Remover"),
+                    shotcut: "Ctrl+Shift+V",
+                    action: "video-editor-show-subtitle-remover-dialog",
+                },
+                {
+                    icon: Icons.segmentation-light,
+                    text: Logic.tr("Similar Video Segment"),
+                    shotcut: "Ctrl+Alt+S",
+                    action: "video-editor-show-similar-video-segment-dialog",
+                },
+                {
+                    icon: Icons.segmentation-light,
+                    text: Logic.tr("Smart Mix"),
+                    shotcut: "Ctrl+Alt+M",
+                    action: "video-editor-smart-mix",
+                },
+                { },
+                {
+                    icon: Icons.cutout-light,
+                    text: Logic.tr("Cutout"),
+                    shotcut: "Ctrl+Shift+X",
+                    action: "video-editor-show-cutout-dialog",
+                },
+                {
+                    icon: Icons.dewatermark-ai-light,
+                    text: Logic.tr("Dewatermark"),
+                    shotcut: "Ctrl+Shift+W",
+                    action: "video-editor-show-dewatermark-dialog",
+                },
+                {
+                    icon: Icons.clarity-light,
+                    text: Logic.tr("Image Clarity"),
+                    shotcut: "Ctrl+Shift+Q",
+                    action: "video-editor-show-clear-vision-dialog",
+                },
+                {
+                    icon: Icons.remove-light,
+                    text: Logic.tr("Background Remover"),
+                    shotcut: "Ctrl+Shift+E",
+                    action: "video-editor-show-bg-remover-dialog",
+                },
+                {
+                    icon: Icons.ocr-light,
+                    text: Logic.tr("OCR"),
+                    shotcut: "Ctrl+Shift+H",
+                    action: "video-editor-show-ocr-dialog",
+                },
+                { },
+                {
+                    icon: Icons.animation-light,
+                    text: Logic.tr("Background Animation"),
+                    shotcut: "Ctrl+Shift+N",
+                    action: "video-editor-show-bg-animation-dialog",
+                },
+                {
+                    icon: Icons.image-light,
+                    text: Logic.tr("Image Animation"),
+                    shotcut: "Ctrl+Shift+I",
+                    action: "video-editor-show-img-animation-dialog",
+                },
+                {
+                    icon: Icons.code-light,
+                    text: Logic.tr("Code Image"),
+                    shotcut: "Ctrl+Shift+C",
+                    action: "video-editor-show-code-image-dialog",
+                },
+                {
+                    icon: Icons.color-picker-light,
+                    text: Logic.tr("Pure Color Image"),
+                    shotcut: "Ctrl+Shift+J",
+                    action: "video-editor-show-pure-color-image-dialog",
+                },
+                { },
+                {
+                    icon: Icons.edit-text-light,
+                    text: Logic.tr("Memo"),
+                    shotcut: "Ctrl+Alt+M",
+                    action: "video-editor-show-memo-dialog",
+                },
+                {
+                    icon: Icons.filter-light,
+                    text: Logic.tr("Global Filter"),
+                    shotcut: "Ctrl+Shift+G",
+                    action: "video-editor-show-global-filter-dialog",
+                },
+                {
+                    icon: Icons.chapter-light,
+                    text: Logic.tr("Chapter Summary"),
+                    shotcut: "Ctrl+Shift+U",
+                    action: "video-editor-show-chapter-summary-dialog",
+                },
+                {
+                    icon: Icons.metadata-light,
+                    text: Logic.tr("View Metadata"),
+                    shotcut: "Ctrl+Shift+M",
+                    action: "video-editor-show-metadata-dialog",
+                },
+            ];
+            clicked => {
+                PopupActionSetting.show(self.absolute-position.x, self.absolute-position.y + self.preferred-height, view-action-entries);
+            }
+        }
+
+        TextBtnWithoutIcon {
+            text: Logic.tr("Setting");
+            font-size: Theme.title4-font-size;
+
+            private property <[PopupActionEntry]> setting-action-entries: [
+                {
+                    icon: Icons.project-light,
+                    text: Logic.tr("Preview"),
+                    shotcut: "Ctrl+Shift+P",
+                    action: "video-editor-preview-show-dialog",
+                },
+                {
+                    icon: Icons.metadata-light,
+                    text: Logic.tr("Preference"),
+                    shotcut: "Ctrl+Shift+F",
+                    action: "video-editor-show-preference-setting-dialog",
+                },
+            ];
+
+            clicked => {
+                PopupActionSetting.show(self.absolute-position.x, self.absolute-position.y + self.preferred-height, setting-action-entries);
+            }
+        }
+
+        TextBtnWithoutIcon {
+            text: Logic.tr("Help");
+            font-size: Theme.title4-font-size;
+
+            clicked => {
+                Store.video-editor-is-show-help-dialog = true;
+            }
+        }
+    }
+}

@@ -1,0 +1,141 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+} from "../../../../def.slint";
+import { InkStyle } from "export.slint";
+import {
+    Label,
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    Select,
+} from "../../../../../base/widgets.slint";
+
+export component InkDissipationParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Style");
+        }
+
+        Select {
+            values: [Logic.tr("Ink on Paper"), Logic.tr("Paper on Ink")];
+            current-index: Store.video-editor-bg-animation-config.ink-dissipation.style == InkStyle.InkOnPaper ? 0 : 1;
+            current-value: self.values[self.current-index];
+            gain-focus-when-clicked: false;
+
+            selected(index) => {
+                Store.video-editor-bg-animation-config.ink-dissipation.style = index == 0 ? InkStyle.InkOnPaper : InkStyle.PaperOnInk;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Source Count");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.ink-dissipation.source-count;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 15 : input-value;
+                Store.video-editor-bg-animation-config.ink-dissipation.source-count = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Fade Speed");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.ink-dissipation.fade-speed.to-fixed(4);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.ink-dissipation.fade-speed = value <= 0.0 ? 0.02 : value;
+                self.text = Store.video-editor-bg-animation-config.ink-dissipation.fade-speed.to-fixed(4);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Spread Rate");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.ink-dissipation.spread-rate.to-fixed(2);
+
+            accepted => {
+                let value = self.text.to-float() <= 0 ? 2.5 : self.text.to-float();
+                Store.video-editor-bg-animation-config.ink-dissipation.spread-rate = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Max Radius");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.ink-dissipation.max-radius.to-fixed(2);
+
+            accepted => {
+                let value = self.text.to-float() <= 0 ? 80.0 : self.text.to-float();
+                Store.video-editor-bg-animation-config.ink-dissipation.max-radius = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Max Drops");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.ink-dissipation.max-drops;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 300 : input-value;
+                Store.video-editor-bg-animation-config.ink-dissipation.max-drops = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Resolution Divisor");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.ink-dissipation.resolution-divisor;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 4 : input-value;
+                Store.video-editor-bg-animation-config.ink-dissipation.resolution-divisor = value;
+                self.text = value;
+            }
+        }
+    }
+}

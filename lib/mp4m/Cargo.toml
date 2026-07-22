@@ -25,9 +25,3 @@ video-encoder.workspace = true
 rand.workspace = true
 image.workspace = true
 env_logger.workspace = true
-
-[target.'cfg(target_os = "linux")'.dev-dependencies]
-video-encoder = { workspace = true, features = ["x264"] }
-
-[target.'cfg(target_os = "windows")'.dev-dependencies]
-video-encoder = { workspace = true, features = ["ffmpeg"] }

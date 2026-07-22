@@ -1,0 +1,142 @@
+export enum GlobalFilterType {
+    ProgressBar,
+    Timer,
+    GlobalSpeed,
+    Rotation,
+    Danmaku,
+}
+
+export enum TimerMode {
+    CountUp,
+    CountDown,
+}
+
+export struct ProgressBarItem {
+    timeline-offset: int, // ms
+    text: string,
+}
+
+export struct TimerStyle {
+    position-x: float,      // 0-1 normalized (centered at this position)
+    position-y: float,      // 0-1 normalized (0=bottom, 1=top)
+    font-size: int,
+    font-path: string,
+    font-family: string,
+    font-style: string,
+    text-color-r: int,
+    text-color-g: int,
+    text-color-b: int,
+    text-color-a: int,
+    background-color-r: int,
+    background-color-g: int,
+    background-color-b: int,
+    background-color-a: int,
+    padding: int,
+    border-radius: int,
+}
+
+export struct TimerItem {
+    start-offset: int,      // ms - when timer appears
+    end-offset: int,        // ms - when timer disappears (duration = end - start)
+    mode: TimerMode,        // CountUp or CountDown
+    style: TimerStyle,
+}
+
+export struct ProgressBarGlobalFilterConfig {
+    enabled: bool,
+    font-size: int,
+    font-path: string,
+    font-family: string,
+    font-style: string,
+    items: [ProgressBarItem],
+    position-y: float,              // Y位置 (0=底部, 1=顶部)
+    padding: int,                   // 文本垂直内边距
+    margin-h: int,
+    separator-width: int,
+    text-color-r: int,
+    text-color-g: int,
+    text-color-b: int,
+    text-color-a: int,
+    progress-color-r: int,
+    progress-color-g: int,
+    progress-color-b: int,
+    progress-color-a: int,
+    background-color-r: int,
+    background-color-g: int,
+    background-color-b: int,
+    background-color-a: int,
+    separator-color-r: int,
+    separator-color-g: int,
+    separator-color-b: int,
+    separator-color-a: int,
+}
+
+export struct TimerGlobalFilterConfig {
+    enabled: bool,
+    items: [TimerItem],
+    default-style: TimerStyle,
+}
+
+export struct GlobalSpeedFilterConfig {
+    enabled: bool,
+    speed: float,
+}
+
+export struct RotationGlobalFilterConfig {
+    enabled: bool,
+    rotation: float,
+}
+
+export enum DanmakuDistributionMode {
+    StartDense,
+    Uniform,
+    EndDense,
+}
+
+export struct DanmakuStyle {
+    font-size: int,
+    font-path: string,
+    font-family: string,
+    font-style: string,
+    color-r: int,
+    color-g: int,
+    color-b: int,
+    color-a: int,
+    outline-width: int,
+    outline-color-r: int,
+    outline-color-g: int,
+    outline-color-b: int,
+    outline-color-a: int,
+    line-spacing: int,
+}
+
+export struct DanmakuItem {
+    text: string,
+}
+
+export struct DanmakuSegment {
+    start-offset: int,        // ms - when this segment starts showing danmaku
+    end-offset: int,          // ms - when this segment stops showing danmaku
+    scroll-speed: float,      // pixels per second
+    distribution: DanmakuDistributionMode,
+    track-distribution: DanmakuDistributionMode,
+    track-count: int,         // 0 = auto
+    position: float,          // 0=top, 1=bottom
+    items: [DanmakuItem],
+    style: DanmakuStyle,
+}
+
+export struct DanmakuGlobalFilterConfig {
+    enabled: bool,
+    items: [DanmakuSegment],
+    default-style: DanmakuStyle,
+}
+
+export struct GlobalFilterConfig {
+    filter-type: GlobalFilterType,
+    timer: TimerGlobalFilterConfig,
+    progress-bar: ProgressBarGlobalFilterConfig,
+    global-speed: GlobalSpeedFilterConfig,
+    rotation: RotationGlobalFilterConfig,
+    danmaku: DanmakuGlobalFilterConfig,
+}

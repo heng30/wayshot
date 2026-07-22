@@ -1,0 +1,206 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+} from "../../../../def.slint";
+import {
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    Select,
+} from "../../../../../base/widgets.slint";
+
+export component MovingGridParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Rows");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.moving-grid.rows;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 10 : input-value;
+                Store.video-editor-bg-animation-config.moving-grid.rows = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Cols");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.moving-grid.cols;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 24 : input-value;
+                Store.video-editor-bg-animation-config.moving-grid.cols = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Speed");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.moving-grid.speed.to-fixed(1);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.moving-grid.speed = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Direction");
+        }
+
+        function index-to-str(index: int) -> string {
+            if index == 0 {
+                return "Up";
+            } else {
+                return "Down";
+            }
+        }
+
+        Select {
+            values: [Logic.tr("Up"), Logic.tr("Down")];
+            current-value: Logic.tr(Store.video-editor-bg-animation-config.moving-grid.direction);
+            gain-focus-when-clicked: false;
+
+            selected(index, value) => {
+                Store.video-editor-bg-animation-config.moving-grid.direction = index-to-str(index);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Line Width");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.moving-grid.line-width.to-fixed(1);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.moving-grid.line-width = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Supersample");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.moving-grid.supersample;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 2 : input-value;
+                Store.video-editor-bg-animation-config.moving-grid.supersample = value;
+                self.text = value;
+            }
+        }
+    }
+
+    // Line Color
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.moving-grid.line-color-r = c.red;
+            Store.video-editor-bg-animation-config.moving-grid.line-color-g = c.green;
+            Store.video-editor-bg-animation-config.moving-grid.line-color-b = c.blue;
+            Store.video-editor-bg-animation-config.moving-grid.line-color-a = c.alpha;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Line Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.moving-grid.line-color-r,
+                Store.video-editor-bg-animation-config.moving-grid.line-color-g,
+                Store.video-editor-bg-animation-config.moving-grid.line-color-b,
+                Store.video-editor-bg-animation-config.moving-grid.line-color-a);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    // Background Color
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.moving-grid.bg-color-r = c.red;
+            Store.video-editor-bg-animation-config.moving-grid.bg-color-g = c.green;
+            Store.video-editor-bg-animation-config.moving-grid.bg-color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Background Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.moving-grid.bg-color-r,
+                Store.video-editor-bg-animation-config.moving-grid.bg-color-g,
+                Store.video-editor-bg-animation-config.moving-grid.bg-color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+}

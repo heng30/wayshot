@@ -1,12 +1,11 @@
-use crate::{
-    audio_level::{apply_gain, calc_rms_level},
-    speaker_recorder::{SpeakerRecorder, SpeakerRecorderConfig, SpeakerRecorderError},
-};
+use crate::speaker_recorder::{SpeakerRecorder, SpeakerRecorderConfig, SpeakerRecorderError};
+use audio_utils::audio_level::{apply_gain, calc_rms_level};
 use crossbeam::channel::Sender;
 use hound::WavSpec;
 use pipewire::{
     context::ContextRc,
     core::CoreRc,
+    loop_::Timeout,
     main_loop::MainLoopRc,
     spa::{
         param::audio::{AudioFormat, AudioInfoRaw},
@@ -238,7 +237,9 @@ impl SpeakerRecorder for SpeakerRecorderLinux {
         Self::stream_connect(&stream, node_id)?;
 
         while !self.config.stop_sig.load(Ordering::Relaxed) {
-            self.mainloop.loop_().iterate(Duration::from_millis(100));
+            self.mainloop
+                .loop_()
+                .iterate(Timeout::Finite(Duration::from_millis(100)));
         }
 
         self.mainloop.quit();
@@ -296,7 +297,9 @@ impl SpeakerRecorder for SpeakerRecorderLinux {
 
         log::debug!("Wait enumerate devices...");
         for _ in 0..10 {
-            self.mainloop.loop_().iterate(Duration::from_millis(100));
+            self.mainloop
+                .loop_()
+                .iterate(Timeout::Finite(Duration::from_millis(100)));
         }
 
         log::debug!("Find default device: {:?}", output_info);

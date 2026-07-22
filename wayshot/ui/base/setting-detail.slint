@@ -66,16 +66,19 @@ export component SettingDetailLabel inherits HorizontalLayout {
     in-out property text <=> lb.text;
     in-out property color <=> lb.color;
     in-out property <string> tip;
+    in-out property <bool> enabled: true;
 
     alignment: start;
     spacing: Theme.spacing;
 
     lb := Label {
         font-size: Theme.title4-font-size;
+        color: root.enabled ? Theme.primary-text-color : Theme.disabled-color;
     }
 
-    if !tip.is-empty:
-        IconBtn {
+    if !tip.is-empty: IconBtn {
+        enabled: root.enabled;
+        colorize: lb.color;
         icon-size: lb.font-size * 0.8;
         is-show-tip: true;
         tip-position: Top;
@@ -93,6 +96,9 @@ export component SettingDetailSwitch inherits Rectangle {
     in-out property icon-size <=> sib.icon-size;
     in-out property enabled <=> eib.enabled;
     in-out property checked <=> eib.checked;
+    in-out property gain-focus-when-clicked <=> eib.gain-focus-when-clicked;
+
+    in-out property <length> spacing;
 
     height: vbox.preferred-height;
     background: Theme.secondary-background;
@@ -105,14 +111,18 @@ export component SettingDetailSwitch inherits Rectangle {
     vbox := HorizontalLayout {
         padding: Theme.padding * 2;
         alignment: space-between;
+        spacing: root.spacing;
 
         sib := IconBtn {
+            enabled: root.enabled;
             background: Colors.transparent;
         }
 
         eib := SwitchBtn {
             toggled => {
-                fs.focus();
+                if (root.gain-focus-when-clicked) {
+                    fs.focus();
+                }
                 root.toggled();
             }
         }

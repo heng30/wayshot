@@ -1,0 +1,135 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+} from "../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+    Select,
+} from "../../../../../base/widgets.slint";
+
+export component BokehParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Spot Count");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.bokeh.spot-count;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 30 : input-value;
+                Store.video-editor-bg-animation-config.bokeh.spot-count = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Size Range");
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 2;
+
+            LineInput {
+                input-type: InputType.decimal;
+                text: Store.video-editor-bg-animation-config.bokeh.min-size.to-fixed(1);
+
+                accepted => {
+                    Store.video-editor-bg-animation-config.bokeh.min-size = self.text.to-float();
+                }
+            }
+
+            Label {
+                text: "-";
+            }
+
+            LineInput {
+                input-type: InputType.decimal;
+                text: Store.video-editor-bg-animation-config.bokeh.max-size.to-fixed(1);
+
+                accepted => {
+                    Store.video-editor-bg-animation-config.bokeh.max-size = self.text.to-float();
+                }
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Animation Speed");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.bokeh.animation-speed.to-fixed(2);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.bokeh.animation-speed = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.bokeh.bg-color-r = c.red;
+            Store.video-editor-bg-animation-config.bokeh.bg-color-g = c.green;
+            Store.video-editor-bg-animation-config.bokeh.bg-color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Background Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.bokeh.bg-color-r,
+                Store.video-editor-bg-animation-config.bokeh.bg-color-g,
+                Store.video-editor-bg-animation-config.bokeh.bg-color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    SettingDetailSwitch {
+        icon: Icons.shape-light;
+        icon-size: Theme.icon-size * 0.8;
+        text: Logic.tr("Hexagonal");
+        checked: Store.video-editor-bg-animation-config.bokeh.hexagonal-enabled;
+        gain-focus-when-clicked: false;
+
+        toggled => {
+            Store.video-editor-bg-animation-config.bokeh.hexagonal-enabled = !Store.video-editor-bg-animation-config.bokeh.hexagonal-enabled;
+        }
+    }
+}

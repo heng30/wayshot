@@ -1,8 +1,6 @@
-mod audio_level;
 mod audio_recorder;
 mod config;
 mod cursor_tracker;
-mod denoise;
 mod error;
 mod process_mode;
 mod recorder;
@@ -10,7 +8,6 @@ mod resolution;
 mod speaker_recorder;
 mod worker;
 
-pub use audio_level::*;
 pub use audio_recorder::{AudioDeviceInfo, AudioRecorder, AudioRecorderError};
 pub use config::{
     CameraMixConfig, FPS, PushStreamConfig, RecorderConfig, ShareScreenConfig, SimpleFpsCounter,
@@ -18,6 +15,7 @@ pub use config::{
 pub use crossbeam::channel::{Receiver, Sender, bounded};
 pub use cursor_tracker::{CursorTracker, CursorTrackerConfig, TransitionType};
 pub use denoise::*;
+pub use denoise::ProgressState;
 pub use error::RecorderError;
 pub use recorder::{RecordingSession, ResizedImageBuffer};
 pub use resolution::Resolution;
@@ -30,12 +28,6 @@ pub use wrtc::RTCIceServer;
 
 pub type AsyncErrorSender = tokio::sync::mpsc::Sender<String>;
 pub type AsyncErrorReceiver = tokio::sync::mpsc::Receiver<String>;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProgressState {
-    Finished,
-    Stopped,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProcessMode {

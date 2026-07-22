@@ -3,7 +3,7 @@
 //! This module provides functions for splitting strings, generating random strings,
 //! formatting sizes, and character replacement.
 
-use rand::Rng;
+use rand::RngExt;
 
 /// Splits a string into fixed-length parts.
 ///
@@ -129,20 +129,23 @@ mod tests {
     #[test]
     fn test_split_string_to_fixed_length_parts() {
         // Test empty string
-        assert_eq!(split_string_to_fixed_length_parts("", 3), Vec::<String>::new());
-        
+        assert_eq!(
+            split_string_to_fixed_length_parts("", 3),
+            Vec::<String>::new()
+        );
+
         // Test exact multiple of chunk size
         assert_eq!(
             split_string_to_fixed_length_parts("abcdef", 2),
             vec!["ab", "cd", "ef"]
         );
-        
+
         // Test with remainder
         assert_eq!(
             split_string_to_fixed_length_parts("abcdefg", 2),
             vec!["ab", "cd", "ef", "g"]
         );
-        
+
         // Test with Unicode characters
         assert_eq!(
             split_string_to_fixed_length_parts("你好世界", 2),
@@ -168,7 +171,7 @@ mod tests {
             assert_eq!(random.len(), length);
             assert!(random.chars().all(|c| c.is_ascii_lowercase()));
         }
-        
+
         // Test that different calls produce different results
         let r1 = random_string(10);
         let r2 = random_string(10);
@@ -183,23 +186,17 @@ mod tests {
             replace_multiple_chars("hello world", &['l', 'o'], '-'),
             "he--- w-r-d"
         );
-        
+
         // Test no replacements
         assert_eq!(
             replace_multiple_chars("hello world", &[], '-'),
             "hello world"
         );
-        
+
         // Test empty string
-        assert_eq!(
-            replace_multiple_chars("", &['a', 'b'], '-'),
-            ""
-        );
-        
+        assert_eq!(replace_multiple_chars("", &['a', 'b'], '-'), "");
+
         // Test all characters replaced
-        assert_eq!(
-            replace_multiple_chars("abc", &['a', 'b', 'c'], '-'),
-            "---"
-        );
+        assert_eq!(replace_multiple_chars("abc", &['a', 'b', 'c'], '-'), "---");
     }
 }

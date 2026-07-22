@@ -1,0 +1,500 @@
+import {
+    Store,
+    Logic,
+} from "../../def.slint";
+
+export component Shortcut inherits FocusScope {
+    KeyBinding {
+        keys: @keys(Home);
+        activated => {
+            Logic.video-editor-preview-seek(0);
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(End);
+        activated => {
+            Logic.video-editor-preview-seek(Store.video-editor-tracks-manager.duration);
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Delete);
+        activated => {
+            Logic.video-editor-remove-segments();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Space);
+        activated => {
+            Logic.video-editor-preview-toggle();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Escape);
+        activated => {
+            if (Store.video-editor-segment-cross-track-dragging) {
+                Store.video-editor-segment-cross-track-dragging = false;
+                Store.video-editor-segment-cross-track-target-index = -1;
+                Store.video-editor-segment-cross-track-will-split = false;
+                Store.video-editor-segment-cross-track-split-segment-index = -1;
+                Store.video-editor-segment-is-dragging = false;
+                Store.video-editor-drag-is-move = false;
+                Store.video-editor-drag-delta-ms = 0;
+            }
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(UpArrow);
+        activated => {
+            let new-volume = min(Store.video-editor-ui-state.preview-volume + 5, 100);
+            Store.video-editor-ui-state.preview-volume = new-volume;
+            Logic.video-editor-preview-change-volume(new-volume);
+            Logic.video-editor-update-ui-state();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(DownArrow);
+        activated => {
+            let new-volume = max(Store.video-editor-ui-state.preview-volume - 5, 0);
+            Store.video-editor-ui-state.preview-volume = new-volume;
+            Logic.video-editor-preview-change-volume(new-volume);
+            Logic.video-editor-update-ui-state();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(LeftArrow);
+        activated => {
+            let fps = Logic.fps-to-int(Store.video-editor-new-project-config.preview-config.fps);
+            let frame-duration = 1000 / fps;
+            let new-position = max(Store.video-editor-timeline-offset - frame-duration, 0);
+            Logic.video-editor-preview-seek(new-position);
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(RightArrow);
+        activated => {
+            let fps = Logic.fps-to-int(Store.video-editor-new-project-config.preview-config.fps);
+            let frame-duration = 1000 / fps;
+            let duration = Store.video-editor-tracks-manager.duration;
+            let new-position = min(Store.video-editor-timeline-offset + frame-duration, duration);
+            Logic.video-editor-preview-seek(new-position);
+        }
+    }
+
+    // 方便左手
+    KeyBinding {
+        keys: @keys(D);
+        activated => {
+            Store.video-editor-ui-state.enabled-link-track = !Store.video-editor-ui-state.enabled-link-track;
+            Logic.video-editor-update-ui-state();
+        }
+    }
+
+    // 方便右手
+    KeyBinding {
+        keys: @keys(L);
+        activated => {
+            Store.video-editor-ui-state.enabled-link-track = !Store.video-editor-ui-state.enabled-link-track;
+            Logic.video-editor-update-ui-state();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(M);
+        activated => {
+            Logic.video-editor-segment-merge();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(N);
+        activated => {
+            Logic.video-editor-segment-snap-to-previous();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(P);
+        activated => {
+            Logic.video-editor-segment-snap-to-playhead();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(S);
+        activated => {
+            Logic.video-editor-split-segment();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(X);
+        activated => {
+            Logic.video-editor-linked-remove-segments();
+        }
+    }
+
+    // Control
+    KeyBinding {
+        keys: @keys(Control + A);
+        activated => {
+            Logic.video-editor-select-all-segments();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + B);
+        activated => {
+            Logic.video-editor-backup-project();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + C);
+        activated => {
+            Logic.video-editor-copy();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + F);
+        activated => {
+            if (Store.video-editor-left-panel-selected-index == 0) {
+                Store.video-editor-playlist-is-searching = true;
+            } else if (Store.video-editor-left-panel-selected-index == 1) {
+                Store.video-editor-media-library-is-searching = true;
+            } else if (Store.video-editor-left-panel-selected-index == 2) {
+                Store.video-editor-online-search-image-focus-flag = !Store.video-editor-online-search-image-focus-flag;
+            }
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + N);
+        activated => {
+            Logic.video-editor-new-project();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + I);
+        activated => {
+            if (Store.video-editor-left-panel-selected-index == 0) {
+                Logic.video-editor-playlist-item-import();
+            } else if (Store.video-editor-left-panel-selected-index == 1) {
+                Logic.video-editor-library-item-import();
+            }
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + O);
+        activated => {
+            Logic.video-editor-open-project();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Q);
+        activated => {
+            Logic.video-editor-quit();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + S);
+        activated => {
+            Logic.video-editor-save-project();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + V);
+        activated => {
+            Logic.video-editor-paste();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + W);
+        activated => {
+            Logic.video-editor-close-project();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + X);
+        activated => {
+            Logic.video-editor-cut();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Z);
+        activated => {
+            Logic.video-editor-undo();
+        }
+    }
+
+    // Control + Shift
+    KeyBinding {
+        keys: @keys(Control + Shift + A);
+        activated => {
+            Logic.video-editor-append();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + B);
+        activated => {
+            Store.video-editor-is-show-tts-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + C);
+        activated => {
+            Store.video-editor-is-show-code-image-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + D);
+        activated => {
+            Store.video-editor-is-show-record-audio-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + E);
+        activated => {
+            Store.video-editor-is-show-bg-remover-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + F);
+        activated => {
+            Logic.video-editor-show-preference-setting-dialog();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + G);
+        activated => {
+            Store.video-editor-is-show-global-filter-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + H);
+        activated => {
+            Store.video-editor-is-show-ocr-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + I);
+        activated => {
+            Store.video-editor-is-show-img-animation-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + J);
+        activated => {
+            Store.video-editor-is-show-pure-color-image-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + K);
+        activated => {
+            Store.video-editor-is-show-speakers-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + L);
+        activated => {
+            Store.video-editor-is-show-stem-splitter-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + M);
+        activated => {
+            Logic.video-editor-show-metadata-dialog();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + N);
+        activated => {
+            Store.video-editor-is-show-bg-animation-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + P);
+        activated => {
+            Logic.video-editor-preview-show-dialog();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + Q);
+        activated => {
+            Store.video-editor-is-show-clear-vision-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + R);
+        activated => {
+            Store.video-editor-is-show-recent-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + S);
+        activated => {
+            Logic.video-editor-save-as-project();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + T);
+        activated => {
+            Logic.video-editor-transcribe-audio();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + U);
+        activated => {
+            Store.video-editor-is-show-chapter-summary-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + V);
+        activated => {
+            Store.video-editor-is-show-subtitle-remover-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + W);
+        activated => {
+            Store.video-editor-is-show-dewatermark-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + X);
+        activated => {
+            Store.video-editor-is-show-cutout-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + Y);
+        activated => {
+            Store.video-editor-is-show-subtitle-translate-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Shift + Z);
+        activated => {
+            Logic.video-editor-redo();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Alt + E);
+        activated => {
+            Store.video-editor-is-show-memo-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Alt + F);
+        activated => {
+            Store.video-editor-is-show-deep-filter-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Alt + G);
+        activated => {
+            Store.video-editor-is-show-musicgen-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Alt + M);
+        activated => {
+            Store.video-editor-smart-mix-is-show-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Alt + S);
+        activated => {
+            Store.video-editor-is-show-similar-video-segment-dialog = true;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Alt + Digit1);
+
+        activated => {
+            Store.video-editor-left-panel-selected-index = 0;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Alt + Digit2);
+
+        activated => {
+            Store.video-editor-left-panel-selected-index = 1;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Alt + Digit3);
+
+        activated => {
+            Store.video-editor-left-panel-selected-index = 2;
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(Alt + Digit4);
+
+        activated => {
+            Store.video-editor-left-panel-selected-index = 3;
+        }
+    }
+
+    key-pressed(event) => {
+        Store.video-editor-keyboard-modifiers = event.modifiers;
+        accept
+    }
+
+    key-released(event) => {
+        Store.video-editor-keyboard-modifiers = event.modifiers;
+        accept
+    }
+
+    @children
+}

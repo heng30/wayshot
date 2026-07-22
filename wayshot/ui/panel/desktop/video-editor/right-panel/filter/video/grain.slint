@@ -1,0 +1,279 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Util,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+} from "../../../../../def.slint";
+import {
+    ClickAndEditLabel,
+    LineInput,
+    Slider,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    GrainDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component Grain inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <GrainDetail> config: VEFilter.from-grain-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: GrainDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "grain") {
+            self.config = VEFilter.from-grain-json(selected-filter.detail);
+            intensity-sl.value = self.config.intensity;
+            grain-size-sl.value = self.config.grain-size;
+            roughness-sl.value = self.config.roughness;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Intensity");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        intensity-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.intensity;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.intensity = value;
+                            }
+
+                            released(value) => {
+                                config.intensity = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.intensity.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.intensity = text.to-float().clamp(0, 1);
+                            intensity-sl.value = config.intensity;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "intensity", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "intensity", VEFilter.make-float-value(config.intensity));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Grain Size");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+                        grain-size-sl := Slider {
+                            minimum: 1.0;
+                            maximum: 10.0;
+                            value: config.grain-size;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.grain-size = value;
+                            }
+
+                            released(value) => {
+                                config.grain-size = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.grain-size.to-fixed(1);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.grain-size = text.to-float().clamp(1, 10);
+                            grain-size-sl.value = config.grain-size;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "grain_size", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "grain_size", VEFilter.make-float-value(config.grain-size));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Roughness");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+                        roughness-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.roughness;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.roughness = value;
+                            }
+
+                            released(value) => {
+                                config.roughness = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.roughness.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.roughness = text.to-float().clamp(0, 1);
+                            roughness-sl.value = config.roughness;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "roughness", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "roughness", VEFilter.make-float-value(config.roughness));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Seed");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                seed-input := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.number;
+                    text: config.seed;
+
+                    accepted => {
+                        config.seed = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailSwitch {
+            enabled: selected-filter.enabled;
+            icon: Icons.color-picker-light;
+            text: Logic.tr("Colored");
+            checked: config.colored;
+            gain-focus-when-clicked: false;
+            background: Theme.thirdly-background;
+
+            toggled => {
+                config.colored = !config.colored;
+                apply(index, config);
+            }
+        }
+
+        VerticalLayout { }
+    }
+}
+

@@ -1,0 +1,72 @@
+import {
+    Theme,
+    Logic,
+} from "../../../../../def.slint";
+import {
+    RadioBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    MuteDetail,
+} from "../../../filter.slint";
+
+export component Mute inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <MuteDetail> config: VEFilter.from-mute-json(selected-filter.detail);
+
+    SettingDetailInner {
+        interactive: false;
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Channel");
+                enabled: selected-filter.enabled;
+            }
+
+            VerticalLayout {
+                spacing: Theme.spacing * 4;
+                padding-left: Theme.padding * 2;
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: Logic.tr("Left");
+                    checked: config.channel == 0;
+
+                    check => {
+                        config.channel = 0;
+                        VEFilter.modify-mute-filter(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: Logic.tr("Right");
+                    checked: config.channel == 1;
+
+                    check => {
+                        config.channel = 1;
+                        VEFilter.modify-mute-filter(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: Logic.tr("Both");
+                    checked: config.channel == 2;
+
+                    check => {
+                        config.channel = 2;
+                        VEFilter.modify-mute-filter(index, config);
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}
+

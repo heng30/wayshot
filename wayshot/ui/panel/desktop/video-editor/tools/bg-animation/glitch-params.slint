@@ -1,0 +1,152 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+} from "../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    Slider,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+} from "../../../../../base/widgets.slint";
+
+export component GlitchParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Intensity");
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 4;
+
+            VerticalLayout {
+                alignment: center;
+
+                intensity-sl := Slider {
+                    minimum: 0.0;
+                    maximum: 1.0;
+                    value: Store.video-editor-bg-animation-config.glitch.intensity;
+                    height: self.indicator-size * 0.3;
+
+                    changed(value) => {
+                        Store.video-editor-bg-animation-config.glitch.intensity = value;
+                    }
+
+                    released(value) => {
+                        Store.video-editor-bg-animation-config.glitch.intensity = value;
+                    }
+                }
+            }
+
+            Label {
+                vertical-alignment: center;
+                text: Store.video-editor-bg-animation-config.glitch.intensity.to-fixed(2);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Animation Speed");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.glitch.animation-speed.to-fixed(2);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.glitch.animation-speed = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.glitch.bg-color-r = c.red;
+            Store.video-editor-bg-animation-config.glitch.bg-color-g = c.green;
+            Store.video-editor-bg-animation-config.glitch.bg-color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Background Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.glitch.bg-color-r,
+                Store.video-editor-bg-animation-config.glitch.bg-color-g,
+                Store.video-editor-bg-animation-config.glitch.bg-color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    SettingDetailSwitch {
+        icon: Icons.lines-light;
+        text: Logic.tr("Scan lines");
+        checked: Store.video-editor-bg-animation-config.glitch.scan-lines-enabled;
+        gain-focus-when-clicked: false;
+
+        toggled => {
+            Store.video-editor-bg-animation-config.glitch.scan-lines-enabled = !Store.video-editor-bg-animation-config.glitch.scan-lines-enabled;
+        }
+    }
+
+    SettingDetailSwitch {
+        icon: Icons.rgb-light;
+        icon-size: Theme.icon-size * 0.8;
+        text: Logic.tr("RGB split");
+        checked: Store.video-editor-bg-animation-config.glitch.rgb-split-enabled;
+        gain-focus-when-clicked: false;
+
+        toggled => {
+            Store.video-editor-bg-animation-config.glitch.rgb-split-enabled = !Store.video-editor-bg-animation-config.glitch.rgb-split-enabled;
+        }
+    }
+
+    SettingDetailSwitch {
+        icon: Icons.block-light;
+        text: Logic.tr("Block shift");
+        checked: Store.video-editor-bg-animation-config.glitch.block-shift-enabled;
+        gain-focus-when-clicked: false;
+
+        toggled => {
+            Store.video-editor-bg-animation-config.glitch.block-shift-enabled = !Store.video-editor-bg-animation-config.glitch.block-shift-enabled;
+        }
+    }
+
+    SettingDetailSwitch {
+        icon: Icons.noise-light;
+        text: Logic.tr("Noise");
+        checked: Store.video-editor-bg-animation-config.glitch.noise-enabled;
+        gain-focus-when-clicked: false;
+
+        toggled => {
+            Store.video-editor-bg-animation-config.glitch.noise-enabled = !Store.video-editor-bg-animation-config.glitch.noise-enabled;
+        }
+    }
+}

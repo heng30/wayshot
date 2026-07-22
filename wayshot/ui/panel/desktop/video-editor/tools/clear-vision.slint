@@ -1,0 +1,1364 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    DownloaderState,
+    VideoEditorClearVisionConfig,
+    Util,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    LineInput,
+    IconBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ProgressBar,
+    NoMessageImg,
+    Select,
+    NoDataImg,
+    Skeleton,
+    SkeletonType,
+    TabBtns,
+    Slider,
+} from "../../../../base/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+
+component LeftHeader inherits HorizontalLayout {
+    spacing: Theme.spacing * 8;
+
+    private property <int> active-tab <=> Store.video-editor-clear-vision-active-tab;
+    private property <bool> is-processing: Store.video-editor-clear-vision-is-processing;
+    private property <bool> has-imported-image: Store.video-editor-clear-vision-image.width > 0;
+    private property <bool> has-processed-image: Store.video-editor-clear-vision-processed-image.width > 0;
+
+    if is-processing: HorizontalLayout {
+        spacing: Theme.spacing * 4;
+
+        VerticalLayout {
+            alignment: center;
+            ProgressBar {
+                height: Theme.icon-size;
+                progress: Store.video-editor-clear-vision-progress;
+            }
+        }
+
+        ElevatedBtn {
+            icon: Icons.stop-light;
+            colorize: Theme.danger-color;
+            gain-focus-when-clicked: false;
+
+            clicked => {
+                Logic.video-editor-clear-vision-process-cancel();
+            }
+        }
+    }
+
+    Rectangle {
+        if !is-processing: HorizontalLayout {
+            alignment: center;
+
+            tabs := TabBtns {
+                items: [
+                    { icon: Icons.model-light, text: "SwinIR" },
+                    { icon: Icons.convolution-light, text: Logic.tr("Deconvolution") },
+                ];
+
+                init => {
+                    self.update-selected-index(root.active-tab);
+                }
+
+                clicked(index) => {
+                    root.active-tab = index;
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: end;
+
+            Rectangle {
+                width: hbox.preferred-width;
+                height: hbox.preferred-height;
+                border-radius: self.height / 2;
+                background: Theme.thirdly-background;
+                border-width: Theme.default-border-width;
+                border-color: Theme.base-border-color;
+
+                hbox := HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+                    padding: Theme.padding * 2;
+                    padding-left: Theme.padding * 4;
+                    padding-right: Theme.padding * 4;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+
+                        IconBtn {
+                            is-show-tip: true;
+                            tip: Logic.tr("import");
+                            icon: Icons.import2-light;
+                            hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                            clicked => {
+                                Logic.video-editor-clear-vision-import-image();
+                            }
+                        }
+
+                        IconBtn {
+                            enabled: !is-processing && has-imported-image;
+                            is-show-tip: true;
+                            tip: Logic.tr("process");
+                            icon: Icons.image-processing-light;
+                            hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                            clicked => {
+                                Logic.video-editor-clear-vision-process-image(active-tab);
+                            }
+                        }
+
+                        IconBtn {
+                            enabled: has-processed-image;
+                            is-show-tip: true;
+                            tip: Logic.tr("export");
+                            icon: Icons.export-light;
+                            icon-size: Theme.icon-size * 0.9;
+                            hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                            clicked => {
+                                Logic.video-editor-clear-vision-export-to-playlist();
+                            }
+                        }
+
+                        IconBtn {
+                            is-show-tip: true;
+                            tip: Logic.tr("remove all");
+                            icon: Icons.clear-light;
+                            hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                            clicked => {
+                                Logic.video-editor-clear-vision-remove-all-images();
+                            }
+                        }
+
+                        IconBtn {
+                            is-show-tip: true;
+                            tip: Logic.tr("setting");
+                            icon: Icons.setting-light;
+                            icon-size: Theme.icon-size * 0.9;
+                            hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                            clicked => {
+                                Store.video-editor-is-show-clear-vision-setting-dialog = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component ProcessPanel inherits VerticalLayout {
+    private property <image> original-image: Store.video-editor-clear-vision-image;
+    private property <image> processed-image: Store.video-editor-clear-vision-processed-image;
+    private property <bool> is-processing <=> Store.video-editor-clear-vision-is-processing;
+    private property <float> split-pos: 0.5;
+
+    pure function contain-scale(panel-w: length, panel-h: length, img-w: int, img-h: int) -> float {
+        if (img-w <= 0 || img-h <= 0) {
+            return 1.0;
+        }
+        let sx = panel-w / 1px / img-w;
+        let sy = panel-h / 1px / img-h;
+        return sx < sy ? sx : sy;
+    }
+
+    pure function displayed-w(panel-w: length, panel-h: length, img-w: int, img-h: int) -> length {
+        contain-scale(panel-w, panel-h, img-w, img-h) * img-w * 1px;
+    }
+
+    pure function displayed-h(panel-w: length, panel-h: length, img-w: int, img-h: int) -> length {
+        contain-scale(panel-w, panel-h, img-w, img-h) * img-h * 1px;
+    }
+
+    spacing: Theme.spacing * 2;
+
+    img-rect := Rectangle {
+        clip: true;
+        border-radius: Theme.border-radius;
+        border-width: Theme.default-border-width;
+        border-color: processed-image.width > 0 && !is-processing ? Theme.success-color : Theme.base-border-color;
+        background: Theme.secondary-background;
+
+        // Layer 1: Full original image (always visible underneath)
+        if original-image.width > 0: Image {
+            x: (img-rect.width - displayed-w(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 2;
+            y: (img-rect.height - displayed-h(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 2;
+            width: displayed-w(img-rect.width, img-rect.height, original-image.width, original-image.height);
+            height: displayed-h(img-rect.width, img-rect.height, original-image.width, original-image.height);
+            source: original-image;
+            image-fit: fill;
+        }
+
+        // Layer 2: Processed image clipped to the right portion
+        if processed-image.width > 0: Rectangle {
+            x: split-pos * img-rect.width;
+            width: (1.0 - split-pos) * img-rect.width;
+            height: img-rect.height;
+            clip: true;
+
+            Image {
+                x: -split-pos * img-rect.width + (img-rect.width - displayed-w(img-rect.width, img-rect.height, processed-image.width, processed-image.height)) / 2;
+                y: (img-rect.height - displayed-h(img-rect.width, img-rect.height, processed-image.width, processed-image.height)) / 2;
+                width: displayed-w(img-rect.width, img-rect.height, processed-image.width, processed-image.height);
+                height: displayed-h(img-rect.width, img-rect.height, processed-image.width, processed-image.height);
+                source: processed-image;
+                image-fit: fill;
+            }
+        }
+
+        // Layer 3: Split handle line and grip circle
+        if processed-image.width > 0: Rectangle {
+            x: split-pos * img-rect.width - 1px;
+            width: 2px;
+            height: img-rect.height;
+            background: black;
+
+            grip := Rectangle {
+                x: parent.width / 2 - self.width / 2;
+                y: img-rect.height / 2 - self.height / 2;
+                width: Theme.icon-size * 1.5;
+                height: self.width;
+                border-radius: self.width / 2;
+                border-width: 2px;
+                border-color: black;
+                background: white;
+
+                Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: Icons.moving-h-light;
+                    colorize: black;
+                }
+            }
+
+            handle-ta := TouchArea {
+                width: Theme.icon-size * 2;
+                x: parent.width / 2 - self.width / 2;
+                mouse-cursor: MouseCursor.col-resize;
+
+                moved => {
+                    if (self.pressed) {
+                        let new-split = (handle-ta.mouse-x + handle-ta.absolute-position.x - img-rect.absolute-position.x) / img-rect.width;
+                        // Calculate image display bounds relative to img-rect
+                        let disp-w = displayed-w(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                        let img-left-pct = (img-rect.width - disp-w) / 2 / img-rect.width;
+                        let img-right-pct = 1 - img-left-pct;
+                        split-pos = new-split.clamp(img-left-pct, img-right-pct);
+                    }
+                }
+            }
+        }
+
+        if original-image.width == 0: NoDataImg {
+            text: Logic.tr("Click Import");
+            image: Icons.no-image-fill;
+            font-size: Theme.title3-font-size;
+            colorize: Theme.primary-text-color;
+
+            TouchArea {
+                mouse-cursor: pointer;
+
+                clicked => {
+                    Logic.video-editor-clear-vision-import-image();
+                }
+            }
+        }
+    }
+}
+
+export component ClearVisionDialog inherits MovingDialog {
+    title: Logic.tr("Image Clarity");
+    icon: Icons.clarity-light;
+    header-width: Theme.moving-dialog-width;
+    body-height: root.header-width * Theme.golden-ratio;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+
+    init => {
+        if (!Logic.video-editor-clear-vision-setting-is-valid(Store.video-editor-clear-vision-active-tab)) {
+            Store.video-editor-is-show-clear-vision-setting-dialog = true;
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        LeftHeader { }
+
+        ProcessPanel { }
+    }
+}
+
+export component ClearVisionSettingDialog inherits MovingDialog {
+    title: Logic.tr("Image Clarity Setting");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    private property <int> active-tab: Store.video-editor-clear-vision-active-tab;
+    private property <VideoEditorClearVisionConfig> config: Store.video-editor-clear-vision-config;
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Export directory");
+            }
+
+            LineInput {
+                read-only: true;
+                text: config.export-dir;
+                icon: Icons.file-open-light;
+                is-show-icon: true;
+
+                clicked => {
+                    Logic.video-editor-clear-vision-choose-export-dir();
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Model");
+                enabled: active-tab == 0;
+            }
+
+            for downloader[index] in Store.video-editor-clear-vision-models-downloader: VerticalLayout {
+                alignment: start;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    pure function get-border-color(status: DownloaderState, path: string) -> color {
+                        if status == DownloaderState.Finished {
+                            return Theme.base-border-color;
+                        } else {
+                            return Logic.file-exist(path) ? Theme.base-border-color : Theme.danger-color;
+                        }
+                    }
+
+                    model-path-li := LineInput {
+                        enabled: active-tab == 0;
+                        horizontal-stretch: 2;
+                        read-only: true;
+                        is-show-icon: true;
+                        icon: Icons.file-open-light;
+                        placeholder-text: "003_realSR_BSRGAN_DFO_s64w8_SwinIR-M_x4_GAN.onnx";
+                        text: config.swinir-path;
+                        border-color: get-border-color(downloader.state, config.swinir-path);
+
+                        clicked => {
+                            Logic.video-editor-clear-vision-choose-model-path(index);
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+
+                        if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                            alignment: center;
+
+                            ProgressBar {
+                                height: model-path-li.preferred-height * 2 / 3;
+                                font-size: Theme.default-font-size * 2 / 3;
+                                finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                                progress: downloader.progress;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            alignment: end;
+                            spacing: Theme.spacing * 4;
+
+                            private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+
+                            IconBtn {
+                                enabled: active-tab == 0;
+                                is-show-tip: true;
+                                icon: downloading ? Icons.stop-light : Icons.download-light;
+                                colorize: downloading ? Theme.danger-color : Theme.icon-color;
+                                tip: downloading ? Logic.tr("cancel") : Logic.tr("download");
+
+                                clicked => {
+                                    if (downloading) {
+                                        Logic.video-editor-clear-vision-model-cancel-download(index, downloader.url);
+                                    } else {
+                                        Logic.video-editor-clear-vision-model-start-download(index, downloader.url);
+                                    }
+                                }
+                            }
+
+                            IconBtn {
+                                enabled: active-tab == 0;
+                                icon: Icons.browser-light;
+                                is-show-tip: true;
+                                tip: Logic.tr("open url");
+
+                                clicked => {
+                                    Util.open-url("Default", downloader.url);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("PSF Type");
+                enabled: active-tab == 1;
+            }
+
+            Select {
+                enabled: active-tab == 1;
+                values: [
+                    Logic.tr("Gaussian"),
+                    Logic.tr("Motion"),
+                    Logic.tr("Defocus"),
+                    Logic.tr("Oriented Gaussian"),
+                    Logic.tr("Box"),
+                    Logic.tr("Disk"),
+                    Logic.tr("Lorentz"),
+                    Logic.tr("Astigmatic"),
+                    Logic.tr("Double Helix")
+                ];
+                current-index: config.psf-type == "motion" ? 1 : (config.psf-type == "defocus" ? 2 : (config.psf-type == "oriented-gaussian" ? 3 : (config.psf-type == "box" ? 4 : (config.psf-type == "disk" ? 5 : (config.psf-type == "lorentz" ? 6 : (config.psf-type == "astigmatic" ? 7 : (config.psf-type == "double-helix" ? 8 : 0)))))));
+                gain-focus-when-clicked: false;
+
+                selected(index, value) => {
+                    Store.video-editor-clear-vision-config.psf-type = index == 1 ? "motion" : (index == 2 ? "defocus" : (index == 3 ? "oriented-gaussian" : (index == 4 ? "box" : (index == 5 ? "disk" : (index == 6 ? "lorentz" : (index == 7 ? "astigmatic" : (index == 8 ? "double-helix" : "gaussian")))))));
+                    Logic.video-editor-clear-vision-update-config(config);
+                }
+            }
+        }
+
+        if config.psf-type == "gaussian" || config.psf-type == "": SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Sigma");
+                enabled: active-tab == 1;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 8;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    Slider {
+                        minimum: 1;
+                        maximum: 100;
+                        value: config.sigma * 10;
+                        height: self.indicator-size * 0.3;
+                        enabled: active-tab == 1;
+
+                        changed(value) => {
+                            Store.video-editor-clear-vision-config.sigma = value / 10;
+                            Logic.video-editor-clear-vision-update-config(config);
+                        }
+                    }
+                }
+
+                Label {
+                    enabled: active-tab == 1;
+                    text: config.sigma.to-fixed(0);
+                    vertical-alignment: center;
+                    width: Theme.default-font-size * 3;
+                }
+            }
+        }
+
+        if config.psf-type == "motion": VerticalLayout {
+            spacing: Theme.spacing * 4;
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Motion Length");
+                    enabled: active-tab == 1;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 8;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        Slider {
+                            value: config.motion-length;
+                            minimum: 3;
+                            maximum: 50;
+                            height: self.indicator-size * 0.3;
+                            enabled: active-tab == 1;
+
+                            changed(value) => {
+                                Store.video-editor-clear-vision-config.motion-length = value;
+                                Logic.video-editor-clear-vision-update-config(config);
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: active-tab == 1;
+                        text: config.motion-length.to-fixed(0);
+                        vertical-alignment: center;
+                        width: Theme.default-font-size * 3;
+                    }
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Motion Angle");
+                    enabled: active-tab == 1;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 8;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Slider {
+                            value: config.motion-angle;
+                            minimum: 0;
+                            maximum: 360;
+                            enabled: active-tab == 1;
+                            height: self.indicator-size * 0.3;
+
+                            changed(value) => {
+                                Store.video-editor-clear-vision-config.motion-angle = value;
+                                Logic.video-editor-clear-vision-update-config(config);
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: active-tab == 1;
+                        text: config.motion-angle.to-fixed(0);
+                        vertical-alignment: center;
+                        width: Theme.default-font-size * 3;
+                    }
+                }
+            }
+        }
+
+        if config.psf-type == "defocus": SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Defocus Radius");
+                enabled: active-tab == 1;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 8;
+
+                VerticalLayout {
+                    alignment: center;
+                    Slider {
+                        value: config.defocus-radius;
+                        minimum: 1;
+                        maximum: 30;
+                        height: self.indicator-size * 0.3;
+                        enabled: active-tab == 1;
+
+                        changed(value) => {
+                            Store.video-editor-clear-vision-config.defocus-radius = value;
+                            Logic.video-editor-clear-vision-update-config(config);
+                        }
+                    }
+                }
+
+                Label {
+                    enabled: active-tab == 1;
+                    text: config.defocus-radius.to-fixed(0);
+                    vertical-alignment: center;
+                    width: Theme.default-font-size * 3;
+                }
+            }
+        }
+
+        if config.psf-type == "oriented-gaussian": VerticalLayout {
+            spacing: Theme.spacing * 4;
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Sigma Major");
+                    enabled: active-tab == 1;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 8;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        Slider {
+                            minimum: 1;
+                            maximum: 100;
+                            value: config.sigma-major * 10;
+                            height: self.indicator-size * 0.3;
+                            enabled: active-tab == 1;
+
+                            changed(value) => {
+                                Store.video-editor-clear-vision-config.sigma-major = value / 10;
+                                Logic.video-editor-clear-vision-update-config(config);
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: active-tab == 1;
+                        text: config.sigma-major.to-fixed(0);
+                        vertical-alignment: center;
+                        width: Theme.default-font-size * 3;
+                    }
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Sigma Minor");
+                    enabled: active-tab == 1;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 8;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        Slider {
+                            minimum: 1;
+                            maximum: 100;
+                            value: config.sigma-minor * 10;
+                            height: self.indicator-size * 0.3;
+                            enabled: active-tab == 1;
+
+                            changed(value) => {
+                                Store.video-editor-clear-vision-config.sigma-minor = value / 10;
+                                Logic.video-editor-clear-vision-update-config(config);
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: active-tab == 1;
+                        text: config.sigma-minor.to-fixed(0);
+                        vertical-alignment: center;
+                        width: Theme.default-font-size * 3;
+                    }
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Oriented Angle");
+                    enabled: active-tab == 1;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 8;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Slider {
+                            value: config.oriented-angle;
+                            minimum: 0;
+                            maximum: 360;
+                            enabled: active-tab == 1;
+                            height: self.indicator-size * 0.3;
+
+                            changed(value) => {
+                                Store.video-editor-clear-vision-config.oriented-angle = value;
+                                Logic.video-editor-clear-vision-update-config(config);
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: active-tab == 1;
+                        text: config.oriented-angle.to-fixed(0);
+                        vertical-alignment: center;
+                        width: Theme.default-font-size * 3;
+                    }
+                }
+            }
+        }
+
+        if config.psf-type == "box": VerticalLayout {
+            spacing: Theme.spacing * 4;
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Box Width");
+                    enabled: active-tab == 1;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 8;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Slider {
+                            value: config.box-width;
+                            minimum: 1;
+                            maximum: 30;
+                            height: self.indicator-size * 0.3;
+                            enabled: active-tab == 1;
+
+                            changed(value) => {
+                                Store.video-editor-clear-vision-config.box-width = value;
+                                Logic.video-editor-clear-vision-update-config(config);
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: active-tab == 1;
+                        text: config.box-width.to-fixed(0);
+                        vertical-alignment: center;
+                        width: Theme.default-font-size * 3;
+                    }
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Box Height");
+                    enabled: active-tab == 1;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 8;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Slider {
+                            value: config.box-height;
+                            minimum: 1;
+                            maximum: 30;
+                            height: self.indicator-size * 0.3;
+                            enabled: active-tab == 1;
+
+                            changed(value) => {
+                                Store.video-editor-clear-vision-config.box-height = value;
+                                Logic.video-editor-clear-vision-update-config(config);
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: active-tab == 1;
+                        text: config.box-height.to-fixed(0);
+                        vertical-alignment: center;
+                        width: Theme.default-font-size * 3;
+                    }
+                }
+            }
+        }
+
+        if config.psf-type == "disk": SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Disk Radius");
+                enabled: active-tab == 1;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 8;
+
+                VerticalLayout {
+                    alignment: center;
+                    Slider {
+                        value: config.disk-radius;
+                        minimum: 1;
+                        maximum: 30;
+                        height: self.indicator-size * 0.3;
+                        enabled: active-tab == 1;
+
+                        changed(value) => {
+                            Store.video-editor-clear-vision-config.disk-radius = value;
+                            Logic.video-editor-clear-vision-update-config(config);
+                        }
+                    }
+                }
+
+                Label {
+                    enabled: active-tab == 1;
+                    text: config.disk-radius.to-fixed(0);
+                    vertical-alignment: center;
+                    width: Theme.default-font-size * 3;
+                }
+            }
+        }
+
+        if config.psf-type == "lorentz": SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Gamma");
+                enabled: active-tab == 1;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 8;
+
+                VerticalLayout {
+                    alignment: center;
+                    Slider {
+                        minimum: 1;
+                        maximum: 100;
+                        value: config.lorentz-gamma * 10;
+                        height: self.indicator-size * 0.3;
+                        enabled: active-tab == 1;
+
+                        changed(value) => {
+                            Store.video-editor-clear-vision-config.lorentz-gamma = value / 10;
+                            Logic.video-editor-clear-vision-update-config(config);
+                        }
+                    }
+                }
+
+                Label {
+                    enabled: active-tab == 1;
+                    text: config.lorentz-gamma.to-fixed(0);
+                    vertical-alignment: center;
+                    width: Theme.default-font-size * 3;
+                }
+            }
+        }
+
+        if config.psf-type == "astigmatic": VerticalLayout {
+            spacing: Theme.spacing * 4;
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Sigma Major");
+                    enabled: active-tab == 1;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 8;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        Slider {
+                            minimum: 1;
+                            maximum: 100;
+                            value: config.sigma-major * 10;
+                            height: self.indicator-size * 0.3;
+                            enabled: active-tab == 1;
+
+                            changed(value) => {
+                                Store.video-editor-clear-vision-config.sigma-major = value / 10;
+                                Logic.video-editor-clear-vision-update-config(config);
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: active-tab == 1;
+                        text: config.sigma-major.to-fixed(0);
+                        vertical-alignment: center;
+                        width: Theme.default-font-size * 3;
+                    }
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Sigma Minor");
+                    enabled: active-tab == 1;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 8;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        Slider {
+                            minimum: 1;
+                            maximum: 100;
+                            value: config.sigma-minor * 10;
+                            height: self.indicator-size * 0.3;
+                            enabled: active-tab == 1;
+
+                            changed(value) => {
+                                Store.video-editor-clear-vision-config.sigma-minor = value / 10;
+                                Logic.video-editor-clear-vision-update-config(config);
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: active-tab == 1;
+                        text: config.sigma-minor.to-fixed(0);
+                        vertical-alignment: center;
+                        width: Theme.default-font-size * 3;
+                    }
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Oriented Angle");
+                    enabled: active-tab == 1;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 8;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Slider {
+                            value: config.oriented-angle;
+                            minimum: 0;
+                            maximum: 360;
+                            enabled: active-tab == 1;
+                            height: self.indicator-size * 0.3;
+
+                            changed(value) => {
+                                Store.video-editor-clear-vision-config.oriented-angle = value;
+                                Logic.video-editor-clear-vision-update-config(config);
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: active-tab == 1;
+                        text: config.oriented-angle.to-fixed(0);
+                        vertical-alignment: center;
+                        width: Theme.default-font-size * 3;
+                    }
+                }
+            }
+        }
+
+        if config.psf-type == "double-helix": VerticalLayout {
+            spacing: Theme.spacing * 4;
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Sigma");
+                    enabled: active-tab == 1;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 8;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        Slider {
+                            minimum: 1;
+                            maximum: 100;
+                            value: config.sigma * 10;
+                            height: self.indicator-size * 0.3;
+                            enabled: active-tab == 1;
+
+                            changed(value) => {
+                                Store.video-editor-clear-vision-config.sigma = value / 10;
+                                Logic.video-editor-clear-vision-update-config(config);
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: active-tab == 1;
+                        text: config.sigma.to-fixed(0);
+                        vertical-alignment: center;
+                        width: Theme.default-font-size * 3;
+                    }
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Lobe Separation");
+                    enabled: active-tab == 1;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 8;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Slider {
+                            minimum: 1;
+                            maximum: 100;
+                            value: config.lobe-separation * 10;
+                            height: self.indicator-size * 0.3;
+                            enabled: active-tab == 1;
+
+                            changed(value) => {
+                                Store.video-editor-clear-vision-config.lobe-separation = value / 10;
+                                Logic.video-editor-clear-vision-update-config(config);
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: active-tab == 1;
+                        text: config.lobe-separation.to-fixed(0);
+                        vertical-alignment: center;
+                        width: Theme.default-font-size * 3;
+                    }
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Oriented Angle");
+                    enabled: active-tab == 1;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 8;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Slider {
+                            value: config.oriented-angle;
+                            minimum: 0;
+                            maximum: 360;
+                            enabled: active-tab == 1;
+                            height: self.indicator-size * 0.3;
+
+                            changed(value) => {
+                                Store.video-editor-clear-vision-config.oriented-angle = value;
+                                Logic.video-editor-clear-vision-update-config(config);
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: active-tab == 1;
+                        text: config.oriented-angle.to-fixed(0);
+                        vertical-alignment: center;
+                        width: Theme.default-font-size * 3;
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Algorithm");
+                enabled: active-tab == 1;
+            }
+
+            Select {
+                enabled: active-tab == 1;
+                values: [
+                    Logic.tr("Richardson-Lucy"),
+                    Logic.tr("Damped R-L"),
+                    Logic.tr("R-L TV"),
+                    Logic.tr("Wiener"),
+                    Logic.tr("Landweber"),
+                    Logic.tr("Van Cittert"),
+                    Logic.tr("Tikhonov-Miller"),
+                    Logic.tr("ICTM"),
+                    Logic.tr("Inverse Filter"),
+                    Logic.tr("ISTA"),
+                    Logic.tr("FISTA"),
+                ];
+                current-index: config.algorithm == "damped-rl" ? 1 : (config.algorithm == "rl-tv" ? 2 : (config.algorithm == "wiener" ? 3 : (config.algorithm == "landweber" ? 4 : (config.algorithm == "van-cittert" ? 5 : (config.algorithm == "tikhonov-miller" ? 6 : (config.algorithm == "ictm" ? 7 : (config.algorithm == "inverse-filter" ? 8 : (config.algorithm == "ista" ? 9 : (config.algorithm == "fista" ? 10 : 0)))))))));
+                gain-focus-when-clicked: false;
+
+                selected(index, value) => {
+                    Store.video-editor-clear-vision-config.algorithm = index == 1 ? "damped-rl" : (index == 2 ? "rl-tv" : (index == 3 ? "wiener" : (index == 4 ? "landweber" : (index == 5 ? "van-cittert" : (index == 6 ? "tikhonov-miller" : (index == 7 ? "ictm" : (index == 8 ? "inverse-filter" : (index == 9 ? "ista" : (index == 10 ? "fista" : "richardson-lucy")))))))));
+                    Logic.video-editor-clear-vision-update-config(config);
+                }
+            }
+        }
+
+        if config.algorithm == "rl-tv": SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("TV Weight");
+                enabled: active-tab == 1;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 8;
+
+                VerticalLayout {
+                    alignment: center;
+                    Slider {
+                        minimum: 1;
+                        maximum: 100;
+                        value: config.tv-weight * 1000;
+                        height: self.indicator-size * 0.3;
+                        enabled: active-tab == 1;
+
+                        changed(value) => {
+                            Store.video-editor-clear-vision-config.tv-weight = value / 1000;
+                            Logic.video-editor-clear-vision-update-config(config);
+                        }
+                    }
+                }
+
+                Label {
+                    enabled: active-tab == 1;
+                    text: config.tv-weight.to-fixed(2);
+                    vertical-alignment: center;
+                    width: Theme.default-font-size * 3;
+                }
+            }
+        }
+
+        if config.algorithm == "wiener": SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("NSR");
+                enabled: active-tab == 1;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 8;
+
+                VerticalLayout {
+                    alignment: center;
+                    Slider {
+                        minimum: 1;
+                        maximum: 100;
+                        value: config.wiener-nsr * 1000;
+                        height: self.indicator-size * 0.3;
+                        enabled: active-tab == 1;
+
+                        changed(value) => {
+                            Store.video-editor-clear-vision-config.wiener-nsr = value / 1000;
+                            Logic.video-editor-clear-vision-update-config(config);
+                        }
+                    }
+                }
+
+                Label {
+                    enabled: active-tab == 1;
+                    text: config.wiener-nsr.to-fixed(3);
+                    vertical-alignment: center;
+                    width: Theme.default-font-size * 3;
+                }
+            }
+        }
+
+        if config.algorithm == "landweber" || config.algorithm == "van-cittert": SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Relaxation");
+                enabled: active-tab == 1;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 8;
+
+                VerticalLayout {
+                    alignment: center;
+                    Slider {
+                        minimum: 0;
+                        maximum: 100;
+                        value: config.relaxation * 100;
+                        height: self.indicator-size * 0.3;
+                        enabled: active-tab == 1;
+
+                        changed(value) => {
+                            Store.video-editor-clear-vision-config.relaxation = value / 100;
+                            Logic.video-editor-clear-vision-update-config(config);
+                        }
+                    }
+                }
+
+                Label {
+                    enabled: active-tab == 1;
+                    text: config.relaxation.to-fixed(2);
+                    vertical-alignment: center;
+                    width: Theme.default-font-size * 3;
+                }
+            }
+        }
+
+        if config.algorithm == "tikhonov-miller" || config.algorithm == "ictm": SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Lambda");
+                enabled: active-tab == 1;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 8;
+
+                VerticalLayout {
+                    alignment: center;
+                    Slider {
+                        minimum: 1;
+                        maximum: 100;
+                        value: config.tikhonov-lambda * 1000;
+                        height: self.indicator-size * 0.3;
+                        enabled: active-tab == 1;
+
+                        changed(value) => {
+                            Store.video-editor-clear-vision-config.tikhonov-lambda = value / 1000;
+                            Logic.video-editor-clear-vision-update-config(config);
+                        }
+                    }
+                }
+
+                Label {
+                    enabled: active-tab == 1;
+                    text: config.tikhonov-lambda.to-fixed(3);
+                    vertical-alignment: center;
+                    width: Theme.default-font-size * 3;
+                }
+            }
+        }
+
+        if config.algorithm == "inverse-filter": SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Cutoff");
+                enabled: active-tab == 1;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 8;
+
+                VerticalLayout {
+                    alignment: center;
+                    Slider {
+                        minimum: 1;
+                        maximum: 100;
+                        value: config.inverse-cutoff * 1000;
+                        height: self.indicator-size * 0.3;
+                        enabled: active-tab == 1;
+
+                        changed(value) => {
+                            Store.video-editor-clear-vision-config.inverse-cutoff = value / 1000;
+                            Logic.video-editor-clear-vision-update-config(config);
+                        }
+                    }
+                }
+
+                Label {
+                    enabled: active-tab == 1;
+                    text: config.inverse-cutoff.to-fixed(3);
+                    vertical-alignment: center;
+                    width: Theme.default-font-size * 3;
+                }
+            }
+        }
+
+        if config.algorithm == "ista" || config.algorithm == "fista": VerticalLayout {
+            spacing: Theme.spacing * 4;
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Lambda");
+                    enabled: active-tab == 1;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 8;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Slider {
+                            minimum: 1;
+                            maximum: 100;
+                            value: config.ista-lambda * 1000;
+                            height: self.indicator-size * 0.3;
+                            enabled: active-tab == 1;
+
+                            changed(value) => {
+                                Store.video-editor-clear-vision-config.ista-lambda = value / 1000;
+                                Logic.video-editor-clear-vision-update-config(config);
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: active-tab == 1;
+                        text: config.ista-lambda.to-fixed(3);
+                        vertical-alignment: center;
+                        width: Theme.default-font-size * 3;
+                    }
+                }
+            }
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Step Size");
+                    enabled: active-tab == 1;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 8;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Slider {
+                            minimum: 0;
+                            maximum: 100;
+                            value: config.ista-step-size * 100;
+                            height: self.indicator-size * 0.3;
+                            enabled: active-tab == 1;
+
+                            changed(value) => {
+                                Store.video-editor-clear-vision-config.ista-step-size = value / 100;
+                                Logic.video-editor-clear-vision-update-config(config);
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: active-tab == 1;
+                        text: config.ista-step-size.to-fixed(2);
+                        vertical-alignment: center;
+                        width: Theme.default-font-size * 3;
+                    }
+                }
+            }
+        }
+
+        if config.algorithm != "wiener" && config.algorithm != "inverse-filter": SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Iterations");
+                enabled: active-tab == 1;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 8;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    Slider {
+                        enabled: active-tab == 1;
+                        minimum: 1;
+                        maximum: 100;
+                        value: config.iterations;
+                        height: self.indicator-size * 0.3;
+
+                        changed(value) => {
+                            Store.video-editor-clear-vision-config.iterations = value;
+                            Logic.video-editor-clear-vision-update-config(config);
+                        }
+                    }
+                }
+
+                Label {
+                    enabled: active-tab == 1;
+                    text: config.iterations.to-fixed(0);
+                    vertical-alignment: center;
+                    width: Theme.default-font-size * 3;
+                }
+            }
+        }
+    }
+}

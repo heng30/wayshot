@@ -1,0 +1,73 @@
+import {
+    Theme,
+    Logic,
+} from "../../../../../def.slint";
+import {
+    RadioBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    FlipDetail,
+} from "../../../filter.slint";
+
+export component Flip inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <FlipDetail> config: VEFilter.from-flip-json(selected-filter.detail);
+
+    callback apply(index: int, config: FlipDetail);
+
+    SettingDetailInner {
+        interactive: false;
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Direction");
+                enabled: selected-filter.enabled;
+            }
+
+            VerticalLayout {
+                spacing: Theme.spacing * 4;
+                padding-left: Theme.padding * 2;
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: Logic.tr("Horizontal");
+                    checked: config.direction == 0;
+
+                    check => {
+                        config.direction = 0;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: Logic.tr("Vertical");
+                    checked: config.direction == 1;
+
+                    check => {
+                        config.direction = 1;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: Logic.tr("Both");
+                    checked: config.direction == 2;
+
+                    check => {
+                        config.direction = 2;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

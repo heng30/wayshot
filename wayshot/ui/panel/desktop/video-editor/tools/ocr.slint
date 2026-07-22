@@ -1,0 +1,386 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    DownloaderState,
+    Util,
+    VideoEditorOCRConfig,
+    OcrTaskMode,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    LineInput,
+    IconBtn,
+    TextBtnWithoutIcon,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+    ProgressBar,
+    NoMessageImg,
+    Select,
+    NoDataImg,
+    Skeleton,
+    SkeletonType,
+} from "../../../../base/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+
+component Toolbar inherits HorizontalLayout {
+    alignment: end;
+    spacing: Theme.spacing * 8;
+
+    private property <VideoEditorOCRConfig> config: Store.video-editor-ocr-config;
+
+    rec := Rectangle {
+        width: hbox.preferred-width;
+        height: hbox.preferred-height;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("import");
+                    icon: Icons.import2-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-ocr-import-image();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("preview screenshot");
+                    icon: Icons.camera-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-ocr-preview-screenshot();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("process");
+                    icon: Icons.image-processing-light;
+                    enabled: !Store.video-editor-ocr-is-processing;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-ocr-process-image();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("copy text");
+                    icon: Icons.copy-light;
+                    enabled: !Store.video-editor-ocr-text.is-empty;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-ocr-copy-text();
+                    }
+                }
+
+                if config.task-mode == OcrTaskMode.Spotting: IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("copy json");
+                    icon: Icons.json-light;
+                    enabled: !Store.video-editor-ocr-text.is-empty;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-ocr-copy-json();
+                    }
+                }
+
+                IconBtn {
+                    enabled: !Store.video-editor-ocr-is-processing;
+                    is-show-tip: true;
+                    tip: Logic.tr("clear");
+                    icon: Icons.clear-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-ocr-clear();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("setting");
+                    icon: Icons.setting-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Store.video-editor-is-show-ocr-setting-dialog = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+component MainPanel inherits HorizontalLayout {
+    spacing: Theme.spacing * 2;
+    alignment: space-between;
+
+    private property <image> ocr-image <=> Store.video-editor-ocr-image;
+    private property <string> ocr-text <=> Store.video-editor-ocr-text;
+    private property <bool> is-processing <=> Store.video-editor-ocr-is-processing;
+
+    private property <length> inner-width: (self.width - self.spacing) / 2;
+
+    VerticalLayout {
+        width: parent.inner-width;
+
+        Rectangle {
+            clip: true;
+            border-radius: Theme.border-radius;
+            border-width: Theme.default-border-width;
+            border-color: Theme.base-border-color;
+            background: Theme.secondary-background;
+
+            if ocr-image.width > 0: Image {
+                source: ocr-image;
+                width: parent.width;
+                height: parent.height;
+                image-fit: contain;
+            }
+
+            if ocr-image.width == 0: NoDataImg {
+                text: Logic.tr("Click Import");
+                image: Icons.no-image-fill;
+                font-size: Theme.title3-font-size;
+                colorize: Theme.primary-text-color;
+
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        Logic.video-editor-ocr-import-image();
+                    }
+                }
+            }
+        }
+    }
+
+    VerticalLayout {
+        width: parent.inner-width;
+
+        Rectangle {
+            clip: true;
+            border-radius: Theme.border-radius;
+            border-width: Theme.default-border-width;
+            border-color: !ocr-text.is-empty ? Theme.success-color : Theme.base-border-color;
+            background: Theme.secondary-background;
+
+            if !ocr-text.is-empty: ScrollView {
+                width: parent.width;
+                height: parent.height;
+
+                VerticalLayout {
+                    padding-left: Theme.padding * 2;
+                    padding-right: Theme.padding * 2;
+                    padding-top: Theme.padding * 2;
+                    padding-bottom: Theme.padding * 2;
+
+                    Label {
+                        text: ocr-text;
+                        wrap: word-wrap;
+                        vertical-alignment: top;
+                        horizontal-alignment: left;
+                    }
+                }
+            }
+
+            if ocr-text.is-empty && !is-processing: NoDataImg {
+                image: Icons.no-message-fill;
+                text: Logic.tr("Click Process");
+                font-size: Theme.title3-font-size;
+                colorize: Theme.primary-text-color;
+
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        Logic.video-editor-ocr-process-image();
+                    }
+                }
+            }
+
+            if is-processing: Rectangle {
+                x: 0;
+                y: 0;
+                height: Theme.icon-size * 8;
+
+                Skeleton {
+                    x: Theme.padding * 2;
+                    y: Theme.padding * 2;
+                    width: parent.width - Theme.padding * 4;
+                    height: parent.height;
+                    type: SkeletonType.List;
+                }
+            }
+        }
+    }
+}
+
+export component OCRDialog inherits MovingDialog {
+    title: "Paddle OCR VL 1.5";
+    icon: Icons.text-light;
+    header-width: Theme.moving-dialog-width;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+    body-height: root.header-width * Theme.golden-ratio;
+
+    init => {
+        if (!Logic.video-editor-ocr-setting-is-valid()) {
+            Store.video-editor-is-show-ocr-setting-dialog = true;
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        Toolbar { }
+
+        MainPanel {
+            width: parent.width - parent.padding * 2;
+        }
+    }
+}
+
+export component OCRSettingDialog inherits MovingDialog {
+    title: Logic.tr("OCR Setting");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    private property <VideoEditorOCRConfig> config <=> Store.video-editor-ocr-config;
+
+    SettingDetailInner {
+        for downloader[index] in Store.video-editor-ocr-models-downloader: VerticalLayout {
+            alignment: start;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                pure function get-border-color(status: DownloaderState, exist-color: color, no-exist-color: color) -> color {
+                    if status == DownloaderState.Finished {
+                        return exist-color;
+                    } else {
+                        return Logic.dir-exist(config.model-dir) ? exist-color : no-exist-color;
+                    }
+                }
+
+                model-path-li := LineInput {
+                    horizontal-stretch: 2;
+                    read-only: true;
+                    is-show-icon: true;
+                    icon: Icons.file-open-light;
+                    placeholder-text: "PaddleOCR-VL1.5";
+                    text: config.model-dir;
+                    border-color: get-border-color(downloader.state, self.default-border-color, Theme.danger-color);
+
+                    clicked => {
+                        Logic.video-editor-ocr-choose-model-dir();
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                        alignment: center;
+
+                        ProgressBar {
+                            height: Theme.default-font-size * 2 / 3;
+                            font-size: Theme.default-font-size * 2 / 3;
+                            finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                            progress: downloader.progress;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: Theme.spacing * 4;
+
+                        IconBtn {
+                            enabled: downloader.state != DownloaderState.Downloading;
+                            is-show-tip: true;
+                            icon: Icons.download-light;
+                            tip: Logic.tr("download");
+
+                            clicked => {
+                                Logic.video-editor-ocr-model-start-download(downloader.url);
+                            }
+                        }
+
+                        IconBtn {
+                            icon: Icons.browser-light;
+                            is-show-tip: true;
+                            tip: Logic.tr("open url");
+
+                            clicked => {
+                                Util.open-url("Default", downloader.url);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Timeout (seconds)");
+                tip: Logic.tr("Minimum 300 seconds, timeout for OCR inference");
+            }
+
+            timeout-li := LineInput {
+                text: config.timeout > 0 ? config.timeout : 300;
+                input-type: InputType.number;
+
+                edited => {
+                    config.timeout = timeout-li.text.to-float().max(300);
+                    self.text = config.timeout;
+                    Logic.video-editor-ocr-update-config(config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Task Mode");
+                tip: Logic.tr("Text: pure text only; Spotting: text with bounding box positions");
+            }
+
+            Select {
+                values: [Logic.tr("Text"), Logic.tr("Spotting")];
+                current-value: config.task-mode == OcrTaskMode.Spotting ? self.values[1] : self.values[0];
+                current-index: config.task-mode == OcrTaskMode.Spotting ? 1 : 0;
+                gain-focus-when-clicked: false;
+
+                selected(index, value) => {
+                    config.task-mode = index == 1 ? OcrTaskMode.Spotting : OcrTaskMode.Text;
+                    Logic.video-editor-ocr-update-config(config);
+                }
+            }
+        }
+    }
+}

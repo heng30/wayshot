@@ -7,6 +7,9 @@ import { LineInput } from "line-input.slint";
 export component RenameDialog inherits Dialog {
     title: Logic.tr("Rename");
     is-prevent-event-forward: true;
+    forward-focus: line-input;
+    preferred-width: Theme.default-font-size * 30;
+    is-hide-bottom-btns: true;
 
     in-out property text <=> line-input.text;
 
@@ -26,7 +29,6 @@ export component RenameDialog inherits Dialog {
 
     VerticalLayout {
         padding: Theme.padding * 2;
-        padding-top: Theme.padding * 4;
 
         line-input := LineInput {
             accepted => {

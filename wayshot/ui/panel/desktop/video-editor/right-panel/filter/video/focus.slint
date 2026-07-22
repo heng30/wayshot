@@ -1,0 +1,394 @@
+import {
+    Theme,
+    Logic,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+    Icons,
+} from "../../../../../def.slint";
+import {
+    ClickAndEditLabel,
+    LineInput,
+    Slider,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    FocusDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component Focus inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <FocusDetail> config: VEFilter.from-focus-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: FocusDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "focus") {
+            self.config = VEFilter.from-focus-json(selected-filter.detail);
+            center-x-sl.value = self.config.center-x;
+            center-y-sl.value = self.config.center-y;
+            focus-radius-input.text = self.config.focus-radius;
+            feather-input.text = self.config.feather;
+            blur-radius-input.text = self.config.blur-radius;
+            aperture-blades-input.text = self.config.aperture-blades;
+            highlight-boost-sl.value = self.config.highlight-boost;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        // Center X
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Center X");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        center-x-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.center-x;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.center-x = value;
+                            }
+
+                            released(value) => {
+                                config.center-x = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.center-x.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.center-x = text.to-float().clamp(0, 1);
+                            center-x-sl.value = config.center-x;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "center_x", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "center_x", VEFilter.make-float-value(config.center-x));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Center Y
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Center Y");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        center-y-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.center-y;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.center-y = value;
+                            }
+
+                            released(value) => {
+                                config.center-y = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.center-y.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.center-y = text.to-float().clamp(0, 1);
+                            center-y-sl.value = config.center-y;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "center_y", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "center_y", VEFilter.make-float-value(config.center-y));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Highlight Boost
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Highlight Boost");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        highlight-boost-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 2.0;
+                            value: config.highlight-boost;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.highlight-boost = value;
+                            }
+
+                            released(value) => {
+                                config.highlight-boost = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.highlight-boost.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.highlight-boost = text.to-float().clamp(0, 2);
+                            highlight-boost-sl.value = config.highlight-boost;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "highlight_boost", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "highlight_boost", VEFilter.make-float-value(config.highlight-boost));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Focus Radius (pixel value)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Focus Radius");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                focus-radius-input := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.number;
+                    text: config.focus-radius;
+
+                    accepted => {
+                        config.focus-radius = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "focus_radius", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "focus_radius", VEFilter.make-float-value(config.focus-radius));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Feather (pixel value)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Feather");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                feather-input := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.number;
+                    text: config.feather;
+
+                    accepted => {
+                        config.feather = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "feather", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "feather", VEFilter.make-float-value(config.feather));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Blur Radius (pixel value)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Blur Radius");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                blur-radius-input := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.number;
+                    text: config.blur-radius;
+
+                    accepted => {
+                        config.blur-radius = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "blur_radius", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "blur_radius", VEFilter.make-float-value(config.blur-radius));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Aperture Blades
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Aperture Blades");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                aperture-blades-input := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.number;
+                    text: config.aperture-blades;
+
+                    accepted => {
+                        config.aperture-blades = round(self.text.to-float()).clamp(3, 12);
+                        apply(index, config);
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "aperture_blades", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "aperture_blades", VEFilter.make-float-value(config.aperture-blades));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

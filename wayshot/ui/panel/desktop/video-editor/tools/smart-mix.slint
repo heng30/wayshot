@@ -1,0 +1,885 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    SmartMixProgressType,
+    SmartMix,
+    SmartMixEntry,
+    SmartMixVisualItem,
+    SmartMixMatchItem,
+    SmartMixSetting,
+    SettingTranscribe,
+    DownloaderState,
+    Downloader,
+} from "../../../def.slint";
+import {
+    CenterLayout,
+    ConfirmBtn,
+    IconBtn,
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    ProgressBar,
+    NoMessageImg,
+    LineInput,
+    Select,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+    SingleCollapse,
+    Skeleton,
+    SkeletonType,
+    ConfirmDialogSetting,
+} from "../../../../base/widgets.slint";
+import { ScrollView, ListView } from "std-widgets.slint";
+
+component StartField inherits VerticalLayout {
+    CenterLayout {
+        NoMessageImg {
+            width: min(root.width * Theme.golden-ratio, 640px);
+        }
+
+        HorizontalLayout {
+            alignment: center;
+
+            ConfirmBtn {
+                icon: Icons.send-up-light;
+                text: Logic.tr("Start Smart Mix");
+                auto-size-vpadding: Theme.padding * 2;
+
+                clicked => {
+                    Logic.video-editor-smart-mix-start();
+                }
+            }
+        }
+    }
+}
+
+component Header inherits HorizontalLayout {
+    out property <bool> is-progressing: current-smart-mix.progress-type == SmartMixProgressType.TranscribingAudio
+        || current-smart-mix.progress-type == SmartMixProgressType.RecognizingVisual
+        || current-smart-mix.progress-type == SmartMixProgressType.AiMatching;
+
+    private property <bool> can-ai-retry: (current-smart-mix.progress-type == SmartMixProgressType.None || current-smart-mix.progress-type == SmartMixProgressType.AiMatching || current-smart-mix.progress-type == SmartMixProgressType.Finished || current-smart-mix.progress-type == SmartMixProgressType.Cancelled) && current-smart-mix.audio-entries.length > 0 && current-smart-mix.visual-items.length > 0;
+
+    private property <SmartMix> current-smart-mix <=> Store.video-editor-smart-mix;
+
+    pure function progress-type-str(ty: SmartMixProgressType) -> string {
+        if (ty == SmartMixProgressType.TranscribingAudio) {
+            return Logic.tr("Transcribing audio");
+        } else if (ty == SmartMixProgressType.RecognizingVisual) {
+            return Logic.tr("Recognizing visuals");
+        } else if (ty == SmartMixProgressType.AiMatching) {
+            return Logic.tr("AI matching");
+        } else if (ty == SmartMixProgressType.Finished) {
+            return Logic.tr("Finished");
+        } else if (ty == SmartMixProgressType.Cancelled) {
+            return Logic.tr("Cancelled");
+        } else if (ty == SmartMixProgressType.Failed) {
+            return Logic.tr("Failed");
+        } else {
+            return "";
+        }
+    }
+
+    pure function progress-type-color(ty: SmartMixProgressType) -> color {
+        if (ty == SmartMixProgressType.Cancelled) {
+            return Theme.warning-color;
+        } else if (ty == SmartMixProgressType.Failed) {
+            return Theme.danger-color;
+        } else {
+            return Theme.thirdly-brand-color;
+        }
+    }
+
+    spacing: Theme.spacing * 4;
+    height: outer-hbox.preferred-height;
+
+    VerticalLayout {
+        alignment: center;
+        width: root.width - outer-hbox.preferred-width - parent.spacing;
+
+        if is-progressing: HorizontalLayout {
+            ProgressBar {
+                private property <string> progress-text: progress-type-str(current-smart-mix.progress-type);
+
+                width: 100%;
+                height: Theme.default-font-size + Theme.padding * 2;
+                clip: true;
+                font-weight: Theme.bold-font-weight;
+                progress: current-smart-mix.progress;
+                finished-progress-color: progress-type-color(current-smart-mix.progress-type);
+                unfinished-text: self.progress-text + "  " + self.calc-percent(self.progress) + "%";
+                finished-text: self.progress-text;
+            }
+        }
+    }
+
+    outer-hbox := HorizontalLayout {
+        alignment: end;
+        spacing: Theme.spacing * 8;
+
+        if is-progressing: ElevatedBtn {
+            icon: Icons.stop-light;
+            colorize: Theme.danger-color;
+            gain-focus-when-clicked: false;
+            is-show-tip: true;
+            tip-position: Bottom;
+            tip: Logic.tr("cancel");
+
+            clicked => {
+                Logic.video-editor-smart-mix-cancel();
+            }
+        }
+
+        Rectangle {
+            height: hbox.preferred-height;
+            border-radius: self.height / 2;
+            background: Theme.thirdly-background;
+            border-width: Theme.default-border-width;
+            border-color: Theme.base-border-color;
+
+            hbox := HorizontalLayout {
+                spacing: Theme.spacing * 4;
+                padding: Theme.padding * 2;
+                padding-left: Theme.padding * 4;
+                padding-right: Theme.padding * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    checked-color: Theme.checked-background;
+                    checked: !current-smart-mix.is-auto-find-tracks;
+                    hover-background-padding: Theme.padding;
+                    icon: Icons.manual-light;
+                    tip: current-smart-mix.is-auto-find-tracks ? Logic.tr("Auto find tracks (click to use selected tracks)") : Logic.tr("Use selected tracks (click to auto find)");
+
+                    clicked => {
+                        current-smart-mix.is-auto-find-tracks = !current-smart-mix.is-auto-find-tracks;
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("process");
+                    icon: Icons.send-up-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        if (current-smart-mix.audio-entries.length > 0 || current-smart-mix.visual-items.length > 0) {
+                            ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Rerun will clear existing results. Continue?"), "video-editor-smart-mix-start", "");
+                        } else {
+                            Logic.video-editor-smart-mix-start();
+                        }
+                    }
+                }
+
+                IconBtn {
+                    enabled: current-smart-mix.match-items.length > 0;
+                    is-show-tip: true;
+                    tip: Logic.tr("apply");
+                    icon: Icons.image-processing-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-smart-mix-apply();
+                    }
+                }
+
+                IconBtn {
+                    enabled: can-ai-retry;
+                    is-show-tip: true;
+                    tip: Logic.tr("AI retry");
+                    icon: Icons.ai-robot-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-smart-mix-retry-ai-matching();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("setting");
+                    icon: Icons.setting-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Store.video-editor-smart-mix-is-show-setting-dialog = true;
+                    }
+                }
+
+                IconBtn {
+                    enabled: current-smart-mix.audio-entries.length > 0 || current-smart-mix.visual-items.length > 0 || current-smart-mix.match-items.length > 0;
+                    is-show-tip: true;
+                    tip: Logic.tr("clear");
+                    icon: Icons.delete-all-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        if (self.enabled) {
+                            ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Delete all results?"), "video-editor-smart-mix-remove-all", "");
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component AudioEntryItem inherits HorizontalLayout {
+    in property <int> start-ms;
+    in property <int> end-ms;
+    in property <string> entry-text;
+
+    spacing: Theme.spacing * 4;
+    padding: Theme.padding * 2;
+
+    Label {
+        text: Logic.ms-to-srt-timestamp-ui(start-ms * 1.0) + " - " + Logic.ms-to-srt-timestamp-ui(end-ms * 1.0);
+        font-size: Theme.default-font-size;
+        vertical-alignment: center;
+        min-width: 120px;
+    }
+
+    Label {
+        text: entry-text;
+        font-size: Theme.default-font-size;
+        vertical-alignment: center;
+        wrap: word-wrap;
+        overflow: elide;
+        horizontal-stretch: 1;
+    }
+}
+
+component VisualItemRow inherits VerticalLayout {
+    spacing: Theme.spacing * 2;
+    padding: Theme.padding * 2;
+
+    in property <bool> is-image;
+    in property <string> filename;
+    in property <string> description;
+    in property <int> duration-ms;
+
+    HorizontalLayout {
+        Label {
+            text: (is-image ? Logic.tr("Image") : Logic.tr("Video")) + ": " + filename;
+            font-size: Theme.default-font-size;
+            vertical-alignment: center;
+            color: Theme.thirdly-brand-color;
+        }
+
+        Label {
+            text: Logic.ms-to-srt-timestamp-ui(duration-ms * 1.0);
+            font-size: Theme.default-font-size;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+            color: Theme.secondary-text-color;
+        }
+    }
+
+    Label {
+        text: description;
+        font-size: Theme.default-font-size;
+        vertical-alignment: center;
+        wrap: word-wrap;
+        horizontal-stretch: 1;
+    }
+}
+
+component MatchItemRow inherits HorizontalLayout {
+    in property <string> filename;
+    in property <int> audio-index;
+    in property <int> visual-index;
+    in property <int> duration-ms;
+
+    spacing: Theme.spacing * 4;
+    padding: Theme.padding * 2;
+    alignment: space-between;
+
+    HorizontalLayout {
+        spacing: Theme.spacing * 4;
+        alignment: start;
+
+        Label {
+            text: Logic.tr("Audio") + " #" + audio-index;
+            vertical-alignment: center;
+            color: Theme.thirdly-brand-color;
+        }
+
+        Label {
+            text: "→";
+            vertical-alignment: center;
+            color: Theme.thirdly-brand-color;
+        }
+
+        Label {
+            text: Logic.tr("Visual") + " #" + visual-index;
+            vertical-alignment: center;
+            color: Theme.thirdly-brand-color;
+        }
+
+        Label {
+            text: filename;
+            vertical-alignment: center;
+            color: Theme.secondary-text-color;
+        }
+    }
+
+    Label {
+        text: Logic.ms-to-srt-timestamp-ui(duration-ms * 1.0);
+        font-size: Theme.default-font-size;
+        vertical-alignment: center;
+        horizontal-alignment: right;
+        color: Theme.secondary-text-color;
+    }
+}
+
+component ResultListView inherits ScrollView {
+    private property <SmartMix> current-smart-mix <=> Store.video-editor-smart-mix;
+    private property <bool> is-show-audio-entries: true;
+    private property <bool> is-show-visual-items: true;
+    private property <bool> is-show-match-items: true;
+
+    VerticalLayout {
+        alignment: start;
+        spacing: Theme.spacing * 4;
+
+        if current-smart-mix.audio-entries.length > 0: Rectangle {
+            border-width: Theme.default-border-width;
+            border-color: Theme.thirdly-background;
+
+            VerticalLayout {
+                padding: parent.border-width;
+
+                SingleCollapse {
+                    title: Logic.tr("Audio Transcription");
+                    is-open: is-show-audio-entries;
+                    background: Theme.table-header-color;
+                    border-radius: 0;
+
+                    toggle(state) => {
+                        is-show-audio-entries = state;
+                    }
+                }
+
+                if is-show-audio-entries: ListView {
+                    height: min(Theme.icon-size * 10, audio-entry-height * current-smart-mix.audio-entries.length);
+                    viewport-width: audio-entry-height * current-smart-mix.audio-entries.length;
+
+                    private property <length> audio-entry-height;
+
+                    for entry[idx] in current-smart-mix.audio-entries: Rectangle {
+                        background: Theme.table-item-background(idx, false, false);
+
+                        init => {
+                            if idx == 0 {
+                                audio-entry-height = self.preferred-height;
+                            }
+                        }
+
+                        AudioEntryItem {
+                            start-ms: entry.start-ms;
+                            end-ms: entry.end-ms;
+                            entry-text: entry.text;
+                            width: parent.width;
+                        }
+                    }
+                }
+            }
+        }
+
+        if current-smart-mix.visual-items.length > 0: Rectangle {
+            border-width: Theme.default-border-width;
+            border-color: Theme.thirdly-background;
+
+            VerticalLayout {
+                padding: parent.border-width;
+
+                SingleCollapse {
+                    title: Logic.tr("Visual Descriptions");
+                    is-open: is-show-visual-items;
+                    background: Theme.table-header-color;
+                    border-radius: 0;
+
+                    toggle(state) => {
+                        is-show-visual-items = state;
+                    }
+                }
+
+                if is-show-visual-items: ListView {
+                    height: min(Theme.icon-size * 20, visual-item-height * current-smart-mix.visual-items.length);
+                    viewport-width: visual-item-height * current-smart-mix.visual-items.length;
+
+                    private property <length> visual-item-height;
+
+                    for vis[idx] in current-smart-mix.visual-items: Rectangle {
+                        background: Theme.table-item-background(idx, false, false);
+
+                        init => {
+                            visual-item-height = max(self.preferred-height, visual-item-height);
+                        }
+
+                        VisualItemRow {
+                            is-image: vis.is-image;
+                            filename: vis.filename;
+                            description: vis.description;
+                            duration-ms: vis.duration-ms;
+                            width: parent.width;
+                        }
+                    }
+                }
+            }
+        }
+
+        if current-smart-mix.match-items.length > 0: Rectangle {
+            border-width: Theme.default-border-width;
+            border-color: Theme.thirdly-background;
+
+            VerticalLayout {
+                padding: parent.border-width;
+
+                SingleCollapse {
+                    title: Logic.tr("Match Results");
+                    is-open: is-show-match-items;
+                    background: Theme.table-header-color;
+                    border-radius: 0;
+
+                    toggle(state) => {
+                        is-show-match-items = state;
+                    }
+                }
+
+                if is-show-match-items: ListView {
+                    height: min(Theme.icon-size * 10, match-item-height * current-smart-mix.match-items.length);
+                    viewport-width: match-item-height * current-smart-mix.match-items.length;
+
+                    private property <length> match-item-height;
+
+                    for m[idx] in current-smart-mix.match-items: Rectangle {
+                        background: Theme.table-item-background(idx, false, false);
+
+                        init => {
+                            if idx == 0 {
+                                match-item-height = self.preferred-height;
+                            }
+                        }
+
+                        MatchItemRow {
+                            filename: m.filename;
+                            audio-index: m.audio-index;
+                            visual-index: m.visual-index;
+                            duration-ms: m.duration-ms;
+                            width: parent.width;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component SmartMixSettingDialog inherits MovingDialog {
+    title: Logic.tr("Smart Mix Settings");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.05;
+
+    private property setting <=> Store.video-editor-smart-mix-setting;
+
+    // Map precision name to index for Select
+    pure function precision-to-index(p: string) -> int {
+        if (p == "fp32") { return 0; }
+        else if (p == "fp16") { return 1; }
+        else if (p == "q4") { return 2; }
+        else if (p == "q8") { return 3; }
+        else { return 1; }
+    }
+
+    // Precision names for downloader loop
+    pure function precision-name(idx: int) -> string {
+        if (idx == 0) { return "fp32"; }
+        else if (idx == 1) { return "fp16"; }
+        else if (idx == 2) { return "q4"; }
+        else { return "q8"; }
+    }
+
+    private property <[string]> model-dirs: [
+        setting.vl-fp32-model-dir,
+        setting.vl-fp16-model-dir,
+        setting.vl-q4-model-dir,
+        setting.vl-q8-model-dir,
+    ];
+
+    // Map resolution name to index for Select
+    pure function resolution-to-index(r: string) -> int {
+        if (r == "origin") { return 0; }
+        else if (r == "480p") { return 1; }
+        else if (r == "720p") { return 2; }
+        else if (r == "1080p") { return 3; }
+        else { return 2; }
+    }
+
+    // Display name for resolution
+    pure function resolution-display-name(r: string) -> string {
+        if (r == "origin") { return "Origin"; }
+        else if (r == "480p") { return "480P"; }
+        else if (r == "720p") { return "720P"; }
+        else if (r == "1080p") { return "1080P"; }
+        else { return r; }
+    }
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("ASR Model");
+            }
+
+            VerticalLayout {
+                spacing: Theme.spacing * 4;
+
+                private property <SettingTranscribe> transcribe-setting <=> Store.video-editor-transcribe-setting;
+
+                for downloader[index] in Store.video-editor-smart-clip-models-dowloader: VerticalLayout {
+                    alignment: start;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+
+                        pure function get-border-color(status: DownloaderState, exist-color: color, no-exist-color: color) -> color {
+                            if status == DownloaderState.Finished {
+                                return exist-color;
+                            } else {
+                                return Logic.file-exist(index == 0 ? transcribe-setting.model-path : transcribe-setting.model-tokenizer-path) ? exist-color : no-exist-color;
+                            }
+                        }
+
+                        asr-model-path-li := LineInput {
+                            horizontal-stretch: 2;
+                            read-only: true;
+                            is-show-icon: true;
+                            icon: Icons.file-open-light;
+                            placeholder-text: index == 0 ? "model.pt" : "Qwen3-0.6B/tokenizer.json";
+                            text: index == 0 ? transcribe-setting.model-path : transcribe-setting.model-tokenizer-path;
+                            border-color: get-border-color(downloader.state, self.default-border-color, Theme.danger-color);
+
+                            clicked => {
+                                Logic.video-editor-smart-clip-choose-model-path(index);
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: Theme.spacing * 4;
+
+                            if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                                alignment: center;
+
+                                ProgressBar {
+                                    height: asr-model-path-li.preferred-height * 2 / 3;
+                                    font-size: Theme.default-font-size * 2 / 3;
+                                    finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                                    progress: downloader.progress;
+                                }
+                            }
+
+                            HorizontalLayout {
+                                alignment: end;
+                                spacing: Theme.spacing * 4;
+
+                                private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+
+                                IconBtn {
+                                    is-show-tip: true;
+                                    icon: downloading ? Icons.stop-light : Icons.download-light;
+                                    colorize: downloading ? Theme.danger-color : Theme.icon-color;
+                                    tip: downloading ? Logic.tr("cancel") : Logic.tr("download");
+
+                                    clicked => {
+                                        if (downloading) {
+                                            Logic.video-editor-smart-clip-model-cancel-download(index, downloader.url);
+                                        } else {
+                                            Logic.video-editor-smart-clip-model-start-download(index, downloader.url);
+                                        }
+                                    }
+                                }
+
+                                IconBtn {
+                                    icon: Icons.browser-light;
+                                    is-show-tip: true;
+                                    tip: Logic.tr("open url");
+
+                                    clicked => {
+                                        Util.open-url("Default", downloader.url);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("VL Model Precision");
+            }
+
+            Select {
+                values: ["fp32", "fp16", "q4", "q8"];
+                current-index: precision-to-index(setting.vl-precision);
+                current-value: setting.vl-precision;
+                gain-focus-when-clicked: false;
+
+                selected(index, value) => {
+                    setting.vl-precision = value;
+                    Logic.video-editor-smart-mix-update-config(setting);
+                }
+            }
+        }
+
+        VerticalLayout {
+            for downloader[index] in Store.video-editor-smart-mix-models-downloader: VerticalLayout {
+                alignment: start;
+
+                if precision-name(index) == setting.vl-precision: HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    pure function get-border-color(status: DownloaderState, index: int) -> color {
+                        if status == DownloaderState.Finished {
+                            return Theme.base-border-color;
+                        } else {
+                            return Logic.video-editor-smart-mix-vl-model-is-valid(index) ? Theme.base-border-color : Theme.danger-color;
+                        }
+                    }
+
+                    model-path-li := LineInput {
+                        horizontal-stretch: 2;
+                        read-only: true;
+                        is-show-icon: true;
+                        icon: Icons.file-open-light;
+                        placeholder-text: Logic.tr("Path to LFM2.5-VL model directory");
+                        text: root.model-dirs[index];
+                        border-color: get-border-color(downloader.state, index);
+
+                        clicked => {
+                            Logic.video-editor-smart-mix-choose-vl-model-dir(index);
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+
+                        if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                            alignment: center;
+
+                            ProgressBar {
+                                height: model-path-li.preferred-height * 2 / 3;
+                                font-size: Theme.default-font-size * 2 / 3;
+                                finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                                progress: downloader.progress;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            alignment: end;
+                            spacing: Theme.spacing * 4;
+
+                            private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+
+                            IconBtn {
+                                is-show-tip: true;
+                                icon: downloading ? Icons.stop-light : Icons.download-light;
+                                colorize: downloading ? Theme.danger-color : Theme.icon-color;
+                                tip: downloading ? Logic.tr("cancel") : Logic.tr("download");
+
+                                clicked => {
+                                    if (downloading) {
+                                        Logic.video-editor-smart-mix-model-cancel-download(index);
+                                    } else {
+                                        Logic.video-editor-smart-mix-model-start-download(index);
+                                    }
+                                }
+                            }
+
+                            IconBtn {
+                                icon: Icons.browser-light;
+                                is-show-tip: true;
+                                tip: Logic.tr("open url");
+
+                                clicked => {
+                                    Util.open-url("Default", downloader.url);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Recognition Resolution");
+            }
+
+            Select {
+                values: ["Origin", "480P", "720P", "1080P"];
+                current-index: resolution-to-index(setting.vl-resolution);
+                current-value: setting.vl-resolution;
+                gain-focus-when-clicked: false;
+
+                selected(index, value) => {
+                    setting.vl-resolution = value;
+                    Logic.video-editor-smart-mix-update-config(setting);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Prompt");
+            }
+
+            LineInput {
+                text: setting.vl-prompt;
+                placeholder-text: Logic.tr("Describe what you see in this image");
+                border-color: self.text != setting.vl-prompt ? Theme.danger-color : self.default-border-color;
+
+                accepted => {
+                    setting.vl-prompt = self.text;
+                    Logic.video-editor-smart-mix-update-config(setting);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Max Output Tokens");
+            }
+
+            LineInput {
+                input-type: number;
+                placeholder-text: "256";
+                text: setting.vl-max-tokens;
+                border-color: self.text.to-float() != setting.vl-max-tokens ? Theme.danger-color : self.default-border-color;
+
+                accepted => {
+                    setting.vl-max-tokens = self.text.to-float().max(128);
+                    Logic.video-editor-smart-mix-update-config(setting);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Video Sample FPS");
+            }
+
+            LineInput {
+                input-type: number;
+                placeholder-text: "10";
+                text: setting.video-sample-fps;
+                border-color: self.text.to-float() != setting.video-sample-fps ? Theme.danger-color : self.default-border-color;
+
+                accepted => {
+                    setting.video-sample-fps = self.text.to-float().max(1);
+                    Logic.video-editor-smart-mix-update-config(setting);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailSwitch {
+                icon: Icons.image-light;
+                icon-size: Theme.icon-size * 0.9;
+                text: self.checked ? Logic.tr("Reuse image/video media enabled") : Logic.tr("Reuse image/video media disabled");
+                checked: setting.reuse-media;
+
+                toggled => {
+                    setting.reuse-media = self.checked;
+                    Logic.video-editor-smart-mix-update-config(setting);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailSwitch {
+                icon: Icons.sequence-light;
+                icon-size: Theme.icon-size * 0.9;
+                text: self.checked ? Logic.tr("Sequential match enabled") : Logic.tr("Sequential match disabled");
+                checked: setting.sequential-match;
+
+                toggled => {
+                    setting.sequential-match = self.checked;
+                    Logic.video-editor-smart-mix-update-config(setting);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailSwitch {
+                icon: Icons.audio-light;
+                icon-size: Theme.icon-size * 0.9;
+                text: self.checked ? Logic.tr("Must cover all audio enabled") : Logic.tr("Must cover all audio disabled");
+                checked: setting.must-cover-all-audio;
+
+                toggled => {
+                    setting.must-cover-all-audio = self.checked;
+                    Logic.video-editor-smart-mix-update-config(setting);
+                }
+            }
+        }
+    }
+}
+
+export component SmartMixPanel inherits MovingDialog {
+    title: Logic.tr("Smart Mix");
+    icon: Icons.smart-mix-light;
+    header-width: Theme.moving-dialog-width;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+    body-height: root.header-width * Theme.golden-ratio;
+
+    private property <SmartMix> current-smart-mix <=> Store.video-editor-smart-mix;
+    private property <bool> is-show-no-message: (current-smart-mix.progress-type == SmartMixProgressType.None || current-smart-mix.progress-type == SmartMixProgressType.Cancelled) && current-smart-mix.audio-entries.length == 0;
+    private property <bool> is-show-skeleton: current-smart-mix.progress-type == SmartMixProgressType.TranscribingAudio && current-smart-mix.audio-entries.length == 0;
+    private property <bool> is-progressing: current-smart-mix.progress-type == SmartMixProgressType.TranscribingAudio || current-smart-mix.progress-type == SmartMixProgressType.RecognizingVisual || current-smart-mix.progress-type == SmartMixProgressType.AiMatching;
+
+    init => {
+        if (!Logic.video-editor-smart-mix-setting-is-valid()) {
+            Store.video-editor-smart-mix-is-show-setting-dialog = true;
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        Header { }
+
+        if !is-show-no-message && !is-show-skeleton: Rectangle {
+            background: Theme.secondary-background;
+            border-radius: Theme.border-radius;
+
+            VerticalLayout {
+                padding: Theme.padding * 2;
+
+                ResultListView { }
+            }
+        }
+
+        if is-show-no-message: StartField { }
+
+        if is-show-skeleton: VerticalLayout {
+            alignment: start;
+            padding: Theme.padding * 2;
+
+            Skeleton {
+                width: parent.width - Theme.padding * 4;
+                height: Theme.icon-size * 8;
+                type: SkeletonType.List;
+            }
+        }
+    }
+}

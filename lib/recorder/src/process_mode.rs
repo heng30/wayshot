@@ -5,7 +5,7 @@ use crate::{
 use crossbeam::channel::{Receiver, Sender, bounded};
 use hound::WavSpec;
 use mp4m::{
-    AudioConfig, AudioProcessor, AudioProcessorConfigBuilder, Mp4Processor,
+    AudioConfig, AudioFrameType, AudioProcessor, AudioProcessorConfigBuilder, Mp4Processor,
     Mp4ProcessorConfigBuilder, OutputDestination, VideoConfig, VideoFrameType,
 };
 use once_cell::sync::Lazy;
@@ -182,11 +182,14 @@ impl RecordingSession {
             thread::spawn(move || {
                 loop {
                     if stop_sig.load(Ordering::Relaxed) {
+                        if let Err(e) = mp4_audio_tx.try_send(AudioFrameType::End) {
+                            log::warn!("Failed to send AudioFrameType::End: {e}");
+                        }
                         break;
                     }
 
                     while let Ok(data) = mix_audio_rx.try_recv() {
-                        if let Err(e) = mp4_audio_tx.try_send(data) {
+                        if let Err(e) = mp4_audio_tx.try_send(AudioFrameType::Samples(data)) {
                             log::warn!("forward mix audio samples to mp4 processor faild: {e}");
                         }
                     }
@@ -413,7 +416,7 @@ impl RecordingSession {
                     log::trace!(
                         "receiver h264 frame: {} bytes",
                         match data {
-                            VideoFrameType::Frame(ref content) => content.len(),
+                            VideoFrameType::Frame { ref data, .. } => data.len(),
                             _ => 0,
                         }
                     );
@@ -421,8 +424,13 @@ impl RecordingSession {
 
                     if let Some(ref sender) = mp4_h264_frame_sender {
                         let converted_data = match data {
-                            VideoFrameType::Frame(ref content) => {
-                                VideoFrameType::Frame(convert_annexb_to_length_prefixes(&content))
+                            VideoFrameType::Frame { ref data, .. } => {
+                                let converted = convert_annexb_to_length_prefixes(&data);
+                                let is_sync = Mp4Processor::is_keyframe_length_prefixed(&converted);
+                                VideoFrameType::Frame {
+                                    data: converted,
+                                    is_sync,
+                                }
                             }
                             VideoFrameType::End => VideoFrameType::End,
                         };
@@ -432,7 +440,7 @@ impl RecordingSession {
                         }
                     }
 
-                    if let VideoFrameType::Frame(data) = data
+                    if let VideoFrameType::Frame { data, .. } = data
                         && !SHARE_SCREEN_CONNECTIONS.lock().unwrap().is_empty()
                         && let Err(e) = packet_sender.send(PacketData::Video {
                             timestamp: Instant::now(),
@@ -733,8 +741,13 @@ impl RecordingSession {
 
                     if let Some(ref sender) = mp4_h264_frame_sender {
                         let converted_data = match data {
-                            VideoFrameType::Frame(ref content) => {
-                                VideoFrameType::Frame(convert_annexb_to_length_prefixes(&content))
+                            VideoFrameType::Frame { ref data, .. } => {
+                                let converted = convert_annexb_to_length_prefixes(&data);
+                                let is_sync = Mp4Processor::is_keyframe_length_prefixed(&converted);
+                                VideoFrameType::Frame {
+                                    data: converted,
+                                    is_sync,
+                                }
                             }
                             VideoFrameType::End => VideoFrameType::End,
                         };
@@ -744,7 +757,7 @@ impl RecordingSession {
                         }
                     }
 
-                    if let VideoFrameType::Frame(data) = data
+                    if let VideoFrameType::Frame { data, .. } = data
                         && let Err(e) = video_tx.try_send(VideoData::new(
                             start_time.elapsed().as_millis() as u32,
                             data,

@@ -1,0 +1,232 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Store,
+} from "../../../../../def.slint";
+import {
+    Label,
+    IconBtn,
+    RadioBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    FlyInDetail,
+} from "../../../filter.slint";
+
+export component FlyIn inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <FlyInDetail> config: VEFilter.from-fly-in-json(selected-filter.detail);
+
+    callback apply(index: int, config: FlyInDetail);
+
+    changed selected-filter => {
+        self.config = VEFilter.from-fly-in-json(selected-filter.detail);
+        move-to-x-li.text = self.config.move-to-x.to-fixed(2);
+        move-to-y-li.text = self.config.move-to-y.to-fixed(2);
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Position");
+                enabled: selected-filter.enabled;
+                tip: Logic.tr("image flies in to this position");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                move-to-x-li := LineInput {
+                    input-type: InputType.decimal;
+                    text: config.move-to-x.to-fixed(2);
+                    enabled: selected-filter.enabled;
+                    read-only: true;
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    accepted => {
+                        config.move-to-x = self.text.to-float();
+                        apply(index, config);
+                    }
+                }
+
+                Label {
+                    text: "x";
+                    color: selected-filter.enabled ? Theme.primary-text-color : Theme.disabled-color;
+                }
+
+                move-to-y-li := LineInput {
+                    input-type: InputType.decimal;
+                    text: config.move-to-y.to-fixed(2);
+                    enabled: selected-filter.enabled;
+                    read-only: true;
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    accepted => {
+                        config.move-to-y = self.text.to-float();
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Duration (ms)");
+                color: selected-filter.enabled ? Theme.primary-text-color : Theme.disabled-color;
+            }
+
+            LineInput {
+                input-type: number;
+                text: config.duration-ms;
+                enabled: selected-filter.enabled;
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    config.duration-ms = round(self.text.to-float());
+                    apply(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Direction");
+                enabled: selected-filter.enabled;
+            }
+
+            VerticalLayout {
+                alignment: start;
+                spacing: Theme.spacing * 4;
+                padding-left: Theme.padding * 2;
+
+                RadioBtn {
+                    text: Logic.tr("From Left");
+                    checked: config.direction == 0;
+                    enabled: selected-filter.enabled;
+
+                    check => {
+                        config.direction = 0;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    text: Logic.tr("From Right");
+                    checked: config.direction == 1;
+                    enabled: selected-filter.enabled;
+
+                    check => {
+                        config.direction = 1;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    text: Logic.tr("From Top");
+                    checked: config.direction == 2;
+                    enabled: selected-filter.enabled;
+
+                    check => {
+                        config.direction = 2;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    text: Logic.tr("From Bottom");
+                    checked: config.direction == 3;
+                    enabled: selected-filter.enabled;
+
+                    check => {
+                        config.direction = 3;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Easing");
+                enabled: selected-filter.enabled;
+            }
+
+            VerticalLayout {
+                alignment: start;
+                spacing: Theme.spacing * 4;
+                padding-left: Theme.padding * 2;
+
+                RadioBtn {
+                    text: Logic.tr("Linear");
+                    checked: config.easing == 0;
+                    enabled: selected-filter.enabled;
+
+                    check => {
+                        config.easing = 0;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    text: Logic.tr("EaseIn");
+                    checked: config.easing == 1;
+                    enabled: selected-filter.enabled;
+
+                    check => {
+                        config.easing = 1;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    text: Logic.tr("EaseOut");
+                    checked: config.easing == 2;
+                    enabled: selected-filter.enabled;
+
+                    check => {
+                        config.easing = 2;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    text: Logic.tr("EaseInOut");
+                    checked: config.easing == 3;
+                    enabled: selected-filter.enabled;
+
+                    check => {
+                        config.easing = 3;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

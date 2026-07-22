@@ -1,7 +1,7 @@
 use hound::WavReader;
 use image::{ImageBuffer, Rgb};
 use mp4m::mp4_processor::{
-    AudioConfig, Mp4Processor, Mp4ProcessorConfigBuilder, VideoConfig, VideoFrameType,
+    AudioConfig, AudioFrameType, Mp4Processor, Mp4ProcessorConfigBuilder, VideoConfig, VideoFrameType,
 };
 use std::{path::PathBuf, thread, time::Duration};
 use video_encoder::{EncodedFrame, VideoEncoderConfig};
@@ -115,7 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Use f32 samples directly for AAC encoding
                 let f32_chunk: Vec<f32> = chunk.to_vec();
 
-                if let Err(e) = audio_sender1.send(f32_chunk) {
+                if let Err(e) = audio_sender1.send(AudioFrameType::Samples(f32_chunk)) {
                     log::warn!("audio sender 1 failed: {e}");
                     break;
                 }
@@ -157,7 +157,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Use f32 samples directly for AAC encoding
                 let f32_chunk: Vec<f32> = chunk.to_vec();
 
-                if let Err(e) = audio_sender2.send(f32_chunk) {
+                if let Err(e) = audio_sender2.send(AudioFrameType::Samples(f32_chunk)) {
                     log::warn!("audio sender 2 failed: {e}");
                     break;
                 }
@@ -176,7 +176,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = VideoEncoderConfig::new(width, height).with_fps(fps);
     let mut h264_encoder = video_encoder::new(config)?;
     let headers_data = h264_encoder.headers()?;
-    if let Err(e) = video_sender.send(VideoFrameType::Frame(headers_data)) {
+    if let Err(e) = video_sender.send(VideoFrameType::Frame { data: headers_data, is_sync: true }) {
         panic!("video sender h264 header failed: {e}");
     }
 
@@ -190,8 +190,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let encoded_frame = h264_encoder.encode_frame(img.clone())?;
 
         match encoded_frame {
-            EncodedFrame::Frame((_, data)) => {
-                if let Err(e) = video_sender.send(VideoFrameType::Frame(data)) {
+            EncodedFrame::Frame { data, is_keyframe, .. } => {
+                if let Err(e) = video_sender.send(VideoFrameType::Frame { data, is_sync: is_keyframe }) {
                     log::warn!("video sender encoded frame failed: {e}");
                     break;
                 }
@@ -201,8 +201,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let video_sender_clone = video_sender.clone();
-    if let Err(e) = h264_encoder.flush(Box::new(move |data| {
-        if let Err(e) = video_sender_clone.send(VideoFrameType::Frame(data)) {
+    if let Err(e) = h264_encoder.flush(Box::new(move |data, is_keyframe| {
+        if let Err(e) = video_sender_clone.send(VideoFrameType::Frame { data, is_sync: is_keyframe }) {
             log::warn!("video sender send flushed data failed: {e}");
         }
     })) {
@@ -212,6 +212,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     thread::sleep(Duration::from_secs(1));
 
     _ = video_sender.send(VideoFrameType::End);
+    _ = audio_sender1.send(AudioFrameType::End);
+    _ = audio_sender2.send(AudioFrameType::End);
 
     drop(video_sender);
     drop(audio_sender1);

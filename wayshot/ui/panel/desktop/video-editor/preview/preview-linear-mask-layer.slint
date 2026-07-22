@@ -1,0 +1,201 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoPreviewSize,
+    VideoEditorLayerImage,
+    LinearMaskDetail,
+} from "../../../def.slint";
+import { VEFilter, FilterType } from "../filter.slint";
+import { IconBtn, Divider, Label } from "../../../../base/widgets.slint";
+import { MoveHandle } from "move-handle.slint";
+
+export component PreviewLinearMaskLayer inherits Rectangle {
+    in-out property <[VideoEditorLayerImage]> layers;
+    private property <float> width-hight-rate: self.width / self.height;
+    private property <FilterType> selected-filter-type <=> VEFilter.selected-filter.ty;
+
+    for index in layers.length: rec := Rectangle {
+        x: 0;
+        y: 0;
+
+        private property <VideoEditorLayerImage> layer: layers[layers.length - 1 - index];
+        private property <bool> is-edited-track: Store.video-editor-current-edited-track-index == layer.track-index;
+        private property <bool> has-keyframes: Logic.video-editor-segment-has-keyframes(layer.track-index, layer.segment-index);
+        private property <LinearMaskDetail> config: is-edited-track && has-keyframes ? VEFilter.from-linear-mask-json(VEFilter.selected-filter.detail) : layer.linear-mask;
+        private property <bool> is-previewing: Store.video-editor-is-previewing;
+
+        changed is-previewing => {
+            if (is-edited-track && !is-previewing && has-keyframes) {
+                VEFilter.modify-linear-mask-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+            }
+        }
+
+        container-rec := Rectangle {
+            width: img.width;
+            height: img.height;
+
+            img := Image {
+                private property <length> parent-width: rec.width;
+                private property <length> parent-height: rec.height;
+                private property <float> width-hight-rate: self.source.width / self.source.height;
+
+                changed parent-width => {
+                    self.update-size();
+                }
+
+                changed parent-height => {
+                    self.update-size();
+                }
+
+                function update-size() {
+                    if (root.width-hight-rate > self.width-hight-rate) {
+                        self.height = root.height;
+                        self.width = self.height * self.width-hight-rate;
+                    } else {
+                        self.width = root.width;
+                        self.height = self.width / self.width-hight-rate;
+                    }
+                }
+
+                init => {
+                    self.update-size();
+                }
+
+                source: layer.original-image;
+                image-fit: ImageFit.contain;
+            }
+
+            if is-edited-track: Rectangle {
+                width: img.width;
+                height: img.height;
+
+                // Dividing line - long thin rectangle rotated around center
+                Rectangle {
+                    clip: true;
+
+                    line-rec := Rectangle {
+                        x: config.center-x * parent.width - self.width / 2;
+                        y: config.center-y * parent.height - self.height / 2;
+                        width: sqrt((parent.width / 1px) * (parent.width / 1px) + (parent.height / 1px) * (parent.height / 1px)) * 1px * 2;
+                        height: 2px;
+                        background: white;
+                        transform-rotation: 1deg * config.rotation + 90deg;
+                    }
+                }
+
+                // Center handle - draggable to move the line position
+                center-handle := Rectangle {
+                    x: config.center-x * parent.width - self.width / 2;
+                    y: config.center-y * parent.height - self.height / 2;
+                    width: Theme.icon-size * 1.5;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    background: white;
+                    border-width: Theme.default-border-width * 2;
+                    border-color: Theme.thirdly-brand-color;
+
+                    Image {
+                        source: Icons.arrow-left2-fill;
+                        width: Theme.icon-size * 0.8;
+                        height: self.width;
+                        image-fit: contain;
+                        colorize: Theme.danger-color;
+                        transform-rotation: config.rotation * 1deg + (config.flip ? 180deg : 0deg);
+                    }
+
+                    TouchArea {
+                        mouse-cursor: move;
+                        private property <bool> can-move;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left) {
+                                if (event.kind == PointerEventKind.down) {
+                                    can-move = true
+                                } else if (event.kind == PointerEventKind.up) {
+                                    can-move = false;
+                                    VEFilter.modify-linear-mask-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                                }
+                            }
+                        }
+
+                        moved => {
+                            if (!can-move) {
+                                return;
+                            }
+                            let x = clamp(parent.x + self.mouse-x - self.pressed-x, 0, img.width - parent.width);
+                            let y = clamp(parent.y + self.mouse-y - self.pressed-y, 0, img.height - parent.height);
+                            config.center-x = (x + parent.width / 2) / img.width;
+                            config.center-y = (y + parent.height / 2) / img.height;
+                        }
+                    }
+                }
+
+                // Rotation handle - offset from center along the line direction
+                rotation-handle := Rectangle {
+                    // sin/cos take angle type and return float
+                    // 1deg * rotation converts float to angle
+                    // Result needs * 1px to convert float to length
+                    private property <float> handle-distance: Theme.icon-size / 1px * 3;
+                    private property <float> sin-val: sin(1deg * config.rotation);
+                    private property <float> cos-val: cos(1deg * config.rotation);
+                    x: config.center-x * parent.width - self.handle-distance * self.sin-val * 1px - self.width / 2;
+                    y: config.center-y * parent.height + self.handle-distance * self.cos-val * 1px - self.height / 2;
+                    width: Theme.icon-size * 1.3;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    background: white;
+
+                    Image {
+                        source: Icons.rotation-fill;
+                        width: Theme.icon-size;
+                        height: self.width;
+                        image-fit: contain;
+                        colorize: Theme.danger-color;
+                    }
+
+                    TouchArea {
+                        private property <bool> can-rotate;
+                        private property <float> start-angle;
+
+                        mouse-cursor: MouseCursor.pointer;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left) {
+                                if (event.kind == PointerEventKind.down) {
+                                    can-rotate = true;
+                                    // atan2 takes float params and returns angle
+                                    // Convert length to float via / 1px, then angle to float via / 1deg
+                                    let cx = config.center-x * img.width / 1px;
+                                    let cy = config.center-y * img.height / 1px;
+                                    let mx = (parent.x + self.mouse-x + parent.width / 2) / 1px;
+                                    let my = (parent.y + self.mouse-y + parent.height / 2) / 1px;
+                                    start-angle = atan2(my - cy, mx - cx) / 1deg;
+                                } else if (event.kind == PointerEventKind.up) {
+                                    can-rotate = false;
+                                    VEFilter.modify-linear-mask-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                                }
+                            }
+                        }
+
+                        moved => {
+                            if (!can-rotate) {
+                                return;
+                            }
+                            let cx = config.center-x * img.width / 1px;
+                            let cy = config.center-y * img.height / 1px;
+                            let mx = (parent.x + self.mouse-x + parent.width / 2) / 1px;
+                            let my = (parent.y + self.mouse-y + parent.height / 2) / 1px;
+                            let current-angle = atan2(my - cy, mx - cx) / 1deg;
+                            let delta = current-angle - start-angle;
+                            start-angle = current-angle;
+                            config.rotation = Math.mod(config.rotation + delta, 360.0);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,1183 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Icons,
+    OnlineSearchImageMediaType,
+    OnlineSearchImageSetting,
+    OnlineSearchImageSourceEntry,
+    OnlineSearchImageResultItem,
+    OnlineSearchAudioSetting,
+    OnlineSearchAudioSourceEntry,
+    OnlineSearchAudioResultItem,
+    OnlineSearchAudioParam,
+    MediaType,
+} from "../../../def.slint";
+import {
+    Select,
+    Search,
+    IconBtn,
+    CheckBtn,
+    LineInput,
+    Label,
+    Loading,
+    NoDataImg,
+    MovingDialog,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    Skeleton,
+    SkeletonType,
+} from "../../../../base/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+
+component AudioThumbnailItem inherits Rectangle {
+    in property <OnlineSearchAudioResultItem> item;
+    in property <length> size: Theme.icon-size * 4;
+
+    callback preview-audio();
+    callback download-clicked();
+
+    clip: true;
+    width: size;
+    height: size + Theme.default-font-size * 3.5;
+    background: Theme.secondary-background;
+    border-radius: Theme.border-radius;
+
+    VerticalLayout {
+        Rectangle {
+            clip: true;
+            width: parent.width;
+            height: size;
+            background: Theme.secondary-background;
+
+            if item.thumbnail.width > 0: Image {
+                width: parent.width;
+                height: parent.height;
+                image-fit: contain;
+                source: item.thumbnail;
+
+                TouchArea {
+                    enabled: !item.is-downloading;
+                    clicked => { root.preview-audio(); }
+                }
+            }
+
+            if item.thumbnail.width == 0: Rectangle {
+                width: parent.width;
+                height: parent.height;
+                background: Theme.secondary-background;
+
+                Skeleton {
+                    width: parent.width;
+                    height: parent.height;
+                    type: SkeletonType.Picture;
+                }
+
+                TouchArea {
+                    enabled: !item.is-downloading;
+                    clicked => { root.preview-audio(); }
+                }
+            }
+
+            if item.duration != "": Rectangle {
+                x: Theme.padding;
+                y: parent.height - self.height - Theme.padding;
+                width: dur-vbox.preferred-width;
+                height: dur-vbox.preferred-height;
+                background: Theme.thirdly-background;
+                border-radius: Theme.border-radius;
+
+                dur-vbox := HorizontalLayout {
+                    padding: Theme.padding;
+
+                    Label {
+                        text: item.duration;
+                        font-size: Theme.default-font-size - 4px;
+                        color: Theme.invert-text-color;
+                    }
+                }
+            }
+
+            if item.is-downloading: Rectangle {
+                width: parent.width;
+                height: parent.height;
+                background: Theme.secondary-background;
+                opacity: Theme.golden-ratio;
+
+                Loading {
+                    width: parent.width;
+                    height: parent.height;
+                    icon-size: Theme.icon-size;
+                    loading-text: Logic.tr("Downloading");
+                }
+            }
+
+            if !item.is-downloading: IconBtn {
+                x: parent.width - self.width - Theme.padding;
+                y: parent.height - self.height - Theme.padding;
+                width: Theme.icon-size * 1.33;
+                height: self.width;
+                icon: Icons.download-light;
+                border-radius: self.width / 2;
+                show-icon-hover-background: false;
+                gain-focus-when-clicked: false;
+                is-show-tip: true;
+                tip: Logic.tr("download");
+                colorize: self.has-hover ? Theme.light-text-color : Theme.invert-text-color;
+                background: self.has-hover ? Theme.thirdly-brand-color : (item.is-downloaded ? Theme.success-color : Theme.thirdly-background);
+
+                clicked => {
+                    root.download-clicked();
+                }
+            }
+        }
+
+        VerticalLayout {
+            padding: Theme.padding;
+            spacing: 2px;
+
+            Label {
+                text: item.song-name;
+                font-size: Theme.default-font-size - 2px;
+                overflow: elide;
+                color: Theme.primary-text-color;
+            }
+
+            Label {
+                text: item.singers;
+                font-size: Theme.default-font-size - 3px;
+                overflow: elide;
+                color: Theme.regular-text-color;
+            }
+        }
+    }
+}
+
+component ThumbnailItem inherits Rectangle {
+    in property <OnlineSearchImageResultItem> item;
+    in property <length> size: Theme.icon-size * 4;
+
+    callback preview-image();
+    callback download-clicked();
+
+    clip: true;
+    width: size;
+    height: size;
+    background: Theme.secondary-background;
+    border-radius: Theme.border-radius;
+
+    if item.thumbnail.width > 0: Image {
+        width: parent.width;
+        height: parent.height;
+        image-fit: contain;
+        source: item.thumbnail;
+
+        TouchArea {
+            enabled: !item.is-downloading;
+            clicked => { root.preview-image(); }
+        }
+    }
+
+    if item.thumbnail.width == 0: Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: Theme.secondary-background;
+
+        Skeleton {
+            width: parent.width;
+            height: parent.height;
+            type: SkeletonType.Picture;
+        }
+    }
+
+    if item.is-downloading: Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: Theme.secondary-background;
+        opacity: Theme.golden-ratio;
+
+        Loading {
+            width: parent.width;
+            height: parent.height;
+            icon-size: Theme.icon-size;
+            loading-text: Logic.tr("Downloading");
+        }
+    }
+
+    if !item.is-downloading: IconBtn {
+        x: parent.width - self.width - Theme.padding;
+        y: parent.height - self.height - Theme.padding;
+        width: Theme.icon-size * 1.33;
+        height: self.width;
+        icon: Icons.download-light;
+        border-radius: self.width / 2;
+        show-icon-hover-background: false;
+        gain-focus-when-clicked: false;
+        colorize: self.has-hover ? Theme.light-text-color : Theme.invert-text-color;
+        background: self.has-hover ? Theme.thirdly-brand-color : (item.is-downloaded ? Theme.success-color : Theme.thirdly-background);
+
+        clicked => {
+            root.download-clicked();
+        }
+    }
+}
+
+component ThumbnailGrid inherits Rectangle {
+    in property <length> thumbnail-size: Theme.icon-size * 5;
+    in property <[OnlineSearchImageResultItem]> results;
+    private property <int> column-count: Math.max(1, (self.width - vbox.padding * 2 - grid-spacing) / (thumbnail-size + grid-spacing));
+    private property <int> row-count: Math.ceil(results.length / column-count);
+    private property <length> grid-spacing: Theme.spacing;
+
+    callback download-clicked(index: int);
+
+    ScrollView {
+        width: parent.width;
+        height: parent.height;
+
+        vbox := VerticalLayout {
+            padding: Theme.padding * 4;
+            spacing: grid-spacing * 2;
+
+            for row-index in row-count: HorizontalLayout {
+                spacing: grid-spacing;
+                alignment: row-count == 1 ? start : space-between;
+
+                for col-index in column-count: ThumbnailItem {
+                    property <int> idx: row-index * column-count + col-index;
+
+                    size: thumbnail-size;
+                    visible: row-index * column-count + col-index < results.length;
+                    item: results[idx];
+
+                    download-clicked => {
+                        root.download-clicked(idx);
+                    }
+
+                    preview-image => {
+                        Store.video-editor-item-preview-image = self.item.thumbnail;
+                        Store.video-editor-preview-item = {
+                            media-type : MediaType.Image,
+                        };
+                        Store.video-editor-is-show-item-preview-dialog = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+component SourceEntry inherits Rectangle {
+    in property <int> index;
+    in-out property <OnlineSearchImageSourceEntry> source;
+
+    callback enabled-changed(source: OnlineSearchImageSourceEntry);
+    callback proxy-type-changed(value: OnlineSearchImageSourceEntry);
+
+    height: hbox.preferred-height;
+    background: mod(index, 2) == 0 ? Theme.table-item-first : Theme.table-item-second;
+
+    hbox := HorizontalLayout {
+        padding: Theme.padding * 2;
+        padding-top: Theme.padding;
+        padding-bottom: Theme.padding;
+        spacing: Theme.spacing * 2;
+        alignment: LayoutAlignment.space-between;
+
+        VerticalLayout {
+            alignment: center;
+
+            CheckBtn {
+                text: source.name;
+                checked: source.enabled;
+
+                toggled => {
+                    source.enabled = !source.enabled;
+                    root.enabled-changed(source);
+                }
+            }
+        }
+
+        HorizontalLayout {
+            proxy-select := Select {
+                width: Theme.default-font-size * 6;
+                values: ["None", "Http", "Socks5"];
+                current-value: source.proxy-type;
+                gain-focus-when-clicked: false;
+                is-show-indicator: false;
+                background: root.background;
+                indicator-left-padding: 0;
+
+                selected(idx, value) => {
+                    source.proxy-type = value;
+                    root.proxy-type-changed(source);
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+
+                Rectangle {
+                    width: Theme.default-font-size;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    background: source.is-testing ? Theme.warning-color : (source.can-access ? Theme.success-color : Theme.danger-color);
+
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            Logic.video-editor-online-search-image-refresh-source-status(index);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component ImageHeaderBar inherits Flickable {
+    in property <length> select-width;
+
+    height: header-hbox.preferred-height;
+    viewport-width: header-hbox.preferred-width;
+
+    header-hbox := HorizontalLayout {
+        alignment: start;
+        spacing: Theme.spacing * 4;
+
+        IconBtn {
+            icon: Icons.setting-light;
+            icon-size: Theme.icon-size * 0.9;
+            is-show-tip: true;
+            tip: Logic.tr("Settings");
+
+            clicked => {
+                Store.video-editor-is-show-online-search-image-setting-dialog = true;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 4;
+
+            HorizontalLayout {
+                Label {
+                    text: Logic.tr("Type") + ": ";
+                    vertical-alignment: center;
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    Select {
+                        vpadding: Theme.padding / 2;
+                        width: root.select-width;
+                        gain-focus-when-clicked: false;
+                        indicator-left-padding: 0;
+                        values: [
+                            Logic.tr("all"),
+                            Logic.tr("face"),
+                            Logic.tr("photo"),
+                            Logic.tr("clipart"),
+                            Logic.tr("animated"),
+                            Logic.tr("linedrawing")
+                        ];
+                        current-value: Store.video-editor-online-search-image-param.ty.is-empty ? Logic.tr("all") : Logic.tr(Store.video-editor-online-search-image-param.ty);
+
+                        private property <string> value;
+
+                        selected(index, value) => {
+                            if index == 0 {
+                                self.value = "all";
+                            } else if index == 1 {
+                                self.value = "face";
+                            } else if index == 2 {
+                                self.value = "photo";
+                            } else if index == 3 {
+                                self.value = "clipart";
+                            } else if index == 4 {
+                                self.value = "animated";
+                            } else if index == 5 {
+                                self.value = "linedrawing";
+                            } else {
+                                self.value = "all";
+                            }
+                            Store.video-editor-online-search-image-param.ty = value;
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                Label {
+                    text: Logic.tr("Color") + ": ";
+                    vertical-alignment: center;
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    Select {
+                        vpadding: Theme.padding / 2;
+                        width: root.select-width;
+                        gain-focus-when-clicked: false;
+                        indicator-left-padding: 0;
+                        values: [Logic.tr("all"), Logic.tr("color"), Logic.tr("backwhite")];
+                        current-value: Store.video-editor-online-search-image-param.color.is-empty ? Logic.tr("all") : Store.video-editor-online-search-image-param.color;
+
+                        private property <string> value;
+
+                        selected(index, value) => {
+                            if index == 0 {
+                                self.value = "all";
+                            } else if index == 1 {
+                                self.value = "color";
+                            } else if index == 2 {
+                                self.value = "backwhite";
+                            } else {
+                                self.value = "all";
+                            }
+                            Store.video-editor-online-search-image-param.color = value;
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                Label {
+                    text: Logic.tr("Size") + ": ";
+                    vertical-alignment: center;
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    Select {
+                        vpadding: Theme.padding / 2;
+                        width: root.select-width;
+                        gain-focus-when-clicked: false;
+                        indicator-left-padding: 0;
+                        values: [Logic.tr("all"), Logic.tr("large"), Logic.tr("medium"), Logic.tr("small")];
+                        current-value: Store.video-editor-online-search-image-param.size.is-empty ? Logic.tr("all") : Store.video-editor-online-search-image-param.size;
+
+                        private property <string> value;
+                        selected(index, value) => {
+                            if index == 0 {
+                                self.value = "all";
+                            } else if index == 1 {
+                                self.value = "large";
+                            } else if index == 2 {
+                                self.value = "medium";
+                            } else if index == 3 {
+                                self.value = "small";
+                            } else {
+                                self.value = "all";
+                            }
+                            Store.video-editor-online-search-image-param.size = value;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component ImageGrid inherits Rectangle {
+    border-color: Theme.base-border-color;
+    border-width: Theme.default-border-width;
+
+    VerticalLayout {
+        padding: parent.padding;
+
+        if Store.video-editor-online-search-image-is-searching: VerticalLayout {
+            alignment: start;
+
+            Skeleton {
+                width: parent.width - Theme.padding * 4;
+                height: Theme.icon-size * 8;
+                type: SkeletonType.List;
+            }
+        }
+
+        if !Store.video-editor-online-search-image-is-searching && Store.video-editor-online-search-image-results.length == 0: VerticalLayout {
+            alignment: LayoutAlignment.center;
+
+            HorizontalLayout {
+                alignment: center;
+
+                NoDataImg {
+                    width: parent.width * 0.8;
+                    text: Logic.tr("No Image");
+                }
+            }
+        }
+
+        if !Store.video-editor-online-search-image-is-searching && Store.video-editor-online-search-image-results.length > 0: ThumbnailGrid {
+            results: Store.video-editor-online-search-image-results;
+
+            download-clicked(index) => {
+                Logic.video-editor-online-search-image-download(index);
+            }
+        }
+    }
+}
+
+
+component AudioHeaderBar inherits Flickable {
+    in property <length> select-width;
+
+    height: header-hbox.preferred-height;
+    viewport-width: header-hbox.preferred-width;
+
+    header-hbox := HorizontalLayout {
+        alignment: start;
+        spacing: Theme.spacing * 4;
+
+        IconBtn {
+            icon: Icons.setting-light;
+            icon-size: Theme.icon-size * 0.9;
+            is-show-tip: true;
+            tip: Logic.tr("Settings");
+
+            clicked => {
+                Store.video-editor-is-show-online-search-audio-setting-dialog = true;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 2;
+
+            Label {
+                vertical-alignment: center;
+                text: Logic.tr("Download") + ": ";
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    CheckBtn {
+                        text: Logic.tr("Lyrics");
+                        checked: Store.video-editor-online-search-audio-param.download-lrc;
+                        gain-focus-when-clicked: false;
+
+                        toggled => {
+                            Store.video-editor-online-search-audio-param.download-lrc = self.checked;
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    CheckBtn {
+                        text: Logic.tr("Cover");
+                        checked: Store.video-editor-online-search-audio-param.download-cover;
+                        gain-focus-when-clicked: false;
+
+                        toggled => {
+                            Store.video-editor-online-search-audio-param.download-cover = self.checked;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component AudioThumbnailGrid inherits Rectangle {
+    in property <length> thumbnail-size: Theme.icon-size * 5;
+    in property <[OnlineSearchAudioResultItem]> results;
+    private property <int> column-count: Math.max(1, (self.width - vbox.padding * 2 - grid-spacing) / (thumbnail-size + grid-spacing));
+    private property <int> row-count: Math.ceil(results.length / column-count);
+    private property <length> grid-spacing: Theme.spacing;
+
+    callback preview-audio(index: int);
+    callback download-clicked(index: int);
+
+    ScrollView {
+        width: parent.width;
+        height: parent.height;
+
+        vbox := VerticalLayout {
+            padding: Theme.padding * 4;
+            spacing: grid-spacing * 2;
+
+            for row-index in row-count: HorizontalLayout {
+                spacing: grid-spacing;
+                alignment: row-count == 1 ? start : space-between;
+
+                for col-index in column-count: AudioThumbnailItem {
+                    property <int> idx: row-index * column-count + col-index;
+
+                    size: thumbnail-size;
+                    visible: row-index * column-count + col-index < results.length;
+                    item: results[idx];
+
+                    preview-audio => {
+                        root.preview-audio(idx);
+                    }
+
+                    download-clicked => {
+                        root.download-clicked(idx);
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component AudioGrid inherits Rectangle {
+    border-color: Theme.base-border-color;
+    border-width: Theme.default-border-width;
+
+    VerticalLayout {
+        padding: parent.padding;
+
+        if Store.video-editor-online-search-audio-is-searching: VerticalLayout {
+            alignment: start;
+
+            Skeleton {
+                width: parent.width - Theme.padding * 4;
+                height: Theme.icon-size * 8;
+                type: SkeletonType.List;
+            }
+        }
+
+        if !Store.video-editor-online-search-audio-is-searching && Store.video-editor-online-search-audio-results.length == 0: VerticalLayout {
+            alignment: LayoutAlignment.center;
+
+            HorizontalLayout {
+                alignment: center;
+
+                NoDataImg {
+                    width: parent.width * 0.8;
+                    text: Logic.tr("No Audio");
+                }
+            }
+        }
+
+        if !Store.video-editor-online-search-audio-is-searching && Store.video-editor-online-search-audio-results.length > 0: AudioThumbnailGrid {
+            results: Store.video-editor-online-search-audio-results;
+
+            preview-audio(index) => {
+                Logic.video-editor-online-search-audio-preview(index);
+            }
+
+            download-clicked(index) => {
+                Logic.video-editor-online-search-audio-download(index);
+            }
+        }
+    }
+}
+
+
+
+export component OnlineSearch inherits Rectangle {
+    private property <length> select-width: Store.is-cn ? Theme.default-font-size * 6 : Theme.default-font-size * 8;
+
+    private property <int> selected-index: Store.video-editor-left-panel-selected-index;
+    changed selected-index => {
+        if selected-index == 2 {
+            search-bar.focus();
+            try-show-setting();
+        }
+    }
+
+    function try-show-setting() {
+        if Store.video-editor-online-search-image-media-type == OnlineSearchImageMediaType.Image {
+            if !Logic.video-editor-online-search-image-config-is-valid() {
+                Store.video-editor-is-show-online-search-image-setting-dialog = true;
+            }
+        } else {
+            if !Logic.video-editor-online-search-audio-config-is-valid() {
+                Store.video-editor-is-show-online-search-audio-setting-dialog = true;
+            }
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        private property <length> header-height: Theme.icon-size + Theme.padding * 2;
+
+        if Store.video-editor-online-search-image-media-type == OnlineSearchImageMediaType.Image: ImageHeaderBar {
+            height: header-height;
+            select-width: root.select-width;
+        }
+
+        if Store.video-editor-online-search-image-media-type == OnlineSearchImageMediaType.Audio: AudioHeaderBar {
+            height: header-height;
+            select-width: root.select-width;
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing;
+
+            Select {
+                width: Store.is-cn ? Theme.default-font-size * 5 : Theme.default-font-size * 7;
+                values: [Logic.tr("Image"), Logic.tr("Audio")];
+                current-value: Store.video-editor-online-search-image-media-type == OnlineSearchImageMediaType.Image ? self.values[0] : self.values[1];
+                gain-focus-when-clicked: false;
+                indicator-left-padding: 0;
+
+                selected(idx, value) => {
+                    Store.video-editor-online-search-image-media-type = idx == 0 ? OnlineSearchImageMediaType.Image : OnlineSearchImageMediaType.Audio;
+                    try-show-setting();
+                }
+            }
+
+            search-bar := Search {
+                gain-focus-when-clicked: false;
+
+                private property <bool> flag: Store.video-editor-online-search-image-focus-flag;
+                changed flag => {
+                    self.focus();
+                }
+
+                search(text) => {
+                    if !text.is-empty {
+                        if Store.video-editor-online-search-image-media-type == OnlineSearchImageMediaType.Image {
+                            Store.video-editor-online-search-image-param.keyword = text;
+                            Logic.video-editor-online-search-image(Store.video-editor-online-search-image-param);
+                        } else {
+                            Store.video-editor-online-search-audio-param.keyword = text;
+                            Logic.video-editor-online-search-audio(Store.video-editor-online-search-audio-param);
+                        }
+                    }
+                    self.focus();
+                }
+
+                key-pressed(event) => {
+                    if event.text == Key.Escape {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+
+                        if Store.video-editor-online-search-image-media-type == OnlineSearchImageMediaType.Image && Store.video-editor-online-search-image-is-searching {
+                            Logic.video-editor-online-search-image-cancel();
+                        }
+                        if Store.video-editor-online-search-image-media-type == OnlineSearchImageMediaType.Audio && Store.video-editor-online-search-audio-is-searching {
+                            Logic.video-editor-online-search-audio-cancel();
+                        }
+                    }
+                }
+            }
+        }
+
+        if Store.video-editor-online-search-image-media-type == OnlineSearchImageMediaType.Image: ImageGrid { }
+        if Store.video-editor-online-search-image-media-type == OnlineSearchImageMediaType.Audio: AudioGrid { }
+    }
+}
+
+export component OnlineSearchImageSettingDialog inherits MovingDialog {
+    title: Logic.tr("Online Image Search Settings");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Download Directory");
+            }
+
+            LineInput {
+                text <=> Store.video-editor-online-search-image-setting.download-dir;
+                placeholder-text: Logic.tr("Select download directory");
+                icon: Icons.folder-open-light;
+                read-only: true;
+                is-show-icon: true;
+                border-color: Logic.dir-exist(self.text) ? self.default-border-color : Theme.danger-color;
+
+                clicked => {
+                    Logic.video-editor-online-search-image-choose-save-dir();
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Search Limits Per Source");
+            }
+
+            LineInput {
+                input-type: number;
+                placeholder-text: "25";
+                text: Store.video-editor-online-search-image-setting.search-limits;
+                border-color: self.text == Store.video-editor-online-search-image-setting.search-limits ? self.default-border-color : Theme.danger-color;
+
+                accepted => {
+                    let val = self.text.to-float().round().max(1);
+                    self.text = val;
+                    Store.video-editor-online-search-image-setting.search-limits = val;
+                    Logic.video-editor-online-search-image-update-config(Store.video-editor-online-search-image-setting);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            HorizontalLayout {
+                spacing: Theme.spacing;
+
+                proxy-select := Select {
+                    gain-focus-when-clicked: false;
+                    width: Theme.default-font-size * 8;
+                    values: ["Http", "Socks5"];
+                    current-value: {
+                        let setting = Store.video-editor-online-search-image-setting;
+                        if setting.http-proxy-url.is-empty && setting.socks5-proxy-url.is-empty {
+                            self.values[0]
+                        } else if setting.http-proxy-url.is-empty {
+                            self.values[1]
+                        } else {
+                            self.values[0]
+                        }
+                    };
+                }
+
+                if proxy-select.current-value == "Http": HorizontalLayout {
+                    spacing: Theme.spacing;
+
+                    LineInput {
+                        placeholder-text: "http://127.0.0.1:8080";
+                        text: Store.video-editor-online-search-image-setting.http-proxy-url;
+                        border-color: self.text != Store.video-editor-online-search-image-setting.http-proxy-url ? Theme.danger-color : self.default-border-color;
+
+                        accepted => {
+                            Store.video-editor-online-search-image-setting.http-proxy-url = self.text;
+                            Logic.video-editor-online-search-image-update-config(Store.video-editor-online-search-image-setting);
+                        }
+                    }
+                }
+
+                if proxy-select.current-value == "Socks5": HorizontalLayout {
+                    spacing: Theme.spacing;
+
+                    LineInput {
+                        placeholder-text: "socks5://127.0.0.1:1080";
+                        text: Store.video-editor-online-search-image-setting.socks5-proxy-url;
+                        border-color: self.text != Store.video-editor-online-search-image-setting.socks5-proxy-url ? Theme.danger-color : self.default-border-color;
+
+                        accepted => {
+                            Store.video-editor-online-search-image-setting.socks5-proxy-url = self.text;
+                            Logic.video-editor-online-search-image-update-config(Store.video-editor-online-search-image-setting);
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            HorizontalLayout {
+                alignment: space-between;
+                padding-right: Theme.padding * 2;
+
+                SettingDetailLabel {
+                    text: Logic.tr("Search Sources");
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    IconBtn {
+                        is-show-tip: true;
+                        icon: Icons.select-all-light;
+                        tip: Logic.tr("select all");
+
+                        clicked => {
+                            Logic.video-editor-online-search-image-select-all-sources();
+                        }
+                    }
+
+                    IconBtn {
+                        is-show-tip: true;
+                        icon: Icons.deselect-all-light;
+                        tip: Logic.tr("deselect all");
+
+                        clicked => {
+                            Logic.video-editor-online-search-image-deselect-all-sources();
+                        }
+                    }
+
+                    IconBtn {
+                        icon: Icons.refresh-light;
+                        icon-size: Theme.icon-size * 0.7;
+                        is-show-tip: true;
+                        tip: Logic.tr("refresh");
+
+                        clicked => {
+                            Logic.video-editor-online-search-image-refresh-sources-status();
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                height: Theme.icon-size * 15;
+                border-color: Theme.base-border-color;
+                border-width: Theme.default-border-width;
+
+                ScrollView {
+                    VerticalLayout {
+                        padding: Theme.default-border-width;
+
+                        for source[index] in Store.video-editor-online-search-image-setting.sources: SourceEntry {
+                            index: index;
+                            source: source;
+
+                            enabled-changed(source) => {
+                                Logic.video-editor-online-search-image-update-source(index, source);
+                            }
+                            proxy-type-changed(source) => {
+                                Logic.video-editor-online-search-image-update-source(index, source);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component AudioSourceEntry inherits Rectangle {
+    in property <int> index;
+    in-out property <OnlineSearchAudioSourceEntry> source;
+
+    callback enabled-changed(source: OnlineSearchAudioSourceEntry);
+    callback proxy-type-changed(value: OnlineSearchAudioSourceEntry);
+
+    height: hbox.preferred-height;
+    background: mod(index, 2) == 0 ? Theme.table-item-first : Theme.table-item-second;
+
+    hbox := HorizontalLayout {
+        padding: Theme.padding * 2;
+        padding-top: Theme.padding;
+        padding-bottom: Theme.padding;
+        spacing: Theme.spacing * 2;
+        alignment: LayoutAlignment.space-between;
+
+        VerticalLayout {
+            alignment: center;
+
+            CheckBtn {
+                text: source.name;
+                checked: source.enabled;
+
+                toggled => {
+                    source.enabled = !source.enabled;
+                    root.enabled-changed(source);
+                }
+            }
+        }
+
+        HorizontalLayout {
+            proxy-select := Select {
+                width: Theme.default-font-size * 6;
+                values: ["None", "Http", "Socks5"];
+                current-value: source.proxy-type;
+                gain-focus-when-clicked: false;
+                is-show-indicator: false;
+                background: root.background;
+                indicator-left-padding: 0;
+
+                selected(idx, value) => {
+                    source.proxy-type = value;
+                    root.proxy-type-changed(source);
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+
+                Rectangle {
+                    width: Theme.default-font-size;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    background: source.is-testing ? Theme.warning-color : (source.can-access ? Theme.success-color : Theme.danger-color);
+
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            Logic.video-editor-online-search-audio-refresh-source-status(index);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component OnlineSearchAudioSettingDialog inherits MovingDialog {
+    title: Logic.tr("Online Audio Search Settings");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Download Directory");
+            }
+
+            LineInput {
+                text <=> Store.video-editor-online-search-audio-setting.download-dir;
+                placeholder-text: Logic.tr("Select download directory");
+                icon: Icons.folder-open-light;
+                read-only: true;
+                is-show-icon: true;
+                border-color: Logic.dir-exist(self.text) ? self.default-border-color : Theme.danger-color;
+
+                clicked => {
+                    Logic.video-editor-online-search-audio-choose-save-dir();
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Search Limits Per Source");
+            }
+
+            LineInput {
+                input-type: number;
+                placeholder-text: "10";
+                text: Store.video-editor-online-search-audio-setting.search-limits;
+                border-color: self.text == Store.video-editor-online-search-audio-setting.search-limits ? self.default-border-color : Theme.danger-color;
+
+                accepted => {
+                    let val = self.text.to-float().round().max(1);
+                    self.text = val;
+                    Store.video-editor-online-search-audio-setting.search-limits = val;
+                    Logic.video-editor-online-search-audio-update-config(Store.video-editor-online-search-audio-setting);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Proxy") + " (" + Logic.tr("Shared with Image Search") + ")";
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing;
+
+                proxy-select := Select {
+                    gain-focus-when-clicked: false;
+                    width: Theme.default-font-size * 8;
+                    values: ["Http", "Socks5"];
+                    current-value: {
+                        let setting = Store.video-editor-online-search-image-setting;
+                        if setting.http-proxy-url.is-empty && setting.socks5-proxy-url.is-empty {
+                            self.values[0]
+                        } else if setting.http-proxy-url.is-empty {
+                            self.values[1]
+                        } else {
+                            self.values[0]
+                        }
+                    };
+                }
+
+                if proxy-select.current-value == "Http": HorizontalLayout {
+                    spacing: Theme.spacing;
+
+                    LineInput {
+                        placeholder-text: "http://127.0.0.1:8080";
+                        text: Store.video-editor-online-search-image-setting.http-proxy-url;
+                        border-color: self.text != Store.video-editor-online-search-image-setting.http-proxy-url ? Theme.danger-color : self.default-border-color;
+
+                        accepted => {
+                            Store.video-editor-online-search-image-setting.http-proxy-url = self.text;
+                            Logic.video-editor-online-search-image-update-config(Store.video-editor-online-search-image-setting);
+                        }
+                    }
+                }
+
+                if proxy-select.current-value == "Socks5": HorizontalLayout {
+                    spacing: Theme.spacing;
+
+                    LineInput {
+                        placeholder-text: "socks5://127.0.0.1:1080";
+                        text: Store.video-editor-online-search-image-setting.socks5-proxy-url;
+                        border-color: self.text != Store.video-editor-online-search-image-setting.socks5-proxy-url ? Theme.danger-color : self.default-border-color;
+
+                        accepted => {
+                            Store.video-editor-online-search-image-setting.socks5-proxy-url = self.text;
+                            Logic.video-editor-online-search-image-update-config(Store.video-editor-online-search-image-setting);
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            HorizontalLayout {
+                alignment: space-between;
+                padding-right: Theme.padding * 2;
+
+                SettingDetailLabel {
+                    text: Logic.tr("Search Sources");
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    IconBtn {
+                        is-show-tip: true;
+                        icon: Icons.select-all-light;
+                        tip: Logic.tr("select all");
+
+                        clicked => {
+                            Logic.video-editor-online-search-audio-select-all-sources();
+                        }
+                    }
+
+                    IconBtn {
+                        is-show-tip: true;
+                        icon: Icons.deselect-all-light;
+                        tip: Logic.tr("deselect all");
+
+                        clicked => {
+                            Logic.video-editor-online-search-audio-deselect-all-sources();
+                        }
+                    }
+
+                    IconBtn {
+                        icon: Icons.refresh-light;
+                        icon-size: Theme.icon-size * 0.7;
+                        is-show-tip: true;
+                        tip: Logic.tr("refresh");
+
+                        clicked => {
+                            Logic.video-editor-online-search-audio-refresh-sources-status();
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                height: Theme.icon-size * 10;
+                border-color: Theme.base-border-color;
+                border-width: Theme.default-border-width;
+
+                ScrollView {
+                    VerticalLayout {
+                        padding: Theme.default-border-width;
+
+                        for source[index] in Store.video-editor-online-search-audio-setting.sources: AudioSourceEntry {
+                            index: index;
+                            source: source;
+
+                            enabled-changed(source) => {
+                                Logic.video-editor-online-search-audio-update-source(index, source);
+                            }
+
+                            proxy-type-changed(source) => {
+                                Logic.video-editor-online-search-audio-update-source(index, source);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

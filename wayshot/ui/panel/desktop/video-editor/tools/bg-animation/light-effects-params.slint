@@ -1,0 +1,145 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+} from "../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+} from "../../../../../base/widgets.slint";
+
+export component LightEffectsParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Flare Count");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.light-effects.flare-count;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 5 : input-value;
+                Store.video-editor-bg-animation-config.light-effects.flare-count = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Size Range");
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 2;
+
+            LineInput {
+                input-type: InputType.decimal;
+                text: Store.video-editor-bg-animation-config.light-effects.min-size.to-fixed(1);
+
+                accepted => {
+                    Store.video-editor-bg-animation-config.light-effects.min-size = self.text.to-float();
+                }
+            }
+
+            Label {
+                text: "-";
+            }
+
+            LineInput {
+                input-type: InputType.decimal;
+                text: Store.video-editor-bg-animation-config.light-effects.max-size.to-fixed(1);
+
+                accepted => {
+                    Store.video-editor-bg-animation-config.light-effects.max-size = self.text.to-float();
+                }
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Movement Speed");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.light-effects.movement-speed.to-fixed(2);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.light-effects.movement-speed = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.light-effects.bg-color-r = c.red;
+            Store.video-editor-bg-animation-config.light-effects.bg-color-g = c.green;
+            Store.video-editor-bg-animation-config.light-effects.bg-color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Background Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.light-effects.bg-color-r,
+                Store.video-editor-bg-animation-config.light-effects.bg-color-g,
+                Store.video-editor-bg-animation-config.light-effects.bg-color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    SettingDetailSwitch {
+        icon: Icons.elliptical-light;
+        icon-size: Theme.icon-size * 0.8;
+        text: Logic.tr("Elliptical");
+        checked: Store.video-editor-bg-animation-config.light-effects.elliptical-enabled;
+        gain-focus-when-clicked: false;
+
+        toggled => {
+            Store.video-editor-bg-animation-config.light-effects.elliptical-enabled = !Store.video-editor-bg-animation-config.light-effects.elliptical-enabled;
+        }
+    }
+
+    SettingDetailSwitch {
+        icon: Icons.band-light;
+        text: Logic.tr("Bands");
+        checked: Store.video-editor-bg-animation-config.light-effects.bands-enabled;
+        gain-focus-when-clicked: false;
+
+        toggled => {
+            Store.video-editor-bg-animation-config.light-effects.bands-enabled = !Store.video-editor-bg-animation-config.light-effects.bands-enabled;
+        }
+    }
+}

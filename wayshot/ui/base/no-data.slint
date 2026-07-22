@@ -2,8 +2,12 @@ import { Theme, Icons } from "theme.slint";
 import { CenterLayout } from "./center-layout.slint";
 
 export component NoDataImg inherits Rectangle {
+    in-out property <string> text;
+    in-out property <length> font-size: Theme.default-font-size + 4px;
+    in-out property <color> font-color: Theme.primary-text-color;
     in-out property img-width <=> img.width;
-    in-out property text <=> txt.text;
+    in-out property image <=> img.source;
+    in-out property colorize <=> img.colorize;
 
     width: 300px;
     opacity: 0.5;
@@ -16,10 +20,11 @@ export component NoDataImg inherits Rectangle {
             }
         }
 
-        CenterLayout {
-            txt := Text {
-                color: Theme.primary-text-color;
-                font-size: Theme.default-font-size + 4px;
+        if !root.text.is-empty: CenterLayout {
+            Text {
+                text: root.text;
+                color: root.font-color;
+                font-size: root.font-size;
             }
         }
     }

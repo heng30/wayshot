@@ -245,7 +245,7 @@ component ControlPanel inherits HorizontalLayout {
                 vertical-scrollbar-policy: always-off;
 
                 for item[index] in Store.sources: Rectangle {
-                    background: ta.has-hover ? Theme.checked-background : (Math.mod(index, 2) != 0 ? Theme.table-item-first : Theme.table-item-second);
+                    background: Theme.table-item-background(index, false, ta.has-hover);
 
                     ta := TouchArea { }
 

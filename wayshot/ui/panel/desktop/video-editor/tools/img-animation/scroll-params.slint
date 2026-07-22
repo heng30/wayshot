@@ -1,0 +1,106 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+} from "../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    Slider,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ConfirmBtn,
+} from "../../../../../base/widgets.slint";
+
+export component ScrollParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Select Image");
+        }
+
+        LineInput {
+            read-only: true;
+            text: Store.video-editor-img-animation-config.scroll.image-path;
+            icon: Icons.file-open-light;
+            is-show-icon: true;
+            border-color: Logic.file-exist(Store.video-editor-img-animation-config.scroll.image-path) ? self.default-border-color : Theme.danger-color;
+
+            clicked => {
+                Logic.video-editor-img-animation-picker-image();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Scroll Speed");
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 2;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    scroll-speed-sl := Slider {
+                        minimum: 0.0;
+                        maximum: 1.0;
+                        value: Store.video-editor-img-animation-config.scroll.scroll-speed;
+                        height: self.indicator-size * 0.3;
+
+                        changed(value) => {
+                            Store.video-editor-img-animation-config.scroll.scroll-speed = value;
+                        }
+
+                        released(value) => {
+                            Store.video-editor-img-animation-config.scroll.scroll-speed = value;
+                        }
+                    }
+                }
+
+                Label {
+                    vertical-alignment: center;
+                    text: Store.video-editor-img-animation-config.scroll.scroll-speed.to-fixed(2);
+                }
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Start Pause (seconds)");
+        }
+
+        start-pause-li := LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-img-animation-config.scroll.start-pause;
+            vpadding: Theme.padding;
+
+            accepted => {
+                Store.video-editor-img-animation-config.scroll.start-pause = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("End Pause (seconds)");
+        }
+
+        end-pause-li := LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-img-animation-config.scroll.end-pause;
+            vpadding: Theme.padding;
+
+            accepted => {
+                Store.video-editor-img-animation-config.scroll.end-pause = self.text.to-float();
+            }
+        }
+    }
+}

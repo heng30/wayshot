@@ -1,0 +1,103 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    RotationGlobalFilterConfig,
+} from "../../../../def.slint";
+import {
+    Label,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+} from "../../../../../base/widgets.slint";
+import { Select } from "../../../../../base/select.slint";
+import { GlobalFilterType } from "export.slint";
+
+component RotationHeader inherits HorizontalLayout {
+    alignment: space-between;
+
+    private property <RotationGlobalFilterConfig> config <=> Store.video-editor-global-filter-config.rotation;
+
+    changed config => {
+        sw.checked = Store.video-editor-global-filter-config.rotation.enabled;
+    }
+
+    sw := SettingDetailSwitch {
+        text: Logic.tr("Enable Filter");
+        background: transparent;
+        icon: Icons.rotation-light;
+        spacing: Theme.spacing * 6;
+        checked: Store.video-editor-global-filter-config.rotation.enabled;
+        gain-focus-when-clicked: false;
+
+        toggled => {
+            Store.video-editor-global-filter-config.rotation.enabled = self.checked;
+            Logic.video-editor-global-filter-rotation-toggle-enable();
+        }
+    }
+}
+
+component RotationContent inherits Rectangle {
+    clip: true;
+    border-width: Theme.default-border-width;
+    border-color: Theme.base-border-color;
+    border-radius: Theme.border-radius;
+
+    VerticalLayout {
+        spacing: Theme.spacing * 4;
+        padding: Theme.padding * 4;
+
+        private property <RotationGlobalFilterConfig> config <=> Store.video-editor-global-filter-config.rotation;
+
+        changed config => {
+            select.current-index = rotation-to-index(Store.video-editor-global-filter-config.rotation.rotation);
+        }
+
+        function rotation-to-index(r: float) -> int {
+            if (r == 90.0) {
+                return 1;
+            }
+            if (r == 180.0) {
+                return 2;
+            }
+            if (r == -90.0) {
+                return 3;
+            }
+            return 0;
+        }
+
+        function update-config() {
+            Logic.video-editor-global-filter-rotation-update();
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                enabled: Store.video-editor-global-filter-config.rotation.enabled;
+                text: Logic.tr("Rotation");
+            }
+
+            select := Select {
+                enabled: Store.video-editor-global-filter-config.rotation.enabled;
+                values: ["0°", "90°", "180°", "-90°"];
+                current-index: rotation-to-index(Store.video-editor-global-filter-config.rotation.rotation);
+                current-value: self.values[self.current-index];
+                gain-focus-when-clicked: false;
+
+                selected(index, value) => {
+                    Store.video-editor-global-filter-config.rotation.rotation = [0.0, 90.0, 180.0, -90.0][index];
+                    update-config();
+                }
+            }
+        }
+    }
+}
+
+export component RotationPanel inherits VerticalLayout {
+    alignment: start;
+    spacing: Theme.spacing * 2;
+
+    RotationHeader { }
+
+    RotationContent { }
+}

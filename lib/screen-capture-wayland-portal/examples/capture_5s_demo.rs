@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wait_seconds = 5;
 
     capturer.capture_output_stream(config, move |data| {
-        // log::debug!("{:?} - {:.2?}", data.frame_index, data.elapse);
+        log::debug!("{:?} - {:.2?}", data.frame_index, data.elapse);
         *total_frames_mut = data.frame_index;
 
         if data.elapse > Duration::from_secs(wait_seconds) {

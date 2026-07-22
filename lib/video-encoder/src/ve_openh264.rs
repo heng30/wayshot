@@ -21,6 +21,7 @@ pub struct OpenH264VideoEncoder {
     encoder: Encoder,
     headers_cache: Option<Vec<u8>>,
     first_frame_encoded: bool,
+    keyframe_interval: u32,
 }
 
 impl OpenH264VideoEncoder {
@@ -53,6 +54,7 @@ impl OpenH264VideoEncoder {
             frame_index: 0,
             headers_cache: None,
             first_frame_encoded: false,
+            keyframe_interval: config.fps,
         })
     }
 
@@ -182,6 +184,78 @@ impl OpenH264VideoEncoder {
         log::warn!("Could not find both SPS and PPS in bitstream");
         None
     }
+
+    // Detect if the bitstream contains a keyframe (IDR frame) by checking for NAL type 5
+    fn is_keyframe_in_length_prefixed_bitstream(data: &[u8]) -> bool {
+        let mut i = 0;
+        while i + 4 <= data.len() {
+            // Read NAL unit length (big-endian)
+            let nal_length = ((data[i] as u32) << 24)
+                | ((data[i + 1] as u32) << 16)
+                | ((data[i + 2] as u32) << 8)
+                | (data[i + 3] as u32);
+
+            if i + 4 + nal_length as usize > data.len() {
+                break;
+            }
+
+            let nal_start = i + 4;
+            let nal_end = nal_start + nal_length as usize;
+            let nal_data = &data[nal_start..nal_end];
+
+            if !nal_data.is_empty() {
+                let nal_type = nal_data[0] & 0x1F;
+                // NAL type 5 = IDR frame (keyframe)
+                // NAL types 7 and 8 (SPS/PPS) are also present in keyframes
+                if nal_type == 5 || nal_type == 7 || nal_type == 8 {
+                    return true;
+                }
+            }
+
+            i = nal_end;
+        }
+        false
+    }
+
+    // Detect keyframe in Annex B format bitstream
+    fn is_keyframe_in_annexb(data: &[u8]) -> bool {
+        if data.len() < 4 {
+            return false;
+        }
+
+        let mut i = 0;
+        while i < data.len() {
+            // Look for start code: 0x00 0x00 0x01 or 0x00 0x00 0x00 0x01
+            let start_code_len = if data.get(i..i + 3) == Some(&[0x00, 0x00, 0x01]) {
+                3
+            } else if data.get(i..i + 4) == Some(&[0x00, 0x00, 0x00, 0x01]) {
+                4
+            } else {
+                i += 1;
+                continue;
+            };
+
+            // Move past the start code
+            i += start_code_len;
+
+            // Check if we have at least one byte for NAL header
+            if i >= data.len() {
+                break;
+            }
+
+            // Extract NAL unit type from the first byte of NAL header
+            let nal_header = data[i];
+            let nal_unit_type = nal_header & 0x1F;
+
+            // NAL unit type 5 = IDR frame (keyframe)
+            // NAL types 7 and 8 (SPS/PPS) are also present in keyframes
+            if nal_unit_type == 5 || nal_unit_type == 7 || nal_unit_type == 8 {
+                return true;
+            }
+        }
+
+        false
+    }
 }
 
 impl VideoEncoder for OpenH264VideoEncoder {
@@ -210,6 +284,14 @@ impl VideoEncoder for OpenH264VideoEncoder {
             self.convert_annex_b_to_length_prefixed(&bitstream_data)
         };
 
+        let is_keyframe = if self.frame_index == 0 {
+            true
+        } else if self.annexb {
+            Self::is_keyframe_in_annexb(&final_data)
+        } else {
+            Self::is_keyframe_in_length_prefixed_bitstream(&final_data)
+        };
+
         // If this is the first frame and we haven't cached headers yet, try to extract SPS/PPS
         if !self.annexb && !self.first_frame_encoded && self.headers_cache.is_none() {
             if let Some(headers) = self.extract_length_prefixed_sps_pps_from_bitstream(&final_data)
@@ -228,7 +310,11 @@ impl VideoEncoder for OpenH264VideoEncoder {
             self.first_frame_encoded = true;
         }
 
-        let encoded_frame = EncodedFrame::Frame((self.frame_index, final_data));
+        let encoded_frame = EncodedFrame::Frame {
+            timestamp: self.frame_index,
+            data: final_data,
+            is_keyframe,
+        };
         self.frame_index += 1;
         Ok(encoded_frame)
     }
@@ -291,7 +377,7 @@ impl VideoEncoder for OpenH264VideoEncoder {
         Ok(vec![])
     }
 
-    fn flush(self: Box<Self>, _cb: Box<dyn FnMut(Vec<u8>) + 'static>) -> Result<()> {
+    fn flush(self: Box<Self>, _cb: Box<dyn FnMut(Vec<u8>, bool) + 'static>) -> Result<()> {
         Ok(())
     }
 }

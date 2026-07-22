@@ -1,0 +1,9 @@
+<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg t="1771662867423" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="8047" xmlns:xlink="http://www.w3.org/1999/xlink" width="128" height="128">
+  <defs>
+    <mask id="hole-mask">
+      <rect x="0" y="0" width="1024" height="1024" fill="white"/>
+      <rect x="349.866667" y="349.866667" width="345.6" height="307.2" fill="black"/>
+    </mask>
+  </defs>
+  <path d="M874.666667 96h53.333333v832H874.666667V96z m-778.666667 0h55.466667v832h-55.466667V96zM330.666667 298.666667H746.666667v405.333333H298.666667V298.666667h32z" fill="#606266" p-id="8048" mask="url(#hole-mask)"/>
+</svg>

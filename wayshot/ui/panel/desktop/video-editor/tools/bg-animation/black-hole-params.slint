@@ -1,0 +1,256 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+} from "../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../base/widgets.slint";
+
+export component BlackHoleParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Center X");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.black-hole.center-x.to-fixed(2);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.black-hole.center-x = value.min(1.0).max(0.0);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Center Y");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.black-hole.center-y.to-fixed(2);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.black-hole.center-y = value.min(1.0).max(0.0);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Star Count");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.black-hole.star-count;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 200 : input-value;
+                Store.video-editor-bg-animation-config.black-hole.star-count = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Black Hole Size");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.black-hole.black-hole-size.to-fixed(1);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.black-hole.black-hole-size = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Event Horizon Offset");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.black-hole.event-horizon-offset.to-fixed(1);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.black-hole.event-horizon-offset = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Max Consume Frames");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.black-hole.max-consume-frames;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 50 : input-value;
+                Store.video-editor-bg-animation-config.black-hole.max-consume-frames = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Hue Speed");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.black-hole.hue-speed.to-fixed(1);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.black-hole.hue-speed = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Star Saturation");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.black-hole.star-saturation.to-fixed(2);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.black-hole.star-saturation = value.min(1.0).max(0.0);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Star Lightness");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.black-hole.star-lightness.to-fixed(2);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.black-hole.star-lightness = value.min(1.0).max(0.0);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Trail Alpha");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.black-hole.trail-alpha.to-fixed(2);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.black-hole.trail-alpha = value.min(1.0).max(0.01);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.black-hole.trail-color-r = c.red;
+            Store.video-editor-bg-animation-config.black-hole.trail-color-g = c.green;
+            Store.video-editor-bg-animation-config.black-hole.trail-color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Trail Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.black-hole.trail-color-r,
+                Store.video-editor-bg-animation-config.black-hole.trail-color-g,
+                Store.video-editor-bg-animation-config.black-hole.trail-color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.black-hole.bg-color-r = c.red;
+            Store.video-editor-bg-animation-config.black-hole.bg-color-g = c.green;
+            Store.video-editor-bg-animation-config.black-hole.bg-color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Background Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.black-hole.bg-color-r,
+                Store.video-editor-bg-animation-config.black-hole.bg-color-g,
+                Store.video-editor-bg-animation-config.black-hole.bg-color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+}

@@ -1,0 +1,182 @@
+import { ScrollView } from "std-widgets.slint";
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    VideoEditorSegmentMetadata,
+    MediaType,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    GroupBox,
+} from "../../../../base/widgets.slint";
+
+component MetadataRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> value;
+
+    spacing: Theme.padding;
+
+    Label {
+        text: root.label;
+        width: Theme.default-font-size * 7;
+        color: Theme.regular-text-color;
+        vertical-alignment: center;
+    }
+
+    Label {
+        text: root.value;
+        horizontal-alignment: left;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+}
+
+export component MetadataDialog inherits MovingDialog {
+    title: Logic.tr("Metadata");
+    icon: Icons.metadata-light;
+    header-width: Theme.moving-dialog-min-width;
+    body-height: min(root.header-width, vbox.preferred-height);
+    head-y: root.height * 0.1;
+    enable-resize: true;
+
+    private property <VideoEditorSegmentMetadata> meta: Logic.video-editor-selected-segment-metadata(Store.video-editor-segment-selected-flag);
+
+    ScrollView {
+        vbox := VerticalLayout {
+            spacing: Theme.spacing * 6;
+            padding: Theme.padding * 2;
+            padding-top: Theme.padding * 4;
+
+            GroupBox {
+                title: Logic.tr("Basic");
+                title-font-size: Theme.title5-font-size;
+                height: basic-vbox.preferred-height;
+
+                basic-vbox := VerticalLayout {
+                    alignment: start;
+                    padding: Theme.padding * 3;
+                    spacing: Theme.spacing * 2;
+
+                    MetadataRow {
+                        label: Logic.tr("filename");
+                        value: meta.filename;
+                    }
+
+                    MetadataRow {
+                        label: Logic.tr("file path");
+                        value: meta.file-path;
+                    }
+
+                    MetadataRow {
+                        label: Logic.tr("file size");
+                        value: meta.file-size;
+                    }
+
+                    if meta.media-type == MediaType.Video || meta.media-type == MediaType.Audio: MetadataRow {
+                        label: Logic.tr("duration");
+                        value: meta.duration;
+                    }
+
+                    MetadataRow {
+                        label: Logic.tr("format");
+                        value: meta.format;
+                    }
+
+                    if meta.media-type == MediaType.Video || meta.media-type == MediaType.Audio: MetadataRow {
+                        label: Logic.tr("bitrate");
+                        value: meta.bitrate;
+                    }
+                }
+            }
+
+            if meta.media-type == MediaType.Image: GroupBox {
+                title: Logic.tr("Image");
+                title-font-size: Theme.title5-font-size;
+                height: image-vbox.preferred-height;
+
+                image-vbox := VerticalLayout {
+                    alignment: start;
+                    padding: Theme.padding * 3;
+                    spacing: Theme.spacing * 2;
+
+                    MetadataRow {
+                        label: Logic.tr("resolution");
+                        value: meta.video-width + "x" + meta.video-height;
+                    }
+
+                    MetadataRow {
+                        label: Logic.tr("codec");
+                        value: meta.video-codec;
+                    }
+                }
+            }
+
+            if meta.media-type == MediaType.Video: GroupBox {
+                title: Logic.tr("Video");
+                title-font-size: Theme.title5-font-size;
+                height: video-vbox.preferred-height;
+
+                video-vbox := VerticalLayout {
+                    alignment: start;
+                    padding: Theme.padding * 3;
+                    spacing: Theme.spacing * 2;
+
+                    MetadataRow {
+                        label: Logic.tr("resolution");
+                        value: meta.video-width + "x" + meta.video-height;
+                    }
+
+                    MetadataRow {
+                        label: Logic.tr("frame rate");
+                        value: round(meta.video-fps * 10.0) / 10.0 + "fps";
+                    }
+
+                    MetadataRow {
+                        label: Logic.tr("codec");
+                        value: meta.video-codec;
+                    }
+
+                    MetadataRow {
+                        label: Logic.tr("language");
+                        value: meta.video-language;
+                    }
+                }
+            }
+
+            if meta.media-type == MediaType.Video || meta.media-type == MediaType.Audio: GroupBox {
+                title: Logic.tr("Audio");
+                title-font-size: Theme.title5-font-size;
+                height: audio-vbox.preferred-height;
+
+                audio-vbox := VerticalLayout {
+                    alignment: start;
+                    padding: Theme.padding * 3;
+                    spacing: Theme.spacing * 2;
+
+                    MetadataRow {
+                        label: Logic.tr("sample rate");
+                        value: meta.audio-sample-rate + "Hz";
+                    }
+
+                    MetadataRow {
+                        label: Logic.tr("channels");
+                        value: meta.audio-channels;
+                    }
+
+                    MetadataRow {
+                        label: Logic.tr("codec");
+                        value: meta.audio-codec;
+                    }
+
+                    if meta.media-type == MediaType.Video: MetadataRow {
+                        label: Logic.tr("language");
+                        value: meta.audio-language;
+                    }
+                }
+            }
+        }
+    }
+}

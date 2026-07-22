@@ -1,0 +1,485 @@
+import { ScrollView } from "std-widgets.slint";
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+} from "../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    NoMessageImg,
+    Paragraph,
+    ParagraphEntry,
+} from "../../../base/widgets.slint";
+
+global HelpImage {
+    out property <image> home: Store.setting-preference.language == "cn" ? @image-url("../../../images/video-editor/home.png") : @image-url("../../../images/video-editor/home-en.png");
+    out property <image> left-panel: Store.setting-preference.language == "cn" ? @image-url("../../../images/video-editor/left-panel.png") : @image-url("../../../images/video-editor/left-panel-en.png");
+
+    out property <image> right-panel: Store.setting-preference.language == "cn" ? @image-url("../../../images/video-editor/right-panel.png") : @image-url("../../../images/video-editor/right-panel-en.png");
+    out property <image> filter-detail: Store.setting-preference.language == "cn" ? @image-url("../../../images/video-editor/filter-detail.png") : @image-url("../../../images/video-editor/filter-detail-en.png");
+
+    out property <image> text-track-btn: @image-url("../../../images/video-editor/text-track-btn.png");
+
+    out property <image> preview: @image-url("../../../images/video-editor/preview.png");
+    out property <image> track: @image-url("../../../images/video-editor/track.png");
+    out property <image> cross-track: @image-url("../../../images/video-editor/cross-track.png");
+
+    out property <image> record-audio: Store.setting-preference.language == "cn" ? @image-url("../../../images/video-editor/record-audio.png") : @image-url("../../../images/video-editor/record-audio-en.png");
+    out property <image> transcribe: @image-url("../../../images/video-editor/transcribe.png");
+}
+
+global HelpTranslation {
+    in-out property <length> width: 300px;
+
+    out property <[ParagraphEntry]> cn:
+    [
+        {
+            title: "简介",
+            title-font-size: Theme.title1-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "本视频编辑器是一款基于 Rust 语言开发的专业级视频编辑工具，采用 Slint 框架构建用户界面，后端使用 FFmpeg 进行视频处理。支持多种轨道类型、丰富的滤镜效果、关键帧动画以及灵活的导出选项。",
+            ],
+        },
+        {
+            title: "界面布局",
+            picture: HelpImage.home,
+            picture-size: root.width,
+            title-font-size: Theme.title1-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "编辑器界面分为四个主要区域：资源和导出面板（左侧），预览面板（中间），滤镜和样式面板（右侧）和视频轨道区域（下方）。",
+            ],
+        },
+        {
+            title: "左侧面板",
+            picture: HelpImage.left-panel,
+            picture-size: clamp(HelpImage.left-panel.width * 1px,  300px, root.width),
+            title-font-size: Theme.title1-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "主要包含：播放列表、媒体库和导出配置",
+            ],
+        },
+        {
+            title: "播放列表",
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. 项目导入的视频、音频、图片和字幕等文件。这些文件跟随项目。",
+                "2. 点击左上角的导入按钮，能够导入文件。",
+                "3. 双击可以预览列表条目。",
+                "4. 拖拽视频到轨道区域，进行视频编辑。"
+            ],
+        },
+        {
+            title: "媒体库",
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. 导入的视频、音频、图片和字幕等文件。这些文件可以在不同的项目共享。",
+                "2. 双击可以预览列表条目。",
+                "3. 点击左上角的导入按钮，能够导入文件。",
+                "4. 拖拽视频到轨道区域，进行视频编辑。"
+            ],
+        },
+        {
+            title: "导出配置",
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. 可以导出视频、音频和字幕。",
+                "2. 导出视频会比较消耗内存，建议启用'低内存模式'。速度会稍慢，但是能够大幅减少内存占用。",
+                "3. 导出配置下方是导出列表，能够查看实时导出进度。",
+            ]
+        },
+        {
+            title: "右侧面板",
+            picture: HelpImage.right-panel,
+            picture-size: clamp(HelpImage.right-panel.width * 1px,  300px, root.width),
+            title-font-size: Theme.title1-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "主要包含：滤镜、字幕编辑和文本编辑",
+            ],
+        },
+        {
+            title: "添加滤镜",
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. 滤镜包含：视频滤镜，图片滤镜和音频滤镜。",
+                "2. 点击顶部的添加按钮，能够添加滤镜。",
+                "3. 点击不同的轨道片段，会自动切换到不同类型的滤镜。",
+            ],
+        },
+        {
+            title: "关键帧",
+            picture: HelpImage.filter-detail,
+            picture-size: clamp(HelpImage.filter-detail.width * 1px,  300px, root.width),
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. 参数右侧的菱形为关键帧符号。",
+                "2. 移动时间轴指针，点击关键帧按钮，就能够添加一个关键帧。然后再次移动时间轴指针，修改参数，点击关键帧按钮。完成添加关键帧流程。"
+            ],
+        },
+        {
+            title: "字幕轨道",
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. 新建字幕轨道。移动时间轴指针，调整字幕开始/结束时间。点击右侧定位按钮，就能够设置对应的时间。添加上字幕，并且点击新建按钮，就能够完成字幕添加。",
+                "2. 点击轨道中的字幕片段，会自动切换到编辑模式。能够修改字幕。"
+            ],
+        },
+        {
+            title: "添加文本轨道",
+            picture: HelpImage.text-track-btn,
+            picture-size: clamp(HelpImage.text-track-btn.width * 1px,  300px, root.width),
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. 如果没有选中字幕轨道，点击中间的添加文本片段。会添加字幕轨道和片段。",
+                "2. 能够编辑文本内容和样式。同时支持关键帧。",
+            ],
+        },
+        {
+            title: "预览",
+            picture: HelpImage.preview,
+            picture-size: clamp(HelpImage.preview.width * 1px,  300px, root.width),
+            title-font-size: Theme.title1-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. 主要包含：预览界面、时间轴、时间条、轨道音频波形和播放控制按钮。",
+                "2. 可以点击时间轴，快速跳转。",
+                "3. 左下角输入具体时间，能够精确控制播放时间。",
+                "4. 中间控制按钮区域：跳转到上一个轨道片段，倒退5秒，播放/暂停按钮，快进5秒，跳转到下一个轨道片段，预览音量控制和预览网格。"
+            ],
+        },
+        {
+            title: "轨道区域",
+            picture: HelpImage.track,
+            picture-size: clamp(HelpImage.track.width * 1px,  300px, root.width),
+            title-font-size: Theme.title1-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. 支持的轨道类型：视频轨道，图片轨道，音频轨道，文本轨道和字幕轨道。",
+                "2. 点击左上方的添加按钮能够添加空轨道。",
+                "3. 拖拽播放列表或媒体库中的文件到左侧轨道头部分能够添加文件到新轨道。",
+                "4. 拖拽播放列表或媒体库中的文件到现有轨道，能够添加文件到现有轨道。注意文件只能添加到同类型轨道。",
+            ],
+        },
+        {
+            title: "跨轨道模式",
+            picture: HelpImage.cross-track,
+            picture-size: clamp(HelpImage.cross-track.width * 1px,  300px, root.width),
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. 向上或向下拖拽一个轨道片段。如果拖拽距离大于轨道高度，会进行跨轨道模式，此时能够随意拖动轨道片段到任何兼容的轨道内。",
+                "2. 没有进入跨轨道模式，是无法改变同轨道中片段的顺序。可以通过剪切和复制移动。但是操作很繁琐。进入跨轨道模式后，就能通过拖拽快速移动片段。",
+            ],
+        },
+    ];
+
+    out property <[ParagraphEntry]> en:
+    [
+        {
+            title: "Introduction",
+            title-font-size: Theme.title1-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "This video editor is a professional-grade tool developed in Rust, using the Slint framework for UI and FFmpeg for video processing. It supports multiple track types, rich filter effects, keyframe animations, and flexible export options.",
+            ],
+        },
+        {
+            title: "Interface Layout",
+            picture: HelpImage.home,
+            picture-size: root.width,
+            title-font-size: Theme.title1-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "The editor interface consists of four main areas: Resource and Export panel (left), Preview panel (center), Filter and Style panel (right), and Video Track area (bottom).",
+            ],
+        },
+        {
+            title: "Left Panel",
+            picture: HelpImage.left-panel,
+            picture-size: clamp(HelpImage.left-panel.width * 1px,  300px, root.width),
+            title-font-size: Theme.title1-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "Mainly contains: Playlist, Media Library, and Export Configuration",
+            ],
+        },
+        {
+            title: "Playlist",
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. Video, audio, image, and subtitle files imported into the project. These files are associated with the project.",
+                "2. Click the import button in the top-left corner to import files.",
+                "3. Double-click to preview a list entry.",
+                "4. Drag the video to the track area to edit it."
+            ],
+        },
+        {
+            title: "Media Library",
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. Imported video, audio, image, and subtitle files. These files can be shared across different projects.",
+                "2. Double-click to preview a list entry.",
+                "3. Click the import button in the top-left corner to import files.",
+                "4. Drag the video to the track area to edit it."
+            ],
+        },
+        {
+            title: "Export Configuration",
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. Can export video, audio, and subtitles.",
+                "2. Video export consumes significant memory. It is recommended to enable 'Low Memory Mode'. It will be slightly slower but can significantly reduce memory usage.",
+                "3. Below the export configuration is the export list, showing real-time export progress.",
+            ]
+        },
+        {
+            title: "Right Panel",
+            picture: HelpImage.right-panel,
+            picture-size: clamp(HelpImage.right-panel.width * 1px,  300px, root.width),
+            title-font-size: Theme.title1-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "Mainly contains: Filters, Subtitle Editing, and Text Editing",
+            ],
+        },
+        {
+            title: "Add Filter",
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. Filters include: video filters, image filters, and audio filters.",
+                "2. Click the add button at the top to add a filter.",
+                "3. Clicking different track clips automatically switches to different filter types.",
+            ],
+        },
+        {
+            title: "Keyframes",
+            picture: HelpImage.filter-detail,
+            picture-size: clamp(HelpImage.filter-detail.width * 1px,  300px, root.width),
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. The diamond shape on the right side of parameters is the keyframe symbol.",
+                "2. Move the timeline pointer, click the keyframe button to add a keyframe. Then move the pointer again, modify the parameter, and click the keyframe button. This completes the keyframe addition process."
+            ],
+        },
+        {
+            title: "Subtitle Track",
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. Create a new subtitle track. Move the timeline pointer to adjust subtitle start/end time. Click the positioning button on the right to set the corresponding time. Add the subtitle text and click the create button to complete subtitle addition.",
+                "2. Click a subtitle clip in the track to automatically switch to edit mode. You can modify the subtitle."
+            ],
+        },
+        {
+            title: "Add Text Track",
+            picture: HelpImage.text-track-btn,
+            picture-size: clamp(HelpImage.text-track-btn.width * 1px,  300px, root.width),
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. If no subtitle track is selected, click the add text clip button in the center. This will add a subtitle track and clip.",
+                "2. You can edit text content and style. Also supports keyframes.",
+            ],
+        },
+        {
+            title: "Preview",
+            picture: HelpImage.preview,
+            picture-size: clamp(HelpImage.preview.width * 1px,  300px, root.width),
+            title-font-size: Theme.title1-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. Mainly contains: preview interface, timeline, time bar, track audio waveform, and playback control buttons.",
+                "2. Click on the timeline to quickly jump to a position.",
+                "3. Enter specific time in the bottom-left corner for precise playback control.",
+                "4. Center control button area: jump to previous track clip, rewind 5 seconds, play/pause button, fast forward 5 seconds, jump to next track clip, preview volume control, and preview grid."
+            ],
+        },
+        {
+            title: "Track Area",
+            picture: HelpImage.track,
+            picture-size: clamp(HelpImage.track.width * 1px,  300px, root.width),
+            title-font-size: Theme.title1-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. Supported track types: video track, image track, audio track, text track, and subtitle track.",
+                "2. Click the add button in the top-left to add an empty track.",
+                "3. Drag files from playlist or media library to the track header on the left to add files to a new track.",
+                "4. Drag files from playlist or media library to an existing track to add files to that track. Note: files can only be added to tracks of the same type.",
+            ],
+        },
+        {
+            title: "Cross-Track Mode",
+            picture: HelpImage.cross-track,
+            picture-size: clamp(HelpImage.cross-track.width * 1px,  300px, root.width),
+            title-font-size: Theme.title2-font-size,
+            content-font-size: Theme.title3-font-size,
+            contents: [
+                "1. Drag a track clip up or down. If the drag distance exceeds the track height, cross-track mode is activated, allowing you to freely move the clip to any compatible track.",
+                "2. Without entering cross-track mode, you cannot change the order of clips within the same track. You can use cut and copy to move them, but this is cumbersome. After entering cross-track mode, you can quickly move clips by dragging.",
+            ],
+        },
+    ];
+}
+
+component ShortcutsTable inherits VerticalLayout {
+    private property <[{ shortcut: string, detail: string }]> shortcuts: [
+        { shortcut: "←", detail: Logic.tr("Step back one frame") },
+        { shortcut: "→", detail: Logic.tr("Step forward one frame") },
+        { shortcut: "↑", detail: Logic.tr("Increase preview volume") },
+        { shortcut: "↓", detail: Logic.tr("Decrease preview volume") },
+        { shortcut: "L or D", detail: Logic.tr("Toggle track link") },
+        { shortcut: "M", detail: Logic.tr("Merge segments") },
+        { shortcut: "N", detail: Logic.tr("Snap to previous segment") },
+        { shortcut: "P", detail: Logic.tr("Snap to playhead") },
+        { shortcut: "S", detail: Logic.tr("Split segment") },
+        { shortcut: "X", detail: Logic.tr("Remove linked segments") },
+        { shortcut: "Home", detail: Logic.tr("Jump to beginning") },
+        { shortcut: "End", detail: Logic.tr("Jump to end") },
+        { shortcut: "Space", detail: Logic.tr("Play/Pause") },
+        { shortcut: "Delete", detail: Logic.tr("Delete selected segment") },
+        { shortcut: "Escape", detail: Logic.tr("Cancel drag") },
+        { shortcut: "Ctrl+A", detail: Logic.tr("Select all segments") },
+        { shortcut: "Ctrl+B", detail: Logic.tr("Backup project") },
+        { shortcut: "Ctrl+C", detail: Logic.tr("Copy") },
+        { shortcut: "Ctrl+F", detail: Logic.tr("Search") },
+        { shortcut: "Ctrl+I", detail: Logic.tr("Import file") },
+        { shortcut: "Ctrl+N", detail: Logic.tr("New project") },
+        { shortcut: "Ctrl+O", detail: Logic.tr("Open project") },
+        { shortcut: "Ctrl+Q", detail: Logic.tr("Quit") },
+        { shortcut: "Ctrl+S", detail: Logic.tr("Save project") },
+        { shortcut: "Ctrl+W", detail: Logic.tr("Close project") },
+        { shortcut: "Ctrl+X", detail: Logic.tr("Cut") },
+        { shortcut: "Ctrl+Z", detail: Logic.tr("Undo") },
+        { shortcut: "Ctrl+V", detail: Logic.tr("Paste") },
+        { shortcut: "Ctrl+Shift+A", detail: Logic.tr("Append to track") },
+        { shortcut: "Ctrl+Shift+B", detail: Logic.tr("Text to speech") },
+        { shortcut: "Ctrl+Shift+C", detail: Logic.tr("Code image") },
+        { shortcut: "Ctrl+Shift+D", detail: Logic.tr("Record audio") },
+        { shortcut: "Ctrl+Shift+E", detail: Logic.tr("Background remover") },
+        { shortcut: "Ctrl+Shift+F", detail: Logic.tr("Preferences") },
+        { shortcut: "Ctrl+Shift+G", detail: Logic.tr("Global filter") },
+        { shortcut: "Ctrl+Shift+H", detail: Logic.tr("OCR") },
+        { shortcut: "Ctrl+Shift+I", detail: Logic.tr("Image animation") },
+        { shortcut: "Ctrl+Shift+J", detail: Logic.tr("Pure color image") },
+        { shortcut: "Ctrl+Shift+K", detail: Logic.tr("Speaker diarization") },
+        { shortcut: "Ctrl+Shift+L", detail: Logic.tr("Stem splitter") },
+        { shortcut: "Ctrl+Shift+M", detail: Logic.tr("Metadata") },
+        { shortcut: "Ctrl+Shift+N", detail: Logic.tr("Background animation") },
+        { shortcut: "Ctrl+Shift+P", detail: Logic.tr("Preview settings") },
+        { shortcut: "Ctrl+Shift+Q", detail: Logic.tr("Clear vision") },
+        { shortcut: "Ctrl+Shift+R", detail: Logic.tr("Recent projects") },
+        { shortcut: "Ctrl+Shift+S", detail: Logic.tr("Save as") },
+        { shortcut: "Ctrl+Shift+T", detail: Logic.tr("Transcribe audio") },
+        { shortcut: "Ctrl+Shift+U", detail: Logic.tr("Chapter summary") },
+        { shortcut: "Ctrl+Shift+V", detail: Logic.tr("Subtitle remover") },
+        { shortcut: "Ctrl+Shift+W", detail: Logic.tr("Watermark remover") },
+        { shortcut: "Ctrl+Shift+Z", detail: Logic.tr("Redo") },
+        { shortcut: "Ctrl+Shift+X", detail: Logic.tr("Cutout") },
+        { shortcut: "Ctrl+Shift+Y", detail: Logic.tr("Subtitle translation") },
+        { shortcut: "Ctrl+Alt+E", detail: Logic.tr("Memo") },
+        { shortcut: "Ctrl+Alt+F", detail: Logic.tr("Deep filter") },
+        { shortcut: "Ctrl+Alt+G", detail: Logic.tr("Music generation") },
+        { shortcut: "Ctrl+Alt+M", detail: Logic.tr("Smart Mix") },
+        { shortcut: "Ctrl+Alt+S", detail: Logic.tr("Similar video segment") },
+        { shortcut: "Alt+1", detail: Logic.tr("Switch to playlist") },
+        { shortcut: "Alt+2", detail: Logic.tr("Switch to media library") },
+        { shortcut: "Alt+3", detail: Logic.tr("Switch to online search") },
+        { shortcut: "Alt+4", detail: Logic.tr("Switch to export") },
+    ];
+
+    for entry[index] in shortcuts: Rectangle {
+        background: Math.mod(index, 2) == 0 ? Theme.hover-background : Colors.transparent;
+        border-color: Theme.base-border-color;
+        border-width: Theme.default-border-width;
+
+        HorizontalLayout {
+            padding: Theme.padding * 2;
+
+            Label {
+                width: 35%;
+                text: entry.shortcut;
+                font-size: Theme.title5-font-size;
+                overflow: elide;
+            }
+
+            Label {
+                text: entry.detail;
+                font-size: Theme.title5-font-size;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+component HelpContent inherits ScrollView {
+    viewport-height: vbox.preferred-height;
+    viewport-width: vbox.preferred-width;
+
+    init => {
+        HelpTranslation.width = vbox.width - vbox.padding * 2;
+    }
+
+    changed width => {
+        HelpTranslation.width = vbox.width - vbox.padding * 2;
+    }
+
+    private property <[ParagraphEntry]> entries: Store.is-cn ? HelpTranslation.cn : HelpTranslation.en;
+
+    vbox := VerticalLayout {
+        width: root.width;
+        spacing: Theme.spacing * 8;
+        padding: Theme.spacing * 4;
+
+        VerticalLayout {
+            spacing: Theme.spacing * 4;
+            for entry in root.entries: Paragraph {
+                entry: entry;
+                width: parent.width - parent.padding * 2;
+                picture-size: entry.picture-size;
+                is-picture-before-contents: entry.is-picture-before-contents;
+                title-font-size: entry.title-font-size;
+                content-font-size: entry.content-font-size;
+            }
+        }
+
+        VerticalLayout {
+            spacing: Theme.spacing * 4;
+
+            Label {
+                text: Logic.tr("Shortcuts");
+                font-size: Theme.title1-font-size;
+                font-weight: Theme.bold-font-weight;
+            }
+
+            ShortcutsTable { }
+        }
+    }
+}
+
+export component HelpDialog inherits MovingDialog {
+    title: Logic.tr("Help");
+    icon: Icons.help-light;
+    header-width: Theme.moving-dialog-min-width;
+    body-height: root.header-width;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+
+    HelpContent { }
+}

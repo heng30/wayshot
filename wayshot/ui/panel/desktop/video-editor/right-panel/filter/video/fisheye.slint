@@ -1,0 +1,328 @@
+import {
+    Theme,
+    Logic,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+    Icons,
+} from "../../../../../def.slint";
+import {
+    ClickAndEditLabel,
+    LineInput,
+    Slider,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    IconBtn,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    FisheyeDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component Fisheye inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <FisheyeDetail> config: VEFilter.from-fisheye-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: FisheyeDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "fisheye") {
+            self.config = VEFilter.from-fisheye-json(selected-filter.detail);
+            center-x-sl.value = self.config.center-x;
+            center-y-sl.value = self.config.center-y;
+            strength-sl.value = self.config.strength;
+            radius-input.text = self.config.radius;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            HorizontalLayout {
+                spacing: Theme.spacing;
+                alignment: space-between;
+
+                SettingDetailLabel {
+                    text: Logic.tr("Center X");
+                    enabled: selected-filter.enabled;
+                }
+
+                IconBtn {
+                    icon: Icons.refresh-light;
+                    icon-size: Theme.icon-size * Theme.golden-ratio;
+                    enabled: selected-filter.enabled;
+
+                    clicked => {
+                        config.center-x = 0.5;
+                        apply(index, config);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        center-x-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.center-x;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.center-x = value;
+                            }
+
+                            released(value) => {
+                                config.center-x = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.center-x.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.center-x = text.to-float().clamp(0, 1);
+                            center-x-sl.value = config.center-x;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "center_x", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "center_x", VEFilter.make-float-value(config.center-x));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            HorizontalLayout {
+                spacing: Theme.spacing;
+                alignment: space-between;
+
+                SettingDetailLabel {
+                    text: Logic.tr("Center Y");
+                    enabled: selected-filter.enabled;
+                }
+
+                IconBtn {
+                    icon: Icons.refresh-light;
+                    icon-size: Theme.icon-size * Theme.golden-ratio;
+                    enabled: selected-filter.enabled;
+
+                    clicked => {
+                        config.center-y = 0.5;
+                        apply(index, config);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+                        center-y-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.center-y;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.center-y = value;
+                            }
+
+                            released(value) => {
+                                config.center-y = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.center-y.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.center-y = text.to-float().clamp(0, 1);
+                            center-y-sl.value = config.center-y;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "center_y", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "center_y", VEFilter.make-float-value(config.center-y));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            HorizontalLayout {
+                spacing: Theme.spacing;
+                alignment: space-between;
+
+                SettingDetailLabel {
+                    text: Logic.tr("Strength");
+                    enabled: selected-filter.enabled;
+                }
+
+                IconBtn {
+                    icon: Icons.refresh-light;
+                    icon-size: Theme.icon-size * Theme.golden-ratio;
+                    enabled: selected-filter.enabled;
+
+                    clicked => {
+                        config.strength = 0.0;
+                        apply(index, config);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+                        strength-sl := Slider {
+                            minimum: -1.0;
+                            maximum: 2.0;
+                            value: config.strength;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.strength = value;
+                            }
+
+                            released(value) => {
+                                config.strength = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.strength.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.strength = text.to-float().clamp(-3, 3);
+                            strength-sl.value = config.strength;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "strength", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "strength", VEFilter.make-float-value(config.strength));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Radius (pixel value)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Radius");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                radius-input := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.number;
+                    text: config.radius;
+
+                    accepted => {
+                        config.radius = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "radius", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "radius", VEFilter.make-float-value(config.radius));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}
+

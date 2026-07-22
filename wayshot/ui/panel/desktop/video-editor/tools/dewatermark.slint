@@ -1,0 +1,444 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    DownloaderState,
+    VideoEditorDewatermarkConfig,
+    Util,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    LineInput,
+    IconBtn,
+    TextBtnWithoutIcon,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ProgressBar,
+    NoMessageImg,
+    Select,
+    NoDataImg,
+    Skeleton,
+    SkeletonType,
+} from "../../../../base/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+
+component LeftHeader inherits HorizontalLayout {
+    alignment: end;
+    spacing: Theme.spacing * 8;
+
+    private property <bool> is-processing: Store.video-editor-dewatermark-is-processing;
+    private property <bool> has-processed-image: Store.video-editor-dewatermark-processed-image.width > 0;
+    private property <bool> has-imported-image: Store.video-editor-dewatermark-image.width > 0;
+    private property <bool> is-brush-mode <=> Store.video-editor-dewatermark-is-brush-mode;
+
+    rec := Rectangle {
+        width: hbox.preferred-width;
+        height: hbox.preferred-height;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("import");
+                    icon: Icons.import2-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        is-brush-mode = true;
+                        Logic.video-editor-dewatermark-import-image();
+                    }
+                }
+
+                IconBtn {
+                    enabled: !is-processing && has-imported-image;
+                    is-show-tip: true;
+                    tip: is-brush-mode && has-imported-image ? Logic.tr("exit brush") : Logic.tr("enter brush");
+                    icon: is-brush-mode && has-imported-image ? Icons.brush-fill : Icons.brush-light;
+                    colorize: is-brush-mode && has-imported-image ? Theme.thirdly-brand-color : Theme.icon-color;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        root.is-brush-mode = !root.is-brush-mode;
+                    }
+                }
+
+                IconBtn {
+                    enabled: !is-processing && has-imported-image;
+                    is-show-tip: true;
+                    tip: Logic.tr("process");
+                    icon: Icons.image-processing-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        is-brush-mode = false;
+                        Logic.video-editor-dewatermark-process-image();
+                    }
+                }
+
+                IconBtn {
+                    enabled: has-processed-image;
+                    is-show-tip: true;
+                    tip: Logic.tr("export");
+                    icon: Icons.export-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-dewatermark-export-to-playlist();
+                    }
+                }
+
+                if is-brush-mode && has-imported-image: IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("undo");
+                    icon: Icons.undo-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-dewatermark-undo();
+                    }
+                }
+
+                if is-brush-mode && has-imported-image: IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("redo");
+                    icon: Icons.redo-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-dewatermark-redo();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("remove all");
+                    icon: Icons.clear-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        is-brush-mode = false;
+                        Logic.video-editor-dewatermark-remove-all-images();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("setting");
+                    icon: Icons.setting-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Store.video-editor-is-show-dewatermark-setting-dialog = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+component ProcessPanel inherits VerticalLayout {
+    spacing: Theme.spacing * 2;
+
+    private property <bool> is-painting;
+    private property <image> original-image: Store.video-editor-dewatermark-image;
+    private property <image> processed-image: Store.video-editor-dewatermark-processed-image;
+    private property <image> mask-overlay: Store.video-editor-dewatermark-mask-overlay;
+    private property <bool> is-processing <=> Store.video-editor-dewatermark-is-processing;
+    private property <bool> is-brush-mode <=> Store.video-editor-dewatermark-is-brush-mode;
+
+    // Timer: refresh overlay every 100ms while painting
+    overlay-timer := Timer {
+        interval: 100ms;
+        running: is-painting;
+
+        triggered() => {
+            Logic.video-editor-dewatermark-overlay-refresh();
+        }
+    }
+
+    // Compute contain-fit image rect inside the panel
+    pure function contain-scale(panel-w: length, panel-h: length, img-w: int, img-h: int) -> float {
+        if (img-w <= 0 || img-h <= 0) {
+            return 1.0;
+        }
+        let sx = panel-w / 1px / img-w;
+        let sy = panel-h / 1px / img-h;
+        return sx < sy ? sx : sy;
+    }
+
+    pure function displayed-w(panel-w: length, panel-h: length, img-w: int, img-h: int) -> length {
+        contain-scale(panel-w, panel-h, img-w, img-h) * img-w * 1px;
+    }
+
+    pure function displayed-h(panel-w: length, panel-h: length, img-w: int, img-h: int) -> length {
+        contain-scale(panel-w, panel-h, img-w, img-h) * img-h * 1px;
+    }
+
+    pure function offset-x(panel-w: length, panel-h: length, img-w: int, img-h: int) -> length {
+        (panel-w - displayed-w(panel-w, panel-h, img-w, img-h)) / 2;
+    }
+
+    pure function offset-y(panel-w: length, panel-h: length, img-w: int, img-h: int) -> length {
+        (panel-h - displayed-h(panel-w, panel-h, img-w, img-h)) / 2;
+    }
+
+    Rectangle {
+        img-rect := Rectangle {
+            clip: true;
+            border-radius: Theme.border-radius;
+            border-width: Theme.default-border-width;
+            border-color: Theme.base-border-color;
+            background: Theme.secondary-background;
+
+            if original-image.width > 0: Image {
+                x: offset-x(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                y: offset-y(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                width: displayed-w(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                height: displayed-h(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                source: original-image;
+                image-fit: fill;
+            }
+
+            // Semi-transparent mask overlay
+            if mask-overlay.width > 0: Image {
+                x: offset-x(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                y: offset-y(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                width: displayed-w(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                height: displayed-h(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                source: mask-overlay;
+                image-fit: fill;
+            }
+
+            // Brush cursor circle
+            if is-brush-mode && !is-processing && original-image.width > 0 && draw-ta.has-hover: Rectangle {
+                private property <float> scale: contain-scale(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                private property <length> brush-diameter: Store.video-editor-dewatermark-brush-size * scale * 1px;
+
+                x: draw-ta.mouse-x - brush-diameter / 2;
+                y: draw-ta.mouse-y - brush-diameter / 2;
+                width: brush-diameter;
+                height: brush-diameter;
+                border-radius: self.width / 2;
+                border-width: 2px;
+                border-color: #ffffff80;
+                background: transparent;
+            }
+
+            if original-image.width == 0: NoDataImg {
+                text: Logic.tr("Click Import");
+                image: Icons.no-image-fill;
+                font-size: Theme.title3-font-size;
+                colorize: Theme.primary-text-color;
+            }
+
+            draw-ta := TouchArea {
+                mouse-cursor: (original-image.width > 0 && is-brush-mode && !is-processing) ? crosshair : (original-image.width == 0 ? pointer : default);
+
+                pointer-event(event) => {
+                    if (is-brush-mode && original-image.width > 0 && event.button == PointerEventButton.left) {
+                        if (event.kind == PointerEventKind.down) {
+                            let img-x = (self.mouse-x - offset-x(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 1px / contain-scale(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                            let img-y = (self.mouse-y - offset-y(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 1px / contain-scale(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                            is-painting = true;
+                            Logic.video-editor-dewatermark-brush-start(img-x, img-y);
+                        } else if (event.kind == PointerEventKind.up) {
+                            is-painting = false;
+                            Logic.video-editor-dewatermark-brush-move(-1, -1);
+                        }
+                    }
+                }
+
+                moved => {
+                    if (original-image.width > 0 && self.pressed && is-brush-mode) {
+                        let img-x = (self.mouse-x - offset-x(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 1px / contain-scale(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                        let img-y = (self.mouse-y - offset-y(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 1px / contain-scale(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                        Logic.video-editor-dewatermark-brush-move(img-x, img-y);
+                    }
+                }
+
+                scroll-event(event) => {
+                    if (is-brush-mode) {
+                        Logic.video-editor-dewatermark-brush-size-change(-event.delta-y / 1px);
+                    }
+                    return EventResult.accept;
+                }
+
+                clicked => {
+                    if (original-image.width == 0) {
+                        is-brush-mode = true;
+                        Logic.video-editor-dewatermark-import-image();
+                    }
+                }
+            }
+        }
+
+        if !is-processing && !is-brush-mode && processed-image.width > 0: Rectangle {
+            clip: true;
+            border-radius: Theme.border-radius;
+            border-width: Theme.default-border-width;
+            border-color: processed-image.width > 0 ? Theme.success-color : Theme.base-border-color;
+            background: Theme.secondary-background;
+
+            Image {
+                source: processed-image;
+                width: parent.width;
+                height: parent.height;
+                image-fit: contain;
+            }
+        }
+    }
+}
+
+export component DewatermarkDialog inherits MovingDialog {
+    title: Logic.tr("Dewatermark");
+    icon: Icons.clear-light;
+    header-width: Theme.moving-dialog-width;
+    body-height: root.header-width * Theme.golden-ratio;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+
+    init => {
+        if (!Logic.video-editor-dewatermark-setting-is-valid()) {
+            Store.video-editor-is-show-dewatermark-setting-dialog = true;
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        LeftHeader { }
+
+        ProcessPanel {
+            width: parent.width - parent.padding * 2;
+        }
+    }
+}
+
+export component DewatermarkSettingDialog inherits MovingDialog {
+    title: Logic.tr("Dewatermark Setting");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    private property <VideoEditorDewatermarkConfig> config: Store.video-editor-dewatermark-config;
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Export directory");
+            }
+
+            LineInput {
+                read-only: true;
+                text: config.export-dir;
+                icon: Icons.file-open-light;
+                is-show-icon: true;
+
+                clicked => {
+                    Logic.video-editor-dewatermark-choose-export-dir();
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Model");
+            }
+
+            for downloader[index] in Store.video-editor-dewatermark-models-downloader: VerticalLayout {
+                alignment: start;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    pure function get-border-color(status: DownloaderState, path: string) -> color {
+                        if status == DownloaderState.Finished {
+                            return Theme.base-border-color;
+                        } else {
+                            return Logic.file-exist(path) ? Theme.base-border-color : Theme.danger-color;
+                        }
+                    }
+
+                    model-path-li := LineInput {
+                        horizontal-stretch: 2;
+                        read-only: true;
+                        is-show-icon: true;
+                        icon: Icons.file-open-light;
+                        placeholder-text: "lama_fp32.onnx";
+                        text: config.lama-path;
+                        border-color: get-border-color(downloader.state, config.lama-path);
+
+                        clicked => {
+                            Logic.video-editor-dewatermark-choose-model-path(index);
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+
+                        if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                            alignment: center;
+
+                            ProgressBar {
+                                height: model-path-li.preferred-height * 2 / 3;
+                                font-size: Theme.default-font-size * 2 / 3;
+                                finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                                progress: downloader.progress;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            alignment: end;
+                            spacing: Theme.spacing * 4;
+
+                            private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+
+                            IconBtn {
+                                is-show-tip: true;
+                                icon: downloading ? Icons.stop-light : Icons.download-light;
+                                colorize: downloading ? Theme.danger-color : Theme.icon-color;
+                                tip: downloading ? Logic.tr("cancel") : Logic.tr("download");
+
+                                clicked => {
+                                    if (downloading) {
+                                        Logic.video-editor-dewatermark-model-cancel-download(index, downloader.url);
+                                    } else {
+                                        Logic.video-editor-dewatermark-model-start-download(index, downloader.url);
+                                    }
+                                }
+                            }
+
+                            IconBtn {
+                                icon: Icons.browser-light;
+                                is-show-tip: true;
+                                tip: Logic.tr("open url");
+
+                                clicked => {
+                                    Util.open-url("Default", downloader.url);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

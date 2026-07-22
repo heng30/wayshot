@@ -1,0 +1,639 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+    FontEntry,
+    VideoPreviewSize,
+} from "../../../../def.slint";
+import {
+    LineInput,
+    IconBtn,
+    Label,
+    NoMessageImg,
+    CancelAndConfirmIconsBtn,
+    ToolTipSetting,
+    ConfirmDialogSetting,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    CheckBtn,
+    Select,
+    SettingDetailSwitch,
+} from "../../../../../base/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+import {
+    TimerItem,
+    TimerStyle,
+    TimerMode,
+    GlobalFilterType,
+} from "export.slint";
+
+component TimerParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    in property <int> index;
+    private property <int> position-location-id;
+    private property <TimerStyle> style: Store.video-editor-global-filter-config.timer.items[index].style;
+    private property <bool> is-show-panel: Store.video-editor-global-filter-timer-is-show-position-location-panle;
+
+    changed is-show-panel => {
+        if (!is-show-panel && position-location-id == Store.video-editor-global-filter-timer-position-location-id) {
+            x-li.text = Store.video-editor-global-filter-timer-position-lacation.x.to-fixed(2);
+            y-li.text = Store.video-editor-global-filter-timer-position-lacation.y.to-fixed(2);
+            style.position-x = Store.video-editor-global-filter-timer-position-lacation.x.clamp(0, 1);
+            style.position-y = Store.video-editor-global-filter-timer-position-lacation.y.clamp(0, 1);
+            update-style(style);
+        }
+    }
+
+    function update-style(style: TimerStyle) {
+        Logic.video-editor-global-filter-timer-update-style(index, style);
+    }
+
+    SettingDetailInnerVbox {
+
+        HorizontalLayout {
+            alignment: space-between;
+
+            SettingDetailLabel {
+                text: Logic.tr("Position");
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                tip: Logic.tr("locate (moving the white ball to set position)");
+                icon: Icons.locate-light;
+                icon-size: Theme.icon-size * 0.8;
+                hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                clicked => {
+                    position-location-id = Store.video-editor-global-filter-timer-position-location-id + 1;
+                    Store.video-editor-global-filter-timer-position-location-id = position-location-id;
+
+                    ToolTipSetting.hide();
+                    Store.video-editor-global-filter-timer-is-show-position-location-panle = true;
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 2;
+
+            x-li := LineInput {
+                input-type: InputType.decimal;
+                text: style.position-x.to-fixed(2);
+                placeholder: "0 ~ 1";
+
+                accepted => {
+                    let value = self.text.to-float();
+                    style.position-x = value.clamp(0, 1);
+                    self.text = style.position-x;
+                    update-style(style);
+
+                    Store.video-editor-global-filter-timer-position-lacation.x = style.position-x;
+                }
+            }
+
+            Label {
+                text: "X";
+            }
+
+            y-li := LineInput {
+                input-type: InputType.decimal;
+                text: style.position-y.to-fixed(2);
+                placeholder: "0 ~ 1";
+
+                accepted => {
+                    let value = self.text.to-float();
+                    style.position-y = value.clamp(0, 1);
+                    self.text = style.position-y;
+                    update-style(style);
+                    Store.video-editor-global-filter-timer-position-lacation.y = style.position-y;
+                }
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <FontEntry> selected-font <=> Store.selected-font-entry;
+        private property <bool> font-exist: Logic.file-exist(style.font-path);
+
+        changed selected-font => {
+            font-li.text = selected-font.family;
+            style.font-path = selected-font.path;
+            style.font-family = selected-font.family;
+            style.font-style = selected-font.style;
+            update-style(style);
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Font");
+        }
+
+        font-li := LineInput {
+            border-color: font-exist ? (Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%)) : Theme.danger-color;
+            read-only: true;
+            icon: Icons.font-light;
+            is-show-icon: true;
+            icon-size: Theme.icon-size * Theme.golden-ratio;
+            text: style.font-family;
+
+            clicked => {
+                Store.is-show-font-dialog = true;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Font Size");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: style.font-size;
+
+            accepted => {
+                style.font-size = self.text.to-float().max(1);
+                self.text = style.font-size;
+                update-style(style);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Padding");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: style.padding;
+
+            accepted => {
+                style.padding = self.text.to-float().max(0);
+                self.text = style.padding;
+                update-style(style);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Border Radius");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: style.border-radius;
+
+            accepted => {
+                style.border-radius = self.text.to-float().max(0);
+                self.text = style.border-radius;
+                update-style(style);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            style.text-color-r = c.red;
+            style.text-color-g = c.green;
+            style.text-color-b = c.blue;
+            style.text-color-a = c.alpha;
+            update-style(style);
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Text Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                 style.text-color-r,
+                 style.text-color-g,
+                 style.text-color-b,
+                 style.text-color-a);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            style.background-color-r = c.red;
+            style.background-color-g = c.green;
+            style.background-color-b = c.blue;
+            style.background-color-a = c.alpha;
+            update-style(style);
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Background Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                style.background-color-r,
+                style.background-color-g,
+                style.background-color-b,
+                style.background-color-a);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+}
+
+
+component ItemsHeader inherits HorizontalLayout {
+    alignment: space-between;
+
+    HorizontalLayout {
+        SettingDetailSwitch {
+            text: Logic.tr("Enable Filter");
+            background: transparent;
+            icon: Icons.filter-light;
+            spacing: Theme.spacing * 6;
+            checked: Store.video-editor-global-filter-config.timer.enabled;
+            gain-focus-when-clicked: false;
+
+            toggled => {
+                Store.video-editor-global-filter-config.timer.enabled = self.checked;
+                Logic.video-editor-global-filter-timer-toggle-enable();
+            }
+        }
+    }
+
+    rec := Rectangle {
+        width: hbox.preferred-width;
+        height: hbox.preferred-height;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("add");
+                    icon: Icons.add-light;
+                    icon-size: Theme.icon-size * 0.8;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-global-filter-timer-add-item();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("remove all");
+                    icon: Icons.delete-all-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Remove all items or not?"), "video-editor-global-filter-timer-remove-all-items", "");
+                    }
+                }
+            }
+        }
+    }
+}
+
+component ItemCard inherits Rectangle {
+    in property <int> index;
+    in property <TimerItem> item: Store.video-editor-global-filter-config.timer.items[index];
+    private property <bool> flag;
+    private property <bool> show-style;
+    private property <bool> is-valid: Logic.video-editor-global-filter-timer-is-valid(index, self.flag);
+
+    background: Theme.secondary-background;
+    border-radius: Theme.border-radius;
+    border-width: Theme.default-border-width;
+    border-color: Theme.base-border-color;
+
+    entry-card := VerticalLayout {
+        alignment: start;
+        spacing: Theme.padding * 4;
+        padding: Theme.padding * 2;
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 4;
+            alignment: space-between;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+
+                    Label {
+                        text: Logic.tr("Start:");
+                    }
+
+                    Label {
+                        text: Logic.ms-to-srt-timestamp-ui(item.start-offset);
+                        color: is-valid ? Theme.primary-text-color : Theme.danger-color;
+                    }
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("set start from timeline");
+                        icon: Icons.locate-to-light;
+                        icon-size: Theme.icon-size * 0.8;
+                        colorize: is-valid ? Theme.icon-color : Theme.danger-color;
+
+                        clicked => {
+                            Logic.video-editor-global-filter-timer-update-offsets(index, Store.video-editor-timeline-offset, item.end-offset);
+                            root.flag = !root.flag;
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+
+                    Label {
+                        text: Logic.tr("End:");
+                    }
+
+                    Label {
+                        text: Logic.ms-to-srt-timestamp-ui(item.end-offset);
+                        color: is-valid ? Theme.primary-text-color : Theme.danger-color;
+                    }
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("set end from timeline");
+                        icon: Icons.locate-to-light;
+                        icon-size: Theme.icon-size * 0.8;
+                        colorize: is-valid ? Theme.icon-color : Theme.danger-color;
+
+                        clicked => {
+                            Logic.video-editor-global-filter-timer-update-offsets(index, item.start-offset, Store.video-editor-timeline-offset);
+                            root.flag = !root.flag;
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+
+                    Label {
+                        text: Logic.tr("Mode:");
+                    }
+
+                    Label {
+                        text: item.mode == TimerMode.CountUp ? Logic.tr("Count Up") : Logic.tr("Count Down");
+                    }
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("Toggle Mode");
+                        icon: Icons.switch-light;
+                        icon-size: Theme.icon-size * 0.9;
+
+                        clicked => {
+                            let new-mode = item.mode == TimerMode.CountUp ? 1 : 0;
+                            Logic.video-editor-global-filter-timer-update-mode(index, new-mode);
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("Insert Below");
+                    icon: Icons.cell-insert-below-light;
+
+                    clicked => {
+                        Logic.video-editor-global-filter-timer-insert-item(index);
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("Delete");
+                    icon: Icons.delete-light;
+
+                    clicked => {
+                        Logic.video-editor-global-filter-timer-remove-item(index);
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("Move Up");
+                    icon: Icons.move-up-light;
+                    enabled: index > 0;
+
+                    clicked => {
+                        Logic.video-editor-global-filter-timer-move-item(index, index - 1);
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("Move Down");
+                    icon: Icons.move-down-light;
+                    enabled: index < Store.video-editor-global-filter-config.timer.items.length - 1;
+
+                    clicked => {
+                        Logic.video-editor-global-filter-timer-move-item(index, index + 1);
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: root.show-style ? Logic.tr("close style") : Logic.tr("edit style");
+                    icon: root.show-style ? Icons.arrow-down-light : Icons.arrow-up-light;
+
+                    clicked => {
+                        root.show-style = !root.show-style;
+                    }
+                }
+            }
+        }
+
+        if show-style: HorizontalLayout {
+            spacing: Theme.spacing * 2;
+
+            TimerParams {
+                index: index;
+            }
+        }
+    }
+}
+
+export component TimerPanel inherits HorizontalLayout {
+    spacing: Theme.spacing * 2;
+
+    VerticalLayout {
+        spacing: Theme.spacing * 2;
+
+        ItemsHeader { }
+
+        rec := Rectangle {
+            border-width: Theme.default-border-width;
+            border-color: Theme.base-border-color;
+            border-radius: Theme.border-radius;
+
+            private property <float> width-height-rate: self.width / self.height;
+
+            Rectangle {
+                visible: !Store.video-editor-global-filter-timer-is-show-position-location-panle;
+
+                if Store.video-editor-global-filter-config.timer.items.length == 0: Rectangle {
+                    NoMessageImg {
+                        text: Logic.tr("Click to Add");
+                    }
+
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            Logic.video-editor-global-filter-timer-add-item();
+                        }
+                    }
+                }
+
+                if Store.video-editor-global-filter-config.timer.items.length > 0: ScrollView {
+                    viewport-height: vbox.preferred-height;
+
+                    vbox := VerticalLayout {
+                        spacing: Theme.spacing * 2;
+                        padding: Theme.padding * 2;
+
+                        for item[idx] in Store.video-editor-global-filter-config.timer.items: ItemCard {
+                            index: idx;
+                        }
+                    }
+                }
+            }
+
+            if Store.video-editor-global-filter-timer-is-show-position-location-panle: container-rec := Rectangle {
+                background: black;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+
+                private property <VideoPreviewSize> preivew-size: Logic.video-editor-preview-size(Store.video-editor-new-project-config.preview-config, Store.video-editor-is-show-preview-setting-dialog, Store.video-editor-tracks-manager.tracks.length);
+                private property <int> preview-width: preivew-size.width;
+                private property <int> preview-height: preivew-size.height;
+                private property <float> width-height-rate: preview-width / preview-height;
+                private property <bool> can-move;
+
+                changed width-height-rate => {
+                    self.update-size();
+                }
+
+                function update-size() {
+                    if (parent.width-height-rate > width-height-rate) {
+                        self.height = min(parent.height, preview-height * 1px);
+                        self.width = self.height * width-height-rate;
+                    } else {
+                        self.width = min(parent.width, preview-width * 1px);
+                        self.height = self.width / width-height-rate;
+                    }
+                }
+
+                init => {
+                    update-size();
+                }
+
+                Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: Store.video-editor-preview-image;
+                    image-fit: ImageFit.contain;
+                }
+
+                TouchArea {
+                    clicked => {
+                        Store.video-editor-global-filter-timer-is-show-position-location-panle = false;
+                    }
+                }
+
+                Rectangle {
+                    x: parent.width * Store.video-editor-global-filter-timer-position-lacation.x.clamp(0, 1) - self.width / 2;
+                    y: parent.height * Store.video-editor-global-filter-timer-position-lacation.y.clamp(0, 1) - self.height / 2;
+                    background: white;
+                    width: Theme.icon-size;
+                    height: self.width;
+                    border-radius: self.height / 2;
+                    border-color: black;
+                    border-width: Theme.default-border-width * 2;
+
+                    TouchArea {
+                        mouse-cursor: pointer;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left) {
+                                if (event.kind == PointerEventKind.down) {
+                                    can-move = true;
+                                } else if (event.kind == PointerEventKind.up) {
+                                    can-move = false;
+                                    Store.video-editor-global-filter-timer-is-show-position-location-panle = false;
+                                }
+                            }
+                        }
+
+                        moved => {
+                            let diff-x = self.mouse-x - self.pressed-x;
+                            let diff-y = self.mouse-y - self.pressed-y;
+                            let new-x = (parent.x + diff-x).clamp(-parent.width / 2, container-rec.width - parent.width / 2);
+                            let new-y = (parent.y + diff-y).clamp(-parent.height / 2, container-rec.height - parent.height / 2);
+                            Store.video-editor-global-filter-timer-position-lacation.x = (new-x + parent.width / 2) / container-rec.width;
+                            Store.video-editor-global-filter-timer-position-lacation.y = (new-y + parent.height / 2) / container-rec.height;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

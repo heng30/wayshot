@@ -1,0 +1,120 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoEditorPreviewConfig,
+} from "../../../def.slint";
+import {
+    IconBtn,
+    Label,
+    LineInput,
+    Dialog,
+    Select,
+    SettingDetailInner,
+    SettingDetail,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SingleCollapse,
+} from "../../../../base/widgets.slint";
+
+component SettingPanle inherits SettingDetail {
+    private property <VideoEditorPreviewConfig> cache-config: Store.video-editor-new-project-config.preview-config;
+
+    is-show-header: false;
+
+    public function get() -> VideoEditorPreviewConfig {
+        return {
+            fps : Logic.fps-from-int(fps-select.current-value.to-float()),
+            resolution : Logic.resolution-from-string(resolution-select.current-value),
+            channels : Logic.audio-channels-from-int(channels-select.current-value.to-float()),
+            sample-rate: Logic.audio-sample-rate-from-int( audio-sample-select.current-value.to-float()),
+        };
+    }
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Resolution");
+            }
+
+            resolution-select := Select {
+                border-width: 0;
+                values: [
+                    "Original",
+                    "480P",
+                    "720P",
+                    "1080P",
+                    "2K",
+                    "4K",
+                    "Portrait 480P",
+                    "Portrait 720P",
+                    "Portrait 1080P",
+                    "Portrait 4K",
+                    "Square 480P",
+                    "Square 720P",
+                    "Square 1080P",
+                    "Instagram Portrait"
+                ];
+                current-value: Logic.resolution-to-string(cache-config.resolution);
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("FPS");
+            }
+
+            fps-select := Select {
+                border-width: 0;
+                values: [24, 25, 30, 60];
+                current-value: Logic.fps-to-int(cache-config.fps);
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Audio channels");
+            }
+
+            channels-select := Select {
+                border-width: 0;
+                values: [1, 2];
+                current-value: Logic.audio-channels-to-int(cache-config.channels);
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Audio sample rate");
+            }
+
+            audio-sample-select := Select {
+                border-width: 0;
+                values: [8000, 16000, 24000, 32000, 44100, 48000, 96000, 192000];
+                current-value: Logic.audio-sample-rate-to-int(cache-config.sample-rate);
+            }
+        }
+    }
+}
+
+export component PreviewSettingDialog inherits Dialog {
+    title: Logic.tr("Preview Setting");
+    is-prevent-event-forward: true;
+
+    in-out property <length> inner-height: Theme.dialog-inner-height;
+
+    setting := SettingPanle {
+        max-height: inner-height;
+    }
+
+    cancel-clicked => {
+        self.escape();
+    }
+
+    ok-clicked => {
+        Logic.video-editor-preview-update-config(setting.get());
+        self.escape();
+    }
+}

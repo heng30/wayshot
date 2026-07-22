@@ -1,0 +1,29 @@
+id: xyz.heng30.wayshot
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: wayshot
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --device=dri
+  - --filesystem=xdg-videos
+  - --filesystem=xdg-pictures
+modules:
+  - name: wayshot
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 wayshot ${FLATPAK_DEST}/bin/wayshot
+      - install -Dm644 xyz.heng30.wayshot.desktop ${FLATPAK_DEST}/share/applications/xyz.heng30.wayshot.desktop
+      - |
+        for size in 16 22 24 32 36 48 64 72 96 128 192 256 512; do
+          install -Dm644 ${size}x${size}/apps/xyz.heng30.wayshot.png ${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/xyz.heng30.wayshot.png
+        done
+    sources:
+      - type: file
+        path: ../../target/release/wayshot
+      - type: file
+        path: package/share/applications/xyz.heng30.wayshot.desktop
+      - type: dir
+        path: package/share/icons/hicolor

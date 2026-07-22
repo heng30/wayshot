@@ -1,0 +1,66 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+} from "../../../def.slint";
+import {
+    TabBtns,
+} from "../../../../base/widgets.slint";
+import { Filter } from "filter/filter.slint";
+import { Subtitle } from "subtitle.slint";
+import { TextEditorPanel } from "text.slint";
+import { Terminal } from "terminal.slint";
+import { VEFilter } from "../filter.slint";
+
+export component RightPanel inherits Rectangle {
+    private property <int> selected-index <=> VEFilter.right-panel-selected-index;
+
+    changed selected-index => {
+        tb.update-selected-index(selected-index);
+    }
+
+    clip: true;
+    min-width: hbox.preferred-width;
+
+    VerticalLayout {
+        padding-top: Theme.padding;
+        padding-right: Theme.padding * 2;
+        spacing: Theme.spacing;
+
+        if selected-index == 0: Filter {
+            width: parent.width - parent.padding-right;
+        }
+
+        if selected-index == 1: Subtitle {
+            width: parent.width - parent.padding-right;
+        }
+
+        if selected-index == 2: TextEditorPanel {
+            width: parent.width - parent.padding-right;
+        }
+
+        if selected-index == 3: terminal := Terminal {
+            width: parent.width - parent.padding-right;
+        }
+
+        hbox := HorizontalLayout {
+            alignment: LayoutAlignment.center;
+            padding-right: Theme.padding * 2;
+
+            tb := TabBtns {
+                items: [
+                    { icon: Icons.filter-light, text: Logic.tr("Filter") },
+                    { icon: Icons.subtitle-light, text: Logic.tr("Subtitle") },
+                    { icon: Icons.text-light, text: Logic.tr("Text") },
+                    { icon: Icons.terminal-light, text: Logic.tr("Terminal") },
+                ];
+
+                clicked(index) => {
+                    selected-index = index;
+                }
+            }
+        }
+    }
+}

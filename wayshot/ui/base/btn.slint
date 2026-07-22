@@ -53,6 +53,7 @@ export component TextBtnWithoutIcon inherits Rectangle {
     in-out property <length> vpadding: Theme.padding / 2;
 
     callback clicked;
+    callback scroll-event <=> ta.scroll-event;
 
     width: (is-circle ? Math.max(label.preferred-width, label.preferred-height) : label.preferred-width) + root.hpadding * 2;
     height: is-circle ? self.width : label.preferred-height + root.vpadding * 2;

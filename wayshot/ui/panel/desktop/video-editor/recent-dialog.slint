@@ -1,0 +1,74 @@
+import { ScrollView } from "std-widgets.slint";
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+} from "../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    NoMessageImg,
+} from "../../../base/widgets.slint";
+
+export component RecentDialog inherits MovingDialog {
+    title: Logic.tr("Recent");
+    icon: Icons.recent-light;
+    header-width: Theme.default-font-size * 20;
+    body-height: root.header-width;
+    min-header-width: Theme.default-font-size * 20;
+    enable-resize: true;
+
+    init => {
+        Logic.video-editor-init-recent();
+    }
+
+    ScrollView {
+
+        if Store.video-editor-recent-entries.length == 0: NoMessageImg {
+            text: Logic.tr("No History");
+        }
+
+        if Store.video-editor-recent-entries.length > 0: VerticalLayout {
+            padding: Theme.padding;
+            alignment: start;
+
+            for item[index] in Store.video-editor-recent-entries: Rectangle {
+                background: Theme.table-item-background(index, false, ta.has-hover);
+
+                ta := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        Logic.video-editor-open-recent-project(index);
+                    }
+                }
+
+                HorizontalLayout {
+                    padding: Theme.padding * 2;
+                    spacing: Theme.spacing * 4;
+                    alignment: space-between;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+
+                        Label {
+                            text: index + 1;
+                            color: Theme.secondary-text-color;
+                        }
+
+                        Label {
+                            text: item.name;
+                            overflow: elide;
+                        }
+                    }
+
+                    Label {
+                        text: item.modified-at;
+                        font-size: Theme.default-font-size * 0.8;
+                        color: Theme.secondary-text-color;
+                    }
+                }
+            }
+        }
+    }
+}

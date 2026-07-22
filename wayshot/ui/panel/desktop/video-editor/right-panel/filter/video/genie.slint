@@ -1,0 +1,240 @@
+import {
+    Theme,
+    Logic,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+} from "../../../../../def.slint";
+import {
+    ClickAndEditLabel,
+    LineInput,
+    Slider,
+    Select,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    GenieDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component Genie inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <GenieDetail> config: VEFilter.from-genie-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: GenieDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "genie") {
+            self.config = VEFilter.from-genie-json(selected-filter.detail);
+            duration-li.text = self.config.duration.to-fixed(0);
+            funnel-power-sl.value = self.config.funnel-power;
+            shadow-sl.value = self.config.shadow;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            // Position: Start / End
+            SettingDetailLabel {
+                text: Logic.tr("Position");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                position-select := Select {
+                    enabled: selected-filter.enabled;
+                    gain-focus-when-clicked: false;
+                    background: Theme.thirdly-background;
+
+                    values: [Logic.tr("Start"), Logic.tr("End")];
+                    current-index: config.position;
+                    current-value: config.position == 0 ? Logic.tr("Start") : Logic.tr("End");
+
+                    selected(idx, value) => {
+                        config.position = idx;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Easing");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                easing-select := Select {
+                    enabled: selected-filter.enabled;
+                    gain-focus-when-clicked: false;
+                    background: Theme.thirdly-background;
+
+                    values: [
+                        Logic.tr("Linear"),
+                        Logic.tr("Ease In"),
+                        Logic.tr("Ease Out"),
+                        Logic.tr("Ease In Out")
+                    ];
+                    current-index: config.easing;
+                    current-value: config.easing == 0 ? Logic.tr("Linear") : (config.easing == 1 ? Logic.tr("Ease In") : (config.easing == 2 ? Logic.tr("Ease Out") : Logic.tr("Ease In Out")));
+
+                    selected(idx, value) => {
+                        config.easing = idx;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Anchor");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                anchor-select := Select {
+                    enabled: selected-filter.enabled;
+                    gain-focus-when-clicked: false;
+                    background: Theme.thirdly-background;
+
+                    values: [Logic.tr("Center"), Logic.tr("Left"), Logic.tr("Right")];
+                    current-index: config.anchor;
+                    current-value: self.values[config.anchor];
+
+                    selected(idx, value) => {
+                        config.anchor = idx;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Duration (ms)");
+                enabled: selected-filter.enabled;
+            }
+
+            duration-li := LineInput {
+                enabled: selected-filter.enabled;
+                text: config.duration;
+                border-color: self.text.to-float() == config.duration ? self.default-border-color : Theme.danger-color;
+
+                accepted => {
+                    config.duration = self.text.to-float();
+                    apply(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Funnel Curve");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    funnel-power-sl := Slider {
+                        minimum: 1.0;
+                        maximum: 4.0;
+                        value: config.funnel-power;
+                        indicator-size: Theme.default-font-size;
+                        height: self.indicator-size * 0.3;
+                        unfinished-progress-color: Theme.thirdly-background;
+                        enabled: selected-filter.enabled;
+
+                        changed(value) => {
+                            config.funnel-power = value;
+                        }
+
+                        released(value) => {
+                            config.funnel-power = value;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                ClickAndEditLabel {
+                    enabled: selected-filter.enabled;
+                    use-fixed-width: true;
+                    width: Theme.default-font-size * 3;
+                    text: config.funnel-power.to-fixed(1);
+                    text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                    accepted(text) => {
+                        config.funnel-power = text.to-float().clamp(1.0, 4.0);
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Shadow");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    shadow-sl := Slider {
+                        minimum: 0.0;
+                        maximum: 1.0;
+                        value: config.shadow;
+                        indicator-size: Theme.default-font-size;
+                        height: self.indicator-size * 0.3;
+                        unfinished-progress-color: Theme.thirdly-background;
+                        enabled: selected-filter.enabled;
+
+                        changed(value) => {
+                            config.shadow = value;
+                        }
+
+                        released(value) => {
+                            config.shadow = value;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                ClickAndEditLabel {
+                    enabled: selected-filter.enabled;
+                    use-fixed-width: true;
+                    width: Theme.default-font-size * 3;
+                    text: config.shadow.to-fixed(2);
+                    text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                    accepted(text) => {
+                        config.shadow = text.to-float().clamp(0.0, 1.0);
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+    }
+}

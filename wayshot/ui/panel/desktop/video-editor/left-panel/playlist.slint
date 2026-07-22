@@ -1,0 +1,1413 @@
+import { ListView, ScrollView } from "std-widgets.slint";
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    MediaType,
+    VideoEditorPlaylistItem,
+    VideoEditorTrackType,
+} from "../../../def.slint";
+import {
+    Label,
+    IconBtn,
+    PopupActionEntry,
+    PopupActionSetting,
+    NoMessageImg,
+    CheckBtn,
+    CancelBtn,
+    ConfirmBtn,
+    Divider,
+    LineInput,
+    TextBtnWithoutIcon,
+} from "../../../../base/widgets.slint";
+
+export enum PlaylistViewMode {
+    Detail,
+    Thumbnail,
+}
+
+export component BreadcrumbBar inherits Rectangle {
+    in property <string> current-folder-id;
+    in property <[VideoEditorPlaylistItem]> breadcrumb;
+    callback navigate-up();
+    callback navigate-to-folder(id: string);
+
+    background: Theme.table-item-second;
+
+    HorizontalLayout {
+        padding: Theme.padding;
+        padding-right: Theme.padding;
+        spacing: Theme.spacing;
+        alignment: start;
+
+        // Back button (navigate up)
+        if current-folder-id != "": IconBtn {
+            icon: Icons.arrow-left-light;
+            icon-size: Theme.icon-size * 0.8;
+
+            clicked => {
+                root.navigate-up();
+            }
+        }
+
+        // Root segment
+        TextBtnWithoutIcon {
+            text: Logic.tr("All");
+            text-color: current-folder-id == ""
+                ? Theme.thirdly-brand-color
+                : Theme.regular-text-color;
+
+            clicked => {
+                if (current-folder-id != "") {
+                    root.navigate-to-folder("");
+                }
+            }
+        }
+
+        // Breadcrumb segments
+        for segment[index] in breadcrumb: HorizontalLayout {
+            spacing: Theme.spacing;
+
+            Label {
+                text: ">";
+                vertical-alignment: center;
+                color: Theme.regular-text-color;
+            }
+
+            TextBtnWithoutIcon {
+                text: segment.name;
+                text-color: index == breadcrumb.length - 1
+                    ? Theme.thirdly-brand-color
+                    : Theme.regular-text-color;
+
+                clicked => {
+                    root.navigate-to-folder(segment.item-id);
+                }
+            }
+        }
+    }
+}
+
+component Header inherits Rectangle {
+    in property <[VideoEditorPlaylistItem]> playlist;
+    in property <bool> in-edit-mode;
+    in property <bool> show-subtitle-tab;
+    in-out property <int> checked-index;
+    in-out property <bool> is-searching;
+    in-out property <string> search-keyword;
+    in-out property <PlaylistViewMode> view-mode: PlaylistViewMode.Detail;
+
+    callback item-import();
+    callback folder-import();
+    callback create-folder();
+    callback search(index: int, keyword: string);
+    callback all-files();
+    callback all-videos();
+    callback all-audios();
+    callback all-images();
+    callback all-subtitles();
+    callback enter-edit-mode();
+    callback show-remove-all-confirm-dialog();
+    callback header-more-clicked(absolute-x: length, absolute-y: length);
+
+    background: Theme.table-item-second;
+
+    HorizontalLayout {
+        alignment: root.is-searching ? stretch : space-between;
+        padding: Theme.padding;
+        padding-right: Theme.padding;
+        spacing: Theme.spacing * 2;
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 4;
+
+            IconBtn {
+                icon: Icons.import2-light;
+                icon-size: Theme.icon-size * 0.9;
+                is-show-tip: true;
+                tip: Logic.tr("import files") + " Ctrl+I";
+
+                clicked => {
+                    root.item-import();
+                }
+            }
+
+            IconBtn {
+                icon: Icons.file-open-light;
+                icon-size: Theme.icon-size * 0.9;
+                is-show-tip: true;
+                tip: Logic.tr("import folder");
+
+                clicked => {
+                    root.folder-import();
+                }
+            }
+
+            IconBtn {
+                icon: Icons.folder-add-light;
+                icon-size: Theme.icon-size * 0.9;
+                is-show-tip: true;
+                tip: Logic.tr("new folder");
+
+                clicked => {
+                    root.create-folder();
+                }
+            }
+
+            IconBtn {
+                icon: Icons.search-light;
+                is-show-tip: true;
+                tip: Logic.tr("search");
+
+                clicked => {
+                    root.is-searching = !root.is-searching;
+                    if (!root.is-searching) {
+                        root.search-keyword = "";
+                        root.search(root.checked-index, "");
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+            }
+        }
+
+        if root.is-searching: VerticalLayout {
+            alignment: center;
+
+            Timer {
+                interval: 200ms;
+                running: true;
+
+                triggered() => {
+                    keyworld-li.focus();
+                    self.running = false;
+                }
+            }
+
+            keyworld-li := LineInput {
+                vpadding: Theme.padding / 2;
+                placeholder-text: Logic.tr("enter keyword");
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                key-pressed(key-event) => {
+                    if (key-event.text == Key.Escape) {
+                        root.is-searching = false;
+                        root.search-keyword = "";
+                        root.search(root.checked-index, "");
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    self.focus();
+                    root.search-keyword = self.text;
+                    root.search(root.checked-index, self.text);
+                }
+            }
+        }
+
+        if !root.is-searching: HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            alignment: LayoutAlignment.end;
+
+            Flickable {
+                viewport-width: text-btn-hbox.preferred-width;
+
+                scroll-ta := TouchArea {
+                    scroll-event(event) => {
+                        if (event.delta-y > 0) {
+                            parent.viewport-x = clamp(parent.viewport-x + parent.viewport-width / 4,  min(0, -(parent.viewport-width - parent.width)), 0);
+                        } else if (event.delta-y < 0) {
+                            parent.viewport-x = clamp(parent.viewport-x - parent.viewport-width / 4, min(0,  -(parent.viewport-width - parent.width)), 0);
+                        }
+                        accept
+                    }
+                }
+
+                text-btn-hbox := HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+
+                    TextBtnWithoutIcon {
+                        text: Logic.tr("All");
+                        text-color: checked-index == 0 ? Theme.light-text-color : Theme.regular-text-color;
+                        background: checked-index == 0 ? Theme.thirdly-brand-color : transparent;
+
+                        clicked => {
+                            checked-index = 0;
+                            root.all-files();
+                        }
+                    }
+
+                    TextBtnWithoutIcon {
+                        enabled-touch: !in-edit-mode;
+                        text: Logic.tr("Video");
+                        text-color: checked-index == 1 ? Theme.light-text-color : Theme.regular-text-color;
+                        background: checked-index == 1 ? Theme.thirdly-brand-color : transparent;
+
+                        clicked => {
+                            checked-index = 1;
+                            root.all-videos();
+                        }
+                    }
+
+                    TextBtnWithoutIcon {
+                        enabled-touch: !in-edit-mode;
+                        text: Logic.tr("Audio");
+                        text-color: checked-index == 2 ? Theme.light-text-color : Theme.regular-text-color;
+                        background: checked-index == 2 ? Theme.thirdly-brand-color : transparent;
+
+                        clicked => {
+                            checked-index = 2;
+                            root.all-audios();
+                        }
+                    }
+
+                    TextBtnWithoutIcon {
+                        enabled-touch: !in-edit-mode;
+                        text: Logic.tr("Image");
+                        text-color: checked-index == 3 ? Theme.light-text-color : Theme.regular-text-color;
+                        background: checked-index == 3 ? Theme.thirdly-brand-color : transparent;
+
+                        clicked => {
+                            checked-index = 3;
+                            root.all-images();
+                        }
+                    }
+
+                    if show-subtitle-tab: TextBtnWithoutIcon {
+                        enabled-touch: !in-edit-mode;
+                        text: Logic.tr("Subtitle");
+                        text-color: checked-index == 4 ? Theme.light-text-color : Theme.regular-text-color;
+                        background: checked-index == 4 ? Theme.thirdly-brand-color : transparent;
+
+                        clicked => {
+                            checked-index = 4;
+                            root.all-subtitles();
+                        }
+                    }
+                }
+            }
+
+            IconBtn {
+                icon: Icons.list-light;
+                icon-size: Theme.icon-size * 0.9;
+                colorize: root.view-mode == PlaylistViewMode.Detail ? Theme.thirdly-brand-color : Theme.icon-color;
+
+                clicked => {
+                    root.view-mode = PlaylistViewMode.Detail;
+                }
+            }
+
+            IconBtn {
+                icon: Icons.thumbnails-light;
+                icon-size: Theme.icon-size * 0.8;
+                colorize: root.view-mode == PlaylistViewMode.Thumbnail ? Theme.thirdly-brand-color : Theme.icon-color;
+
+                clicked => {
+                    root.view-mode = PlaylistViewMode.Thumbnail;
+                }
+            }
+
+            IconBtn {
+                icon: Icons.more-v-light;
+                icon-size: Theme.icon-size * 0.8;
+
+                clicked => {
+                    root.header-more-clicked(self.absolute-position.x, self.absolute-position.y + self.preferred-height);
+                }
+            }
+        }
+    }
+}
+
+component DetailItem inherits Rectangle {
+    in property <int> index;
+    in property <VideoEditorPlaylistItem> playlist-item;
+    in-out property <bool> in-edit-mode;
+    in-out property <length> max-duraion-width;
+    in-out property <length> max-size-width;
+    in-out property <bool> enable-mark;
+
+    private property <bool> file-exist: !playlist-item.is-folder && Logic.file-exist(playlist-item.file-path);
+    private property <bool> folder-exist: !playlist-item.is-folder ? false : (playlist-item.folder-source-path.is-empty ? true : Logic.dir-exist(playlist-item.folder-source-path));
+    private property <bool> is-exist: file-exist || folder-exist;
+    private property <bool> is-dragging-this: Store.video-editor-item-is-dragging && Store.video-editor-drag-item == playlist-item;
+    private property <bool> is-folder-drop-target: playlist-item.is-folder && Store.video-editor-item-is-dragging && Store.video-editor-item-drop-target-folder-id == playlist-item.item-id;
+
+    callback double-clicked();
+    callback more-icon-clicked(absolute-x: length, absolute-y: length);
+    callback right-clicked(absolute-x: length, absolute-y: length);
+    callback toggled-selection(index: int);
+    callback toggle-mark(index: int);
+    callback dropped-to-folder(is-folder: bool, item-id: string, folder-id: string);
+
+    public pure function get-media-icon(ty: MediaType) -> image {
+        if (ty == MediaType.Video) {
+            return Icons.video-light;
+        } else if (ty == MediaType.Audio) {
+            return Icons.audio-light;
+        } else if (ty == MediaType.Image) {
+            return Icons.image-fill;
+        } else if (ty == MediaType.Subtitle) {
+            return Icons.subtitle-light;
+        } else {
+            return Icons.text-light;
+        }
+    }
+
+    border-radius: Theme.border-radius;
+    opacity: is-dragging-this ? 0.5 : 1.0;
+    background: playlist-item.is-selected ? Theme.checked-background : (is-folder-drop-target ? Theme.thirdly-brand-color : Theme.table-item-background(index, false, ta.has-hover));
+    border-color: !is-exist ? Theme.danger-color : (playlist-item.is-selected ? Theme.checked-background : (is-folder-drop-target ? Theme.thirdly-brand-color : transparent));
+    border-width: (!is-exist || playlist-item.is-selected || is-folder-drop-target) ? Theme.default-border-width : 0;
+
+    ta := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+
+        private property <bool> disable-moved;
+        private property <bool> inner-is-draging;
+        // Set when double-clicked fires to prevent the second click's pointer-up from toggling selection
+        private property <bool> skip-selection;
+
+        function greater-than-init-draging-threshold() -> bool {
+            abs(self.mouse-x - self.pressed-x) > Theme.padding * 4 || abs(self.mouse-y - self.pressed-y) > Theme.padding * 4
+        }
+
+        moved => {
+            if (disable-moved) {
+                return;
+            }
+            if (!inner-is-draging && greater-than-init-draging-threshold()) {
+                inner-is-draging = true;
+            }
+            if (!inner-is-draging) {
+                return;
+            }
+            Store.video-editor-item-is-dragging = true;
+
+            Store.video-editor-drag-item-absolute-position = {
+                x: self.absolute-position.x + self.mouse-x,
+                y: self.absolute-position.y + self.mouse-y,
+            };
+
+            let in-x = Store.video-editor-drag-item-absolute-position.x > Store.video-editor-tracks-area-absolute-top-left-position.x && Store.video-editor-drag-item-absolute-position.x < Store.video-editor-tracks-area-absolute-bottom-right-position.x;
+            let in-y = Store.video-editor-drag-item-absolute-position.y > Store.video-editor-tracks-area-absolute-top-left-position.y && Store.video-editor-drag-item-absolute-position.y < Store.video-editor-tracks-area-absolute-bottom-right-position.y;
+            Store.video-editor-item-is-in-tracks-area = in-x && in-y;
+
+            // Folder drop detection: if not in tracks area, check if hovering over a folder
+            if (!Store.video-editor-item-is-in-tracks-area) {
+                let list = Store.video-editor-left-panel-selected-index == 0 ? Store.video-editor-playlist : Store.video-editor-media-library;
+                if (list.length > 0 && Store.video-editor-library-item-height > 0) {
+                    let drag-index = Store.video-editor-library-drag-item-index;
+                    let drag-start-y = Store.video-editor-library-drag-item-start-absolute-position.y / 1px;
+                    let drag-y = Store.video-editor-drag-item-absolute-position.y / 1px;
+                    let item-h = Store.video-editor-library-item-height / 1px;
+                    let offset = round((drag-y - drag-start-y) / item-h);
+                    let target-index = drag-index + offset;
+                    let count = list.length;
+                    if (target-index >= 0 && target-index < count) {
+                        let target-item = list[target-index];
+                        if (target-item.is-folder && target-item.item-id != playlist-item.item-id) {
+                            Store.video-editor-item-is-over-folder = true;
+                            Store.video-editor-item-drop-target-folder-id = target-item.item-id;
+                        } else {
+                            Store.video-editor-item-is-over-folder = false;
+                            Store.video-editor-item-drop-target-folder-id = "";
+                        }
+                    } else {
+                        Store.video-editor-item-is-over-folder = false;
+                        Store.video-editor-item-drop-target-folder-id = "";
+                    }
+                } else {
+                    Store.video-editor-item-is-over-folder = false;
+                    Store.video-editor-item-drop-target-folder-id = "";
+                }
+            } else {
+                Store.video-editor-item-is-over-folder = false;
+                Store.video-editor-item-drop-target-folder-id = "";
+            }
+
+            if (Store.video-editor-item-is-in-tracks-area) {
+                let relative-x = Store.video-editor-drag-item-absolute-position.x - Store.video-editor-tracks-area-absolute-top-left-position.x;
+
+                if (relative-x < Store.video-editor-item-track-header-width) {
+                    Store.video-editor-item-is-add-to-new-track = true;
+                    if (Store.video-editor-tracks-manager.tracks.length > 0) {
+                        let relative-y = round((Store.video-editor-drag-item-absolute-position.y - Store.video-editor-tracks-area-absolute-top-left-position.y - Store.video-editor-item-tracks-viewport-y) / 1px);
+                        let target-index = Logic.video-editor-find-drag-target-track(relative-y);
+                        Store.video-editor-item-new-track-insert-index = target-index >= 0 ? target-index : Store.video-editor-tracks-manager.tracks.length;
+                    } else {
+                        Store.video-editor-item-new-track-insert-index = 0;
+                    }
+                    Store.video-editor-item-drag-target-track-index = -1;
+                } else if (Store.video-editor-tracks-manager.tracks.length > 0) {
+                    let relative-y = round((Store.video-editor-drag-item-absolute-position.y - Store.video-editor-tracks-area-absolute-top-left-position.y - Store.video-editor-item-tracks-viewport-y) / 1px);
+                    let target-index = Logic.video-editor-find-drag-target-track(relative-y);
+
+                    if (target-index >= 0 && target-index < Store.video-editor-tracks-manager.tracks.length) {
+                        let target-track = Store.video-editor-tracks-manager.tracks[target-index];
+                        let track-type = target-track.ty;
+                        let media-type = playlist-item.media-type;
+
+                        let type-matches = (media-type == MediaType.Video && track-type == VideoEditorTrackType.Video) || (media-type == MediaType.Audio && track-type == VideoEditorTrackType.Audio) || (media-type == MediaType.Image && track-type == VideoEditorTrackType.Image) || (media-type == MediaType.Subtitle && track-type == VideoEditorTrackType.Subtitle);
+
+                        if (type-matches && !target-track.locked) {
+                            Store.video-editor-item-is-add-to-new-track = false;
+                            Store.video-editor-item-drag-target-track-index = target-index;
+
+                            let segments-relative-x = relative-x - Store.video-editor-item-track-header-width;
+                            let actual-x = segments-relative-x - Store.video-editor-item-tracks-viewport-x;
+                            let fps = Logic.fps-to-int(Store.video-editor-new-project-config.preview-config.fps);
+                            let length-per-second = fps * Store.video-editor-ui-state.tracks-zoom-level.to-float() * 1px;
+                            Store.video-editor-item-drag-timeline-offset-ms = min(round(actual-x * 1000 / length-per-second), Store.video-editor-tracks-manager.duration);
+                        } else {
+                            Store.video-editor-item-is-add-to-new-track = true;
+                            Store.video-editor-item-drag-target-track-index = -1;
+                        }
+                    } else {
+                        Store.video-editor-item-is-add-to-new-track = true;
+                        Store.video-editor-item-drag-target-track-index = -1;
+                    }
+                }
+            }
+        }
+
+        pointer-event(event) => {
+            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+
+            if (event.button == PointerEventButton.left) {
+                if (event.kind == PointerEventKind.down) {
+                    Store.video-editor-drag-item = playlist-item;
+                    Store.video-editor-drag-item-absolute-position = {
+                        x: self.absolute-position.x + self.pressed-x,
+                        y: self.absolute-position.y + self.pressed-y,
+                    };
+                    // Store drag item info for folder drop detection
+                    Store.video-editor-library-drag-item-index = index;
+                    Store.video-editor-library-drag-item-start-absolute-position = {
+                        x: self.absolute-position.x + self.pressed-x,
+                        y: self.absolute-position.y + self.pressed-y,
+                    };
+                    Store.video-editor-library-item-height = self.height;
+                } else if (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
+                    if (Store.video-editor-item-is-in-tracks-area && Store.video-editor-item-is-dragging) {
+                        Logic.video-editor-drag-item-add-to-track(
+                            Store.video-editor-item-drag-target-track-index,
+                            Store.video-editor-item-drag-timeline-offset-ms);
+                    } else if (Store.video-editor-item-is-over-folder && Store.video-editor-item-is-dragging) {
+                        // Drop onto a folder: notify parent via drag-item-drop-to-folder callback
+                        let drag-item = Store.video-editor-drag-item;
+                        root.dropped-to-folder(drag-item.is-folder, drag-item.item-id, Store.video-editor-item-drop-target-folder-id);
+                    } else if (!inner-is-draging && !skip-selection && playlist-item.item-id != "..") {
+                        // Click without drag: toggle selection (skip if double-clicked just fired or if ".." parent entry)
+                        root.toggled-selection(index);
+                    }
+                    skip-selection = false;
+                    inner-is-draging = false;
+                    Store.video-editor-item-is-dragging = false;
+                    Store.video-editor-item-is-in-tracks-area = false;
+                    Store.video-editor-item-is-over-folder = false;
+                    Store.video-editor-item-drop-target-folder-id = "";
+                    Store.video-editor-item-drag-target-track-index = -1;
+                }
+            } else {
+                if (event.button == PointerEventButton.right) {
+                    if (event.kind == PointerEventKind.up) {
+                        root.right-clicked(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                    }
+                }
+                if (event.kind == PointerEventKind.down) {
+                    disable-moved = true;
+                } else if (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
+                    disable-moved = false;
+                }
+            }
+        }
+
+        double-clicked => {
+            skip-selection = true;
+            root.double-clicked();
+        }
+    }
+
+    hbox := HorizontalLayout {
+        spacing: Theme.spacing * 4;
+        padding: Theme.padding * 2;
+        padding-right: Theme.padding;
+        alignment: space-between;
+
+        HorizontalLayout {
+            alignment: start;
+            spacing: Theme.spacing * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                if in-edit-mode: CheckBtn {
+                    checked: playlist-item.is-selected;
+                    gain-focus-when-clicked: false;
+                    not-allow-breaking-checked-binding: true;
+
+                    toggled => {
+                        root.toggled-selection(index);
+                    }
+                }
+
+                if enable-mark: IconBtn {
+                    icon: Icons.star-round-fill;
+                    icon-size: Theme.icon-size * 0.8;
+                    colorize: playlist-item.is-marked ? Theme.mark-color : Theme.unmark-color;
+
+                    clicked => {
+                        root.toggle-mark(index);
+                    }
+                }
+
+                Label {
+                    text: index + 1;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+
+                Image {
+                    height: Theme.icon-size * Theme.golden-ratio;
+                    width: self.height;
+                    source: playlist-item.is-folder ? Icons.file-open-light : get-media-icon(playlist-item.media-type);
+                    colorize: Theme.icon-color;
+                }
+            }
+
+            Label {
+                text: playlist-item.name;
+                overflow: elide;
+            }
+        }
+
+        HorizontalLayout {
+            alignment: end;
+            spacing: Theme.spacing * 4;
+
+            if !playlist-item.is-folder: Label {
+                init => {
+                    root.max-duraion-width = max(root.max-duraion-width, self.preferred-width);
+                }
+
+                width: root.max-duraion-width;
+                text: playlist-item.duration;
+            }
+
+            if !playlist-item.is-folder: Label {
+                init => {
+                    root.max-size-width = max(root.max-size-width, self.preferred-width);
+                }
+
+                width: root.max-size-width;
+                text: playlist-item.file-size;
+            }
+
+            if playlist-item.item-id != "..": IconBtn {
+                icon: Icons.more-v-light;
+                icon-size: Theme.icon-size * 0.8;
+                show-icon-hover-background: false;
+
+                clicked => {
+                    root.more-icon-clicked(self.absolute-position.x, self.absolute-position.y + self.preferred-height);
+                }
+            }
+        }
+    }
+}
+
+export component DetailView inherits ListView {
+    in-out property <[VideoEditorPlaylistItem]> playlist;
+    in-out property <bool> in-edit-mode;
+    in-out property <bool> enable-mark;
+
+    private property <length> max-duraion-width;
+    private property <length> max-size-width;
+
+    callback double-clicked(index: int);
+    callback more-icon-clicked(index: int, absolute-x: length, absolute-y: length);
+    callback right-clicked(index: int, absolute-x: length, absolute-y: length);
+    callback toggled-selection(index: int);
+    callback toggle-mark(index: int);
+    callback dropped-to-folder(is-folder: bool, item-id: string, folder-id: string);
+
+    for item[index] in playlist: DetailItem {
+        index: index;
+        playlist-item: item;
+        in-edit-mode: in-edit-mode;
+        enable-mark: root.enable-mark;
+        max-duraion-width <=> root.max-duraion-width;
+        max-size-width <=> root.max-size-width;
+
+        more-icon-clicked(absolute-x, absolute-y) => {
+            root.more-icon-clicked(index, absolute-x, absolute-y);
+        }
+
+        right-clicked(absolute-x, absolute-y) => {
+            root.right-clicked(index, absolute-x, absolute-y);
+        }
+
+        double-clicked => {
+            root.double-clicked(index);
+        }
+
+        toggled-selection(idx) => {
+            root.toggled-selection(idx);
+        }
+
+        toggle-mark(idx) => {
+            root.toggle-mark(idx);
+        }
+
+        dropped-to-folder(is-folder, item-id, folder-id) => {
+            root.dropped-to-folder(is-folder, item-id, folder-id);
+        }
+    }
+}
+
+component ThumbnailItem inherits Rectangle {
+    in property <int> index;
+    in property <Point> grid-origin;
+    in property <length> grid-width;
+    in property <int> grid-column-count;
+    in property <length> flickable-viewport-y;
+    in property <VideoEditorPlaylistItem> playlist-item;
+
+    private property <bool> file-exist: !playlist-item.is-folder && Logic.file-exist(playlist-item.file-path);
+    private property <bool> folder-exist: !playlist-item.is-folder ? false : (playlist-item.folder-source-path.is-empty ? true : Logic.dir-exist(playlist-item.folder-source-path));
+    private property <bool> is-exist: folder-exist || file-exist;
+    private property <bool> is-dragging-this: Store.video-editor-item-is-dragging && Store.video-editor-drag-item == playlist-item;
+
+    private property <bool> is-folder-drop-target: playlist-item.is-folder && Store.video-editor-item-is-dragging && Store.video-editor-item-drop-target-folder-id == playlist-item.item-id;
+
+    callback double-clicked();
+    callback right-clicked(absolute-x: length, absolute-y: length);
+    callback dropped-to-folder(is-folder: bool, item-id: string, folder-id: string);
+    callback toggled-selection(index: int);
+
+    public pure function get-media-icon(ty: MediaType) -> image {
+        if (ty == MediaType.Video) {
+            return Icons.video-light;
+        } else if (ty == MediaType.Audio) {
+            return Icons.audio-light;
+        } else if (ty == MediaType.Image) {
+            return Icons.image-fill;
+        } else if (ty == MediaType.Subtitle) {
+            return Icons.subtitle-light;
+        } else {
+            return Icons.text-light;
+        }
+    }
+
+    opacity: is-dragging-this ? 0.5 : 1.0;
+    border-color: !is-exist ? Theme.danger-color : (playlist-item.is-selected ? Theme.checked-background : (is-folder-drop-target ? Theme.thirdly-brand-color : transparent));
+    border-width: (!is-exist || playlist-item.is-selected || is-folder-drop-target) ? Theme.default-border-width : 0;
+
+    ta := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+
+        private property <bool> disable-moved;
+        private property <bool> inner-is-draging;
+
+        // Set when double-clicked fires to prevent the second click's pointer-up from toggling selection
+        private property <bool> skip-selection;
+
+        function greater-than-init-draging-threshold() -> bool {
+            abs(self.mouse-x - self.pressed-x) > Theme.padding * 2 || abs(self.mouse-y - self.pressed-y) > Theme.padding * 2
+        }
+
+        moved => {
+            if (disable-moved) {
+                return;
+            }
+            if (!inner-is-draging && greater-than-init-draging-threshold()) {
+                inner-is-draging = true;
+            }
+            if (!inner-is-draging) {
+                return;
+            }
+            Store.video-editor-item-is-dragging = true;
+
+            Store.video-editor-drag-item-absolute-position = {
+                x: self.absolute-position.x + self.mouse-x,
+                y: self.absolute-position.y + self.mouse-y,
+            };
+
+            let in-x = Store.video-editor-drag-item-absolute-position.x > Store.video-editor-tracks-area-absolute-top-left-position.x && Store.video-editor-drag-item-absolute-position.x < Store.video-editor-tracks-area-absolute-bottom-right-position.x;
+            let in-y = Store.video-editor-drag-item-absolute-position.y > Store.video-editor-tracks-area-absolute-top-left-position.y && Store.video-editor-drag-item-absolute-position.y < Store.video-editor-tracks-area-absolute-bottom-right-position.y;
+            Store.video-editor-item-is-in-tracks-area = in-x && in-y;
+
+            // Folder drop detection for thumbnail grid: use absolute position to compute grid row/col
+            if (!Store.video-editor-item-is-in-tracks-area) {
+                let list = Store.video-editor-left-panel-selected-index == 0 ? Store.video-editor-playlist : Store.video-editor-media-library;
+                let count = list.length;
+                if (count > 0) {
+                    let drag-x = Store.video-editor-drag-item-absolute-position.x / 1px;
+                    let drag-y = Store.video-editor-drag-item-absolute-position.y / 1px;
+                    let grid-x = Store.video-editor-thumbnail-view-absolute-position.x / 1px;
+                    // Account for Flickable scroll: grid-origin is ThumbnailView's absolute position,
+                    // but the content scrolls inside. viewport-y is negative when scrolled down.
+                    let grid-y = (Store.video-editor-thumbnail-view-absolute-position.y - flickable-viewport-y) / 1px;
+                    // Add padding offset (VerticalLayout has padding: Theme.spacing)
+                    let pad = Theme.spacing / 1px;
+                    let item-size = Store.video-editor-thumbnail-item-size / 1px;
+                    let spacing = Theme.spacing / 1px;
+
+                    // Compute grid column and row from cursor position relative to grid origin
+                    let col = floor((drag-x - grid-x - pad) / (item-size + spacing));
+                    let row = floor((drag-y - grid-y - pad) / (item-size + spacing));
+                    let target-index = row * grid-column-count + col;
+
+                    if (col >= 0 && row >= 0 && target-index >= 0 && target-index < count) {
+                        let target-item = list[target-index];
+                        if (target-item.is-folder && target-item.item-id != playlist-item.item-id) {
+                            Store.video-editor-item-is-over-folder = true;
+                            Store.video-editor-item-drop-target-folder-id = target-item.item-id;
+                        } else {
+                            Store.video-editor-item-is-over-folder = false;
+                            Store.video-editor-item-drop-target-folder-id = "";
+                        }
+                    } else {
+                        Store.video-editor-item-is-over-folder = false;
+                        Store.video-editor-item-drop-target-folder-id = "";
+                    }
+                } else {
+                    Store.video-editor-item-is-over-folder = false;
+                    Store.video-editor-item-drop-target-folder-id = "";
+                }
+            } else {
+                Store.video-editor-item-is-over-folder = false;
+                Store.video-editor-item-drop-target-folder-id = "";
+            }
+
+            if (Store.video-editor-item-is-in-tracks-area) {
+                let relative-x = Store.video-editor-drag-item-absolute-position.x - Store.video-editor-tracks-area-absolute-top-left-position.x;
+
+                if (relative-x < Store.video-editor-item-track-header-width) {
+                    Store.video-editor-item-is-add-to-new-track = true;
+                    if (Store.video-editor-tracks-manager.tracks.length > 0) {
+                        let relative-y = round((Store.video-editor-drag-item-absolute-position.y - Store.video-editor-tracks-area-absolute-top-left-position.y - Store.video-editor-item-tracks-viewport-y) / 1px);
+                        let target-index = Logic.video-editor-find-drag-target-track(relative-y);
+                        Store.video-editor-item-new-track-insert-index = target-index >= 0 ? target-index : Store.video-editor-tracks-manager.tracks.length;
+                    } else {
+                        Store.video-editor-item-new-track-insert-index = 0;
+                    }
+                    Store.video-editor-item-drag-target-track-index = -1;
+                } else if (Store.video-editor-tracks-manager.tracks.length > 0) {
+                    let relative-y = round((Store.video-editor-drag-item-absolute-position.y - Store.video-editor-tracks-area-absolute-top-left-position.y - Store.video-editor-item-tracks-viewport-y) / 1px);
+                    let target-index = Logic.video-editor-find-drag-target-track(relative-y);
+
+                    if (target-index >= 0 && target-index < Store.video-editor-tracks-manager.tracks.length) {
+                        let target-track = Store.video-editor-tracks-manager.tracks[target-index];
+                        let track-type = target-track.ty;
+                        let media-type = playlist-item.media-type;
+
+                        let type-matches = (media-type == MediaType.Video && track-type == VideoEditorTrackType.Video) || (media-type == MediaType.Audio && track-type == VideoEditorTrackType.Audio) || (media-type == MediaType.Image && track-type == VideoEditorTrackType.Image) || (media-type == MediaType.Subtitle && track-type == VideoEditorTrackType.Subtitle);
+
+                        if (type-matches && !target-track.locked) {
+                            Store.video-editor-item-is-add-to-new-track = false;
+                            Store.video-editor-item-drag-target-track-index = target-index;
+
+                            let segments-relative-x = relative-x - Store.video-editor-item-track-header-width;
+                            let actual-x = segments-relative-x - Store.video-editor-item-tracks-viewport-x;
+                            let fps = Logic.fps-to-int(Store.video-editor-new-project-config.preview-config.fps);
+                            let length-per-second = fps * Store.video-editor-ui-state.tracks-zoom-level.to-float() * 1px;
+                            Store.video-editor-item-drag-timeline-offset-ms = min(round(actual-x / length-per-second * 1000), Store.video-editor-tracks-manager.duration);
+                        } else {
+                            Store.video-editor-item-is-add-to-new-track = true;
+                            Store.video-editor-item-drag-target-track-index = -1;
+                        }
+                    } else {
+                        Store.video-editor-item-is-add-to-new-track = true;
+                        Store.video-editor-item-drag-target-track-index = -1;
+                    }
+                }
+            }
+        }
+
+        pointer-event(event) => {
+            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+
+            if (event.button == PointerEventButton.left) {
+                if (event.kind == PointerEventKind.down) {
+                    Store.video-editor-drag-item = playlist-item;
+                    Store.video-editor-drag-item-absolute-position = {
+                        x: self.absolute-position.x + self.pressed-x,
+                        y: self.absolute-position.y + self.pressed-y,
+                    };
+                    // Store drag item info for folder drop detection
+                    Store.video-editor-library-drag-item-index = index;
+                    Store.video-editor-library-drag-item-start-absolute-position = {
+                        x: self.absolute-position.x + self.pressed-x,
+                        y: self.absolute-position.y + self.pressed-y,
+                    };
+                    Store.video-editor-library-item-height = self.height;
+                    // Store grid position for thumbnail folder drop detection
+                    Store.video-editor-thumbnail-view-absolute-position = grid-origin;
+                    Store.video-editor-thumbnail-item-size = self.width;
+                } else if (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
+                    if (Store.video-editor-item-is-in-tracks-area && Store.video-editor-item-is-dragging) {
+                        Logic.video-editor-drag-item-add-to-track(
+                            Store.video-editor-item-drag-target-track-index,
+                            Store.video-editor-item-drag-timeline-offset-ms);
+                    } else if (Store.video-editor-item-is-over-folder && Store.video-editor-item-is-dragging) {
+                        let drag-item = Store.video-editor-drag-item;
+                        root.dropped-to-folder(drag-item.is-folder, drag-item.item-id, Store.video-editor-item-drop-target-folder-id);
+                    } else if (!inner-is-draging && !skip-selection && playlist-item.item-id != "..") {
+                        // Click without drag: toggle selection (skip if double-clicked just fired or if ".." parent entry)
+                        root.toggled-selection(index);
+                    }
+                    skip-selection = false;
+                    inner-is-draging = false;
+                    Store.video-editor-item-is-dragging = false;
+                    Store.video-editor-item-is-in-tracks-area = false;
+                    Store.video-editor-item-is-over-folder = false;
+                    Store.video-editor-item-drop-target-folder-id = "";
+                    Store.video-editor-item-drag-target-track-index = -1;
+                }
+            } else {
+                if (event.button == PointerEventButton.right) {
+                    root.right-clicked(self.absolute-position.x, self.absolute-position.y + self.preferred-height);
+                }
+                if (event.kind == PointerEventKind.down) {
+                    disable-moved = true;
+                } else if (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
+                    disable-moved = false;
+                }
+            }
+        }
+
+        double-clicked => {
+            skip-selection = true;
+            root.double-clicked();
+        }
+    }
+
+    rec := Rectangle {
+        width: root.width * 0.9;
+        height: self.width;
+        border-radius: Theme.border-radius;
+        background: playlist-item.is-selected ? Theme.checked-background : (ta.has-hover ? Theme.secondary-background : transparent);
+
+        private property <color> icon-colirize: playlist-item.is-marked ? Theme.mark-color : Theme.icon-color;
+
+        VerticalLayout {
+            alignment: center;
+
+            if playlist-item.is-folder: HorizontalLayout {
+                alignment: center;
+
+                Image {
+                    colorize: icon-colirize;
+                    source: playlist-item.folder-source-path.is-empty ? Icons.folder-open-light : Icons.folder-sync-light;
+                }
+            }
+
+            if !playlist-item.is-folder && playlist-item.thumbnail.width > 0: HorizontalLayout {
+                alignment: center;
+
+                Image {
+                    source: playlist-item.thumbnail;
+                    image-fit: ImageFit.contain;
+                }
+            }
+
+            if !playlist-item.is-folder && playlist-item.thumbnail.width == 0: HorizontalLayout {
+                alignment: center;
+
+                Image {
+                    source: get-media-icon(playlist-item.media-type);
+                    colorize: icon-colirize;
+                }
+            }
+
+            Label {
+                width: rec.width;
+                text: playlist-item.name;
+                overflow: TextOverflow.elide;
+                horizontal-alignment: TextHorizontalAlignment.center;
+            }
+        }
+    }
+}
+
+export component ThumbnailView inherits Rectangle {
+    in-out property <[VideoEditorPlaylistItem]> playlist;
+
+    private property <length> thumbnail-size: Theme.icon-size * 6;
+    private property <int> column-count: clamp(root.width / (thumbnail-size + Theme.spacing), 1, 20);
+
+    private property <int> row-count: playlist.length == 0 ? 0 : (mod(playlist.length, column-count) == 0 ? playlist.length / column-count : playlist.length / column-count + 1);
+
+    callback double-clicked(index: int);
+    callback right-clicked(index: int, absolute-x: length, absolute-y: length);
+    callback dropped-to-folder(is-folder: bool, item-id: string, folder-id: string);
+    callback toggled-selection(index: int);
+
+    flick := ScrollView {
+        width: root.width;
+        height: root.height;
+
+        VerticalLayout {
+            spacing: Theme.spacing;
+            padding: Theme.spacing;
+
+            for row-index in row-count: HorizontalLayout {
+                alignment: space-around;
+                spacing: Theme.spacing;
+
+                for col-index in column-count: ThumbnailItem {
+                    visible: row-index * column-count + col-index < playlist.length;
+                    width: thumbnail-size;
+                    height: self.width;
+                    playlist-item: playlist[self.index];
+                    index: clamp(row-index * column-count + col-index, 0, playlist.length);
+                    grid-origin: root.absolute-position;
+                    grid-width: root.width;
+                    grid-column-count: column-count;
+                    flickable-viewport-y: flick.viewport-y;
+
+                    double-clicked => {
+                        root.double-clicked(self.index);
+                    }
+
+                    right-clicked(absolute-x, absolute-y) => {
+                        root.right-clicked(self.index, absolute-x, absolute-y);
+                    }
+
+                    dropped-to-folder(is-folder, item-id, folder-id) => {
+                        root.dropped-to-folder(is-folder, item-id, folder-id);
+                    }
+
+                    toggled-selection(idx) => {
+                        root.toggled-selection(idx);
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component MediaListPanel inherits Rectangle {
+    in-out property <[VideoEditorPlaylistItem]> playlist;
+    in property <bool> in-edit-mode;
+    in property <string> current-folder-id;
+    in property <[VideoEditorPlaylistItem]> breadcrumb;
+    in property <bool> enable-mark;
+    in property <bool> show-subtitle-tab;
+    in-out property <int> checked-index;
+    in-out property <bool> is-searching;
+    in-out property <string> search-keyword;
+    in-out property <PlaylistViewMode> view-mode <=> header.view-mode;
+
+    // Basic operations
+    callback item-import();
+    callback folder-import();
+    callback create-folder();
+    callback search(index: int, keyword: string);
+    // Type filter
+    callback all-files();
+    callback all-videos();
+    callback all-audios();
+    callback all-images();
+    callback all-subtitles();
+    // Edit mode
+    callback enter-edit-mode();
+    callback exit-edit-mode();
+    callback toggle-select-all(selected: bool);
+    callback remove-selections();
+    // Delete
+    callback remove-all();
+    callback show-remove-all-confirm-dialog();
+    // Selection
+    callback toggle-selection(index: int);
+    callback toggle-mark(index: int);
+    // Item operations
+    callback item-add-to-track(index: int);
+    callback item-add-to-track-end(index: int);
+    callback item-preview(index: int);
+    callback item-remove(index: int);
+    callback item-copy-path(index: int);
+    callback item-open-directory(index: int);
+    // Folder operations
+    callback rename-folder(id: string);
+    callback remove-folder(id: string);
+    callback navigate-to-folder(id: string);
+    callback navigate-up();
+    // Drag-to-folder
+    callback move-item-to-folder(item-id: string, folder-id: string);
+    callback move-folder(folder-id: string, new-parent-id: string);
+    // Popup actions (reported to parent for handling)
+    callback folder-more-clicked(index: int, id: string, source-path: string, is-marked: bool, absolute-x: length, absolute-y: length);
+    callback item-more-clicked(index: int, is-marked: bool, from-icon: bool, absolute-x: length, absolute-y: length);
+    callback header-more-clicked(absolute-x: length, absolute-y: length);
+
+    callback show-remove-selections-confirm-dialog();
+
+    VerticalLayout {
+        header := Header {
+            playlist: playlist;
+            in-edit-mode: root.in-edit-mode;
+            show-subtitle-tab: root.show-subtitle-tab;
+            checked-index <=> root.checked-index;
+            is-searching <=> root.is-searching;
+            search-keyword <=> root.search-keyword;
+
+            item-import => { root.item-import(); }
+            folder-import => { root.folder-import(); }
+            create-folder => { root.create-folder(); }
+            search(idx, kw) => { root.search(idx, kw); }
+            all-files => { root.all-files(); }
+            all-videos => { root.all-videos(); }
+            all-audios => { root.all-audios(); }
+            all-images => { root.all-images(); }
+            all-subtitles => { root.all-subtitles(); }
+            enter-edit-mode => { root.enter-edit-mode(); }
+            show-remove-all-confirm-dialog => { root.show-remove-all-confirm-dialog(); }
+            header-more-clicked(ax, ay) => { root.header-more-clicked(ax, ay); }
+        }
+
+        if current-folder-id != "": BreadcrumbBar {
+            current-folder-id: root.current-folder-id;
+            breadcrumb: root.breadcrumb;
+
+            navigate-up => { root.navigate-up(); }
+            navigate-to-folder(id) => { root.navigate-to-folder(id); }
+        }
+
+        if playlist.length == 0: Flickable {
+            interactive: false;
+            NoMessageImg {
+                width: min(parent.width, Theme.icon-size * 15);
+                text: Logic.tr("Click to Import");
+            }
+
+            TouchArea {
+                mouse-cursor: pointer;
+
+                clicked => {
+                    root.item-import();
+                }
+            }
+        }
+
+        if playlist.length > 0: Rectangle {
+            TouchArea {
+                clicked => {
+                    root.toggle-select-all(false);
+                }
+
+                pointer-event(event) => {
+                    if (event.button == PointerEventButton.right && event.kind == PointerEventKind.down) {
+                        root.header-more-clicked(root.absolute-position.x + self.mouse-x, root.absolute-position.y + self.mouse-y);
+                    }
+                }
+            }
+
+            if header.view-mode == PlaylistViewMode.Detail: VerticalLayout {
+                DetailView {
+                    playlist <=> root.playlist;
+                    in-edit-mode: root.in-edit-mode;
+                    enable-mark: root.enable-mark;
+
+                    more-icon-clicked(index, absolute-x, absolute-y) => {
+                        let item = playlist[index];
+                        if item.item-id == ".." {
+                        } else if item.is-folder {
+                            root.folder-more-clicked(index, item.item-id, item.folder-source-path, item.is-marked, absolute-x, absolute-y);
+                        } else {
+                            root.item-more-clicked(index, item.is-marked, true, absolute-x, absolute-y);
+                        }
+                    }
+
+                    right-clicked(index, absolute-x, absolute-y) => {
+                        let item = playlist[index];
+                        if item.item-id == ".." {
+                        } else if item.is-folder {
+                            root.folder-more-clicked(index, item.item-id,  item.folder-source-path, item.is-marked, absolute-x, absolute-y);
+                        } else {
+                            root.item-more-clicked(index, item.is-marked, false, absolute-x, absolute-y);
+                        }
+                    }
+
+                    double-clicked(index) => {
+                        let item = playlist[index];
+                        if item.item-id == ".." {
+                            root.navigate-up();
+                        } else if item.is-folder {
+                            root.navigate-to-folder(item.item-id);
+                        } else {
+                            root.item-preview(index);
+                        }
+                    }
+
+                    toggled-selection(index) => {
+                        root.toggle-selection(index);
+                    }
+
+                    toggle-mark(index) => {
+                        root.toggle-mark(index);
+                    }
+
+                    dropped-to-folder(is-folder, item-id, folder-id) => {
+                        if is-folder {
+                            root.move-folder(item-id, folder-id);
+                        } else {
+                            root.move-item-to-folder(item-id, folder-id);
+                        }
+                    }
+                }
+
+                if in-edit-mode: VerticalLayout {
+                    Divider { }
+
+                    HorizontalLayout {
+                        alignment: space-between;
+                        padding: Theme.padding * 2;
+                        spacing: Theme.spacing * 2;
+
+                        VerticalLayout {
+                            height: btn-filed-hbox.preferred-height;
+                            alignment: center;
+
+                            CheckBtn {
+                                text: Logic.tr("All");
+                                gain-focus-when-clicked: false;
+
+                                toggled => {
+                                    root.toggle-select-all(self.checked);
+                                }
+                            }
+                        }
+
+                        btn-filed-hbox := HorizontalLayout {
+                            alignment: end;
+                            spacing: Theme.spacing * 4;
+
+                            CancelBtn {
+                                use-auto-size: true;
+                                auto-size-hpadding: Theme.padding * 2;
+
+                                clicked => {
+                                    root.exit-edit-mode();
+                                }
+                            }
+
+                            ConfirmBtn {
+                                use-auto-size: true;
+                                auto-size-hpadding: Theme.padding * 2;
+
+                                clicked => {
+                                    root.show-remove-selections-confirm-dialog();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if header.view-mode == PlaylistViewMode.Thumbnail: ThumbnailView {
+                width: root.width;
+                playlist <=> root.playlist;
+
+                right-clicked(index, absolute-x, absolute-y) => {
+                    let item = playlist[index];
+                    if item.item-id == ".." {
+                    } else if item.is-folder {
+                        root.folder-more-clicked(index, item.item-id, item.folder-source-path, item.is-marked, absolute-x, absolute-y);
+                    } else {
+                        root.item-more-clicked(index, item.is-marked, false, absolute-x, absolute-y);
+                    }
+                }
+
+                double-clicked(index) => {
+                    let item = playlist[index];
+                    if item.item-id == ".." {
+                        root.navigate-up();
+                    } else if item.is-folder {
+                        root.navigate-to-folder(item.item-id);
+                    } else {
+                        root.item-preview(index);
+                    }
+                }
+
+                dropped-to-folder(is-folder, item-id, folder-id) => {
+                    if is-folder {
+                        root.move-folder(item-id, folder-id);
+                    } else {
+                        root.move-item-to-folder(item-id, folder-id);
+                    }
+                }
+
+                toggled-selection(index) => {
+                    root.toggle-selection(index);
+                }
+            }
+        }
+    }
+}
+
+export component Playlist inherits Rectangle {
+    media-list := MediaListPanel {
+        playlist <=> Store.video-editor-playlist;
+        in-edit-mode: Store.video-editor-playlist-in-edit-mode;
+        current-folder-id: Store.video-editor-playlist-current-folder-id;
+        breadcrumb: Store.video-editor-playlist-breadcrumb;
+        enable-mark: false;
+        show-subtitle-tab: true;
+        checked-index <=> Store.video-editor-playlist-checked-index;
+        is-searching <=> Store.video-editor-playlist-is-searching;
+        search-keyword <=> Store.video-editor-playlist-search-keyword;
+        view-mode: Store.video-editor-ui-state.playlist-view-mode == 1 ? PlaylistViewMode.Thumbnail : PlaylistViewMode.Detail;
+
+        changed view-mode => {
+            Store.video-editor-ui-state.playlist-view-mode = self.view-mode == PlaylistViewMode.Thumbnail ? 1 : 0;
+            Logic.video-editor-update-ui-state();
+        }
+
+        item-import => Logic.video-editor-playlist-item-import();
+        folder-import => Logic.video-editor-playlist-folder-import();
+        create-folder => Logic.video-editor-playlist-create-folder();
+        search(idx, kw) => Logic.video-editor-playlist-search(idx, kw);
+        all-files => Logic.video-editor-playlist-all-files();
+        all-videos => Logic.video-editor-playlist-all-videos();
+        all-audios => Logic.video-editor-playlist-all-audios();
+        all-images => Logic.video-editor-playlist-all-images();
+        all-subtitles => Logic.video-editor-playlist-all-subtitles();
+        enter-edit-mode => Logic.video-editor-playlist-enter-edit-mode();
+        exit-edit-mode => Logic.video-editor-playlist-exit-edit-mode();
+        toggle-select-all(selected) => Logic.video-editor-playlist-toggle-select-all(selected);
+        remove-selections => Logic.video-editor-playlist-remove-selections();
+        remove-all => Logic.video-editor-playlist-remove-all();
+        show-remove-all-confirm-dialog => Logic.video-editor-playlist-show-remove-all-confirm-dialog();
+        show-remove-selections-confirm-dialog => Logic.video-editor-playlist-show-remove-selections-confirm-dialog();
+        toggle-selection(index) => Logic.video-editor-playlist-toggle-selection(index);
+        toggle-mark(index) => { /* playlist does not support mark */ }
+        item-add-to-track(index) => Logic.video-editor-playlist-item-add-to-track(index);
+        item-add-to-track-end(index) => Logic.video-editor-playlist-item-add-to-track-end(index);
+        item-preview(index) => Logic.video-editor-playlist-item-preview(index);
+        item-remove(index) => Logic.video-editor-playlist-item-remove(index);
+        item-copy-path(index) => Logic.video-editor-playlist-item-copy-path(index);
+        item-open-directory(index) => Logic.video-editor-playlist-item-open-directory(index);
+        rename-folder(id) => Logic.video-editor-playlist-rename-folder(id);
+        remove-folder(id) => Logic.video-editor-playlist-remove-folder(id);
+        navigate-to-folder(id) => Logic.video-editor-playlist-navigate-to-folder(id);
+        navigate-up => Logic.video-editor-playlist-navigate-up();
+        move-item-to-folder(item-id, folder-id) => Logic.video-editor-playlist-move-item-to-folder(item-id, folder-id);
+        move-folder(folder-id, new-parent-id) => Logic.video-editor-playlist-move-folder(folder-id, new-parent-id);
+
+        folder-more-clicked(index, id, source-path, is-marked, ax, ay) => {
+            PopupActionSetting.show(ax, ay, [
+                {
+                    icon: Icons.edit-text-light,
+                    text: Logic.tr("Rename"),
+                    action: "video-editor-playlist-rename-folder",
+                    user-data: id,
+                },
+                {
+                    disable: source-path == "",
+                    icon: Icons.sync-light,
+                    text: Logic.tr("Sync"),
+                    action: "video-editor-playlist-sync-folder",
+                    user-data: id,
+                },
+                {
+                    icon: Icons.delete-light,
+                    text: Logic.tr("Remove"),
+                    action: "video-editor-playlist-remove-folder",
+                    user-data: id,
+                },
+            ]);
+        }
+
+        item-more-clicked(index, is-marked, from-icon, ax, ay) => {
+            let item = Store.video-editor-playlist[index];
+            let exist-selected = Store.video-editor-playlist-selected-count > 0;
+            let disable-for-right-click-action = !from-icon && exist-selected && !item.is-selected;
+
+            PopupActionSetting.show(ax, ay, [
+                {
+                    disable: disable-for-right-click-action,
+                    icon: Icons.add-light,
+                    text: Logic.tr("Add"),
+                    action: "video-editor-playlist-item-add-to-track",
+                    user-data: index,
+                },
+                {
+                    disable: disable-for-right-click-action,
+                    icon: Icons.move-to-end-light,
+                    text: Logic.tr("Add End"),
+                    action: "video-editor-playlist-item-add-to-track-end",
+                    user-data: index,
+                },
+                { },
+                {
+                    disable: disable-for-right-click-action,
+                    icon: Icons.open-file-light,
+                    text: Logic.tr("Open Filepath"),
+                    action: "video-editor-playlist-item-open-directory",
+                    user-data: index,
+                },
+                {
+                    disable: disable-for-right-click-action,
+                    icon: Icons.preview-light,
+                    text: Logic.tr("Preview"),
+                    action: "video-editor-playlist-item-preview",
+                    user-data: index,
+                },
+                { },
+                {
+                    disable: from-icon,
+                    icon: Icons.select-all-light,
+                    text: Logic.tr("Select All"),
+                    action: "video-editor-playlist-select-all",
+                },
+                {
+                    disable: disable-for-right-click-action,
+                    icon: Icons.copy-light,
+                    text: Logic.tr("Copy"),
+                    action: "video-editor-playlist-item-copy-path",
+                    user-data: index,
+                },
+                {
+                    disable: from-icon && exist-selected && !item.is-selected,
+                    icon: Icons.clear-light,
+                    text: Logic.tr("Remove"),
+                    action: "video-editor-playlist-item-remove",
+                    user-data: index,
+                },
+            ]);
+        }
+
+        header-more-clicked(ax, ay) => {
+            PopupActionSetting.show(ax, ay, [
+                {
+                    disable: media-list.view-mode == PlaylistViewMode.Thumbnail || media-list.checked-index != 0,
+                    icon: Icons.edit-light,
+                    text: Logic.tr("Edit"),
+                    action: "video-editor-playlist-enter-edit-mode",
+                },
+                {
+                    icon: Icons.refresh-light,
+                    text: Logic.tr("Refresh"),
+                    action: "video-editor-playlist-refresh",
+                },
+                {
+                    icon: Icons.select-all-light,
+                    text: Logic.tr("Select All"),
+                    action: "video-editor-playlist-select-all",
+                },
+                {
+                    icon: Icons.delete-all-light,
+                    text: Logic.tr("Remove All"),
+                    action: "video-editor-playlist-show-remove-all-confirm-dialog",
+                },
+            ]);
+        }
+    }
+}

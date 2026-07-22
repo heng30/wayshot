@@ -1,74 +1,46 @@
-use crate::slint_generatedAppWindow::AppWindow;
-
-#[cfg(any(feature = "desktop", feature = "mobile"))]
 mod about;
-
-#[cfg(any(feature = "desktop", feature = "mobile"))]
-mod util;
-
-#[cfg(any(feature = "desktop", feature = "mobile"))]
-mod setting;
-
-#[cfg(any(feature = "desktop", feature = "mobile"))]
 mod clipboard;
-
 mod confirm_dialog;
 mod popup_action;
+mod setting;
 mod toast;
 mod tr;
+mod util;
 
-#[cfg(feature = "desktop")]
-mod recorder;
-
-#[cfg(feature = "desktop")]
-mod history;
-
-#[cfg(feature = "desktop")]
-mod player;
-
-#[cfg(feature = "desktop")]
-mod share_screen;
-
-#[cfg(feature = "desktop")]
-mod push_stream;
-
-#[cfg(feature = "desktop")]
 mod camera;
-
-#[cfg(feature = "desktop")]
-mod realtime_image_effect;
-
-#[cfg(feature = "desktop")]
 mod downloader;
+mod history;
+mod player;
+mod push_stream;
+mod realtime_image_effect;
+mod recorder;
+mod share_screen;
+mod video_editor;
 
-#[cfg(any(feature = "desktop", feature = "mobile"))]
-mod transcribe;
+pub use video_editor::project::{
+    BG_ANIMATION_CONFIG_ID, CODE_IMAGE_CONFIG_ID, GLOBAL_FILTER_CONFIG_ID, TEXT_STYLE_CONFIG_ID,
+};
 
-pub fn init(ui: &AppWindow) {
-    #[cfg(any(feature = "desktop", feature = "mobile"))]
-    {
-        util::init(ui);
-        clipboard::init(ui);
-        about::init(ui);
-        setting::init(ui);
-    }
+pub fn init(ui: &crate::slint_generatedAppWindow::AppWindow) {
+    util::init(ui);
+    clipboard::init(ui);
+    about::init(ui);
+    setting::init(ui);
 
     toast::init(ui);
     confirm_dialog::init(ui);
     popup_action::init(ui);
+    downloader::init(ui);
 
-    #[cfg(feature = "desktop")]
-    {
-        recorder::init(ui);
-        history::init(ui);
-        player::init(ui);
-        share_screen::init(ui);
-        push_stream::init(ui);
-        camera::init(ui);
-        realtime_image_effect::init(ui);
-        transcribe::init(ui);
-        downloader::init(ui);
-    }
+    recorder::init(ui);
+    history::init(ui);
+    player::init(ui);
+    camera::init(ui);
+    push_stream::init(ui);
+    realtime_image_effect::init(ui);
+
+    video_editor::init(ui);
+    share_screen::init(ui);
 }
 
 #[macro_export]
@@ -93,6 +65,20 @@ macro_rules! global_util {
 }
 
 #[macro_export]
+macro_rules! global_ve_filter {
+    ($ui:expr) => {
+        $ui.global::<crate::slint_generatedAppWindow::VEFilter>()
+    };
+}
+
+#[macro_export]
+macro_rules! global_terminal_state {
+    ($ui:expr) => {
+        $ui.global::<crate::slint_generatedAppWindow::TerminalState>()
+    };
+}
+
+#[macro_export]
 macro_rules! logic_cb {
     ($callback_name:ident, $ui:expr, $($arg:ident),*) => {
         {{
@@ -110,6 +96,58 @@ macro_rules! logic_cb {
             let ui_weak = $ui.as_weak();
             paste::paste! {
                 crate::global_logic!($ui)
+                    .[<on_ $callback_name>](move || {
+                        $callback_name(&ui_weak.unwrap())
+                    });
+            }
+        }}
+    };
+}
+
+#[macro_export]
+macro_rules! logic_cb_pure {
+    ($callback_name:ident, $ui:expr, $($arg:ident),*) => {
+        {{
+            let ui_weak = $ui.as_weak();
+            paste::paste! {
+                crate::global_logic!($ui)
+                    .[<on_ $callback_name>](move |$($arg),*| {
+                        $callback_name(&ui_weak.unwrap(), $($arg),*)
+                    });
+            }
+        }}
+    };
+    ($callback_name:ident, $ui:expr) => {
+        {{
+            let ui_weak = $ui.as_weak();
+            paste::paste! {
+                crate::global_logic!($ui)
+                    .[<on_ $callback_name>](move || {
+                        $callback_name(&ui_weak.unwrap())
+                    });
+            }
+        }}
+    };
+}
+
+#[macro_export]
+macro_rules! terminal_state_cb {
+    ($callback_name:ident, $ui:expr, $($arg:ident),*) => {
+        {{
+            let ui_weak = $ui.as_weak();
+            paste::paste! {
+                crate::global_terminal_state!($ui)
+                    .[<on_ $callback_name>](move |$($arg),*| {
+                        $callback_name(&ui_weak.unwrap(), $($arg),*)
+                    });
+            }
+        }}
+    };
+    ($callback_name:ident, $ui:expr) => {
+        {{
+            let ui_weak = $ui.as_weak();
+            paste::paste! {
+                crate::global_terminal_state!($ui)
                     .[<on_ $callback_name>](move || {
                         $callback_name(&ui_weak.unwrap())
                     });

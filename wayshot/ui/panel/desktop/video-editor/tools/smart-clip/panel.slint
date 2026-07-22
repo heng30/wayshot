@@ -1,0 +1,401 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    SmartClipProgressType,
+    SmartClip,
+    SmartClipEntry,
+} from "../../../../def.slint";
+import {
+    CenterLayout,
+    ConfirmBtn,
+    IconBtn,
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    ProgressBar,
+    NoMessageImg,
+    Skeleton,
+    SkeletonType,
+    PopupActionSetting,
+    PopupActionEntry,
+    SimpleAudioControl,
+    TxtEdit,
+} from "../../../../../base/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+import { SmartClipListItem } from "list-item.slint";
+import { SmartClipSettingDialog } from "setting.slint";
+
+component StartField inherits VerticalLayout {
+    CenterLayout {
+        NoMessageImg {
+            width: min(root.width * Theme.golden-ratio, 640px);
+        }
+
+        HorizontalLayout {
+            alignment: center;
+
+            ConfirmBtn {
+                icon: Icons.audio-lines-light;
+                text: Logic.tr("Start Smart Clip");
+                auto-size-vpadding: Theme.padding * 2;
+
+                clicked => {
+                    Logic.video-editor-smart-clip-start();
+                }
+            }
+        }
+    }
+}
+
+component Header inherits HorizontalLayout {
+    out property <bool> is-progressing: current-smart-clip.progress-type == SmartClipProgressType.ImportingAudio || current-smart-clip.progress-type == SmartClipProgressType.Transcribing || current-smart-clip.progress-type == SmartClipProgressType.AiSplitting;
+
+    private property <SmartClip> current-smart-clip <=> Store.video-editor-smart-clip;
+    private property <[PopupActionEntry]> popup-action-entries: [
+        {
+            icon: Icons.correction-light,
+            text: Logic.tr("AI Smart Split"),
+            action: "video-editor-smart-clip-ai-split",
+        },
+        {
+            icon: Icons.reference-light,
+            text: Logic.tr("AI Smart Split with Reference"),
+            action: "video-editor-smart-clip-ai-split-with-reference",
+        },
+        { },
+        {
+            icon: Icons.select-all-light,
+            text: Logic.tr("Select All"),
+            action: "video-editor-smart-clip-select-all",
+        },
+        {
+            icon: Icons.deselect-all-light,
+            text: Logic.tr("Deselect All"),
+            action: "video-editor-smart-clip-deselect-all",
+        },
+        {
+            icon: Icons.clear-light,
+            text: Logic.tr("Remove Unchecked"),
+            action: "video-editor-smart-clip-remove-unkept",
+        },
+    ];
+
+    pure function progress-type-str(ty: SmartClipProgressType) -> string {
+        if (ty == SmartClipProgressType.ImportingAudio) {
+            return Logic.tr("Importing Audio");
+        } else if (ty == SmartClipProgressType.Transcribing) {
+            return Logic.tr("Transcribing");
+        } else if (ty == SmartClipProgressType.AiSplitting) {
+            return Logic.tr("AI Splitting");
+        } else if (ty == SmartClipProgressType.Cancelled) {
+            return Logic.tr("Cancelled");
+        } else if (ty == SmartClipProgressType.Finished) {
+            return Logic.tr("Finished");
+        } else if (ty == SmartClipProgressType.Failed) {
+            return Logic.tr("Failed");
+        } else {
+            return "";
+        }
+    }
+
+    pure function progress-type-color(ty: SmartClipProgressType) -> color {
+        if (ty == SmartClipProgressType.Cancelled) {
+            return Theme.warning-color;
+        } else if (ty == SmartClipProgressType.Failed) {
+            return Theme.danger-color;
+        } else {
+            return Theme.thirdly-brand-color;
+        }
+    }
+
+    spacing: Theme.spacing * 4;
+    height: outer-hbox.preferred-height;
+
+    VerticalLayout {
+        alignment: center;
+        width: root.width - outer-hbox.preferred-width - parent.spacing;
+
+        if is-progressing: HorizontalLayout {
+            ProgressBar {
+                private property <string> progress-text: progress-type-str(current-smart-clip.progress-type);
+
+                width: 100%;
+                height: Theme.default-font-size + Theme.padding * 2;
+                clip: true;
+                font-weight: Theme.bold-font-weight;
+                progress: current-smart-clip.progress;
+                finished-progress-color: progress-type-color(current-smart-clip.progress-type);
+                unfinished-text: self.progress-text + "  " + self.calc-percent(self.progress) + "%";
+                finished-text: self.progress-text;
+            }
+        }
+    }
+
+    outer-hbox := HorizontalLayout {
+        alignment: end;
+        spacing: Theme.spacing * 8;
+
+        if is-progressing: ElevatedBtn {
+            icon: Icons.stop-light;
+            colorize: Theme.danger-color;
+            gain-focus-when-clicked: false;
+            is-show-tip: true;
+            tip-position: Bottom;
+            tip: Logic.tr("cancel");
+
+            clicked => {
+                Logic.video-editor-smart-clip-cancel(current-smart-clip.progress-type);
+            }
+        }
+
+        Rectangle {
+            height: hbox.preferred-height;
+            border-radius: self.height / 2;
+            background: Theme.thirdly-background;
+            border-width: Theme.default-border-width;
+            border-color: Theme.base-border-color;
+
+            hbox := HorizontalLayout {
+                spacing: Theme.spacing * 4;
+                padding: Theme.padding * 2;
+                padding-left: Theme.padding * 4;
+                padding-right: Theme.padding * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("re-transcribe");
+                    icon: Icons.transcribe-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-smart-clip-start();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("Apply");
+                    icon: Icons.cut2-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-smart-clip-apply();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("setting");
+                    icon: Icons.setting-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Store.video-editor-smart-clip-is-show-setting-dialog = true;
+                    }
+                }
+
+                IconBtn {
+                    icon: Icons.more-v-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        PopupActionSetting.show(self.absolute-position.x + self.width, self.absolute-position.y, popup-action-entries);
+                    }
+                }
+            }
+        }
+    }
+}
+
+component EntryListView inherits ScrollView {
+    private property <SmartClip> current-smart-clip <=> Store.video-editor-smart-clip;
+    private property <[SmartClipEntry]> entries: Store.video-editor-smart-clip.entries;
+    private property <bool> is-show-skeleton: current-smart-clip.progress-type == SmartClipProgressType.Transcribing && entries.length == 0;
+    private property <length> current-playing-index-pos-y;
+    private property <length> current-playing-index-preferred-height;
+    private property <float> audio-player-progress <=> Store.video-editor-smart-clip-audio-player-progress;
+
+    function need-scroll() -> bool {
+        if (Store.video-editor-smart-clip-playing-index < 0) {
+            return false;
+        }
+        return !(current-playing-index-pos-y > abs(self.viewport-y) && current-playing-index-pos-y + current-playing-index-preferred-height < abs(self.viewport-y) + self.height);
+    }
+
+    function scroll-to-item() {
+        self.viewport-y = 0 - clamp(current-playing-index-pos-y, 0, self.viewport-height - root.height);
+    }
+
+    changed audio-player-progress => {
+        if (need-scroll()) {
+            scroll-to-item();
+        }
+    }
+
+    VerticalLayout {
+        spacing: Theme.spacing * 2;
+
+        if is-show-skeleton: Rectangle {
+            height: Theme.icon-size * 8;
+
+            Skeleton {
+                x: Theme.padding * 2;
+                y: Theme.padding * 2;
+                width: parent.width - Theme.padding * 4;
+                height: parent.height;
+                type: SkeletonType.List;
+            }
+        }
+
+        for entry[index] in entries: SmartClipListItem {
+            private property inner-playing-index <=> Store.video-editor-smart-clip-playing-index;
+            changed inner-playing-index => {
+                if (index == inner-playing-index) {
+                    current-playing-index-pos-y = self.y;
+                    current-playing-index-preferred-height = self.preferred-height;
+                }
+            }
+
+            index: index;
+            entry: entry;
+            width: root.width;
+        }
+    }
+}
+
+
+export component SmartClipDialog inherits MovingDialog {
+    title: Logic.tr("Smart Voice Clip");
+    icon: Icons.voice-over-light;
+    header-width: Theme.moving-dialog-width;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+    body-height: root.header-width * Theme.golden-ratio;
+
+    private property <SmartClip> current-smart-clip <=> Store.video-editor-smart-clip;
+    private property <bool> is-transcribing: current-smart-clip.progress-type == SmartClipProgressType.Transcribing || current-smart-clip.progress-type == SmartClipProgressType.ImportingAudio;
+    private property <bool> is-show-no-message: current-smart-clip.entries.length == 0 && !is-transcribing;
+
+    init => {
+        if (!Logic.video-editor-smart-clip-setting-is-valid()) {
+            Store.video-editor-smart-clip-is-show-setting-dialog = true;
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        Header { }
+
+        if !is-show-no-message: Rectangle {
+            background: Theme.secondary-background;
+            border-radius: Theme.border-radius;
+
+            VerticalLayout {
+                padding: Theme.padding * 2;
+
+                EntryListView { }
+            }
+        }
+
+        if is-show-no-message: StartField { }
+
+        if current-smart-clip.entries.length > 0: SimpleAudioControl {
+            is-playing: Store.video-editor-smart-clip-audio-player-is-playing;
+            progress: Store.video-editor-smart-clip-audio-player-progress;
+            current-sound: Store.video-editor-smart-clip-audio-sound * 100;
+            current-speed: Store.video-editor-smart-clip-audio-speed;
+            current-time: Util.seconds-to-media-timestamp(self.progress * Store.video-editor-smart-clip-audio-duration-ms / 1000);
+            end-time: Util.seconds-to-media-timestamp(Store.video-editor-smart-clip-audio-duration-ms / 1000);
+            is-hide-speed-btn: false;
+
+            private property <bool> inner-is-playing <=> Store.video-editor-smart-clip-audio-player-is-playing;
+            changed inner-is-playing => {
+                self.is-playing = inner-is-playing;
+            }
+
+            play => {
+                Logic.video-editor-smart-clip-play();
+            }
+
+            stop => {
+                Logic.video-editor-smart-clip-stop();
+            }
+
+            sound-changed(sound) => {
+                Logic.video-editor-smart-clip-audio-player-sound-changed(sound / 100);
+            }
+
+            sound-released(sound) => {
+                Logic.video-editor-smart-clip-audio-player-sound-released(sound / 100);
+            }
+
+            progress-changed(value) => {
+                Store.video-editor-smart-clip-audio-player-progress = value;
+            }
+
+            progress-released(value) => {
+                Logic.video-editor-smart-clip-audio-player-progress-released(value);
+            }
+
+            progress-pressed(value) => {
+                Logic.video-editor-smart-clip-audio-player-progress-pressed(value);
+            }
+
+            speed-changed(speed) => {
+                Logic.video-editor-smart-clip-audio-player-speed-changed(speed);
+            }
+        }
+    }
+}
+
+export component SmartClipReferenceDialog inherits MovingDialog {
+    title: Logic.tr("AI Smart Split with Reference");
+    icon: Icons.reference-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+    enable-resize: true;
+    body-height: root.header-width * Theme.golden-ratio;
+
+    VerticalLayout {
+        spacing: Theme.spacing * 2;
+        padding: Theme.padding * 2;
+
+        Timer {
+            interval: 100ms;
+            running: true;
+
+            triggered() => {
+                input-te.focus();
+                self.running = false;
+            }
+        }
+
+        input-te := TxtEdit {
+            placeholder: Logic.tr("reference text");
+        }
+
+        ConfirmBtn {
+            text: Logic.tr("Smart Split");
+            icon: Icons.cut2-light;
+            icon-size: Theme.icon-size * 0.8;
+            height: self.font-size + Theme.padding * 4;
+
+            clicked => {
+                if !input-te.text.is-empty {
+                    Logic.video-editor-smart-clip-ai-split-with-reference(input-te.text);
+                    input-te.clear();
+                    Store.video-editor-smart-clip-is-show-reference-dialog = false;
+                }
+            }
+        }
+    }
+}

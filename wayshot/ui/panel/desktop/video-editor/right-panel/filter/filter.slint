@@ -1,0 +1,1160 @@
+import { ListView, ScrollView } from "std-widgets.slint";
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoEditorTrack,
+    VideoEditorTrackType,
+    VideoEditorTrackSegment,
+    FilterType,
+} from "../../../../def.slint";
+import {
+    Label,
+    IconBtn,
+    CheckBtn,
+    TextBtnWithoutIcon,
+    PopupActionEntry,
+    PopupActionSetting,
+    ElevatedBtn,
+    MovingDivider,
+    Brand,
+    NoDataImg,
+    LineInput,
+    SwitchBtn,
+    NoMessageImg,
+} from "../../../../../base/widgets.slint";
+import { FilterVideoDetail } from "video.slint";
+import { FilterAudioDetail } from "audio.slint";
+import { FilterImageDetail } from "image.slint";
+import {
+    SegmentFilter,
+    VEFilter,
+    PresetFilter,
+    FilterEntry,
+} from "../../filter.slint";
+import {
+    FilterSubtitleDetail,
+    PresetFilterSubtitleDetail,
+} from "subtitle.slint";
+import { ClickAndEditLabel } from "../../../../../base/line-input.slint";
+
+component FilterDetailTab inherits Rectangle {
+    in-out property <int> checked-index: -1;
+
+    callback open-filters-selector(checked-index: int);
+
+    visible: Store.video-editor-current-edited-track-index >= 0;
+    background: Theme.thirdly-background;
+    width: hbox.preferred-width + add-hbox.preferred-width + Theme.padding * 8;
+    height: hbox.preferred-height + Theme.padding * 2;
+    border-radius: self.height / 2;
+    border-width: Theme.default-border-width;
+    border-color: Theme.base-border-color;
+
+    add-hbox := HorizontalLayout {
+        alignment: end;
+        padding-right: Theme.padding;
+
+        VerticalLayout {
+            alignment: center;
+
+            ElevatedBtn {
+                icon: Icons.add2-light;
+                width: hbox.preferred-height;
+                background: self.has-hover ? (Theme.is-dark ? Theme.secondary-background.brighter(50%) : Theme.secondary-background.darker(20%)) : Theme.secondary-background;
+
+                clicked => {
+                    open-filters-selector(checked-index);
+                }
+            }
+        }
+    }
+
+    hbox := HorizontalLayout {
+        x: Theme.padding * 4;
+        y: Theme.padding;
+        spacing: Theme.spacing * 4;
+
+        private property <bool> is-video-track: Logic.video-editor-is-video-track(Store.video-editor-current-edited-track-index);
+        private property <bool> is-video-with-audio-track: Logic.video-editor-is-video-with-audio-track(Store.video-editor-current-edited-track-index);
+        private property <bool> is-audio-track: Logic.video-editor-is-audio-track(Store.video-editor-current-edited-track-index);
+        private property <bool> is-image-track: Logic.video-editor-is-image-track(Store.video-editor-current-edited-track-index);
+        private property <SegmentFilter> selected-filter <=> VEFilter.selected-filter;
+
+        changed selected-filter => {
+            if (is-video-track) {
+                if (VEFilter.selected-filter.ty == FilterType.Audio) {
+                    checked-index = 1;
+                } else {
+                    checked-index = 0;
+                }
+            }
+        }
+
+        changed is-video-track => {
+            if (is-video-track) {
+                if (VEFilter.selected-filter.ty == FilterType.Audio) {
+                    checked-index = 1;
+                } else {
+                    checked-index = 0;
+                }
+            }
+        }
+
+        changed is-audio-track => {
+            if (is-audio-track) {
+                checked-index = 1;
+            }
+        }
+
+        changed is-image-track => {
+            if (is-image-track) {
+                checked-index = 2;
+            }
+        }
+
+        init => {
+            if (is-video-track) {
+                if (VEFilter.selected-filter.ty == FilterType.Audio) {
+                    checked-index = 1;
+                } else {
+                    checked-index = 0;
+                }
+            } else if (is-audio-track) {
+                checked-index = 1;
+            } else if (is-image-track) {
+                checked-index = 2;
+            } else {
+                checked-index = -1;
+            }
+        }
+
+        if is-video-track: TextBtnWithoutIcon {
+            text: Logic.tr("Video");
+            border-radius: self.height / 3;
+            text-color: checked-index == 0 ? Theme.light-text-color : Theme.regular-text-color;
+            background: checked-index == 0 ? Theme.thirdly-brand-color : transparent;
+
+            clicked => {
+                checked-index = 0;
+            }
+        }
+
+        if is-audio-track || is-video-with-audio-track: TextBtnWithoutIcon {
+            text: Logic.tr("Audio");
+            border-radius: self.height / 3;
+            text-color: checked-index == 1 ? Theme.light-text-color : Theme.regular-text-color;
+            background: checked-index == 1 ? Theme.thirdly-brand-color : transparent;
+
+            clicked => {
+                checked-index = 1;
+            }
+        }
+
+        if is-image-track: TextBtnWithoutIcon {
+            text: Logic.tr("Image");
+            border-radius: self.height / 3;
+            text-color: checked-index == 2 ? Theme.light-text-color : Theme.regular-text-color;
+            background: checked-index == 2 ? Theme.thirdly-brand-color : transparent;
+
+            init => {
+                checked-index = 2;
+            }
+
+            clicked => {
+                checked-index = 2;
+            }
+        }
+    }
+}
+
+component SegmentFilterList inherits Rectangle {
+    in-out property <int> selected-index <=> VEFilter.selected-filter-index;
+    in-out property <VideoEditorTrackSegment> segment;
+
+    private property <bool> preset-mode;
+
+    callback clicked(filter: SegmentFilter);
+    callback filter-selected(ty: FilterType);
+
+    changed selected-index => {
+        if (selected-index == -1) {
+            VEFilter.selected-filter = { };
+            VEFilter.is-in-edit-mode = false;
+        } else if (selected-index >= 0 && selected-index < segment.filters.length) {
+            VEFilter.selected-filter = segment.filters[selected-index];
+            VEFilter.is-in-edit-mode = VEFilter.is-edit-mode-filter(segment.filters[selected-index].name);
+            root.filter-selected(segment.filters[selected-index].ty);
+        }
+    }
+
+    border-radius: Theme.border-radius;
+    border-width: Theme.default-border-width;
+    border-color: Theme.base-border-color;
+    clip: true;
+
+    VerticalLayout {
+        padding: Theme.padding;
+        spacing: Theme.spacing;
+
+        Rectangle {
+            background: Theme.table-item-second;
+
+            HorizontalLayout {
+                alignment: end;
+                padding: Theme.padding;
+                padding-right: Theme.padding * 2;
+                spacing: Theme.spacing * 4;
+
+                if preset-mode: LineInput {
+                    font-size: Theme.default-font-size * 0.8;
+                    vpadding: Theme.padding;
+                    icon: Icons.check-box-light;
+                    icon-size: Theme.icon-size * Theme.golden-ratio;
+                    is-show-icon: true;
+                    show-icon-hover-background: false;
+                    placeholder-text: Logic.tr("filter name");
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    fs-timer := Timer {
+                        interval: 200ms;
+                        running: true;
+                        triggered() => {
+                            parent.focus();
+                            self.running = false;
+                        }
+                    }
+
+                    clicked => {
+                        VEFilter.create-preset-filter(self.text);
+                        preset-mode = false;
+                    }
+
+                    accepted => {
+                        self.clicked();
+                    }
+
+                    key-pressed(key-event) => {
+                        if key-event.text == Key.Escape {
+                            preset-mode = false;
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+
+                    IconBtn {
+                        icon: Icons.preset-light;
+                        icon-size: Theme.icon-size * 0.8;
+                        tip: Logic.tr("create preset filter");
+                        is-show-tip: true;
+
+                        clicked => {
+                            preset-mode = !preset-mode;
+                        }
+                    }
+
+                    IconBtn {
+                        icon: Icons.more-v-light;
+
+                        private property <int> seg-index: Store.video-editor-selected-segments-index.length > 0 ? Store.video-editor-selected-segments-index[Store.video-editor-selected-segments-index.length - 1].index : -1;
+                        private property <string> selected-segment-index-str: Store.video-editor-current-edited-track-index + ":" + seg-index;
+
+                        clicked => {
+                            PopupActionSetting.show(self.absolute-position.x, self.absolute-position.y + self.preferred-height, [
+                                {
+                                    icon: Icons.paste-light,
+                                    text: Logic.tr("Paste"),
+                                    action: "video-editor-paste-filter",
+                                },
+                                {
+                                    icon: Icons.refresh-small-light,
+                                    text: Logic.tr("refresh"),
+                                    action: "video-editor-refresh-filter-list",
+                                },
+                                {
+                                    icon: Icons.delete-all-light,
+                                    text: Logic.tr("remove all filters"),
+                                    action: "video-editor-segment-remove-all-filters",
+                                    user-data: selected-segment-index-str,
+                                },
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
+
+        if segment.filters.length == 0: Flickable {
+            NoDataImg {
+                width: parent.width * Theme.golden-ratio;
+                image: Icons.empty-fill;
+                colorize: Theme.icon-color;
+                text: Logic.tr("No Filter");
+                font-size: Theme.default-font-size;
+            }
+        }
+
+        if segment.filters.length > 0: ListView {
+            for filter[index] in segment.filters: filter-item := Rectangle {
+                border-radius: Theme.border-radius;
+                background: Theme.table-item-background(index, selected-index == index, ta.has-hover);
+                opacity: VEFilter.filter-list-is-dragging && VEFilter.drag-filter-index == index ? 0.5 : 1.0;
+
+                // Drop indicator when dragging filter list
+                Rectangle {
+                    visible: VEFilter.filter-list-is-dragging && VEFilter.drag-filter-target-index == index;
+                    y: VEFilter.drag-filter-index > index ? -self.height / 2 : parent.height - self.height / 2;
+                    height: Theme.default-border-width * 2;
+                    background: Theme.invert-base-color;
+                }
+
+                ta := TouchArea {
+                    mouse-cursor: MouseCursor.pointer;
+
+                    clicked => {
+                        if (selected-index == index) {
+                            selected-index = -1;
+                        } else {
+                            selected-index = index;
+                            Store.video-editor-segment-filter-flag = !Store.video-editor-segment-filter-flag;
+                        }
+                    }
+                }
+
+                hbox := HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+                    padding: Theme.padding * 2;
+                    alignment: space-between;
+
+                    HorizontalLayout {
+                        alignment: start;
+                        spacing: Theme.spacing * 2;
+
+                        if preset-mode: VerticalLayout {
+                            alignment: center;
+
+                            CheckBtn {
+                                toggled => {
+                                    if (self.checked) {
+                                        VEFilter.add-cache-preset-filter(filter);
+                                    } else {
+                                        VEFilter.remove-cache-preset-filter(filter);
+                                    }
+                                }
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+
+                            Image {
+                                width: Theme.default-font-size;
+                                height: self.width;
+                                source: filter.ty == FilterType.Video || filter.ty == FilterType.Image ? Icons.image-light : Icons.audio-light;
+                                colorize: Theme.regular-text-color;
+
+                                TouchArea {
+                                    mouse-cursor: move;
+
+                                    private property <bool> inner-is-dragging;
+                                    private property <bool> disable-moved;
+
+                                    function greater-than-init-dragging-threshold() -> bool {
+                                        abs(self.mouse-x - self.pressed-x) > Theme.padding * 2 || abs(self.mouse-y - self.pressed-y) > Theme.padding * 2
+                                    }
+
+                                    moved => {
+                                        if (disable-moved) {
+                                            return;
+                                        }
+                                        if (!inner-is-dragging && greater-than-init-dragging-threshold()) {
+                                            inner-is-dragging = true;
+                                        }
+                                        if (!inner-is-dragging) {
+                                            return;
+                                        }
+                                        VEFilter.filter-list-is-dragging = true;
+                                        VEFilter.drag-filter-index = index;
+
+                                        // Calculate target from y-offset
+                                        let offset-y = self.mouse-y - self.pressed-y;
+                                        let item-height = filter-item.height;
+                                        if (item-height <= 0) {
+                                            return;
+                                        }
+                                        let offset-items = round((offset-y / 1px) / round(item-height / 1px));
+                                        let target = clamp(index + offset-items, 0, segment.filters.length - 1);
+
+                                        VEFilter.drag-filter-target-index = target;
+                                    }
+
+                                    pointer-event(event) => {
+                                        if (event.button == PointerEventButton.left) {
+                                            if (event.kind == PointerEventKind.down) {
+                                                VEFilter.drag-filter-index = index;
+                                                VEFilter.drag-filter-target-index = index;
+                                            } else if (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
+                                                if (VEFilter.filter-list-is-dragging && VEFilter.drag-filter-index == index) {
+                                                    let target = VEFilter.drag-filter-target-index;
+                                                    if (target >= 0 && target != index) {
+                                                        VEFilter.move-filter-by-drag(index, target);
+                                                    }
+                                                }
+                                                inner-is-dragging = false;
+                                                VEFilter.filter-list-is-dragging = false;
+                                                VEFilter.drag-filter-index = -1;
+                                                VEFilter.drag-filter-target-index = -1;
+                                            }
+                                        } else {
+                                            if (event.kind == PointerEventKind.down) {
+                                                disable-moved = true;
+                                            } else if (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
+                                                disable-moved = false;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Label {
+                            vertical-alignment: center;
+                            text: Logic.tr(filter.name);
+                            overflow: elide;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: start;
+                        spacing: Theme.spacing * 4;
+
+                        SwitchBtn {
+                            indicator-size: Theme.default-font-size;
+                            gain-focus-when-clicked: false;
+                            checked: filter.enabled;
+
+                            toggled => {
+                                VEFilter.selected-filter-type = filter.ty;
+                                VEFilter.toggle-filter(index);
+                            }
+                        }
+
+                        IconBtn {
+                            icon: Icons.more-v-light;
+                            show-icon-hover-background: false;
+                            gain-focus-when-clicked: false;
+
+                            clicked => {
+                                VEFilter.selected-filter-type = filter.ty;
+
+                                PopupActionSetting.show(self.absolute-position.x, self.absolute-position.y + self.preferred-height, [
+                                    {
+                                        icon: Icons.arrow-up-light,
+                                        text: Logic.tr("Up"),
+                                        action: "video-editor-up-filter",
+                                        user-data: index,
+                                    },
+                                    {
+                                        icon: Icons.arrow-down-light,
+                                        text: Logic.tr("Down"),
+                                        action: "video-editor-down-filter",
+                                        user-data: index,
+                                    },
+                                    {
+                                        icon: Icons.to-bottom-light,
+                                        icon-rotation: 180deg,
+                                        text: Logic.tr("Move to Top"),
+                                        action: "video-editor-move-to-top-filter",
+                                        user-data: index,
+                                    },
+                                    {
+                                        icon: Icons.to-bottom-light,
+                                        text: Logic.tr("Move to Bottom"),
+                                        action: "video-editor-move-to-bottom-filter",
+                                        user-data: index,
+                                    },
+                                    { },
+                                    {
+                                        icon: Icons.copy-light,
+                                        text: Logic.tr("Copy"),
+                                        action: "video-editor-copy-filter",
+                                        user-data: index,
+                                    },
+                                    {
+                                        icon: Icons.cut-light,
+                                        text: Logic.tr("Cut"),
+                                        action: "video-editor-cut-filter",
+                                        user-data: index,
+                                    },
+                                    {
+                                        icon: Icons.clear-light,
+                                        text: Logic.tr("Remove"),
+                                        action: "video-editor-remove-filter",
+                                        user-data: index,
+                                    },
+                                ]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component SegmentFilter inherits Rectangle {
+    in-out property <FilterType> last-added-filter-type;
+    private property <VideoEditorTrackSegment> segment: Logic.video-editor-selected-segment(Store.video-editor-segment-selected-flag, Store.video-editor-segment-filter-flag);
+    private property <SegmentFilter> selected-filter <=> VEFilter.selected-filter;
+    private property <bool> auto-switching-tab: false;
+
+    callback open-filters-selector(ty: FilterType);
+
+    // 例如通过界面调整了filter状态，但是selected-filter没有及时更新。导致状态不一致
+    // 通过segment变化及时更新当前filter状态
+    changed segment => {
+        let idx = VEFilter.selected-filter-index;
+        if (idx >= 0 && idx < segment.filters.length) {
+            VEFilter.selected-filter = segment.filters[idx];
+        }
+    }
+
+    public function update-selected-index() {
+        sl.selected-index = VEFilter.get-new-filter-index(last-added-filter-type);
+    }
+
+    clip: true;
+
+    tab := FilterDetailTab {
+        y: 0;
+
+        changed checked-index => {
+            if (!auto-switching-tab) {
+                if (root.segment.filters.length > 0) {
+                    sl.selected-index = 0;
+                } else {
+                    sl.selected-index = -1;
+                }
+            }
+            auto-switching-tab = false;
+        }
+
+        open-filters-selector(checked-index) => {
+            if (checked-index == 0) {
+                open-filters-selector(FilterType.Video);
+            } else if (checked-index == 1) {
+                open-filters-selector(FilterType.Audio);
+            } else if (checked-index == 2) {
+                open-filters-selector(FilterType.Image);
+            }
+        }
+    }
+
+    sl := SegmentFilterList {
+        y: tab.y + tab.height + Theme.spacing * 2;
+        height: root.height - td.height - tab.height - rec.height;
+        segment: root.segment;
+
+        filter-selected(ty) => {
+            auto-switching-tab = true;
+            if (ty == FilterType.Video) {
+                tab.checked-index = 0;
+            } else if (ty == FilterType.Audio) {
+                tab.checked-index = 1;
+            } else if (ty == FilterType.Image) {
+                tab.checked-index = 2;
+            }
+        }
+    }
+
+    td := MovingDivider {
+        y: sl.y + sl.height + Theme.spacing / 2;
+        orientation: horizontal;
+
+        moved => {
+            rec.height = clamp(rec.height + (self.pressed-y - self.mouse-y), td.height + Theme.spacing * 3 / 2, rec.max-height);
+        }
+    }
+
+    rec := Rectangle {
+        y: td.y + td.height;
+        visible: sl.selected-index >= 0; // todo
+        max-height: root.height - tab.height;
+        height: root.height * 2 / 3;
+        background: Theme.secondary-background;
+
+        // todo
+        if tab.checked-index == 0: FilterVideoDetail {
+            y: 0;
+            selected-filter: selected-filter;
+            index: sl.selected-index;
+        }
+
+        if tab.checked-index == 1: FilterAudioDetail {
+            y: 0;
+            selected-filter: selected-filter;
+            index: sl.selected-index;
+        }
+
+        if tab.checked-index == 2: FilterImageDetail {
+            y: 0;
+            selected-filter: selected-filter;
+            index: sl.selected-index;
+        }
+    }
+
+    // todo
+    if sl.selected-index < 0: NoDataImg {
+        y: td.y + td.height;
+        height: root.height * 2 / 3;
+        text: Logic.tr("No Detail");
+        font-size: Theme.default-font-size;
+    }
+}
+
+export component FilterSelector inherits VerticalLayout {
+    in-out property <[FilterEntry]> filter-entries;
+    in-out property <[PresetFilter]> preset-filters;
+    in-out property <FilterType> filter-type;
+
+    private property <bool> is-show-filter-search;
+
+    callback clicked(entry: FilterEntry);
+    callback preset-clicked(preset: PresetFilter);
+    callback back();
+    callback search-filter(text: string);
+    callback search-preset-filter(text: string);
+
+    spacing: Theme.spacing;
+
+    VerticalLayout {
+        Rectangle {
+            background: Theme.secondary-background;
+
+            HorizontalLayout {
+                alignment: !is-show-filter-search ? space-between : stretch;
+                padding: Theme.padding * 2;
+                spacing: Theme.spacing * 4;
+
+                back-icon := IconBtn {
+                    icon: Icons.back-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    gain-focus-when-clicked: false;
+
+                    clicked => {
+                        root.back();
+                        root.search-filter("");
+                        root.search-preset-filter("");
+                    }
+                }
+
+                HorizontalLayout {
+                    horizontal-stretch: 1;
+                    spacing: Theme.spacing * 4;
+
+                    if is-show-filter-search: LineInput {
+                        vpadding: Theme.padding / 2;
+                        placeholder: Logic.tr("keyword");
+                        border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.regular-text-color;
+
+                        Timer {
+                            interval: 200ms;
+                            running: true;
+                            triggered() => {
+                                parent.focus();
+                                self.running = false;
+                            }
+                        }
+
+                        accepted => {
+                            self.focus();
+                            root.search-filter(self.text);
+                        }
+
+                        key-pressed(key-event) => {
+                            if (key-event.text == Key.Escape) {
+                                is-show-filter-search = false;
+                                root.search-filter("");
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+                    }
+
+                    IconBtn {
+                        icon: root.is-show-filter-search ? Icons.cancel-fill : Icons.search-light;
+                        icon-size: Theme.icon-size * 0.9;
+                        gain-focus-when-clicked: false;
+
+                        clicked => {
+                            root.is-show-filter-search = !root.is-show-filter-search;
+
+                            if (!root.is-show-filter-search) {
+                                root.search-filter("");
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !is-show-filter-search: HorizontalLayout {
+                alignment: center;
+                padding: Theme.padding * 2;
+
+                Label {
+                    text: Logic.tr("Filters");
+                }
+            }
+        }
+
+        ListView {
+            for entry[index] in filter-entries: Rectangle {
+                border-radius: Theme.border-radius;
+                background: Theme.table-item-background(index, false, ta.has-hover);
+
+                private property <bool> segment-has-filter: Logic.video-editor-segment-has-filter(entry);
+
+                ta := TouchArea {
+                    enabled: !segment-has-filter;
+                    mouse-cursor: segment-has-filter ? MouseCursor.not-allowed : MouseCursor.pointer;
+
+                    clicked => {
+                        root.clicked(entry);
+                    }
+                }
+
+                hbox := HorizontalLayout {
+                    alignment: space-between;
+                    spacing: Theme.spacing * 2;
+                    padding: Theme.padding * 2;
+                    padding-right: Theme.padding * 3;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+                        alignment: start;
+
+                        Label {
+                            enabled: !segment-has-filter;
+                            text: index + 1;
+                        }
+
+                        Label {
+                            enabled: !segment-has-filter;
+                            text: Logic.tr(entry.name);
+                            overflow: elide;
+                        }
+                    }
+
+                    IconBtn {
+                        icon: Icons.star-round-fill;
+                        colorize: entry.is-marked ? Theme.warning-color : Theme.icon-color;
+                        hover-color: mod(index, 2) == 1 ? Theme.table-item-first : Theme.table-item-second;
+
+                        clicked => {
+                            VEFilter.toggle-mark-filter(entry);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    VerticalLayout {
+        height: root.height / 3;
+
+        private property <bool> is-show-preset-filter-search;
+
+        Rectangle {
+            background: Theme.secondary-background;
+
+            HorizontalLayout {
+                alignment: !is-show-preset-filter-search ? end : stretch;
+                padding: Theme.padding * 2;
+                spacing: Theme.spacing * 4;
+
+                HorizontalLayout {
+                    horizontal-stretch: 1;
+                    spacing: Theme.spacing * 4;
+
+                    if is-show-preset-filter-search: LineInput {
+                        vpadding: Theme.padding / 2;
+                        placeholder: Logic.tr("keyword");
+                        border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.regular-text-color;
+
+                        Timer {
+                            interval: 200ms;
+                            running: true;
+                            triggered() => {
+                                parent.focus();
+                                self.running = false;
+                            }
+                        }
+
+                        accepted => {
+                            self.focus();
+                            search-preset-filter(self.text);
+                        }
+
+                        key-pressed(key-event) => {
+                            if (key-event.text == Key.Escape) {
+                                is-show-preset-filter-search = false;
+                                search-preset-filter("");
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+                    }
+
+                    IconBtn {
+                        icon: is-show-preset-filter-search ? Icons.cancel-fill : Icons.search-light;
+                        icon-size: Theme.icon-size * 0.9;
+                        gain-focus-when-clicked: false;
+
+                        clicked => {
+                            is-show-preset-filter-search = !is-show-preset-filter-search;
+
+                            if (!is-show-preset-filter-search) {
+                                root.search-preset-filter("");
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !is-show-preset-filter-search: HorizontalLayout {
+                alignment: center;
+                padding: Theme.padding * 2;
+
+                Label {
+                    text: Logic.tr("Preset Filters");
+                }
+            }
+        }
+
+        ListView {
+            for preset[index] in preset-filters: preset-item := Rectangle {
+                border-radius: Theme.border-radius;
+                background: Theme.table-item-background(index, false, ta2.has-hover);
+                opacity: VEFilter.preset-filter-list-is-dragging && VEFilter.drag-preset-filter-index == index ? 0.5 : 1.0;
+
+                // Drop indicator when dragging preset filter list
+                Rectangle {
+                    visible: VEFilter.preset-filter-list-is-dragging && VEFilter.drag-preset-filter-target-index == index;
+                    height: Theme.default-border-width * 2;
+                    background: Theme.invert-base-color;
+                    y: VEFilter.drag-preset-filter-index > index ? -self.height / 2 : parent.height - self.height / 2;
+                }
+
+                private property <bool> segment-has-preset-filter: Logic.video-editor-segment-has-preset-filter(preset);
+
+                ta2 := TouchArea {
+                    enabled: !segment-has-preset-filter;
+                    mouse-cursor: segment-has-preset-filter ? MouseCursor.not-allowed : MouseCursor.pointer;
+
+                    clicked => {
+                        root.preset-clicked(preset);
+                    }
+                }
+
+                hbox2 := HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+                    padding: Theme.padding * 2;
+                    padding-right: Theme.padding * 3;
+                    alignment: space-between;
+
+                    private property <int> idx: index;
+                    private property <int> filter-type-index: VEFilter.filter-type-to-int(root.filter-type);
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+
+                        Rectangle {
+                            HorizontalLayout {
+                                spacing: Theme.spacing * 2;
+
+                                VerticalLayout {
+                                    alignment: center;
+
+                                    Image {
+                                        width: Theme.default-font-size;
+                                        height: self.width;
+                                        source: Icons.move-light;
+                                        colorize: Theme.regular-text-color;
+                                    }
+                                }
+
+                                Label {
+                                    enabled: !segment-has-preset-filter;
+                                    text: index + 1;
+                                }
+                            }
+
+                            TouchArea {
+                                mouse-cursor: move;
+
+                                private property <bool> inner-is-dragging;
+                                private property <bool> disable-moved;
+
+                                moved => {
+                                    if (disable-moved) {
+                                        return;
+                                    }
+                                    if (!inner-is-dragging && (abs(self.mouse-x - self.pressed-x) > Theme.padding * 2 || abs(self.mouse-y - self.pressed-y) > Theme.padding * 2)) {
+                                        inner-is-dragging = true;
+                                    }
+                                    if (!inner-is-dragging) {
+                                        return;
+                                    }
+                                    VEFilter.preset-filter-list-is-dragging = true;
+                                    VEFilter.drag-preset-filter-index = index;
+
+                                    let offset-y = self.mouse-y - self.pressed-y;
+                                    let item-height = preset-item.height;
+                                    if (item-height <= 0) {
+                                        return;
+                                    }
+                                    let offset-items = round((offset-y / 1px) / round(item-height / 1px));
+                                    let target = clamp(index + offset-items, 0, root.preset-filters.length - 1);
+
+                                    VEFilter.drag-preset-filter-target-index = target;
+                                }
+
+                                pointer-event(event) => {
+                                    if (event.button == PointerEventButton.left) {
+                                        if (event.kind == PointerEventKind.down) {
+                                            VEFilter.drag-preset-filter-index = index;
+                                            VEFilter.drag-preset-filter-target-index = index;
+                                        } else if (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
+                                            if (VEFilter.preset-filter-list-is-dragging && VEFilter.drag-preset-filter-index == index) {
+                                                let target = VEFilter.drag-preset-filter-target-index;
+                                                if (target >= 0 && target != index) {
+                                                    VEFilter.move-preset-filter-by-drag(filter-type-index, index, target);
+                                                }
+                                            }
+                                            inner-is-dragging = false;
+                                            VEFilter.preset-filter-list-is-dragging = false;
+                                            VEFilter.drag-preset-filter-index = -1;
+                                            VEFilter.drag-preset-filter-target-index = -1;
+                                        }
+                                    } else {
+                                        if (event.kind == PointerEventKind.down) {
+                                            disable-moved = true;
+                                        } else if (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
+                                            disable-moved = false;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        ClickAndEditLabel {
+                            enabled: !segment-has-preset-filter;
+                            text: preset.name;
+                            overflow: elide;
+                            text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+                            disabled-click-enter-edit-mode: true;
+                            vpadding: Theme.padding / 2;
+
+                            private property mode-flag <=> VEFilter.preset-filter-enter-edit-mode-flag;
+
+                            changed mode-flag => {
+                                if (VEFilter.preset-filter-enter-edit-mode-index == idx) {
+                                    self.enter-edit-mode();
+                                    VEFilter.preset-filter-enter-edit-mode-index = -1;
+                                }
+                            }
+
+                            accepted(text) => {
+                                if (text != preset.name) {
+                                    VEFilter.preset-filter-rename(filter-type-index, index, text);
+                                }
+                            }
+                        }
+                    }
+
+                    IconBtn {
+                        icon: Icons.more-v-light;
+                        show-icon-hover-background: false;
+
+                        clicked => {
+                            PopupActionSetting.show(self.absolute-position.x, self.absolute-position.y + self.preferred-height, [
+                                {
+                                    icon: Icons.arrow-up-light,
+                                    text: Logic.tr("up"),
+                                    action: "video-editor-preset-filter-up",
+                                    user-data: filter-type-index + ":" + index,
+                                },
+                                {
+                                    icon: Icons.arrow-down-light,
+                                    text: Logic.tr("down"),
+                                    action: "video-editor-preset-filter-down",
+                                    user-data: filter-type-index + ":" + index,
+                                },
+                                {
+                                    icon: Icons.to-bottom-light,
+                                    icon-rotation: 180deg,
+                                    text: Logic.tr("Move to Top"),
+                                    action: "video-editor-preset-filter-move-to-top",
+                                    user-data: filter-type-index + ":" + index,
+                                },
+                                {
+                                    icon: Icons.to-bottom-light,
+                                    text: Logic.tr("Move to Bottom"),
+                                    action: "video-editor-preset-filter-move-to-bottom",
+                                    user-data: filter-type-index + ":" + index,
+                                },
+                                { },
+                                {
+                                    disable: segment-has-preset-filter,
+                                    icon: Icons.edit-light,
+                                    text: Logic.tr("Rename"),
+                                    action: "video-editor-preset-filter-enter-edit-mode",
+                                    user-data: index,
+                                },
+                                {
+                                    icon: Icons.clear-light,
+                                    text: Logic.tr("Remove"),
+                                    action: "video-editor-remove-preset-filter",
+                                    user-data: filter-type-index + ":" + index,
+                                },
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component Filter inherits Rectangle {
+    private property <bool> is-show-selector;
+    private property <FilterType> filter-tab-type;
+    private property <bool> update-selected-filter-flag;
+    private property <bool> is-subtitle-track: Logic.video-editor-is-subtitle-track(Store.video-editor-current-edited-track-index);
+    private property <bool> is-show-segment-filter: Store.video-editor-current-edited-track-index >= 0 && Store.video-editor-selected-segments-index.length > 0 && !is-subtitle-track;
+
+    // todo
+    // private property <bool> is-show-segment-filter: true;
+
+    if !is-show-segment-filter && !is-subtitle-track: NoMessageImg {
+        text: Logic.tr("No Filter");
+    }
+
+    if is-show-segment-filter: SegmentFilter {
+        private property flag <=> root.update-selected-filter-flag;
+        last-added-filter-type: filter-tab-type;
+
+        changed flag => {
+            self.update-selected-index();
+        }
+
+        open-filters-selector(ty) => {
+            VEFilter.search-filter("", ty);
+            VEFilter.search-preset-filter("", ty);
+
+            is-show-selector = true;
+            filter-tab-type = ty;
+        }
+    }
+
+    if is-show-segment-filter && is-show-selector: Rectangle {
+        background: Theme.base-background;
+
+        if filter-tab-type == FilterType.Video: FilterSelector {
+            filter-entries: VEFilter.video-filters;
+            preset-filters: VEFilter.video-preset-filters;
+            filter-type: FilterType.Video;
+
+            search-filter(text) => {
+                VEFilter.search-filter(text, FilterType.Video);
+            }
+
+            search-preset-filter(text) => {
+                VEFilter.search-preset-filter(text, FilterType.Video);
+            }
+
+            clicked(entry) => {
+                VEFilter.add-filter(entry);
+                is-show-selector = false;
+                root.update-selected-filter-flag = !root.update-selected-filter-flag;
+            }
+
+            preset-clicked(filter) => {
+                VEFilter.add-preset-filter(filter);
+                is-show-selector = false;
+            }
+
+            back => {
+                is-show-selector = false;
+            }
+        }
+        if filter-tab-type == FilterType.Audio: FilterSelector {
+            filter-entries: VEFilter.audio-filters;
+            preset-filters: VEFilter.audio-preset-filters;
+            filter-type: FilterType.Audio;
+
+            search-filter(text) => {
+                VEFilter.search-filter(text, FilterType.Audio);
+            }
+
+            search-preset-filter(text) => {
+                VEFilter.search-preset-filter(text, FilterType.Audio);
+            }
+
+            clicked(entry) => {
+                VEFilter.add-filter(entry);
+                is-show-selector = false;
+                root.update-selected-filter-flag = !root.update-selected-filter-flag;
+            }
+
+            preset-clicked(filter) => {
+                VEFilter.add-preset-filter(filter);
+                is-show-selector = false;
+            }
+
+            back => {
+                is-show-selector = false;
+            }
+        }
+        if filter-tab-type == FilterType.Image: FilterSelector {
+            filter-entries: VEFilter.image-filters;
+            preset-filters: VEFilter.image-preset-filters;
+            filter-type: FilterType.Image;
+
+            search-filter(text) => {
+                VEFilter.search-filter(text, FilterType.Image);
+            }
+
+            search-preset-filter(text) => {
+                VEFilter.search-preset-filter(text, FilterType.Image);
+            }
+
+            clicked(entry) => {
+                VEFilter.add-filter(entry);
+                is-show-selector = false;
+                root.update-selected-filter-flag = !root.update-selected-filter-flag;
+            }
+
+            preset-clicked(filter) => {
+                VEFilter.add-preset-filter(filter);
+                is-show-selector = false;
+            }
+
+            back => {
+                is-show-selector = false;
+            }
+        }
+    }
+
+    if is-subtitle-track: Rectangle {
+        if !VEFilter.is-show-preset-subtitle-style-panel: FilterSubtitleDetail { }
+        if VEFilter.is-show-preset-subtitle-style-panel: PresetFilterSubtitleDetail { }
+    }
+}

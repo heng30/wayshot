@@ -1,0 +1,377 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoPreviewSize,
+    VideoEditorLayerImage,
+    TransformDetail,
+} from "../../../def.slint";
+import { VEFilter, FilterType } from "../filter.slint";
+import { IconBtn, Divider, Label } from "../../../../base/widgets.slint";
+import { MoveHandle } from "move-handle.slint";
+
+export component PreviewTransformLayers inherits Rectangle {
+    in-out property <[VideoEditorLayerImage]> layers;
+    private property <float> width-hight-rate: self.width / self.height;
+    private property <FilterType> selected-filter-type <=> VEFilter.selected-filter.ty;
+    private property <bool> show-vertical-center-guide;
+    private property <bool> show-horizontal-center-guide;
+
+    for index in layers.length: rec := Rectangle {
+        x: 0;
+        y: 0;
+
+        private property <VideoEditorLayerImage> layer: layers[layers.length - 1 - index];
+        private property <bool> is-edited-track: Store.video-editor-current-edited-track-index == layer.track-index;
+        private property <bool> has-keyframes: Logic.video-editor-segment-has-keyframes(layer.track-index, layer.segment-index);
+        private property <TransformDetail> transform: is-edited-track && has-keyframes ? VEFilter.from-transform-json(VEFilter.selected-filter.detail) : layer.transform;
+        private property <bool> is-previewing: Store.video-editor-is-previewing;
+
+        changed is-previewing => {
+            if (is-edited-track && !is-previewing && has-keyframes) {
+                VEFilter.modify-transform-filter(VEFilter.selected-filter-index, transform, selected-filter-type);
+            }
+        }
+
+        changed transform => {
+            img.update-size();
+        }
+
+        container-rec := Rectangle {
+            x: root.width * transform.center-x-percent - self.width / 2;
+            y: root.height * transform.center-y-percent - self.height / 2;
+            width: img.width;
+            height: img.height;
+
+            if is-edited-track: TouchArea {
+                scroll-event(event) => {
+                    accept
+                }
+            }
+
+            img := Image {
+                private property <length> parent-width: rec.width;
+                private property <length> parent-height: rec.height;
+                private property <float> width-hight-rate: self.source.width / self.source.height;
+
+                changed parent-width => {
+                    self.update-size();
+                }
+
+                changed parent-height => {
+                    self.update-size();
+                }
+
+                function update-size() {
+                    if (root.width-hight-rate > self.width-hight-rate) {
+                        self.height = root.height * transform.zoom-level;
+                        self.width = self.height * self.width-hight-rate;
+                    } else {
+                        self.width = root.width * transform.zoom-level;
+                        self.height = self.width / self.width-hight-rate;
+                    }
+                }
+
+                function apply-resize(diff-x: length, diff-y: length, corner: int) {
+                    // corner 1: top-left, 2: top-right, 3: bottom-right, 4: bottom-left
+                    let is-top = corner <= 2;
+                    let adjust-x = corner == 1 || corner == 4;
+
+                    let current-height = is-top ? container-rec.height - diff-y : container-rec.height + diff-y;
+                    let current-width = current-height * self.width-hight-rate;
+                    let current-y = is-top ? container-rec.y + diff-y : container-rec.y;
+                    let current-x = adjust-x ? container-rec.x + (container-rec.width - current-width) : container-rec.x;
+
+                    let center-x = current-x + current-width / 2;
+                    let center-y = current-y + current-height / 2;
+                    transform.center-x-percent = center-x / root.width;
+                    transform.center-y-percent = center-y / root.height;
+
+                    if (root.width-hight-rate > self.width-hight-rate) {
+                        transform.zoom-level = current-height / root.height;
+                    } else {
+                        transform.zoom-level = current-width / root.width;
+                    }
+                    self.update-size();
+                }
+
+                init => {
+                    self.update-size();
+                }
+
+                source: layer.original-image;
+                image-fit: ImageFit.contain;
+                transform-rotation: transform.rotation;
+
+                if is-edited-track: Rectangle {
+                    top-line := HorizontalLayout {
+                        x: top-left-handle.x + top-left-handle.width / 2;
+                        y: top-left-handle.y + top-left-handle.height / 2;
+                        width: img.width;
+                        height: 2px;
+                        alignment: space-between;
+
+                        for index in ceil(img.width / Theme.icon-size / 2): Rectangle {
+                            width: Theme.icon-size;
+                            height: 100%;
+                            background: white;
+                        }
+                    }
+
+                    bottom-line := HorizontalLayout {
+                        x: bottom-left-handle.x + bottom-left-handle.width / 2;
+                        y: bottom-left-handle.y + bottom-left-handle.height / 2 - self.height;
+                        width: img.width;
+                        alignment: space-between;
+                        height: 2px;
+
+                        for index in ceil(img.width / Theme.icon-size / 2): Rectangle {
+                            width: Theme.icon-size;
+                            height: 100%;
+                            background: white;
+                        }
+                    }
+
+                    left-line := VerticalLayout {
+                        x: top-left-handle.x + top-left-handle.width / 2;
+                        y: top-left-handle.y + top-left-handle.height / 2;
+                        width: 2px;
+                        height: img.height;
+                        alignment: space-between;
+
+                        for index in ceil(img.height / Theme.icon-size / 2): Rectangle {
+                            height: Theme.icon-size;
+                            width: 100%;
+                            background: white;
+                        }
+                    }
+
+                    right-line := VerticalLayout {
+                        x: top-right-handle.x + top-right-handle.height / 2 - self.width;
+                        y: top-right-handle.y + top-right-handle.height / 2;
+                        width: 2px;
+                        height: img.height;
+                        alignment: space-between;
+
+                        for index in ceil(img.height / Theme.icon-size / 2): Rectangle {
+                            height: Theme.icon-size;
+                            width: 100%;
+                            background: white;
+                        }
+                    }
+
+                    top-left-handle := MoveHandle {
+                        x: - self.width / 2;
+                        y: - self.height / 2;
+                        enabled: transform.rotation == 0deg;
+                        index: 1;
+
+                        moved => {
+                            img.apply-resize(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y, 1);
+                        }
+
+                        released => {
+                            VEFilter.modify-transform-filter(VEFilter.selected-filter-index, transform, selected-filter-type);
+                        }
+                    }
+
+                    top-right-handle := MoveHandle {
+                        x: bottom-right-handle.x;
+                        y: top-left-handle.y;
+                        enabled: transform.rotation == 0deg;
+                        index: 2;
+
+                        moved => {
+                            img.apply-resize(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y, 2);
+                        }
+
+                        released => {
+                            VEFilter.modify-transform-filter(VEFilter.selected-filter-index, transform, selected-filter-type);
+                        }
+                    }
+
+                    bottom-left-handle := MoveHandle {
+                        x: top-left-handle.x;
+                        y: bottom-right-handle.y;
+                        enabled: transform.rotation == 0deg;
+                        index: 4;
+
+                        moved => {
+                            img.apply-resize(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y, 4);
+                        }
+
+                        released => {
+                            VEFilter.modify-transform-filter(VEFilter.selected-filter-index, transform, selected-filter-type);
+                        }
+                    }
+
+                    bottom-right-handle := MoveHandle {
+                        x: img.width - self.width / 2;
+                        y: img.height - self.width / 2;
+                        enabled: transform.rotation == 0deg;
+                        index: 3;
+
+                        moved => {
+                            img.apply-resize(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y, 3);
+                        }
+
+                        released => {
+                            VEFilter.modify-transform-filter(VEFilter.selected-filter-index, transform, selected-filter-type);
+                        }
+                    }
+                }
+            }
+
+            if is-edited-track: TouchArea {
+                scroll-event(event) => {
+                    if (Store.video-editor-keyboard-modifiers.shift) {
+                        if (event.delta-y > 0) {
+                            transform.rotation = mod(transform.rotation - 30deg + 360deg, 360deg);
+                        } else if (event.delta-y < 0) {
+                            transform.rotation = mod(transform.rotation + 30deg, 360deg);
+                        }
+                    } else if (Store.video-editor-keyboard-modifiers.control) {
+                        if (event.delta-y > 0) {
+                            transform.zoom-level = transform.zoom-level * 1.05;
+                            img.update-size();
+                        } else if (event.delta-y < 0) {
+                            transform.zoom-level = transform.zoom-level * 0.95;
+                            img.update-size();
+                        }
+                    } else {
+                        if (event.delta-y > 0) {
+                            transform.zoom-level = transform.zoom-level * 1.1;
+                            img.update-size();
+                        } else if (event.delta-y < 0) {
+                            transform.zoom-level = transform.zoom-level * 0.9;
+                            img.update-size();
+                        }
+                    }
+
+                    VEFilter.modify-transform-filter(VEFilter.selected-filter-index, transform, selected-filter-type);
+                    accept
+                }
+            }
+
+            if is-edited-track: TouchArea {
+                mouse-cursor: self.pressed ? grabbing : grab;
+
+                moved => {
+                    let modifiers = Store.video-editor-keyboard-modifiers;
+                    let new-x = container-rec.x + (self.mouse-x - self.pressed-x);
+                    let new-y = container-rec.y + (self.mouse-y - self.pressed-y);
+                    let center-x-float = new-x / 1px + container-rec.width / 2px;
+                    let center-y-float = new-y / 1px + container-rec.height / 2px;
+                    let root-center-x-float = root.width / 2px;
+                    let root-center-y-float = root.height / 2px;
+                    let snap-threshold-float = 10px / 1px;
+
+                    root.show-vertical-center-guide = false;
+                    root.show-horizontal-center-guide = false;
+
+                    // Control: horizontal only, Shift: vertical only
+                    if (modifiers.control) {
+                        transform.center-x-percent = (new-x + container-rec.width / 2) / root.width;
+                    } else if (modifiers.shift) {
+                        transform.center-y-percent = (new-y + container-rec.height / 2) / root.height;
+                    } else {
+                        // Check for snap to center
+                        if (abs(center-x-float - root-center-x-float) < snap-threshold-float) {
+                            transform.center-x-percent = 0.5;
+                            root.show-vertical-center-guide = true;
+                        } else {
+                            transform.center-x-percent = (new-x + container-rec.width / 2) / root.width;
+                        }
+
+                        if (abs(center-y-float - root-center-y-float) < snap-threshold-float) {
+                            transform.center-y-percent = 0.5;
+                            root.show-horizontal-center-guide = true;
+                        } else {
+                            transform.center-y-percent = (new-y + container-rec.height / 2) / root.height;
+                        }
+                    }
+                }
+
+                changed pressed => {
+                    if (!self.pressed) {
+                        root.show-vertical-center-guide = false;
+                        root.show-horizontal-center-guide = false;
+                        VEFilter.modify-transform-filter(VEFilter.selected-filter-index, transform, selected-filter-type);
+                    }
+                }
+            }
+
+            if is-edited-track: Rectangle {
+                y: img.height / 2 - self.height / 2;
+                width: Theme.icon-size * 1.5;
+                height: self.width;
+                border-radius: self.width / 2;
+                border-width: Theme.default-border-width;
+                border-color: Theme.base-border-color;
+                background: white;
+
+                touch := TouchArea {
+                    mouse-cursor: MouseCursor.pointer;
+
+                    private property <angle> initial-angle;
+                    private property <angle> initial-rotation;
+                    private property <length> center-x;
+                    private property <length> center-y;
+
+                    changed pressed => {
+                        if (self.pressed) {
+                            initial-rotation = img.transform-rotation;
+                            center-x = container-rec.absolute-position.x + container-rec.width / 2;
+                            center-y = container-rec.absolute-position.y + container-rec.height / 2;
+
+                            let mx = self.absolute-position.x + self.mouse-x;
+                            let my = self.absolute-position.y + self.mouse-y;
+                            initial-angle = atan2((my - center-y) / 1px, (mx - center-x) / 1px);
+                        } else {
+                            VEFilter.modify-transform-filter(VEFilter.selected-filter-index, transform, selected-filter-type);
+                        }
+                    }
+
+                    moved => {
+                        if (self.pressed) {
+                            let mx = self.absolute-position.x + self.mouse-x;
+                            let my = self.absolute-position.y + self.mouse-y;
+                            let current-angle = Math.atan2((my - center-y) / 1px, (mx - center-x) / 1px);
+                            let diff = current-angle - initial-angle;
+                            // Normalize angle difference to -180° to 180° range
+                            let normalized-diff = diff > 180deg ? diff - 360deg : (diff < -180deg ? diff + 360deg : diff);
+                            transform.rotation = initial-rotation + normalized-diff;
+                        }
+                    }
+                }
+
+                Image {
+                    source: Icons.rotation-fill;
+                    colorize: Theme.danger-color;
+                    width: Theme.icon-size;
+                    height: Theme.icon-size;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                }
+            }
+        }
+    }
+
+    if show-vertical-center-guide: Rectangle {
+        x: (root.width - self.width) / 2;
+        y: 0;
+        width: Theme.default-border-width;
+        height: root.height;
+        background: Theme.thirdly-brand-color;
+    }
+
+    if show-horizontal-center-guide: Rectangle {
+        x: 0;
+        y: (root.height - self.height) / 2;
+        width: root.width;
+        height: Theme.default-border-width;
+        background: Theme.thirdly-brand-color;
+    }
+}

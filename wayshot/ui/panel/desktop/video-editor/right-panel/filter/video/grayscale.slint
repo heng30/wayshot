@@ -1,0 +1,223 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Util,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+} from "../../../../../def.slint";
+import {
+    ClickAndEditLabel,
+    LineInput,
+    Slider,
+    RadioBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    GrayscaleDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component Grayscale inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <GrayscaleDetail> config: VEFilter.from-grayscale-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: GrayscaleDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "grayscale") {
+            self.config = VEFilter.from-grayscale-json(selected-filter.detail);
+            intensity-sl.value = self.config.intensity;
+            contrast-sl.value = self.config.contrast;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Intensity");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        intensity-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.intensity;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.intensity = value;
+                            }
+
+                            released(value) => {
+                                config.intensity = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.intensity.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.intensity = text.to-float().clamp(0, 1);
+                            intensity-sl.value = config.intensity;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "intensity", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "intensity", VEFilter.make-float-value(config.intensity));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Contrast");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+                        contrast-sl := Slider {
+                            minimum: -1.0;
+                            maximum: 1.0;
+                            value: config.contrast;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.contrast = value;
+                            }
+
+                            released(value) => {
+                                config.contrast = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.contrast.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.contrast = text.to-float().clamp(-1, 1);
+                            contrast-sl.value = config.contrast;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "contrast", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "contrast", VEFilter.make-float-value(config.contrast));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Luminance Standard");
+                enabled: selected-filter.enabled;
+            }
+
+            VerticalLayout {
+                spacing: Theme.spacing * 4;
+                padding-left: Theme.padding * 2;
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: "BT.709 (HDTV)";
+                    checked: config.luminance-standard == 0;
+
+                    check => {
+                        config.luminance-standard = 0;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: "BT.601 (SDTV)";
+                    checked: config.luminance-standard == 1;
+
+                    check => {
+                        config.luminance-standard = 1;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: "BT.2020 (HDR)";
+                    checked: config.luminance-standard == 2;
+
+                    check => {
+                        config.luminance-standard = 2;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}
+

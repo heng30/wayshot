@@ -1,0 +1,13 @@
+[package]
+name = "clear-vision"
+version.workspace = true
+edition.workspace = true
+keywords = ["super-resolution", "swinir", "onnx", "upscaling"]
+categories = ["multimedia::images", "computer-vision"]
+description = "Library for image super-resolution using SwinIR ONNX models"
+
+[dependencies]
+ort.workspace = true
+image.workspace = true
+ndarray.workspace = true
+thiserror.workspace = true

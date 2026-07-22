@@ -1,0 +1,637 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    DownloaderState,
+    Util,
+    VideoEditorCutoutConfig,
+    Downloader,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    LineInput,
+    IconBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+    ProgressBar,
+    NoMessageImg,
+    Select,
+    NoDataImg,
+    Slider,
+    Checkerboard,
+} from "../../../../base/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+
+component LeftHeader inherits HorizontalLayout {
+    alignment: end;
+    spacing: Theme.spacing * 8;
+
+    private property <bool> is-processing: Store.video-editor-cutout-is-processing;
+    private property <bool> has-imported-image: Store.video-editor-cutout-image.width > 0;
+    private property <bool> has-processed-image: Store.video-editor-cutout-processed-image.width > 0;
+    private property <bool> is-brush-mode <=> Store.video-editor-cutout-is-brush-mode;
+
+    rec := Rectangle {
+        width: hbox.preferred-width;
+        height: hbox.preferred-height;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("import");
+                    icon: Icons.import2-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-cutout-import-image();
+                    }
+                }
+
+                IconBtn {
+                    enabled: !is-processing && has-imported-image;
+                    is-show-tip: true;
+                    tip: is-brush-mode ? Logic.tr("exit brush") : Logic.tr("enter brush");
+                    icon: is-brush-mode ? Icons.brush-fill : Icons.brush-light;
+                    colorize: is-brush-mode ? Theme.thirdly-brand-color : Theme.icon-color;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        root.is-brush-mode = !root.is-brush-mode;
+                    }
+                }
+
+                IconBtn {
+                    enabled: !is-processing && has-imported-image;
+                    is-show-tip: true;
+                    tip: Logic.tr("process");
+                    icon: Icons.image-processing-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        if root.is-brush-mode {
+                            root.is-brush-mode = false;
+                        }
+                        Logic.video-editor-cutout-process-image();
+                    }
+                }
+
+                IconBtn {
+                    enabled: has-processed-image;
+                    is-show-tip: true;
+                    tip: Logic.tr("export");
+                    icon: Icons.export-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-cutout-export-to-playlist();
+                    }
+                }
+
+                if is-brush-mode: IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("undo");
+                    icon: Icons.undo-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-cutout-undo();
+                    }
+                }
+
+                if is-brush-mode: IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("redo");
+                    icon: Icons.redo-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-cutout-redo();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("remove all");
+                    icon: Icons.clear-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-cutout-remove-all-images();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("setting");
+                    icon: Icons.setting-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Store.video-editor-is-show-cutout-setting-dialog = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+component ProcessPanel inherits VerticalLayout {
+    private property <image> original-image: Store.video-editor-cutout-image;
+    private property <image> processed-image: Store.video-editor-cutout-processed-image;
+    private property <image> mask-overlay: Store.video-editor-cutout-mask-overlay;
+    private property <bool> is-processing <=> Store.video-editor-cutout-is-processing;
+    private property <bool> is-brush-mode <=> Store.video-editor-cutout-is-brush-mode;
+    private property <bool> is-painting;
+    private property <float> split-pos: 0.5;
+
+    // Timer: refresh overlay every 100ms while painting
+    overlay-timer := Timer {
+        interval: 100ms;
+        running: is-painting;
+
+        triggered() => {
+            Logic.video-editor-cutout-overlay-refresh();
+        }
+    }
+
+    pure function contain-scale(panel-w: length, panel-h: length, img-w: int, img-h: int) -> float {
+        if (img-w <= 0 || img-h <= 0) {
+            return 1.0;
+        }
+        let sx = panel-w / 1px / img-w;
+        let sy = panel-h / 1px / img-h;
+        return sx < sy ? sx : sy;
+    }
+
+    pure function displayed-w(panel-w: length, panel-h: length, img-w: int, img-h: int) -> length {
+        contain-scale(panel-w, panel-h, img-w, img-h) * img-w * 1px;
+    }
+
+    pure function displayed-h(panel-w: length, panel-h: length, img-w: int, img-h: int) -> length {
+        contain-scale(panel-w, panel-h, img-w, img-h) * img-h * 1px;
+    }
+
+    spacing: Theme.spacing * 2;
+
+    img-rect := Rectangle {
+        clip: true;
+        border-radius: Theme.border-radius;
+        border-width: Theme.default-border-width;
+        border-color: processed-image.width > 0 && !is-processing ? Theme.success-color : Theme.base-border-color;
+        background: Theme.secondary-background;
+
+        // Layer 1: Full original image (always visible underneath)
+        if original-image.width > 0: Image {
+            x: (img-rect.width - displayed-w(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 2;
+            y: (img-rect.height - displayed-h(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 2;
+            width: displayed-w(img-rect.width, img-rect.height, original-image.width, original-image.height);
+            height: displayed-h(img-rect.width, img-rect.height, original-image.width, original-image.height);
+            source: original-image;
+            image-fit: fill;
+        }
+
+        // Layer 2: Mask overlay (green semi-transparent for "keep" areas)
+        if original-image.width > 0 && mask-overlay.width > 0: Image {
+            x: (img-rect.width - displayed-w(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 2;
+            y: (img-rect.height - displayed-h(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 2;
+            width: displayed-w(img-rect.width, img-rect.height, original-image.width, original-image.height);
+            height: displayed-h(img-rect.width, img-rect.height, original-image.width, original-image.height);
+            source: mask-overlay;
+            image-fit: fill;
+        }
+
+        // Layer 3: Processed image clipped to the right portion
+        if processed-image.width > 0 && !is-brush-mode: Checkerboard {
+            x: split-pos * img-rect.width;
+            width: (1.0 - split-pos) * img-rect.width;
+            height: img-rect.height;
+            clip: true;
+            row-count: self.height / Theme.icon-size;
+            col-count: self.width / Theme.icon-size;
+
+            Image {
+                x: -split-pos * img-rect.width + (img-rect.width - displayed-w(img-rect.width, img-rect.height, processed-image.width, processed-image.height)) / 2;
+                y: (img-rect.height - displayed-h(img-rect.width, img-rect.height, processed-image.width, processed-image.height)) / 2;
+                width: displayed-w(img-rect.width, img-rect.height, processed-image.width, processed-image.height);
+                height: displayed-h(img-rect.width, img-rect.height, processed-image.width, processed-image.height);
+                source: processed-image;
+                image-fit: fill;
+            }
+        }
+
+        // Layer 4: Split handle line and grip circle (only when not in brush mode)
+        if processed-image.width > 0 && !is-brush-mode: Rectangle {
+            x: split-pos * img-rect.width - 1px;
+            width: 2px;
+            height: img-rect.height;
+            background: black;
+
+            grip := Rectangle {
+                x: parent.width / 2 - self.width / 2;
+                y: img-rect.height / 2 - self.height / 2;
+                width: Theme.icon-size * 1.5;
+                height: self.width;
+                border-radius: self.width / 2;
+                border-width: 2px;
+                border-color: black;
+                background: white;
+
+                Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: Icons.moving-h-light;
+                    colorize: black;
+                }
+            }
+
+            handle-ta := TouchArea {
+                width: Theme.icon-size * 2;
+                x: parent.width / 2 - self.width / 2;
+                mouse-cursor: MouseCursor.col-resize;
+
+                moved => {
+                    if (self.pressed) {
+                        let new-split = (handle-ta.mouse-x + handle-ta.absolute-position.x - img-rect.absolute-position.x) / img-rect.width;
+                        let disp-w = displayed-w(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                        let img-left-pct = (img-rect.width - disp-w) / 2 / img-rect.width;
+                        let img-right-pct = 1 - img-left-pct;
+                        split-pos = new-split.clamp(img-left-pct, img-right-pct);
+                    }
+                }
+            }
+        }
+
+        // Layer 5: Brush cursor circle (only in brush mode)
+        if original-image.width > 0 && is-brush-mode && draw-ta.has-hover: Rectangle {
+            private property <float> scale: contain-scale(img-rect.width, img-rect.height, original-image.width, original-image.height);
+            private property <length> brush-diameter: Store.video-editor-cutout-brush-size * scale * 1px;
+
+            x: draw-ta.mouse-x - brush-diameter / 2;
+            y: draw-ta.mouse-y - brush-diameter / 2;
+            width: brush-diameter;
+            height: brush-diameter;
+            border-radius: self.width / 2;
+            border-width: 2px;
+            border-color: #ffffff80;
+            background: transparent;
+        }
+
+        if original-image.width == 0: NoDataImg {
+            text: Logic.tr("Click Import");
+            image: Icons.no-image-fill;
+            font-size: Theme.title3-font-size;
+            colorize: Theme.primary-text-color;
+
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    Logic.video-editor-cutout-import-image();
+                }
+            }
+        }
+
+        draw-ta := TouchArea {
+            private property <bool> show-brush-cursor: is-brush-mode && original-image.width > 0;
+
+            enabled: is-brush-mode;
+            mouse-cursor: show-brush-cursor ? MouseCursor.crosshair : (original-image.width == 0 ? MouseCursor.pointer : MouseCursor.default);
+
+            pointer-event(event) => {
+                if (is-brush-mode && original-image.width > 0 && event.button == PointerEventButton.left) {
+                    if (event.kind == PointerEventKind.down) {
+                        let img-x = (self.mouse-x - (img-rect.width - displayed-w(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 2) / 1px / contain-scale(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                        let img-y = (self.mouse-y - (img-rect.height - displayed-h(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 2) / 1px / contain-scale(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                        is-painting = true;
+                        Logic.video-editor-cutout-brush-start(img-x, img-y);
+                    } else if (event.kind == PointerEventKind.up) {
+                        is-painting = false;
+                        Logic.video-editor-cutout-brush-move(-1, -1);
+                    }
+                }
+            }
+
+            moved => {
+                if (is-brush-mode && original-image.width > 0 && self.pressed) {
+                    let img-x = (self.mouse-x - (img-rect.width - displayed-w(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 2) / 1px / contain-scale(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                    let img-y = (self.mouse-y - (img-rect.height - displayed-h(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 2) / 1px / contain-scale(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                    Logic.video-editor-cutout-brush-move(img-x, img-y);
+                }
+            }
+
+            scroll-event(event) => {
+                if (is-brush-mode) {
+                    Logic.video-editor-cutout-brush-size-change(-event.delta-y / 1px);
+                    return EventResult.accept;
+                }
+                return EventResult.reject;
+            }
+
+            clicked => {
+                if (original-image.width == 0) {
+                    Logic.video-editor-cutout-import-image();
+                }
+            }
+        }
+    }
+}
+
+export component CutoutDialog inherits MovingDialog {
+    title: Logic.tr("Cutout");
+    icon: Icons.cutout-light;
+    header-width: Theme.moving-dialog-width;
+    body-height: root.header-width * Theme.golden-ratio;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+
+    init => {
+        if (!Logic.video-editor-cutout-setting-is-valid()) {
+            Store.video-editor-is-show-cutout-setting-dialog = true;
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        LeftHeader { }
+
+        ProcessPanel {
+            width: parent.width - parent.padding * 2;
+        }
+    }
+}
+
+export component CutoutSettingDialog inherits MovingDialog {
+    title: Logic.tr("Cutout Setting");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    private property <VideoEditorCutoutConfig> config: Store.video-editor-cutout-config;
+    private property <int> sticker-color-picker-id;
+    private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+
+    changed color-picker-confirmed-flag => {
+        if (sticker-color-picker-id == Store.video-editor-color-picker-id) {
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-cutout-config.sticker-color-r = c.red;
+            Store.video-editor-cutout-config.sticker-color-g = c.green;
+            Store.video-editor-cutout-config.sticker-color-b = c.blue;
+            Store.video-editor-cutout-config.sticker-color-a = c.alpha;
+            Logic.video-editor-cutout-update-config(config);
+        }
+    }
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Export directory");
+            }
+
+            LineInput {
+                read-only: true;
+                text: config.export-dir;
+                icon: Icons.file-open-light;
+                is-show-icon: true;
+
+                clicked => {
+                    Logic.video-editor-cutout-choose-export-dir();
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Select model");
+            }
+
+            Select {
+                values: [
+                    "U2Net",
+                    "U2NetP",
+                    "U2Net Cloth Seg",
+                    "U2Net Human Seg",
+                    "ISNet Anime",
+                    "ISNet General Use",
+                    "Silueta",
+                ];
+                current-value: self.values[Store.video-editor-cutout-config.selected-model-index];
+                current-index: Store.video-editor-cutout-config.selected-model-index;
+                gain-focus-when-clicked: false;
+
+                selected(index, value) => {
+                    Store.video-editor-cutout-config.selected-model-index = index;
+                    Logic.video-editor-cutout-update-config(config);
+                }
+            }
+        }
+
+        VerticalLayout {
+            private property <int> index: Store.video-editor-cutout-config.selected-model-index;
+            private property <Downloader> downloader: Store.video-editor-cutout-models-downloader[index];
+
+            alignment: start;
+
+            hbox := HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                pure function get-border-color(status: DownloaderState, path: string) -> color {
+                    if status == DownloaderState.Finished {
+                        return Theme.base-border-color;
+                    } else {
+                        return Logic.file-exist(path) ? Theme.base-border-color : Theme.danger-color;
+                    }
+                }
+
+                pure function get-path(idx: int) -> string {
+                    if idx == 0 {
+                        return config.u2net-path;
+                    } else if idx == 1 {
+                        return config.u2netp-path;
+                    } else if idx == 2 {
+                        return config.u2net-cloth-seg-path;
+                    } else if idx == 3 {
+                        return config.u2net-human-seg-path;
+                    } else if idx == 4 {
+                        return config.isnet-anime-path;
+                    } else if idx == 5 {
+                        return config.isnet-general-use-path;
+                    } else {
+                        return config.silueta-path;
+                    }
+                }
+
+                pure function get-placeholder(idx: int) -> string {
+                    if idx == 0 {
+                        return "u2net.onnx";
+                    } else if idx == 1 {
+                        return "u2netp.onnx";
+                    } else if idx == 2 {
+                        return "u2net_cloth_seg.onnx";
+                    } else if idx == 3 {
+                        return "u2net_human_seg.onnx";
+                    } else if idx == 4 {
+                        return "isnet-anime.onnx";
+                    } else if idx == 5 {
+                        return "isnet-general-use.onnx";
+                    } else {
+                        return "silueta.onnx";
+                    }
+                }
+
+                model-path-li := LineInput {
+                    horizontal-stretch: 2;
+                    read-only: true;
+                    is-show-icon: true;
+                    icon: Icons.file-open-light;
+                    placeholder-text: get-placeholder(index);
+                    text: get-path(index);
+                    border-color: get-border-color(downloader.state, get-path(index));
+
+                    clicked => {
+                        Logic.video-editor-cutout-choose-model-path(index);
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                        alignment: center;
+
+                        ProgressBar {
+                            height: model-path-li.preferred-height * 2 / 3;
+                            font-size: Theme.default-font-size * 2 / 3;
+                            finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                            progress: downloader.progress;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: Theme.spacing * 4;
+
+                        private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+
+                        IconBtn {
+                            is-show-tip: true;
+                            icon: downloading ? Icons.stop-light : Icons.download-light;
+                            colorize: downloading ? Theme.danger-color : Theme.icon-color;
+                            tip: downloading ? Logic.tr("cancel") : Logic.tr("download");
+
+                            clicked => {
+                                if (downloading) {
+                                    Logic.video-editor-cutout-model-cancel-download(index, downloader.url);
+                                } else {
+                                    Logic.video-editor-cutout-model-start-download(index, downloader.url);
+                                }
+                            }
+                        }
+
+                        IconBtn {
+                            icon: Icons.browser-light;
+                            is-show-tip: true;
+                            tip: Logic.tr("open url");
+
+                            clicked => {
+                                Util.open-url("Default", downloader.url);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Threshold");
+                tip: Logic.tr("76–102: Soft edges with semi-transparency; 128: Balanced; 153–179: Stronger cutout, cleaner edges");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    Slider {
+                        minimum: 0;
+                        maximum: 255;
+                        value: config.threshold;
+                        height: self.indicator-size * 0.3;
+
+                        changed(value) => {
+                            Store.video-editor-cutout-config.threshold = value;
+                            Logic.video-editor-cutout-update-config(config);
+                        }
+                    }
+                }
+
+                Label {
+                    text: config.threshold;
+                    width: Theme.default-font-size * 2;
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Sticker");
+                tip: Logic.tr("Transparent = no border");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                LineInput {
+                    read-only: true;
+                    is-show-icon: true;
+                    text: Util.color-picker-str(config.sticker-color-r, config.sticker-color-g, config.sticker-color-b, config.sticker-color-a);
+                    is-show-color-block: true;
+                    color-block-color: Util.color-picker-hex-color(self.text);
+                    icon: Icons.color-picker-light;
+                    border-color: Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+                    border-width: 1px;
+
+                    clicked => {
+                        Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                        root.sticker-color-picker-id = Store.video-editor-color-picker-id;
+                        Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                        Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+                    }
+                }
+            }
+        }
+
+        SettingDetailSwitch {
+            text: Logic.tr("Binary");
+            checked: config.binary;
+            gain-focus-when-clicked: false;
+            icon: Icons.binary-light;
+
+            toggled => {
+                Store.video-editor-cutout-config.binary = !Store.video-editor-cutout-config.binary;
+                Logic.video-editor-cutout-update-config(config);
+            }
+        }
+    }
+}

@@ -1,0 +1,152 @@
+import { ListView } from "std-widgets.slint";
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+} from "../../../def.slint";
+import {
+    Divider,
+    Label,
+    Playhead,
+} from "../../../../base/widgets.slint";
+
+export component Timeline inherits Rectangle {
+    in property <length> header-width;
+    in property <length> timeline-width;
+    out property playhead-x <=> playhead.x;
+    out property pressed <=> ta.pressed;
+    in-out property viewport-x <=> flick.viewport-x;
+    in-out property viewport-width <=> flick.viewport-width;
+
+    private property <length> label-width: Theme.default-font-size * 10;
+    private property <int> timeline-offset: Store.video-editor-timeline-offset;
+
+    callback moved();
+    callback update-preview-timeline-offset();
+    callback scroll-event <=> ta.scroll-event;
+
+    changed timeline-offset => {
+        playhead.update();
+
+        if (Store.video-editor-is-previewing) {
+            update-preview-timeline-offset();
+        }
+    }
+
+    changed viewport-width => {
+        Store.video-editor-timeline-flag = !Store.video-editor-timeline-flag;
+    }
+
+    changed playhead-x => {
+        update-preview-timeline-offset();
+    }
+
+    public function playhead-in-viewport() -> bool {
+        return abs(flick.viewport-x) - playhead.handle-width / 2 < playhead.x && playhead.x < abs(flick.viewport-x) + flick.width;
+    }
+
+    height: Theme.icon-size * 1.3;
+    background: Theme.table-item-second;
+
+    HorizontalLayout {
+        Rectangle {
+            width: header-width;
+            HorizontalLayout {
+                alignment: start;
+                padding-left: Theme.padding * 2;
+
+                ouput-lb := Label {
+                    text: Logic.tr("Tracks");
+                }
+
+                Label {
+                    text: "(" + Store.video-editor-tracks-manager.tracks.length + ")";
+                    color: Theme.placeholder-text-color;
+                }
+            }
+
+            TouchArea {
+                mouse-cursor: MouseCursor.pointer;
+
+                clicked => {
+                    Logic.video-editor-select-all-tracks();
+                }
+            }
+        }
+
+        flick := Flickable {
+            interactive: false;
+
+            Rectangle {
+                HorizontalLayout {
+                    private property <int> total-index: root.timeline-width / label-width;
+
+                    for index in total-index: HorizontalLayout {
+                        spacing: Theme.spacing;
+
+                        VerticalLayout {
+                            alignment: center;
+
+                            Divider {
+                                visible: index != 0;
+                                width: Theme.default-border-width;
+                                height: root.height * 0.8;
+                                background: Theme.regular-text-color;
+                            }
+                        }
+
+                        Label {
+                            text: Logic.video-editor-calc-timeline-offset(index, root.timeline-width / label-width, Store.video-editor-timeline-flag);
+                            font-size: Theme.default-font-size * 0.8;
+                            color: Theme.regular-text-color;
+                        }
+                    }
+                }
+
+                ta := TouchArea {
+                    clicked => {
+                        playhead.x = self.pressed-x - playhead.handle-width / 2;
+                        Store.video-editor-timeline-offset = Store.video-editor-tracks-manager.duration * self.pressed-x / flick.viewport-width;
+                        Logic.video-editor-timeline-seek(Store.video-editor-timeline-offset);
+
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                playhead := Playhead {
+                    out property <length> start-x: self.handle-width / -2;
+                    out property <length> end-x: flick.viewport-width - self.handle-width / 2;
+
+                    public function update() {
+                        playhead.x = clamp(flick.viewport-width * timeline-offset / Store.video-editor-tracks-manager.duration - playhead.handle-width / 2, playhead.start-x, playhead.end-x);
+                    }
+
+                    changed pressed => {
+                        if (!pressed) {
+                            let line-pos-x = playhead.x + playhead.handle-width / 2;
+                            Store.video-editor-timeline-offset = Store.video-editor-tracks-manager.duration * line-pos-x / flick.viewport-width;
+                            Logic.video-editor-timeline-seek(Store.video-editor-timeline-offset);
+                        }
+                    }
+
+                    init => {
+                        self.update();
+                    }
+
+                    y: 0;
+                    x: start-x;
+                    line-color: Theme.invert-base-color;
+                    visible: Store.video-editor-tracks-manager.tracks.length > 0;
+
+                    moved => {
+                        let offset-x = self.mouse-x - self.pressed-x;
+                        self.x = clamp(self.x + offset-x, start-x, end-x);
+                        root.moved();
+                    }
+                }
+            }
+        }
+    }
+}

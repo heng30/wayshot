@@ -16,8 +16,6 @@ ort.workspace = true
 image.workspace = true
 ndarray.workspace = true
 thiserror.workspace = true
-derivative.workspace = true
-derive_setters.workspace = true
 fast_image_resize.workspace = true
 
 [dev-dependencies]

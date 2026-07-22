@@ -1,0 +1,163 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    GradeMarkType,
+} from "../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    Slider,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    Select,
+} from "../../../../../base/widgets.slint";
+
+export component GradeMarkParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Mark Type");
+        }
+
+        mark-type-select := Select {
+            values: ["Circle", "Checkmark", "Cross"];
+            current-value: Logic.grade-mark-type-to-string(Store.video-editor-img-animation-config.grade-mark.mark-type);
+            gain-focus-when-clicked: false;
+
+            selected(index, value) => {
+                Store.video-editor-img-animation-config.grade-mark.mark-type = Logic.string-to-grade-mark-type(value);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Position X");
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 4;
+
+            VerticalLayout {
+                alignment: center;
+
+                position-x-sl := Slider {
+                    minimum: 0.0;
+                    maximum: 1.0;
+                    value: Store.video-editor-img-animation-config.grade-mark.position-x;
+                    height: self.indicator-size * 0.3;
+
+                    changed(value) => {
+                        Store.video-editor-img-animation-config.grade-mark.position-x = value;
+                    }
+
+                    released(value) => {
+                        Store.video-editor-img-animation-config.grade-mark.position-x = value;
+                    }
+                }
+            }
+
+            Label {
+                vertical-alignment: center;
+                text: Store.video-editor-img-animation-config.grade-mark.position-x.to-fixed(2);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Position Y");
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 4;
+
+            VerticalLayout {
+                alignment: center;
+
+                position-y-sl := Slider {
+                    minimum: 0.0;
+                    maximum: 1.0;
+                    value: Store.video-editor-img-animation-config.grade-mark.position-y;
+                    height: self.indicator-size * 0.3;
+
+                    changed(value) => {
+                        Store.video-editor-img-animation-config.grade-mark.position-y = value;
+                    }
+
+                    released(value) => {
+                        Store.video-editor-img-animation-config.grade-mark.position-y = value;
+                    }
+                }
+            }
+
+            Label {
+                vertical-alignment: center;
+                text: Store.video-editor-img-animation-config.grade-mark.position-y.to-fixed(2);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Size");
+        }
+
+        size-li := LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-img-animation-config.grade-mark.size;
+
+            accepted => {
+                Store.video-editor-img-animation-config.grade-mark.size = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Line Width");
+        }
+
+        line-width-li := LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-img-animation-config.grade-mark.line-width;
+
+            accepted => {
+                Store.video-editor-img-animation-config.grade-mark.line-width = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Duration (ms)");
+        }
+
+        duration-ms-li := LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-img-animation-config.grade-mark.duration-ms;
+
+            accepted => {
+                Store.video-editor-img-animation-config.grade-mark.duration-ms = round(self.text.to-float());
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("End Pause (seconds)");
+        }
+
+        end-pause-li := LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-img-animation-config.grade-mark.end-pause;
+
+            accepted => {
+                Store.video-editor-img-animation-config.grade-mark.end-pause = self.text.to-float();
+            }
+        }
+    }
+}

@@ -1,0 +1,596 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoPreviewSize,
+} from "../../../def.slint";
+import {
+    IconBtn,
+    Label,
+    LineInput,
+    AudioLevel,
+    ToolTipSetting,
+    ComponentPosition,
+    Slider,
+    Divider,
+    Playhead,
+    VolumeIndicator,
+} from "../../../../base/widgets.slint";
+import { VEFilter } from "../filter.slint";
+import { PreviewTransformLayers } from "preview-transform-layers.slint";
+import { PreviewCropLayers } from "preview-crop-layers.slint";
+import { PreviewZoomLayers } from "preview-zoom-layers.slint";
+import { PreviewFlyInLayer } from "preview-fly-in-layer.slint";
+import { PreviewMosaicLayers } from "preview-mosaic-layers.slint";
+import { PreviewTextLayer } from "preview-text-layer.slint";
+import { PreviewDrawCircleLayer } from "preview-draw-circle-layer.slint";
+import { PreviewDrawRectangleLayer } from "preview-draw-rectangle-layer.slint";
+import { PreviewLocalMagnifyLayer } from "preview-local-magnify-layer.slint";
+import { PreviewMagnifierLayer } from "preview-magnifier-layer.slint";
+import { PreviewTextHighlightLayer } from "preview-text-highlight-layer.slint";
+import { PreviewLinearMaskLayer } from "preview-linear-mask-layer.slint";
+import { PreviewCircleMaskLayer } from "preview-circle-mask-layer.slint";
+import { PreviewMirrorMaskLayer } from "preview-mirror-mask-layer.slint";
+import { PreviewRectangleMaskLayer } from "preview-rectangle-mask-layer.slint";
+import { PreviewChromaKeyLayer } from "preview-chroma-key-layer.slint";
+import { PreviewFocusLayer } from "preview-focus-layer.slint";
+import { PreviewGaussianBlurLayers } from "preview-gaussian-blur-layers.slint";
+
+component Btns inherits Rectangle {
+    HorizontalLayout {
+        alignment: center;
+        padding: Theme.padding;
+        spacing: Theme.spacing * 4;
+
+        IconBtn {
+            icon: Icons.skip-previous-fill;
+            icon-size: Theme.icon-size * 1.3;
+            tip: Logic.tr("previous");
+            is-show-tip: true;
+            clicked => {
+                Logic.video-editor-preview-jump-previous-segment();
+            }
+        }
+
+        IconBtn {
+            icon: Icons.rewind-fill;
+            tip: Logic.tr("rewind");
+            is-show-tip: true;
+            clicked => {
+                Logic.video-editor-preview-rewind();
+            }
+        }
+
+        IconBtn {
+            icon: Store.video-editor-is-previewing ? Icons.control-stop-light : Icons.control-start-light;
+            icon-size: Theme.icon-size * 1.3;
+            tip: Store.video-editor-is-previewing ? Logic.tr("stop") : Logic.tr("start");
+            is-show-tip: true;
+            clicked => {
+                Logic.video-editor-preview-toggle();
+            }
+        }
+
+        IconBtn {
+            icon: Icons.fast-forward-fill;
+            tip: Logic.tr("forward");
+            is-show-tip: true;
+            clicked => {
+                Logic.video-editor-preview-fast-forward();
+            }
+        }
+
+        IconBtn {
+            icon: Icons.skip-next-fill;
+            icon-size: Theme.icon-size * 1.3;
+            tip: Logic.tr("next");
+            is-show-tip: true;
+            clicked => {
+                Logic.video-editor-preview-jump-next-segment();
+            }
+        }
+
+        volume-btn := IconBtn {
+            icon: Store.video-editor-ui-state.preview-volume == 0 ? Icons.sound-off-fill : Icons.sound-on-fill;
+
+            clicked => {
+                sound-pop.show();
+            }
+
+            sound-pop := PopupWindow {
+                y: -volume-slider.height - volume-btn.height;
+                x: -self.width / 2 + volume-btn.preferred-width / 2;
+                width: volume-slider.width + Theme.padding * 8;
+                height: volume-slider.height + Theme.padding * 8;
+                close-policy: PopupClosePolicy.close-on-click-outside;
+
+                Rectangle {
+                    border-color: Theme.base-border-color;
+                    border-width: Theme.default-border-width;
+                    background: Theme.base-background;
+                }
+
+                volume-slider := Slider {
+                    y: Theme.padding * 4;
+                    x: Theme.padding * 4;
+                    height: Theme.default-font-size * 12;
+                    width: Theme.icon-size / 4;
+                    indicator-size: self.width * 3;
+                    orientation: vertical;
+                    value <=> Store.video-editor-ui-state.preview-volume;
+                    unfinished-progress-color: Theme.hover-background;
+
+                    changed(value) => {
+                        Store.video-editor-ui-state.preview-volume = value;
+                        Logic.video-editor-preview-change-volume(value);
+                    }
+
+                    released(value) => {
+                        Store.video-editor-ui-state.preview-volume = value;
+                        Logic.video-editor-update-ui-state();
+                    }
+                }
+            }
+        }
+
+        grid-btn := IconBtn {
+            icon: Icons.grid-fill;
+
+            clicked => {
+                grid-pop.show();
+            }
+
+            grid-pop := PopupWindow {
+                y: - self.height - Theme.padding * 2;
+                x: -self.width / 2 + grid-btn.preferred-width / 2;
+                width: Theme.default-font-size * 6;
+                height: grid-list.preferred-height;
+                close-policy: PopupClosePolicy.close-on-click-outside;
+
+                grid-list := VerticalLayout {
+                    // 网格选项：关闭、2×2、3×3、4×4、5×5、6×6、8×8、9x9、10×10、12×12、16×16、
+                    private property <[int]> grid-options: [0, 2, 3, 4, 5, 6, 8, 9, 10, 12, 16];
+
+                    for grid-size[index] in grid-options: Rectangle {
+                        height: Theme.default-font-size * 2;
+                        background: grid-ta.has-hover ? Theme.hover-background : Theme.base-background;
+
+                        HorizontalLayout {
+                            alignment: LayoutAlignment.center;
+                            padding: Theme.padding;
+
+                            Label {
+                                text: grid-size == 0 ? Logic.tr("off") : grid-size + "×" + grid-size;
+                                font-size: Theme.default-font-size;
+                                color: grid-size == Store.video-editor-ui-state.preview-grid-size ? Theme.thirdly-brand-color : Theme.primary-text-color;
+                            }
+                        }
+
+                        grid-ta := TouchArea {
+                            mouse-cursor: MouseCursor.pointer;
+                            clicked => {
+                                Store.video-editor-ui-state.preview-grid-size = grid-size;
+                                Logic.video-editor-update-ui-state();
+                                grid-pop.close();
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    border-color: Theme.base-border-color;
+                    border-width: Theme.default-border-width;
+                }
+            }
+        }
+    }
+}
+
+component PreviewWindowGrid inherits Rectangle {
+    in property <int> grid-size: Store.video-editor-ui-state.preview-grid-size;
+
+    VerticalLayout {
+        for row in grid-size: HorizontalLayout {
+            for col in grid-size: Rectangle {
+                border-width: 1px;
+                border-color: Theme.light-text-color;
+            }
+        }
+    }
+}
+
+component PreviewWindow inherits Rectangle {
+    clip: true;
+    background: Theme.thirdly-background;
+
+    private property <bool> show-volume-indicator;
+    private property <bool> no-show-volume-indeicator: true;
+    private property <float> width-height-rate: self.width / self.height;
+    private property preview-volume <=> Store.video-editor-ui-state.preview-volume;
+
+    changed preview-volume => {
+        if (no-show-volume-indeicator) {
+            no-show-volume-indeicator = false;
+            return;
+        }
+        root.show-volume-indicator = true;
+    }
+
+    changed width => {
+        bg.update-size();
+    }
+
+    changed height => {
+        bg.update-size();
+    }
+
+    bg := Rectangle {
+        private property <VideoPreviewSize> preivew-size: Logic.video-editor-preview-size(Store.video-editor-new-project-config.preview-config, Store.video-editor-is-show-preview-setting-dialog, Store.video-editor-tracks-manager.tracks.length);
+        private property <int> preview-width: preivew-size.width;
+        private property <int> preview-height: preivew-size.height;
+        private property <float> width-height-rate: preview-width / preview-height;
+
+        private property <bool> selected-segment-under-playhead: Logic.selected-segment-under-playhead(Store.video-editor-timeline-offset, Store.video-editor-segment-selected-flag);
+        private property <bool> edit-mode-common: !Store.video-editor-is-previewing && Store.video-editor-selected-segments-index.length > 0 && Store.video-editor-current-edited-track-index >= 0 && selected-segment-under-playhead;
+        private property <bool> in-edit-mode: VEFilter.is-in-edit-mode && VEFilter.selected-filter.enabled && edit-mode-common && !in-text-edit-mod;
+        private property <bool> in-text-edit-mod: Store.video-editor-is-editing-text-segment && edit-mode-common;
+
+        changed width-height-rate => {
+            self.update-size();
+        }
+
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+
+        function update-size() {
+            if (parent.width-height-rate > width-height-rate) {
+                self.height = min(parent.height, preview-height * 1px);
+                self.width = self.height * width-height-rate;
+            } else {
+                self.width = min(parent.width, preview-width * 1px);
+                self.height = self.width / width-height-rate;
+            }
+        }
+
+        background: Theme.dark-text-color;
+
+        init => {
+            update-size();
+        }
+
+        if in-edit-mode: Rectangle {
+            if VEFilter.selected-filter.name == "transform": PreviewTransformLayers {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "crop": PreviewCropLayers {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "zoom": PreviewZoomLayers {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "fly in": PreviewFlyInLayer {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "mosaic": PreviewMosaicLayers {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "draw circle": PreviewDrawCircleLayer {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "draw rectangle": PreviewDrawRectangleLayer {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "local magnify": PreviewLocalMagnifyLayer {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "magnifier": PreviewMagnifierLayer {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "text highlight": PreviewTextHighlightLayer {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "linear mask": PreviewLinearMaskLayer {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "circle mask": PreviewCircleMaskLayer {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "mirror mask": PreviewMirrorMaskLayer {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "rectangle mask": PreviewRectangleMaskLayer {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "focus": PreviewFocusLayer {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "gaussian blur": PreviewGaussianBlurLayers {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+        }
+
+        if in-text-edit-mod: PreviewTextLayer {
+            width: parent.width;
+            height: parent.height;
+        }
+
+        // PreviewFocusLayer {
+        //     width: parent.width;
+        //     height: parent.height;
+        //     layers: Store.video-editor-preview-layer-images;
+        // }
+
+        if !in-edit-mode && !in-text-edit-mod: Image {
+            width: parent.width;
+            height: parent.height;
+            source: Store.video-editor-preview-image;
+            image-fit: ImageFit.contain;
+        }
+
+        // 为了不影响参数预览效果，只有在需要时才显示出来，用于获取颜色
+        if VEFilter.selected-filter.name == "chroma key" && VEFilter.chroma-key-pick-color-mode: PreviewChromaKeyLayer {
+            width: parent.width;
+            height: parent.height;
+            layers: Store.video-editor-preview-layer-images;
+        }
+
+        if Store.video-editor-ui-state.preview-grid-size > 0: PreviewWindowGrid {
+            width: parent.width;
+            height: parent.height;
+        }
+
+        VolumeIndicator {
+            enable-timer: true;
+            is-show <=> show-volume-indicator;
+            volume: Store.video-editor-ui-state.preview-volume;
+        }
+    }
+}
+
+component ProcessTime inherits VerticalLayout {
+    alignment: center;
+    padding-left: Theme.padding * 2;
+
+    HorizontalLayout {
+        spacing: Theme.spacing * 2;
+        height: li.preferred-height;
+        alignment: center;
+
+        li := LineInput {
+            vpadding: Theme.padding;
+            width: Theme.default-font-size * 7;
+            font-size: Theme.default-font-size;
+            text: Logic.ms-to-srt-timestamp-ui(Store.video-editor-timeline-offset);
+        }
+
+        Label {
+            text: "/";
+        }
+
+        Label {
+            text: Logic.ms-to-srt-timestamp-ui(Store.video-editor-tracks-manager.duration);
+        }
+    }
+}
+
+component Volume inherits HorizontalLayout {
+    VerticalLayout {
+        alignment: center;
+        spacing: Theme.spacing / 2;
+
+        HorizontalLayout {
+            height: root.height / 3;
+            spacing: Theme.spacing;
+
+            Label {
+                text: Logic.tr("L");
+                vertical-alignment: center;
+                font-size: Theme.default-font-size * Theme.golden-ratio;
+            }
+
+            AudioLevel {
+                height: parent.height;
+                width: 250px;
+                db: Store.video-editor-is-previewing ? Store.video-editor-preview-volume.left : -200;
+            }
+        }
+
+        HorizontalLayout {
+            height: root.height / 3;
+            spacing: Theme.spacing;
+
+            Label {
+                text: Logic.tr("R");
+                vertical-alignment: center;
+                font-size: Theme.default-font-size * Theme.golden-ratio;
+            }
+
+            AudioLevel {
+                height: root.height / 3;
+                width: 250px;
+                db: Store.video-editor-is-previewing ? Store.video-editor-preview-volume.right : -200;
+            }
+        }
+    }
+}
+
+component TimelineThumbnail inherits Rectangle {
+    out property playhead-x <=> playhead.x;
+    out property pressed <=> ta.pressed;
+
+    private property <length> timeline-width: self.width;
+    private property <length> label-width: Theme.default-font-size * 8;
+    private property <int> timeline-offset: Store.video-editor-timeline-offset;
+
+    changed timeline-offset => {
+        playhead.update();
+    }
+
+    public function playhead-in-viewport() -> bool {
+        return playhead.handle-width / -2 < playhead.x && playhead.x < root.width;
+    }
+
+    height: Theme.icon-size * 1.5;
+    background: Theme.table-item-second;
+    HorizontalLayout {
+        private property <int> total-index: root.timeline-width / label-width;
+
+        alignment: start;
+
+        for index in total-index: HorizontalLayout {
+            width: label-width;
+            spacing: Theme.spacing;
+
+            VerticalLayout {
+                alignment: end;
+
+                Divider {
+                    visible: index != 0;
+                    width: Theme.default-border-width;
+                    height: root.height * Theme.golden-ratio;
+                    background: Theme.regular-text-color;
+                }
+            }
+
+            VerticalLayout {
+                alignment: end;
+                padding-bottom: Theme.padding / 2;
+                Label {
+                    text: Logic.video-editor-calc-timeline-offset(index, root.timeline-width / label-width, Store.video-editor-timeline-flag);
+                    font-size: Theme.default-font-size * 0.8;
+                    color: Theme.regular-text-color;
+                }
+            }
+        }
+    }
+
+    ta := TouchArea {
+        clicked => {
+            playhead.x = self.pressed-x - playhead.handle-width / 2;
+            Store.video-editor-timeline-offset = Store.video-editor-tracks-manager.duration * self.pressed-x / root.width;
+            Logic.video-editor-timeline-seek(Store.video-editor-timeline-offset);
+        }
+    }
+
+    playhead := Playhead {
+        out property <length> start-x: self.handle-width / -2;
+        out property <length> end-x: root.width - self.handle-width / 2;
+
+        public function update() {
+            playhead.x = clamp(root.width * timeline-offset / Store.video-editor-tracks-manager.duration - playhead.handle-width / 2, playhead.start-x, playhead.end-x);
+        }
+
+        changed pressed => {
+            if (!pressed) {
+                let line-pos-x = playhead.x + playhead.handle-width / 2;
+                Store.video-editor-timeline-offset = Store.video-editor-tracks-manager.duration * line-pos-x / root.width;
+                Logic.video-editor-timeline-seek(Store.video-editor-timeline-offset);
+            }
+        }
+
+        init => {
+            self.update();
+        }
+
+        y: 0;
+        x: start-x;
+        line-color: Theme.invert-base-color;
+        visible: Store.video-editor-tracks-manager.tracks.length > 0;
+
+        moved => {
+            let offset-x = self.mouse-x - self.pressed-x;
+            self.x = clamp(self.x + offset-x, start-x, end-x);
+        }
+    }
+}
+
+export component Preview inherits Rectangle {
+    clip: true;
+
+    vbox := VerticalLayout {
+        spacing: Theme.spacing * 2;
+
+        VerticalLayout {
+            PreviewWindow {
+                height: root.height - tl.height - rec.preferred-height - vbox.spacing;
+            }
+
+            tl := TimelineThumbnail { }
+        }
+
+        rec := Rectangle {
+            private property <length> one-part-remained-space: (self.width - hbox.preferred-width) / 2;
+
+            HorizontalLayout {
+                visible: self.preferred-width < one-part-remained-space;
+                alignment: start;
+                ProcessTime { }
+            }
+
+            hbox := HorizontalLayout {
+                padding-left: Theme.padding * 2;
+                padding-right: Theme.padding * 2;
+                alignment: center;
+                Btns { }
+            }
+
+            HorizontalLayout {
+                visible: self.preferred-width < one-part-remained-space;
+                alignment: end;
+                height: hbox.preferred-height * 0.8;
+                padding-right: Theme.padding * 2;
+
+                Volume { }
+            }
+        }
+    }
+}

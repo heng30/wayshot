@@ -1,0 +1,32 @@
+[package]
+name = "musicdl-rs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "A Rust library for searching and downloading music from multiple sources"
+
+[dependencies]
+log.workspace = true
+url.workspace = true
+hex.workspace = true
+md-5.workspace = true
+regex.workspace = true
+bytes.workspace = true
+serde.workspace = true
+infer.workspace = true
+tokio.workspace = true
+base64.workspace = true
+chrono.workspace = true
+reqwest.workspace = true
+scraper.workspace = true
+futures.workspace = true
+thiserror.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+urlencoding.workspace = true
+html-escape.workspace = true
+
+[dev-dependencies]
+clap.workspace = true
+env_logger.workspace = true
+tokio = { workspace = true, features = ["full", "test-util"] }

@@ -1,0 +1,86 @@
+export enum ImageAnimationType {
+    Scroll,
+    GradeMark,
+    Arrow,
+    RectDraw,
+}
+
+export enum GradeMarkType {
+    Circle,
+    Checkmark,
+    Cross,
+}
+
+export enum DashStyle {
+    Solid,
+    Dash,
+}
+
+export struct ImageScrollAnimConfig {
+    image-path: string,
+    scroll-speed: float,
+    start-pause: float,
+    end-pause: float,
+}
+
+export struct GradeMarkAnimConfig {
+    mark-type: GradeMarkType,
+    color-r: int,
+    color-g: int,
+    color-b: int,
+    color-a: int,
+    size: float,
+    line-width: float,
+    duration-ms: int,
+    end-pause: float,
+    position-x: float,  // normalized (0-1)
+    position-y: float,  // normalized (0-1)
+}
+
+export struct ArrowAnimConfig {
+    color-r: int,
+    color-g: int,
+    color-b: int,
+    color-a: int,
+    line-width: float,
+    dash-style: DashStyle,
+    dash-length: float,
+    length: float,
+    head-length: float,
+    head-width: float,
+    direction: float,
+    duration-ms: int,
+    end-pause: float,
+    position-x: float,
+    position-y: float,
+}
+
+export struct RectDrawAnimConfig {
+    color-r: int,
+    color-g: int,
+    color-b: int,
+    color-a: int,
+    line-width: float,
+    dash-style: DashStyle,
+    dash-length: float,
+    rect-width: float,
+    rect-height: float,
+    corner-radius: float,
+    duration-ms: int,
+    end-pause: float,
+    position-x: float,
+    position-y: float,
+}
+
+export struct ImageAnimationConfig {
+    id: string,
+    animation-type: ImageAnimationType,
+    width: int,
+    height: int,
+    fps: int,
+    save-dir: string,
+    scroll: ImageScrollAnimConfig,
+    grade-mark: GradeMarkAnimConfig,
+    arrow: ArrowAnimConfig,
+    rect-draw: RectDrawAnimConfig,
+}

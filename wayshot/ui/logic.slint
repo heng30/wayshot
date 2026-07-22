@@ -3,9 +3,7 @@ import {
     SettingPreference,
     TabIndex,
     SettingDetailIndex,
-    MobileSettingDetailIndex,
     PopupIndex,
-    MobileTabIndex,
     SettingBackup,
     SettingRecorder,
     SettingControl,
@@ -23,11 +21,88 @@ import {
     BackgroundRemoverModel,
     DownloaderState,
     TranscribeProgressType,
-    Subtitle,
     SettingTranscribe,
     SettingAiModel,
+    VideoEditorTrackType,
+    SelectedTrackIndex,
+    SelectedSegmentIndex,
+    SubtitleType,
+    VideoEditorExportVideoConfig,
+    VideoEditorExportAudioConfig,
+    VideoEditorTrackSegment,
+    VideoEditorSubtitle,
+    AudioChannels,
+    AudioSampleRate,
+    AudioFormat,
+    VideoEditorRecentEntry,
+    VideoEditorPreviewConfig,
+    VideoPreviewSize,
+    VideoEditorPreferenceTrackConfig,
+    VideoEditorPreferenceCacheConfig,
+    VideoEditorPreferenceMcpConfig,
+    VideoEditorSegmentMetadata,
+    StartupTab,
+    VideoEditorRecordAudioConfig,
+    TextElement,
+    CodeImageConfig,
+    PureColorImageConfig,
+    TTSConfig,
+    TTSEntry,
+    TTSVoice,
+    VideoEditorBgRemoverConfig,
+    VideoEditorMusicGenConfig,
+    VideoEditorDewatermarkConfig,
+    VideoEditorSubtitleRemoverConfig,
+    VideoEditorCutoutConfig,
+    VideoEditorClearVisionConfig,
+    VideoEditorStemSplitterConfig,
+    VideoEditorDeepFilterConfig,
+    VideoEditorSimilarVideoSegmentConfig,
+    VideoEditorSpeakersConfig,
+    VideoEditorOCRConfig,
+    OcrTaskMode,
+    SnapResult,
+    SceneDetectConfig,
+    SmartClipProgressType,
+    SmartMixProgressType,
+    SmartMixSetting,
+    SubtitleTranslateConfig,
+    OnlineSearchImageMediaType,
+    OnlineSearchImageSetting,
+    OnlineSearchImageSourceEntry,
+    OnlineSearchImageResultItem,
+    OnlineSearchImageParam,
+    OnlineSearchAudioSetting,
+    OnlineSearchAudioSourceEntry,
+    OnlineSearchAudioResultItem,
+    OnlineSearchAudioParam,
 } from "store.slint";
-
+import {
+    AnimationType,
+    BackgroundAnimationConfig,
+} from "panel/desktop/video-editor/tools/bg-animation/export.slint";
+import {
+    ImageAnimationConfig,
+    ImageAnimationType,
+    GradeMarkType,
+    DashStyle,
+} from "panel/desktop/video-editor/tools/img-animation/export.slint";
+import {
+    GlobalFilterType,
+    ProgressBarItem,
+    TimerStyle,
+    DanmakuDistributionMode,
+    DanmakuStyle,
+} from "panel/desktop/video-editor/tools/global-filter/export.slint";
+import {
+    Keyframe,
+    KeyframeValue,
+    PropertyTrack,
+    CropDetail,
+    DrawCircleDetail,
+    FilterEntry,
+    PresetFilter,
+} from "panel/desktop/video-editor/filter.slint";
 import { Theme } from "base/theme.slint";
 
 export global Logic {
@@ -89,22 +164,6 @@ export global Logic {
         Store.process-mode = mode;
     }
 
-    // android
-    public function switch-mobile-tab(index: MobileTabIndex) {
-        if (Store.current-mobile-tab-index != index) {
-            Store.previous-mobile-tab-index = Store.current-mobile-tab-index;
-            Store.current-mobile-tab-index = index;
-        }
-    }
-
-    // android
-    public function switch-mobile-setting-detail(index: MobileSettingDetailIndex) {
-        if (Store.current-mobile-setting-detail-index == index) {
-            return;
-        }
-        Store.current-mobile-setting-detail-index = index;
-    }
-
     //////////////////////////////// Logic Start  ////////////////////////////////
     callback get-setting-recorder() -> SettingRecorder;
     callback set-setting-recorder(setting: SettingRecorder);
@@ -129,11 +188,14 @@ export global Logic {
     callback get-setting-camera() -> SettingCamera;
     callback set-setting-camera(setting: SettingCamera);
 
-    callback get-setting-transcribe() -> SettingTranscribe;
-    callback set-setting-transcribe(setting: SettingTranscribe);
-
     callback get-setting-ai-model() -> SettingAiModel;
     callback set-setting-ai-model(setting: SettingAiModel);
+
+    callback init-font-dialog();
+    callback refresh-font-entries();
+    callback import-font-files();
+    callback search-font-entries(text: string);
+    callback toggle-font-marked(index: int);
 
     callback init-sources-dialog();
     callback choose-save-dir();
@@ -150,6 +212,7 @@ export global Logic {
 
     callback open-file(file: string);
     pure callback file-exist(file: string) -> bool;
+    pure callback dir-exist(dir: string) -> bool;
 
     callback cal-region-width(height: float) -> int;
     callback cal-region-height(width: float) -> int;
@@ -161,6 +224,7 @@ export global Logic {
     callback remove-history(index: int);
     callback remove-no-found-histories();
     callback remove-all-histories();
+    callback add-to-video-editor-playlist(index: int);
 
     callback init-playlist();
     callback player-play-prev(index: int);
@@ -207,55 +271,669 @@ export global Logic {
     pure callback is-valid-subtitle-timestamp(timestamp: string) -> bool;
     pure callback ms-to-srt-timestamp-ui(ms: float) -> string;
 
-    callback transcribe-init();
-    callback transcribe-new();
-    callback transcribe-start();
-    callback transcribe-import-file();
-    callback transcribe-export-video();
-    callback transcribe-export-subtitles();
-    callback transcribe-refresh-subtitles();
-    callback transcribe-cancel-progress(ty: TranscribeProgressType);
+    callback video-editor-update-ui-state();
+    callback video-editor-new-project();
+    callback video-editor-init-recent();
+    callback video-editor-show-recent-dialog();
+    callback video-editor-open-recent-project(index: int);
+    callback video-editor-show-metadata-dialog();
+    callback video-editor-open-project();
+    callback video-editor-save-project();
+    callback video-editor-save-as-project();
+    callback video-editor-backup-project();
+    callback video-editor-cancel-backup-project();
+    callback video-editor-close-project();
+    callback video_editor_close_project_with_save();
+    callback video_editor_close_project_without_save();
+    callback video-editor-quit();
+    callback video-editor-show-preference-setting-dialog();
+    callback video-editor-update-preference-track-config(setting: VideoEditorPreferenceTrackConfig);
+    callback video-editor-update-preference-cache-config(setting: VideoEditorPreferenceCacheConfig);
+    callback video-editor-update-preference-mcp-config(setting: VideoEditorPreferenceMcpConfig);
+    callback video-editor-recover-from-autosave();
+    callback video-editor-ignore-recovery();
+    callback video-editor-cancel-recovery();
 
-    callback transcribe-subtitles-recovery();
-    callback transcribe-subtitles-remove-all();
-    callback transcribe-subtitles-correction();
-    callback transcribe-subtitles-accept-correction();
-    callback transcribe-subtitles-remove-correction();
-    callback transcribe-subtitles-adjust-overlap-timestamp();
-    callback transcribe-subtitles-to-lowercase();
-    callback transcribe-subtitles-to-simple-chinese();
-    callback transcribe-subtitles-to-primitive-numbers();
-    callback transcribe-subtitles-remove-separator();
-    callback transcribe-subtitles-replace-text(old-text: string, new-text: string);
-    callback transcribe-subtitles-update-playng-index(progress: float);
+    callback video-editor-undo();
+    callback video-editor-redo();
+    callback video-editor-cut();
+    callback video-editor-copy();
+    callback video-editor-paste();
+    callback video-editor-append();
 
-    callback transcribe-subtitle-update(index: int, text: string);
-    callback transcribe-subtitle-accept-correction(index: int);
-    callback transcribe-subtitle-split(index: int);
-    callback transcribe-subtitle-merge-above(index: int);
-    callback transcribe-subtitle-insert-above(index: int);
-    callback transcribe-subtitle-insert-below(index: int);
-    callback transcribe-subtitle-remove(index: int);
+    callback video-editor-add-track(ty: VideoEditorTrackType);
+    callback video-editor-add-empty-video-track();
+    callback video-editor-add-empty-audio-track();
+    callback video-editor-add-empty-subtitle-track();
+    callback video-editor-add-empty-image-track();
+    callback video-editor-add-empty-text-track();
+    callback video-editor-remove-tracks();
+    callback video-editor-track-move-up(index: int);
+    callback video-editor-track-move-down(index: int);
+    callback video-editor-track-move-to-top(index: int);
+    callback video-editor-track-move-to-bottom(index: int);
+    pure callback video-editor-can-move-track(from-index: int, to-index: int) -> bool;
+    callback video-editor-move-track-by-drag(from-index: int, to-index: int);
+    callback video-editor-insert-video-track(index: int);
+    callback video-editor-insert-audio-track(index: int);
+    callback video-editor-insert-subtitle-track(index: int);
+    callback video-editor-insert-image-track(index: int);
+    callback video-editor-insert-text-track(index: int);
+    callback video-editor-paste-filter-to-track(index: int);
+    callback video-editor-remove-all-filters-from-track(index: int);
+    callback video-editor-track-stretch-to-end(index: int);
+    callback video-editor-track-remove-all-gap(index: int);
+    callback video-editor-toggle-locked-track(index: int);
+    callback video-editor-toggle-hiding-track(index: int);
+    callback video-editor-toggle-muted-track(index: int);
+    callback video-editor-detach-audio-track(index: int);
+    callback video-editor-detach-subtitle-track(index: int);
+    callback video-editor-select-all-tracks();
+    callback video-editor-unselect-all-tracks();
+    callback video-editor-add-selected-track(index: SelectedTrackIndex);
+    pure callback video-editor-is-video-track(index: int) -> bool;
+    pure callback video-editor-is-video-with-audio-track(index: int) -> bool;
+    pure callback video-editor-is-audio-track(index: int) -> bool;
+    pure callback video-editor-is-subtitle-track(index: int) -> bool;
+    pure callback video-editor-is-image-track(index: int) -> bool;
+    pure callback video-editor-is-text-track(index: int) -> bool;
+    pure callback video-editor-is-video-segment(track-index: int, segment-index: int) -> bool;
+    pure callback video-editor-is-audio-segment(track-index: int, segment-index: int) -> bool;
+    pure callback video-editor-is-subtitle-segment(track-index: int, segment-index: int) -> bool;
+    pure callback video-editor-contain-audio-track(index: int) -> bool;
+    pure callback video-editor-contain-subtitle-track(index: int) -> bool;
+    pure callback video-editor-is-selected-track(selected-tracks: [SelectedTrackIndex], index: int, _falg: bool) -> bool;
 
-    callback transcribe-choose-model-path(index: int);
-    callback transcribe-model-cancel-download(index: int, url: string);
-    callback transcribe-model-start-download(index: int, url: string);
+    callback video-editor-add-text-segment();
+    callback video-editor-add-selected-segment(index: SelectedSegmentIndex);
+    callback video-editor-select-all-segments();
+    callback video-editor-remove-segments();
+    callback video-editor-linked-remove-segments();
+    callback video-editor-split-segment();
+    pure callback video-editor-find-snap-position(offset-ms: int, threshold-ms: int, exclude-track-index: int, exclude-segment-index: int, target-track-index: int) -> SnapResult;
+    callback video-editor-commit-segment-move(index: SelectedSegmentIndex, final-offset-ms: int);
+    callback video-editor-commit-segment-resize(index: SelectedSegmentIndex, is-left: bool, new-duration-ms: int, new-offset-ms: int);
+    callback video-editor-commit-segment-cross-track-move(source-track-index: int, source-segment-index: int, target-track-index: int, target-timeline-offset-ms: int, will-split: bool, split-segment-index: int);
+    pure callback video-editor-find-segment-at-time(track-index: int, timeline-offset-ms: int) -> int;
+    pure callback video-editor-find-segment-at-time-excluding(track-index: int, timeline-offset-ms: int, exclude-segment-index: int) -> int;
+    callback video-editor-get-min-all-tracks-offset() -> int;
+    pure callback video-editor-is-link-all-movable(int, int, int, int) -> bool;
+    callback video-editor-segment-detach-audio(index: SelectedSegmentIndex);
+    callback video-editor-segment-detach-subtitle(index: SelectedSegmentIndex);
+    callback video-editor-segment-remove-gap(index: SelectedSegmentIndex);
+    callback video-editor-segment-remove-left-gap(index: SelectedSegmentIndex);
+    callback video-editor-segment-remove-right-gap(index: SelectedSegmentIndex);
+    callback video-editor-segment-snap-to-previous();
+    callback video-editor-segment-snap-to-playhead();
+    callback video-editor-segment-merge();
+    callback video-editor-segment-resize-to-playhead(index: SelectedSegmentIndex);
+    callback video-editor-segment-resize-to-previous-segment(index: SelectedSegmentIndex);
+    callback video-editor-segment-resize-to-next-segment(index: SelectedSegmentIndex);
+    pure callback video-editor-segment-has-keyframes(track-index: int, segment-index: int) -> bool;
+    callback video-editor-remove-all-segment-keyframes(track-index: int, segment-index: int);
+    callback video-editor-video-segment-thumbnail(track-index: int, index: int, is-left: bool);
+    callback video-editor-segment-export-gif(index: SelectedSegmentIndex);
+    callback video-editor-segment-export-selected-mp4();
+    callback video-editor-segment-extract-frames(index: SelectedSegmentIndex);
+    callback video-editor-segment-export-audio(index: SelectedSegmentIndex);
+    callback video-editor-segment-remove-all-filters(track-index: int, segment-index: int);
+    callback video-editor-segment-toggle-enable(index: SelectedSegmentIndex);
+    callback video-editor-segment-toggle-audio(index: SelectedSegmentIndex);
+    callback video-editor-segment-intelligent-voice-segmentation(index: SelectedSegmentIndex);
+    pure callback video-editor-is-selected-segment(selected-segment: [SelectedSegmentIndex], index: SelectedSegmentIndex, _flag: bool) -> bool;
+    pure callback video-editor-selected-segment(_flag: bool, _flag2: bool) -> VideoEditorTrackSegment;
+    pure callback video-editor-selected-segment-metadata(_flag: bool) -> VideoEditorSegmentMetadata;
+    pure callback video-editor-selected-segment-relative-start() -> int;
+    pure callback video-editor-segment-has-filter(entry: FilterEntry) -> bool;
+    pure callback video-editor-segment-has-preset-filter(entry: PresetFilter) -> bool;
+    pure callback video-editor-segment-contain-filter(track-index: int, segment-index: int) -> bool;
 
-    callback transcribe-audio-player-init();
-    callback transcribe-audio-player-sound-changed(sound: float);
-    callback transcribe-audio-player-sound-released(sound: float);
-    callback transcribe-audio-player-progress-changed(value: float);
-    callback transcribe-audio-player-progress-released(value: float);
-    callback transcribe-audio-player-progress-pressed(value: float);
+    callback video-editor-playlist-item-add-to-track(index: int);
+    callback video-editor-playlist-item-add-to-track-end(index: int);
+    callback video-editor-playlist-item-remove(index: int);
+    callback video-editor-playlist-item-import();
+    callback video-editor-playlist-folder-import();
+    callback video-editor-playlist-enter-edit-mode();
+    callback video-editor-playlist-exit-edit-mode();
+    callback video-editor-playlist-toggle-select-all(selected: bool);
+    callback video-editor-playlist-remove-all();
+    callback video-editor-playlist-show-remove-all-confirm-dialog();
+    callback video-editor-playlist-show-remove-selections-confirm-dialog();
+    callback video-editor-playlist-remove-selections();
+    callback video-editor-playlist-toggle-selection(index: int);
+    callback video-editor-playlist-item-preview(index: int);
+    callback video-editor-playlist-item-copy-path(index: int);
+    callback video-editor-playlist-item-open-directory(index: int);
+    callback video-editor-playlist-search(index: int, keyword: string);
+    callback video-editor-playlist-all-files();
+    callback video-editor-playlist-all-videos();
+    callback video-editor-playlist-all-audios();
+    callback video-editor-playlist-all-images();
+    callback video-editor-playlist-all-subtitles();
+    callback video-editor-playlist-create-folder();
+    callback video-editor-playlist-rename-folder(id: string);
+    callback video-editor-playlist-remove-folder(id: string);
+    callback video-editor-playlist-sync-folder(id: string);
+    callback video-editor-playlist-refresh();
+    callback video-editor-playlist-navigate-to-folder(id: string);
+    callback video-editor-playlist-navigate-up();
+    callback video-editor-playlist-move-item-to-folder(item-id: string, folder-id: string);
+    callback video-editor-playlist-move-folder(folder-id: string, new-parent-id: string);
+    callback video-editor-extract-frame-to-playlist();
 
-    callback transcribe-play-audio(start-timestamp: string, end-timestamp: string);
-    callback transcribe-stop-audio();
+    callback video-editor-library-item-add-to-track(index: int);
+    callback video-editor-library-item-add-to-track-end(index: int);
+    callback video-editor-library-item-remove(index: int);
+    callback video-editor-library-item-import();
+    callback video-editor-library-folder-import();
+    callback video-editor-library-search(index: int, keyword: string);
+    callback video-editor-library-all-files();
+    callback video-editor-library-all-videos();
+    callback video-editor-library-all-audios();
+    callback video-editor-library-all-images();
+    callback video-editor-library-enter-edit-mode();
+    callback video-editor-library-exit-edit-mode();
+    callback video-editor-library-toggle-select-all(selected: bool);
+    callback video-editor-library-remove-all();
+    callback video-editor-library-show-remove-all-confirm-dialog();
+    callback video-editor-library-show-remove-selections-confirm-dialog();
+    callback video-editor-library-remove-selections();
+    callback video-editor-library-toggle-selection(index: int);
+    callback video-editor-library-toggle-mark(index: int);
+    callback video-editor-library-item-preview(index: int);
+    callback video-editor-library-item-copy-path(index: int);
+    callback video-editor-library-item-open-directory(index: int);
+    callback video-editor-library-create-folder();
+    callback video-editor-library-rename-folder(id: string);
+    callback video-editor-library-remove-folder(id: string);
+    callback video-editor-library-sync-folder(id: string);
+    callback video-editor-library-refresh();
+    callback video-editor-library-navigate-to-folder(id: string);
+    callback video-editor-library-navigate-up();
+    callback video-editor-library-move-item-to-folder(item-id: string, folder-id: string);
+    callback video-editor-library-move-folder(folder-id: string, new-parent-id: string);
 
-    callback transcribe-sound-wave-update(index: int, max-samples: int);
-    callback transcribe-sound-wave-zoom-changed(index: int, level: float);
-    callback transcribe-sound-wave-moved(index: int, percent: float);
-    callback transcribe-sound-wave-start-position-changed(index: int, pos: float);
-    callback transcribe-sound-wave-end-position-changed(index: int, pos: float);
+    callback video-editor-rename-dialog-confirmed(text: string);
+
+    pure callback video-editor-find-drag-target-track(relative-y: int) -> int;
+    pure callback video-editor-find-track-reorder-target(relative-y: int, from-index: int) -> int;
+    pure callback video-editor-get-track-height-pixels(ty: VideoEditorTrackType) -> int;
+    pure callback video-editor-get-track-accumulated-height(index: int) -> int;
+    callback video-editor-drag-item-add-to-track(track_index: int, timeline_offset_ms: int);
+    callback video-editor-clear-all-selected-state();
+
+    callback video-editor-item-preview-play();
+    callback video-editor-item-preview-stop();
+    callback video-editor-item-preview-seek(position: float);
+    callback video-editor-item-preview-progress-changed(value: float);
+    callback video-editor-item-preview-progress-released(value: float);
+    callback video-editor-item-preview-progress-pressed(value: float);
+    callback video-editor-item-preview-sound-changed(sound: int);
+    callback video-editor-item-preview-sound-released(sound: int);
+
+    callback video-editor-export-video(config: VideoEditorExportVideoConfig);
+    callback video-editor-export-audio(config: VideoEditorExportAudioConfig);
+    callback video-editor-export-subtitle(ty: SubtitleType);
+    callback video-editor-export-queue-cancel(index: int);
+    callback video-editor-export-queue-remove(index: int);
+
+    callback video-editor-add-subtitle(subtitle: VideoEditorSubtitle);
+    callback video-editor-update-subtitle(subtitle: VideoEditorSubtitle);
+    callback video-editor-update-edited-subtitle-from-segment(track-index: int, segment-index: int);
+    callback video-editor-transcribe-audio();
+
+    // Text element editing callbacks
+    callback video-editor-exit-text-editing();
+    callback video-editor-load-text-element(track-index: int, segment-index: int);
+    callback video-editor-update-text-element(element: TextElement);
+    callback video-editor-update-text-position(x: float, y: float);
+    callback video-editor-add-text-keyframe(property: string, time-ms: int, value: KeyframeValue);
+    callback video-editor-remove-text-keyframe(property: string, time-ms: int);
+    callback video-editor-move-text-keyframe(property: string, old-time-ms: int, new-time-ms: int);
+    callback video-editor-update-text-keyframe-value(property: string, time-ms: int, value: KeyframeValue);
+    callback video-editor-get-text-keyframes(track-index: int, segment-index: int, property: string) -> [Keyframe];
+    pure callback video-editor-text-property-has-keyframe-at-playhead(track_index: int, segment_index: int, property: string, _flag: bool, ) -> bool;
+    pure callback video-editor-get-text-element-at-playhead(track-index: int, segment-index: int) -> TextElement;
+    pure callback video-editor-get-text-property-tracks(track-index: int, segment-index: int) -> [PropertyTrack];
+    pure callback video-editor-get-draw-circle-at-playhead(track-index: int, segment-index: int) -> DrawCircleDetail;
+    callback video-editor-show-preset-text-style-panel();
+    callback video-editor-show-preset-text-style-new-lineinput();
+    callback video-editor-create-preset-text-style(name: string);
+    callback video-editor-remove-preset-text-style(index: int);
+    callback video-editor-apply-preset-text-style(style: TextElement);
+
+    callback video-editor-start-recording-audio();
+    callback video-editor-stop-recording-audio();
+    callback video-editor-record-audio-select-dir();
+    callback video-editor-record-audio-update(config: VideoEditorRecordAudioConfig);
+
+    callback video-editor-generate-code-image(config: CodeImageConfig) -> image;
+    callback video-editor-add-code-image-to-playlist(image: image);
+    callback video-editor-update-code-image-config(config: CodeImageConfig);
+
+    callback video-editor-pure-color-image-select-dir();
+    callback video-editor-update-pure-color-image-config(config: PureColorImageConfig);
+    callback video-editor-generate-pure-color-image(c: color, config: PureColorImageConfig);
+
+    callback video-editor-tts-generate-all-speech();
+    callback video-editor-tts-cancel-generating-all();
+    callback video-editor-tts-remove-all-speech();
+    callback video-editor-tts-remove-all-entries();
+    callback video-editor-tts-export-to-playlist();
+    callback video-editor-tts-generate-speech(index: int);
+    callback video-editor-tts-play-speech(index: int);
+    callback video-editor-tts-update-config(config: TTSConfig);
+    callback video-editor-tts-add-entry(text: string);
+    callback video-editor-tts-auto-segment(text: string);
+    callback video-editor-tts-ai-segment(text: string);
+    callback video-editor-tts-insert-entry(index: int);
+    callback video-editor-tts-add-preamble-entry();
+    callback video-editor-tts-remove-entry(index: int);
+    callback video-editor-tts-clear-entry-audio(index: int);
+    callback video-editor-tts-update-entry(index: int, text: string);
+    callback video-editor-tts-play-all-speech(start-ms: int, end-ms: int);
+    callback video-editor-tts-stop-playing-all-speech();
+    callback video-editor-tts-audio-player-sound-changed(sound: float);
+    callback video-editor-tts-audio-player-sound-released(sound: float);
+    callback video-editor-tts-audio-player-progress-changed(value: float);
+    callback video-editor-tts-audio-player-progress-released(value: float);
+    callback video-editor-tts-audio-player-progress-pressed(value: float);
+    callback video-editor-tts-open-choose-save-dir();
+    callback video-editor-tts-choose-model-dir();
+    callback video-editor-tts-model-start-download(url: string);
+    callback video-editor-tts-choose-reference-audio();
+    callback video-editor-tts-play-reference-audio();
+    callback video-editor-tts-import-voice();
+    callback video-editor-tts-toggle-voice-marked(index: int);
+    callback video-editor-tts-play-voice(path: string);
+    callback video-editor-tts-remove-voice(index: int);
+    callback video-editor-tts-release-resource();
+    pure callback video-editor-tts-has-speech() -> bool;
+    pure callback video-editor-tts-has-empty-speech() -> bool;
+    pure callback video-editor-tts-setting-is-valid() -> bool;
+    pure callback video-editor-tts-get-total-duration(entry: [TTSEntry], _flag: bool) -> int;
+
+    callback video-editor-global-filter-progress-update-config(ty: GlobalFilterType);
+    callback video-editor-global-filter-progress-bar-add-item();
+    callback video-editor-global-filter-progress-bar-remove-all-items();
+    callback video-editor-global-filter-progress-bar-remove-item(index: int);
+    callback video-editor-global-filter-progress-bar-insert-item(index: int);
+    callback video-editor-global-filter-progress-bar-move-item(from-index: int, to-index: int);
+    callback video-editor-global-filter-progress-bar-update-text(index: int, text: string);
+    callback video-editor-global-filter-progress-bar-toggle-enable();
+    callback video-editor-global-filter-progress-bar-update-timeline-offset(index: int, timeline-offset: int);
+    pure callback video-editor-global-filter-progress-bar-is-valid(index: int, _flag: bool) -> bool;
+
+    callback video-editor-global-filter-timer-add-item();
+    callback video-editor-global-filter-timer-remove-all-items();
+    callback video-editor-global-filter-timer-remove-item(index: int);
+    callback video-editor-global-filter-timer-insert-item(index: int);
+    callback video-editor-global-filter-timer-move-item(from-index: int, to-index: int);
+    callback video-editor-global-filter-timer-update-offsets(index: int, start-offset: int, end-offset: int);
+    callback video-editor-global-filter-timer-update-mode(index: int, mode: int);
+    callback video-editor-global-filter-timer-update-style(index: int, style: TimerStyle);
+    callback video-editor-global-filter-timer-toggle-enable();
+    pure callback video-editor-global-filter-timer-is-valid(index: int, _flag: bool) -> bool;
+
+    callback video-editor-global-filter-speed-update();
+    callback video-editor-global-filter-speed-toggle-enable();
+    callback video-editor-global-filter-rotation-update();
+    callback video-editor-global-filter-rotation-toggle-enable();
+
+    callback video-editor-global-filter-danmaku-add-segment();
+    callback video-editor-global-filter-danmaku-remove-all-segments();
+    callback video-editor-global-filter-danmaku-remove-segment(index: int);
+    callback video-editor-global-filter-danmaku-insert-segment(index: int);
+    callback video-editor-global-filter-danmaku-move-segment(from-index: int, to-index: int);
+    callback video-editor-global-filter-danmaku-update-offsets(index: int, start-offset: int, end-offset: int);
+    callback video-editor-global-filter-danmaku-update-scroll-speed(index: int, speed: float);
+    callback video-editor-global-filter-danmaku-update-style(index: int, style: DanmakuStyle);
+    callback video-editor-global-filter-danmaku-toggle-enable();
+    pure callback video-editor-global-filter-danmaku-is-valid(index: int, _flag: bool) -> bool;
+    callback video-editor-global-filter-danmaku-add-items(segment-index: int, text: string);
+    callback video-editor-global-filter-danmaku-remove-item(segment-index: int, item-index: int);
+    callback video-editor-global-filter-danmaku-remove-all-items(segment-index: int);
+    callback video-editor-global-filter-danmaku-copy-all-items(segment-index: int);
+    callback video-editor-global-filter-danmaku-update-item-text(segment-index: int, item-index: int, text: string);
+    callback video-editor-global-filter-danmaku-update-distribution(index: int, distribution: DanmakuDistributionMode);
+    callback video-editor-global-filter-danmaku-update-track-count(index: int, count: int);
+    callback video-editor-global-filter-danmaku-update-track-distribution(index: int, distribution: DanmakuDistributionMode);
+    callback video-editor-global-filter-danmaku-update-position(index: int, position: float);
+    callback video-editor-global-filter-danmaku-fetch-from-bilibili(url: string, counts: int);
+
+    callback video-editor-transcribe-start();
+    callback video-editor-transcribe-update-setting(setting: SettingTranscribe);
+    callback video-editor-transcribe-export-subtitles();
+    callback video-editor-transcribe-cancel-progress(ty: TranscribeProgressType);
+    callback video-editor-transcribe-subtitles-remove-all();
+    callback video-editor-transcribe-subtitles-clear();
+    callback video-editor-transcribe-subtitles-correction();
+    callback video-editor-transcribe-subtitles-correction-with-text(text: string);
+    callback video-editor-transcribe-subtitles-accept-correction();
+    callback video-editor-transcribe-subtitles-remove-correction();
+    callback video-editor-transcribe-subtitles-adjust-overlap-timestamp();
+    callback video-editor-transcribe-subtitles-to-lowercase();
+    callback video-editor-transcribe-subtitles-to-simple-chinese();
+    callback video-editor-transcribe-subtitles-to-primitive-numbers();
+    callback video-editor-transcribe-subtitles-remove-separator();
+    callback video-editor-transcribe-subtitles-replace-text(old-text: string, new-text: string);
+    callback video-editor-transcribe-subtitles-update-playing-index(progress: float);
+    callback video-editor-transcribe-subtitle-update(index: int, text: string);
+    callback video-editor-transcribe-subtitle-accept-correction(index: int);
+    callback video-editor-transcribe-subtitle-split(index: int);
+    callback video-editor-transcribe-subtitle-merge-above(index: int);
+    callback video-editor-transcribe-subtitle-insert-above(index: int);
+    callback video-editor-transcribe-subtitle-insert-below(index: int);
+    callback video-editor-transcribe-subtitle-remove(index: int);
+    callback video-editor-transcribe-choose-model-path(index: int);
+    callback video-editor-transcribe-model-cancel-download(index: int, url: string);
+    callback video-editor-transcribe-model-start-download(index: int, url: string);
+    callback video-editor-transcribe-audio-player-init();
+    callback video-editor-transcribe-audio-player-sound-changed(sound: float);
+    callback video-editor-transcribe-audio-player-sound-released(sound: float);
+    callback video-editor-transcribe-audio-player-speed-changed(speed: float);
+    callback video-editor-transcribe-audio-player-progress-changed(value: float);
+    callback video-editor-transcribe-audio-player-progress-released(value: float);
+    callback video-editor-transcribe-audio-player-progress-pressed(value: float);
+    callback video-editor-transcribe-play-audio(start-timestamp: string, end-timestamp: string);
+    callback video-editor-transcribe-stop-audio();
+    callback video-editor-transcribe-sound-wave-update(index: int, max-samples: int);
+    callback video-editor-transcribe-import-from-smart-mix();
+    callback video-editor-transcribe-sound-wave-zoom-changed(index: int, level: float);
+    callback video-editor-transcribe-sound-wave-moved(index: int, percent: float);
+    callback video-editor-transcribe-sound-wave-start-position-changed(index: int, pos: float);
+    callback video-editor-transcribe-sound-wave-end-position-changed(index: int, pos: float);
+    pure callback video-editor-transcribe-setting-is-valid() -> bool;
+
+    callback video-editor-smart-clip-start();
+    callback video-editor-smart-clip-cancel(ty: SmartClipProgressType);
+    callback video-editor-smart-clip-toggle-entry(index: int);
+    callback video-editor-smart-clip-toggle-all(kept: bool);
+    callback video-editor-smart-clip-remove-unkept();
+    callback video-editor-smart-clip-ai-split();
+    callback video-editor-smart-clip-ai-split-with-reference(text: string);
+    callback video-editor-smart-clip-play();
+    callback video-editor-smart-clip-play-entry(index: int);
+    callback video-editor-smart-clip-play-from-progress(progress: float);
+    callback video-editor-smart-clip-stop();
+    callback video-editor-smart-clip-remove-all();
+    callback video-editor-smart-clip-apply();
+    pure callback video-editor-smart-clip-setting-is-valid() -> bool;
+    callback video-editor-smart-clip-choose-model-path(index: int);
+    callback video-editor-smart-clip-model-start-download(index: int, url: string);
+    callback video-editor-smart-clip-model-cancel-download(index: int, url: string);
+    callback video-editor-smart-clip-audio-player-sound-changed(sound: float);
+    callback video-editor-smart-clip-audio-player-sound-released(sound: float);
+    callback video-editor-smart-clip-audio-player-speed-changed(speed: float);
+    callback video-editor-smart-clip-audio-player-progress-pressed(value: float);
+    callback video-editor-smart-clip-audio-player-progress-released(value: float);
+
+    callback video-editor-smart-mix-start();
+    callback video-editor-smart-mix-cancel();
+    callback video-editor-smart-mix-apply();
+    callback video-editor-smart-mix-remove-all();
+    callback video-editor-smart-mix-retry-ai-matching();
+    callback video-editor-smart-mix-choose-vl-model-dir(index: int);
+    pure callback video-editor-smart-mix-setting-is-valid() -> bool;
+    pure callback video-editor-smart-mix-vl-model-is-valid(index: int) -> bool;
+    callback video-editor-smart-mix-update-config(config: SmartMixSetting);
+    callback video-editor-smart-mix-model-start-download(index: int);
+    callback video-editor-smart-mix-model-cancel-download(index: int);
+
+    callback video-editor-bg-remover-import-image();
+    callback video-editor-bg-remover-process-image();
+    callback video-editor-bg-remover-process-cancel();
+    callback video-editor-bg-remover-export-to-playlist();
+    callback video-editor-bg-remover-remove-all-images();
+    callback video-editor-bg-remover-choose-export-dir();
+    callback video-editor-bg-remover-choose-model-path(index: int);
+    callback video-editor-bg-remover-update-config(config: VideoEditorBgRemoverConfig);
+    callback video-editor-bg-remover-model-start-download(index: int, url: string);
+    callback video-editor-bg-remover-model-cancel-download(index: int, url: string);
+    pure callback video-editor-bg-remover-setting-is-valid() -> bool;
+
+    callback video-editor-musicgen-generate();
+    callback video-editor-musicgen-cancel();
+    callback video-editor-musicgen-choose-model-dir();
+    callback video-editor-musicgen-choose-export-dir();
+    callback video-editor-musicgen-update-config(config: VideoEditorMusicGenConfig);
+    callback video-editor-musicgen-model-start-download(index: int, url: string);
+    callback video-editor-musicgen-model-cancel-download(index: int, url: string);
+    pure callback video-editor-musicgen-setting-is-valid() -> bool;
+    callback video-editor-musicgen-audio-player-sound-changed(sound: float);
+    callback video-editor-musicgen-audio-player-progress-changed(value: float);
+    callback video-editor-musicgen-audio-player-progress-released(value: float);
+    callback video-editor-musicgen-audio-player-progress-pressed(value: float);
+    callback video-editor-musicgen-play-audio();
+    callback video-editor-musicgen-stop-audio();
+    callback video-editor-musicgen-export-audio();
+    callback video-editor-musicgen-generate-prompt();
+
+    callback video-editor-dewatermark-import-image();
+    callback video-editor-dewatermark-process-image();
+    callback video-editor-dewatermark-export-to-playlist();
+    callback video-editor-dewatermark-remove-all-images();
+    callback video-editor-dewatermark-choose-export-dir();
+    callback video-editor-dewatermark-choose-model-path(index: int);
+    callback video-editor-dewatermark-update-config(config: VideoEditorDewatermarkConfig);
+    callback video-editor-dewatermark-model-start-download(index: int, url: string);
+    callback video-editor-dewatermark-model-cancel-download(index: int, url: string);
+    pure callback video-editor-dewatermark-setting-is-valid() -> bool;
+    callback video-editor-dewatermark-brush-move(x: float, y: float);
+    callback video-editor-dewatermark-brush-start(x: float, y: float);
+    callback video-editor-dewatermark-brush-size-change(delta: float);
+    callback video-editor-dewatermark-undo();
+    callback video-editor-dewatermark-redo();
+    callback video-editor-dewatermark-overlay-refresh();
+
+    callback video-editor-subtitle-remover-import-video();
+    callback video-editor-subtitle-remover-process();
+    callback video-editor-subtitle-remover-remove-all();
+    callback video-editor-subtitle-remover-choose-export-dir();
+    callback video-editor-subtitle-remover-choose-model-path(index: int);
+    callback video-editor-subtitle-remover-update-config(config: VideoEditorSubtitleRemoverConfig);
+    callback video-editor-subtitle-remover-model-start-download(index: int, url: string);
+    callback video-editor-subtitle-remover-model-cancel-download(index: int, url: string);
+    pure callback video-editor-subtitle-remover-setting-is-valid() -> bool;
+    callback video-editor-subtitle-remover-seek(position: float);
+    callback video-editor-subtitle-remover-rect-drawn(x: float, y: float, w: float, h: float);
+    callback video-editor-subtitle-remover-overlay-refresh(img-x1: float, img-y1: float, img-x2: float, img-y2: float);
+    callback video-editor-subtitle-remover-cancel();
+
+    callback video-editor-cutout-import-image();
+    callback video-editor-cutout-process-image();
+    callback video-editor-cutout-export-to-playlist();
+    callback video-editor-cutout-remove-all-images();
+    callback video-editor-cutout-choose-export-dir();
+    callback video-editor-cutout-choose-model-path(index: int);
+    callback video-editor-cutout-update-config(config: VideoEditorCutoutConfig);
+    callback video-editor-cutout-model-start-download(index: int, url: string);
+    callback video-editor-cutout-model-cancel-download(index: int, url: string);
+    pure callback video-editor-cutout-setting-is-valid() -> bool;
+    callback video-editor-cutout-brush-move(x: float, y: float);
+    callback video-editor-cutout-brush-start(x: float, y: float);
+    callback video-editor-cutout-brush-size-change(delta: float);
+    callback video-editor-cutout-undo();
+    callback video-editor-cutout-redo();
+    callback video-editor-cutout-overlay-refresh();
+
+    callback video-editor-clear-vision-import-image();
+    callback video-editor-clear-vision-process-image(active-tab: int);
+    callback video-editor-clear-vision-process-cancel();
+    callback video-editor-clear-vision-export-to-playlist();
+    callback video-editor-clear-vision-remove-all-images();
+    callback video-editor-clear-vision-choose-export-dir();
+    callback video-editor-clear-vision-choose-model-path(index: int);
+    callback video-editor-clear-vision-update-config(config: VideoEditorClearVisionConfig);
+    callback video-editor-clear-vision-model-start-download(index: int, url: string);
+    callback video-editor-clear-vision-model-cancel-download(index: int, url: string);
+    pure callback video-editor-clear-vision-setting-is-valid(active-tab: int) -> bool;
+
+    callback video-editor-stem-splitter-import-audio();
+    callback video-editor-stem-splitter-process-audio();
+    callback video-editor-stem-splitter-cancel-process-audio();
+    callback video-editor-stem-splitter-export-all-stems();
+    callback video-editor-stem-splitter-export-stem(stem-name: string);
+    callback video-editor-stem-splitter-remove-all();
+    callback video-editor-stem-splitter-choose-export-dir();
+    callback video-editor-stem-splitter-choose-model-path(index: int);
+    callback video-editor-stem-splitter-update-config(config: VideoEditorStemSplitterConfig);
+    callback video-editor-stem-splitter-model-start-download(index: int, url: string);
+    callback video-editor-stem-splitter-model-cancel-download(index: int, url: string);
+    pure callback video-editor-stem-splitter-setting-is-valid() -> bool;
+    callback video-editor-stem-splitter-play-audio(index: int);
+    callback video-editor-stem-splitter-stop-audio(index: int);
+    callback video-editor-stem-splitter-audio-player-sound-changed(index: int, sound: float);
+    callback video-editor-stem-splitter-audio-player-sound-released(index: int, sound: float);
+    callback video-editor-stem-splitter-audio-player-progress-released(index: int, value: float);
+
+    callback video-editor-deep-filter-import-audio();
+    callback video-editor-deep-filter-process-audio();
+    callback video-editor-deep-filter-cancel-process-audio();
+    callback video-editor-deep-filter-export-audio();
+    callback video-editor-deep-filter-remove-all();
+    callback video-editor-deep-filter-choose-export-dir();
+    callback video-editor-deep-filter-choose-model-dir(index: int);
+    callback video-editor-deep-filter-update-config(config: VideoEditorDeepFilterConfig);
+    callback video-editor-deep-filter-model-start-download(index: int, url: string);
+    callback video-editor-deep-filter-model-cancel-download(index: int, url: string);
+    pure callback video-editor-deep-filter-setting-is-valid() -> bool;
+    callback video-editor-deep-filter-play-audio(index: int);
+    callback video-editor-deep-filter-stop-audio(index: int);
+    callback video-editor-deep-filter-audio-player-sound-changed(index: int, sound: float);
+    callback video-editor-deep-filter-audio-player-sound-released(index: int, sound: float);
+    callback video-editor-deep-filter-audio-player-progress-released(index: int, value: float);
+
+    callback video-editor-similar-video-segment-import-file();
+    callback video-editor-similar-video-segment-import-folder();
+    callback video-editor-similar-video-segment-choose-query-image();
+    callback video-editor-similar-video-segment-process();
+    callback video-editor-similar-video-segment-cancel();
+    callback video-editor-similar-video-segment-remove-all();
+    callback video-editor-similar-video-segment-remove-item(index: int);
+    callback video-editor-similar-video-segment-choose-export-dir();
+    callback video-editor-similar-video-segment-update-config(config: VideoEditorSimilarVideoSegmentConfig);
+
+    callback video-editor-speakers-import-audio();
+    callback video-editor-speakers-process-audio();
+    callback video-editor-speakers-export-all-speakers();
+    callback video-editor-speakers-export-speaker(speaker-name: string);
+    callback video-editor-speakers-remove-all();
+    callback video-editor-speakers-choose-export-dir();
+    callback video-editor-speakers-choose-models-dir();
+    callback video-editor-speakers-update-config(config: VideoEditorSpeakersConfig);
+    pure callback video-editor-speakers-setting-is-valid() -> bool;
+    callback video-editor-speakers-play-audio(index: int);
+    callback video-editor-speakers-stop-audio(index: int);
+    callback video-editor-speakers-audio-player-sound-changed(index: int, sound: float);
+    callback video-editor-speakers-audio-player-sound-released(index: int, sound: float);
+    callback video-editor-speakers-audio-player-progress-released(index: int, value: float);
+    callback video-editor-speakers-model-start-download(index: int);
+
+    callback video-editor-scene-detect-apply(track-index: int, segment-index: int, config: SceneDetectConfig);
+    callback video-editor-scene-detect-cancel();
+
+    callback video-editor-long-screenshot-open(track-index: int, segment-index: int);
+    callback video-editor-long-screenshot-apply(track-index: int, segment-index: int, crop: CropDetail, algorithm: int);
+    callback video-editor-long-screenshot-cancel();
+    callback video-editor-long-screenshot-load-image();
+
+    callback video-editor-chapter-summary-start();
+    callback video-editor-chapter-summary-cancel();
+    callback video-editor-chapter-summary-copy();
+    callback video-editor-chapter-summary-remove-all();
+    callback video-editor-chapter-summary-update-chapter(index: int, title: string);
+
+    callback video-editor-memo-save(tab-index: int);
+    callback video-editor-memo-close();
+    callback video-editor-load-project-memo();
+
+    callback video-editor-subtitle-translate-update-config(config: SubtitleTranslateConfig);
+    callback video-editor-subtitle-translate-start(config: SubtitleTranslateConfig);
+    callback video-editor-subtitle-translate-cancel();
+
+    callback video-editor-ocr-import-image();
+    callback video-editor-ocr-process-image();
+    callback video-editor-ocr-copy-text();
+    callback video-editor-ocr-copy-json();
+    callback video-editor-ocr-preview-screenshot();
+    callback video-editor-ocr-clear();
+    callback video-editor-ocr-choose-model-dir();
+    callback video-editor-ocr-update-config(config: VideoEditorOCRConfig);
+    callback video-editor-ocr-model-start-download(url: string);
+    pure callback video-editor-ocr-setting-is-valid() -> bool;
+
+    callback video-editor-bg-animation-start-preview(config: BackgroundAnimationConfig);
+    callback video-editor-bg-animation-stop-preview();
+    callback video-editor-bg-animation-start-record(config: BackgroundAnimationConfig);
+    callback video-editor-bg-animation-stop-record();
+
+    callback video-editor-img-animation-start-preview(config: ImageAnimationConfig);
+    callback video-editor-img-animation-stop-preview();
+    callback video-editor-img-animation-start-record(config: ImageAnimationConfig);
+    callback video-editor-img-animation-stop-record();
+    callback video-editor-img-animation-picker-image();
+
+    callback video-editor-preview-show-dialog();
+    callback video-editor-preview-update-config(config: VideoEditorPreviewConfig);
+    callback video-editor-preview-jump-previous-segment();
+    callback video-editor-preview-jump-next-segment();
+    callback video-editor-preview-jump-to-segment-start();
+    callback video-editor-preview-jump-to-segment-end();
+    callback video-editor-preview-rewind();
+    callback video-editor-preview-fast-forward();
+    callback video-editor-preview-toggle();
+    callback video-editor-preview-change-volume(value: float);
+    callback video-editor-preview-seek(position-ms: int);
+    callback video-editor-timeline-seek(position-ms: int);
+    pure callback video-editor-calc-timeline-offset(index: int, total-index: float, _flag: bool) -> string;
+    pure callback video-editor-preview-size(config: VideoEditorPreviewConfig, _flag: bool, _flag2: int) -> VideoPreviewSize;
+    pure callback selected-segment-under-playhead(timeline-offset: int, _flag: bool) -> bool;
+
+    callback video-editor-online-search-image(param: OnlineSearchImageParam);
+    callback video-editor-online-search-image-cancel();
+    callback video-editor-online-search-image-download(index: int);
+    callback video-editor-online-search-image-update-config(config: OnlineSearchImageSetting);
+    callback video-editor-online-search-image-update-source(index: int, source: OnlineSearchImageSourceEntry);
+    callback video-editor-online-search-image-refresh-sources-status();
+    callback video-editor-online-search-image-refresh-source-status(index: int);
+    callback video-editor-online-search-image-select-all-sources();
+    callback video-editor-online-search-image-choose-save-dir();
+    callback video-editor-online-search-image-deselect-all-sources();
+    pure callback video-editor-online-search-image-config-is-valid() -> bool;
+
+    callback video-editor-online-search-audio(param: OnlineSearchAudioParam);
+    callback video-editor-online-search-audio-cancel();
+    callback video-editor-online-search-audio-preview(index: int);
+    callback video-editor-online-search-audio-download(index: int);
+    callback video-editor-online-search-audio-update-config(config: OnlineSearchAudioSetting);
+    callback video-editor-online-search-audio-update-source(index: int, source: OnlineSearchAudioSourceEntry);
+    callback video-editor-online-search-audio-refresh-sources-status();
+    callback video-editor-online-search-audio-refresh-source-status(index: int);
+    callback video-editor-online-search-audio-select-all-sources();
+    callback video-editor-online-search-audio-deselect-all-sources();
+    callback video-editor-online-search-audio-choose-save-dir();
+    pure callback video-editor-online-search-audio-config-is-valid() -> bool;
+
+    ms-to-srt-timestamp-ui(ms) => {
+        return "00:00:00,000";
+    }
+
+    video-editor-calc-timeline-offset(index, total-index) => {
+        return "00:00:00,000";
+    }
+
+    video-editor-preview-size() => {
+        return { width: 1920, height: 1080 };
+    }
+
+    video-editor-get-track-height-pixels(ty) => {
+        return round(Logic.video-editor-track-height(ty) / 1px);
+    }
+
+    video-editor-selected-segment => {
+        return Store.video-editor-tracks-manager.tracks[0].segments[0];
+    }
 
     pure public function fps-to-int(fps: Fps) -> int {
         if (fps == Fps.Fps24) {
@@ -285,6 +963,110 @@ export global Logic {
         }
     }
 
+    pure public function audio-format-to-str(format: AudioFormat) -> string {
+        if (format == AudioFormat.Aac) {
+            return "Aac";
+        } else if (format == AudioFormat.Ogg) {
+            return "Ogg";
+        } else if (format == AudioFormat.Wav) {
+            return "Wav";
+        } else if (format == AudioFormat.Flac) {
+            return "Flac";
+        } else {
+            return "Mp3";
+        }
+    }
+
+    pure public function audio-format-from-str(format: string) -> AudioFormat {
+        if (format.to-lowercase() == "aac") {
+            return AudioFormat.Aac;
+        } else if (format.to-lowercase() == "ogg") {
+            return AudioFormat.Ogg;
+        } else if (format.to-lowercase() == "wav") {
+            return AudioFormat.Wav;
+        } else if (format.to-lowercase() == "flac") {
+            return AudioFormat.Flac;
+        } else {
+            return AudioFormat.Mp3;
+        }
+    }
+
+    pure public function subtitle-to-str(subtitle: SubtitleType) -> string {
+        if (subtitle == SubtitleType.Srt) {
+            return "srt";
+        } else if (subtitle == SubtitleType.Vtt) {
+            return "vtt";
+        } else {
+            return "ass";
+        }
+    }
+
+    pure public function subtitle-from-str(subtitle: string) -> SubtitleType {
+        if (subtitle == "srt") {
+            return SubtitleType.Srt;
+        } else if (subtitle == "vtt") {
+            return SubtitleType.Vtt;
+        } else {
+            return SubtitleType.Ass;
+        }
+    }
+
+    pure public function audio-channels-to-int(channels: AudioChannels) -> int {
+        if (channels == AudioChannels.Mono) {
+            return 1;
+        } else {
+            return 2;
+        }
+    }
+
+    pure public function audio-channels-from-int(channels: int) -> AudioChannels {
+        if (channels == 1) {
+            return AudioChannels.Mono;
+        } else {
+            return AudioChannels.Stereo;
+        }
+    }
+
+    pure public function audio-sample-rate-to-int(rate: AudioSampleRate) -> int {
+        if (rate == AudioSampleRate.Hz8000) {
+            return 8000;
+        } else if (rate == AudioSampleRate.Hz16000) {
+            return 16000;
+        } else if (rate == AudioSampleRate.Hz24000) {
+            return 24000;
+        } else if (rate == AudioSampleRate.Hz32000) {
+            return 32000;
+        } else if (rate == AudioSampleRate.Hz48000) {
+            return 48000;
+        } else if (rate == AudioSampleRate.Hz96000) {
+            return 96000;
+        } else if (rate == AudioSampleRate.Hz192000) {
+            return 192000;
+        } else {
+            return 44100;
+        }
+    }
+
+    pure public function audio-sample-rate-from-int(rate: int) -> AudioSampleRate {
+        if (rate == 8000) {
+            return AudioSampleRate.Hz8000;
+        } else if (rate == 16000) {
+            return AudioSampleRate.Hz16000;
+        } else if (rate == 24000) {
+            return AudioSampleRate.Hz24000;
+        } else if (rate == 32000) {
+            return AudioSampleRate.Hz32000;
+        } else if (rate == 48000) {
+            return AudioSampleRate.Hz48000;
+        } else if (rate == 96000) {
+            return AudioSampleRate.Hz96000;
+        } else if (rate == 192000) {
+            return AudioSampleRate.Hz192000;
+        } else {
+            return AudioSampleRate.Hz44100;
+        }
+    }
+
     pure public function resolution-to-string(res: Resolution) -> string {
         if (res == Resolution.Original) {
             return "Original";
@@ -298,6 +1080,22 @@ export global Logic {
             return "2K";
         } else if (res == Resolution.P4K) {
             return "4K";
+        } else if (res == Resolution.Portrait480P) {
+            return "Portrait 480P";
+        } else if (res == Resolution.Portrait720P) {
+            return "Portrait 720P";
+        } else if (res == Resolution.Portrait1080P) {
+            return "Portrait 1080P";
+        } else if (res == Resolution.Portrait4K) {
+            return "Portrait 4K";
+        } else if (res == Resolution.Square480P) {
+            return "Square 480P";
+        } else if (res == Resolution.Square720P) {
+            return "Square 720P";
+        } else if (res == Resolution.Square1080P) {
+            return "Square 1080P";
+        } else if (res == Resolution.InstagramPortrait) {
+            return "Instagram Portrait";
         } else {
             return "Original";
         }
@@ -316,8 +1114,96 @@ export global Logic {
             return Resolution.P2K;
         } else if (res == "4K") {
             return Resolution.P4K;
+        } else if (res == "Portrait 480P") {
+            return Resolution.Portrait480P;
+        } else if (res == "Portrait 720P") {
+            return Resolution.Portrait720P;
+        } else if (res == "Portrait 1080P") {
+            return Resolution.Portrait1080P;
+        } else if (res == "Portrait 4K") {
+            return Resolution.Portrait4K;
+        } else if (res == "Square 480P") {
+            return Resolution.Square480P;
+        } else if (res == "Square 720P") {
+            return Resolution.Square720P;
+        } else if (res == "Square 1080P") {
+            return Resolution.Square1080P;
+        } else if (res == "Instagram Portrait") {
+            return Resolution.InstagramPortrait;
         } else {
             return Resolution.Original;
+        }
+    }
+
+    pure public function resolution-from-width-height(width: int, height: int) -> string {
+        // Landscape resolutions
+        if (width == 3840 && height == 2160) {
+            return "4K";
+        } else if (width == 2560 && height == 1440) {
+            return "2K";
+        } else if (width == 1920 && height == 1080) {
+            return "1080P";
+        } else if (width == 1280 && height == 720) {
+            return "720P";
+        } else if (width == 854 && height == 480) {
+            return "480P";
+        // Portrait resolutions (9:16)
+        } else if (width == 480 && height == 854) {
+            return "Portrait 480P";
+        } else if (width == 720 && height == 1280) {
+            return "Portrait 720P";
+        } else if (width == 1080 && height == 1920) {
+            return "Portrait 1080P";
+        } else if (width == 2160 && height == 3840) {
+            return "Portrait 4K";
+        // Square resolutions (1:1)
+        } else if (width == 480 && height == 480) {
+            return "Square 480P";
+        } else if (width == 720 && height == 720) {
+            return "Square 720P";
+        } else if (width == 1080 && height == 1080) {
+            return "Square 1080P";
+        // Instagram Portrait (4:5)
+        } else if (width == 1080 && height == 1350) {
+            return "Instagram Portrait";
+        } else {
+            return "1080P";
+        }
+    }
+
+    pure public function resolution-to-width-height(res: string) -> [int] {
+        // Landscape resolutions
+        if (res == "4K") {
+            return [3840, 2160];
+        } else if (res == "2K") {
+            return [2560, 1440];
+        } else if (res == "1080P") {
+            return [1920, 1080];
+        } else if (res == "720P") {
+            return [1280, 720];
+        } else if (res == "480P") {
+            return [854, 480];
+        // Portrait resolutions (9:16)
+        } else if (res == "Portrait 480P") {
+            return [480, 854];
+        } else if (res == "Portrait 720P") {
+            return [720, 1280];
+        } else if (res == "Portrait 1080P") {
+            return [1080, 1920];
+        } else if (res == "Portrait 4K") {
+            return [2160, 3840];
+        // Square resolutions (1:1)
+        } else if (res == "Square 480P") {
+            return [480, 480];
+        } else if (res == "Square 720P") {
+            return [720, 720];
+        } else if (res == "Square 1080P") {
+            return [1080, 1080];
+        // Instagram Portrait (4:5)
+        } else if (res == "Instagram Portrait") {
+            return [1080, 1350];
+        } else {
+            return [1920, 1080]; // default to 1080P
         }
     }
 
@@ -370,5 +1256,282 @@ export global Logic {
             return Theme.thirdly-brand-color;
         }
     }
+
+    pure public function defalut-video-editor-track-name(ty: VideoEditorTrackType, index: int) -> string {
+        if (ty == VideoEditorTrackType.Video) {
+            return "V" + index;
+        } else if (ty == VideoEditorTrackType.Audio) {
+            return "A" + index;
+        } else if (ty == VideoEditorTrackType.Subtitle) {
+            return "S" + index;
+        } else if (ty == VideoEditorTrackType.Image) {
+            return "I" + index;
+        } else if (ty == VideoEditorTrackType.Text) {
+            return "T" + index;
+        } else {
+            return index;
+        }
+    }
+
+    pure public function startup-tab-to-str(tab: StartupTab) -> string {
+        if (tab == StartupTab.VideoEditor) {
+            return "VideoEditor";
+        } else if (tab == StartupTab.Transcribe) {
+            return "Transcribe";
+        } else if (tab == StartupTab.ShareScreen) {
+            return "ShareScreen";
+        } else {
+            return "Recorder";
+        }
+    }
+
+    pure public function startup-tab-from-str(tab: string) -> StartupTab {
+        if (tab == "VideoEditor") {
+            return StartupTab.VideoEditor;
+        } else if (tab == "Transcribe") {
+            return StartupTab.Transcribe;
+        } else if (tab == "ShareScreen") {
+            return StartupTab.ShareScreen;
+        } else {
+            return StartupTab.Recorder;
+        }
+    }
+
+    pure public function video-editor-track-segment-color(ty: VideoEditorTrackType, disabled: bool) -> color {
+        if (!disabled) {
+            if (ty == VideoEditorTrackType.Video) {
+                return Theme.thirdly-brand-color;
+            } else if (ty == VideoEditorTrackType.Audio) {
+                return Theme.is-dark ? #2a9d8f : #9fd9c4;
+            } else if (ty == VideoEditorTrackType.Subtitle) {
+                return Theme.is-dark ? #b48010 : #b5832b;
+            } else if (ty == VideoEditorTrackType.Image) {
+                return Theme.is-dark ? #6b4e71 : #c8a2d4;
+            } else if (ty == VideoEditorTrackType.Text) {
+                return Theme.is-dark ? #8b7355.darker(30%) : #8b7355.brighter(30%);
+            } else {
+                return Theme.is-dark ? #6b4e71 : #c8a2d4;
+            }
+        } else {
+            Theme.disabled-color;
+        }
+    }
+
+    pure public function video-editor-track-height(ty: VideoEditorTrackType) -> length {
+        let compat-mode = Store.video-editor-preference-config.track.compact-mode;
+
+        if (ty == VideoEditorTrackType.Video) {
+            if compat-mode {
+                return Theme.icon-size * 1 + Theme.padding * 4;
+            } else {
+                return Theme.icon-size * 2 + Theme.padding * 4;
+            }
+        } else if (ty == VideoEditorTrackType.Subtitle || ty == VideoEditorTrackType.Text) {
+            if compat-mode {
+                return Theme.icon-size * 0.6 + Theme.padding * 4;
+            } else {
+                return Theme.icon-size + Theme.padding * 4;
+            }
+        } else {
+            if compat-mode {
+                return Theme.icon-size * 0.8 + Theme.padding * 4;
+            } else {
+                return Theme.icon-size * 1.5 + Theme.padding * 4;
+            }
+        }
+    }
+
+    pure public function string-to-animation-type(s: string) -> AnimationType {
+        if s == "Grid" {
+            return AnimationType.Grid;
+        } else if s == "MovingGrid" {
+            return AnimationType.MovingGrid;
+        } else if s == "Glitch" {
+            return AnimationType.Glitch;
+        } else if s == "NoiseFlow" {
+            return AnimationType.NoiseFlow;
+        } else if s == "Bokeh" {
+            return AnimationType.Bokeh;
+        } else if s == "MatrixRain" {
+            return AnimationType.MatrixRain;
+        } else if s == "Fluid" {
+            return AnimationType.Fluid;
+        } else if s == "Kaleidoscope" {
+            return AnimationType.Kaleidoscope;
+        } else if s == "LightEffects" {
+            return AnimationType.LightEffects;
+        } else if s == "InkDissipation" {
+            return AnimationType.InkDissipation;
+        } else if s == "ParticleLife" {
+            return AnimationType.ParticleLife;
+        } else if s == "ParticleNetwork" {
+            return AnimationType.ParticleNetwork;
+        } else if s == "FlowField" {
+            return AnimationType.FlowField;
+        } else if s == "Shape" {
+            return AnimationType.Shape;
+        } else if s == "BlackHole" {
+            return AnimationType.BlackHole;
+        } else if s == "Galaxy" {
+            return AnimationType.Galaxy;
+        } else if s == "Triangle" {
+            return AnimationType.Triangle;
+        } else if s == "Wave" {
+            return AnimationType.Wave;
+        } else if s == "CrossLine" {
+            return AnimationType.CrossLine;
+        } else {
+            return AnimationType.Grid;
+        }
+    }
+
+    pure public function animation-type-to-string(t: AnimationType) -> string {
+        if t == AnimationType.Grid {
+            return "Grid";
+        } else if t == AnimationType.MovingGrid {
+            return "MovingGrid";
+        } else if t == AnimationType.Glitch {
+            return "Glitch";
+        } else if t == AnimationType.NoiseFlow {
+            return "NoiseFlow";
+        } else if t == AnimationType.Bokeh {
+            return "Bokeh";
+        } else if t == AnimationType.MatrixRain {
+            return "MatrixRain";
+        } else if t == AnimationType.Fluid {
+            return "Fluid";
+        } else if t == AnimationType.Kaleidoscope {
+            return "Kaleidoscope";
+        } else if t == AnimationType.LightEffects {
+            return "LightEffects";
+        } else if t == AnimationType.InkDissipation {
+            return "InkDissipation";
+        } else if t == AnimationType.ParticleLife {
+            return "ParticleLife";
+        } else if t == AnimationType.ParticleNetwork {
+            return "ParticleNetwork";
+        } else if t == AnimationType.FlowField {
+            return "FlowField";
+        } else if t == AnimationType.Shape {
+            return "Shape";
+        } else if t == AnimationType.BlackHole {
+            return "BlackHole";
+        } else if t == AnimationType.Galaxy {
+            return "Galaxy";
+        } else if t == AnimationType.Triangle {
+            return "Triangle";
+        } else if t == AnimationType.Wave {
+            return "Wave";
+        } else if t == AnimationType.CrossLine {
+            return "CrossLine";
+        } else {
+            return "Grid";
+        }
+    }
+
+    pure public function string-to-image-animation-type(s: string) -> ImageAnimationType {
+        if s == "Scroll" {
+            return ImageAnimationType.Scroll;
+        } else if s == "GradeMark" {
+            return ImageAnimationType.GradeMark;
+        } else if s == "Arrow" {
+            return ImageAnimationType.Arrow;
+        } else if s == "RectDraw" {
+            return ImageAnimationType.RectDraw;
+        } else {
+            return ImageAnimationType.Scroll;
+        }
+    }
+
+    pure public function image-animation-type-to-string(t: ImageAnimationType) -> string {
+        if t == ImageAnimationType.Scroll {
+            return "Scroll";
+        } else if t == ImageAnimationType.GradeMark {
+            return "GradeMark";
+        } else if t == ImageAnimationType.Arrow {
+            return "Arrow";
+        } else if t == ImageAnimationType.RectDraw {
+            return "RectDraw";
+        } else {
+            return "Scroll";
+        }
+    }
+
+    pure public function string-to-grade-mark-type(s: string) -> GradeMarkType {
+        if s == "Circle" {
+            return GradeMarkType.Circle;
+        } else if s == "Checkmark" {
+            return GradeMarkType.Checkmark;
+        } else if s == "Cross" {
+            return GradeMarkType.Cross;
+        } else {
+            return GradeMarkType.Circle;
+        }
+    }
+
+    pure public function grade-mark-type-to-string(t: GradeMarkType) -> string {
+        if t == GradeMarkType.Circle {
+            return "Circle";
+        } else if t == GradeMarkType.Checkmark {
+            return "Checkmark";
+        } else if t == GradeMarkType.Cross {
+            return "Cross";
+        } else {
+            return "Circle";
+        }
+    }
+
+    pure public function string-to-dash-style(s: string) -> DashStyle {
+        if s == "Dash" {
+            return DashStyle.Dash;
+        } else {
+            return DashStyle.Solid;
+        }
+    }
+
+    pure public function dash-style-to-string(t: DashStyle) -> string {
+        if t == DashStyle.Dash {
+            return "Dash";
+        } else {
+            return "Solid";
+        }
+    }
+
+    pure public function global-filter-type-to-string(t: GlobalFilterType) -> string {
+        if t == GlobalFilterType.ProgressBar {
+            return "ProgressBar";
+        } else if t == GlobalFilterType.Timer {
+            return "Timer";
+        } else if t == GlobalFilterType.GlobalSpeed {
+            return "GlobalSpeed";
+        } else if t == GlobalFilterType.Rotation {
+            return "Rotation";
+        } else if t == GlobalFilterType.Danmaku {
+            return "Danmaku";
+        } else {
+            return "ProgressBar";
+        }
+    }
+
+    pure public function string-to-global-filter-type(t: string) -> GlobalFilterType {
+        if t == "ProgressBar" {
+            return GlobalFilterType.ProgressBar;
+        } else if t == "Timer" {
+            return GlobalFilterType.Timer;
+        } else if t == "GlobalSpeed" {
+            return GlobalFilterType.GlobalSpeed;
+        } else if t == "Rotation" {
+            return GlobalFilterType.Rotation;
+        } else if t == "Danmaku" {
+            return GlobalFilterType.Danmaku;
+        } else {
+            return GlobalFilterType.ProgressBar;
+        }
+    }
+
+    public function is-ai-model-available() -> bool {
+        return !Logic.get-setting-ai-model().api-base-url.is-empty;
+    }
+
     //////////////////////////////// Logic End  ////////////////////////////////
 }

@@ -1,0 +1,399 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    VideoEditorSimilarVideoSegmentConfig,
+    VideoEditorSimilarVideoSegmentItem,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    LineInput,
+    IconBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ProgressBar,
+    NoDataImg,
+    Skeleton,
+    SkeletonType,
+    SettingDetailSwitch,
+} from "../../../../base/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+import { NoMessageImg } from "../../../../base/no-message.slint";
+import { ConfirmDialogSetting } from "../../../../base/confirm-dialog.slint";
+
+component LeftHeader inherits HorizontalLayout {
+    private property <bool> is-progressing: Store.video-editor-similar-video-segment-is-progressing;
+    private property <bool> has-items: Store.video-editor-similar-video-segment-items.length > 0;
+    private property <bool> has-query-image: !Store.video-editor-similar-video-segment-query-image-path.is-empty;
+    private property <int> current-index: Store.video-editor-similar-video-segment-current-index;
+    private property <int> total-items: Store.video-editor-similar-video-segment-items.length;
+
+    spacing: Theme.spacing * 8;
+    alignment: is-progressing ? space-between : end;
+
+    if is-progressing: HorizontalLayout {
+        width: root.width - rec.width - parent.spacing;
+        spacing: Theme.spacing * 4;
+
+        VerticalLayout {
+            width: parent.width - parent.spacing - cancel-btn.width;
+            alignment: center;
+
+            ProgressBar {
+                width: parent.width;
+                height: Theme.icon-size;
+                progress: total-items > 0 ? current-index / total-items : 0.0;
+            }
+        }
+
+        cancel-btn := ElevatedBtn {
+            icon: Icons.stop-light;
+            colorize: Theme.danger-color;
+            gain-focus-when-clicked: false;
+            is-show-tip: true;
+            tip-position: Bottom;
+            tip: Logic.tr("cancel");
+
+            clicked => {
+                Logic.video-editor-similar-video-segment-cancel();
+            }
+        }
+    }
+
+    rec := Rectangle {
+        width: hbox.preferred-width;
+        height: hbox.preferred-height;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("import file");
+                    icon: Icons.import2-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-similar-video-segment-import-file();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("import folder");
+                    icon: Icons.file-open-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-similar-video-segment-import-folder();
+                    }
+                }
+
+                IconBtn {
+                    enabled: !is-progressing && has-items && has-query-image;
+                    is-show-tip: true;
+                    tip: Logic.tr("process");
+                    icon: Icons.image-processing-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-similar-video-segment-process();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("remove all");
+                    icon: Icons.clear-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Delete all or not?"), "video-editor-similar-video-segment-remove-all", "");
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("setting");
+                    icon: Icons.setting-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Store.video-editor-is-show-similar-video-segment-setting-dialog = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+component QueryImageSection inherits HorizontalLayout {
+    spacing: Theme.spacing * 4;
+
+    Label {
+        text: Logic.tr("Query Image") + ": ";
+    }
+
+    LineInput {
+        read-only: true;
+        is-show-icon: true;
+        text: Store.video-editor-similar-video-segment-query-image-path;
+        icon: Icons.image-light;
+        placeholder: Logic.tr("Click to select query image");
+
+        clicked => {
+            Logic.video-editor-similar-video-segment-choose-query-image();
+        }
+    }
+}
+
+component VideoFileList inherits Rectangle {
+    private property <bool> is-progressing: Store.video-editor-similar-video-segment-is-progressing;
+
+    border-color: Theme.base-border-color;
+    border-width: Theme.default-border-width;
+
+    if !is-progressing && Store.video-editor-similar-video-segment-items.length == 0: VerticalLayout {
+        alignment: center;
+
+        HorizontalLayout {
+            alignment: center;
+
+            NoMessageImg {
+                width: root.width * Theme.golden-ratio;
+                text: Logic.tr("No Files");
+            }
+        }
+    }
+
+    if is-progressing && Store.video-editor-similar-video-segment-items.length == 0: VerticalLayout {
+        x: 0;
+        y: 0;
+        alignment: start;
+        padding: Theme.padding * 2;
+
+        Skeleton {
+            width: parent.width - Theme.padding * 4;
+            height: Theme.icon-size * 6;
+            type: SkeletonType.List;
+        }
+    }
+
+    if Store.video-editor-similar-video-segment-items.length > 0: Flickable {
+        height: parent.height;
+        width: parent.width;
+        viewport-height: vbox.preferred-height;
+        viewport-width: parent.width;
+
+        vbox := VerticalLayout {
+            padding: Theme.default-border-width;
+            alignment: start;
+
+            for item[index] in Store.video-editor-similar-video-segment-items: Rectangle {
+                background: index.mod(2) == 0 ? Theme.table-item-first : Theme.table-item-second;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+                    padding: Theme.padding * 2;
+                    padding-left: Theme.padding * 4;
+                    padding-right: Theme.padding * 4;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 2;
+
+                        Label {
+                            text: index + 1;
+                            width: self.font-size * 2;
+                        }
+
+                        Label {
+                            text: item.filename;
+                            overflow: elide;
+                            horizontal-stretch: 1;
+                        }
+                    }
+
+                    Label {
+                        text: item.status == 0 ? Logic.tr("Pending") : item.status == 1 ? Logic.tr("Processing") : item.status == 2 ? Logic.tr("Done") : Logic.tr("Error");
+                        font-size: Theme.default-font-size * 0.9;
+                        color: item.status == 0 ? Theme.secondary-text-color : item.status == 1 ? Theme.brand-color : item.status == 2 ? Theme.success-color : Theme.danger-color;
+                    }
+
+                    if item.status == 2 && item.match-count > 0: Label {
+                        text: "x" + item.match-count;
+                        font-size: Theme.default-font-size * 0.9;
+                        color: Theme.success-color;
+                    }
+
+                    if item.status == 3: IconBtn {
+                        icon: Icons.no-message-fill;
+                        icon-size: Theme.icon-size * 0.7;
+                        is-show-tip: true;
+                        tip: item.error-msg;
+                        colorize: Theme.danger-color;
+                    }
+
+                    if !is-progressing: IconBtn {
+                        icon: Icons.clear-light;
+                        icon-size: Theme.icon-size * 0.7;
+                        is-show-tip: true;
+                        tip: Logic.tr("remove");
+
+                        clicked => {
+                            Logic.video-editor-similar-video-segment-remove-item(index);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component SimilarVideoSegmentDialog inherits MovingDialog {
+    title: Logic.tr("Similar Video Segment");
+    icon: Icons.segmentation-light;
+    header-width: Theme.moving-dialog-width;
+    body-height: root.header-width * Theme.golden-ratio;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+
+    VerticalLayout {
+        private property <bool> has-query-image: !Store.video-editor-similar-video-segment-query-image-path.is-empty;
+
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        LeftHeader { }
+
+        QueryImageSection { }
+
+        VideoFileList { }
+    }
+}
+
+export component SimilarVideoSegmentSettingDialog inherits MovingDialog {
+    title: Logic.tr("Similar Video Segment Setting");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Export directory");
+            }
+
+            LineInput {
+                read-only: true;
+                text: Store.video-editor-similar-video-segment-config.export-dir;
+                icon: Icons.file-open-light;
+                is-show-icon: true;
+
+                clicked => {
+                    Logic.video-editor-similar-video-segment-choose-export-dir();
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Similarity Threshold");
+            }
+
+            threshold-li := LineInput {
+                text: Store.video-editor-similar-video-segment-config.similarity-threshold;
+                input-type: decimal;
+
+                accepted => {
+                    let v = threshold-li.text.to-float();
+                    if (v < 0.0) {
+                        Store.video-editor-similar-video-segment-config.similarity-threshold = 0.0;
+                    } else if (v > 1.0) {
+                        Store.video-editor-similar-video-segment-config.similarity-threshold = 1.0;
+                    } else {
+                        Store.video-editor-similar-video-segment-config.similarity-threshold = v;
+                    }
+                    Logic.video-editor-similar-video-segment-update-config(Store.video-editor-similar-video-segment-config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Sample Interval(frame)");
+            }
+
+            sample-li := LineInput {
+                text: Store.video-editor-similar-video-segment-config.sample-interval;
+                input-type: number;
+
+                accepted => {
+                    let v = sample-li.text.to-float();
+                    Store.video-editor-similar-video-segment-config.sample-interval = v < 1.0 ? 1.0 : v;
+                    Logic.video-editor-similar-video-segment-update-config(Store.video-editor-similar-video-segment-config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Before Duration(second)");
+            }
+
+            before-li := LineInput {
+                text: Store.video-editor-similar-video-segment-config.before-duration-secs;
+                input-type: decimal;
+
+                accepted => {
+                    let v = before-li.text.to-float();
+                    Store.video-editor-similar-video-segment-config.before-duration-secs = v < 0.0 ? 0.0 : v;
+                    Logic.video-editor-similar-video-segment-update-config(Store.video-editor-similar-video-segment-config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("After Duration(second)");
+            }
+
+            after-li := LineInput {
+                text: Store.video-editor-similar-video-segment-config.after-duration-secs;
+                input-type: decimal;
+
+                accepted => {
+                    let v = after-li.text.to-float();
+                    Store.video-editor-similar-video-segment-config.after-duration-secs = v < 0.0 ? 0.0 : v;
+                    Logic.video-editor-similar-video-segment-update-config(Store.video-editor-similar-video-segment-config);
+                }
+            }
+        }
+
+        SettingDetailSwitch {
+            icon: Icons.audio-light;
+            text: Logic.tr("Keep Audio");
+            checked: Store.video-editor-similar-video-segment-config.keep-audio;
+            gain-focus-when-clicked: false;
+
+            toggled => {
+                Store.video-editor-similar-video-segment-config.keep-audio = !Store.video-editor-similar-video-segment-config.keep-audio;
+                Logic.video-editor-similar-video-segment-update-config(Store.video-editor-similar-video-segment-config);
+            }
+        }
+    }
+}

@@ -1,0 +1,41 @@
+export struct TabModel {
+    title: string,
+}
+
+// One coloured run of text on the terminal grid.  The Rust side groups
+// consecutive vt100 cells that share fg + bg + bold + italic + underline
+// into a single span and tags it with its grid position (row, col) and
+// width in cells, so the UI can place both a background fill and the text
+// with absolute monospace coordinates.
+// `bg` is transparent (alpha 0) when the cell uses the default background.
+export struct TermSpan {
+    text: string,
+    fg: color,
+    bg: color,
+    bold: bool,
+    row: int,
+    col: int,
+    cells: int,      // number of grid cells (1 for narrow, 2 for wide/CJK/emoji)
+    cjk: bool,       // contains CJK/emoji chars → use UI font for fallback
+    underline: bool,
+    italic: bool,
+}
+
+// Component for displaying a single tab
+export component Tab inherits Rectangle {
+    in-out property <string> title;
+    property <bool> is-active;
+
+    width: 120px;
+    height: 24px;
+    background: is-active ? #505050 : #404040;
+    border-radius: 4px;
+
+    // Tab title
+    Text {
+        text: parent.title;
+        color: #ffffff;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}

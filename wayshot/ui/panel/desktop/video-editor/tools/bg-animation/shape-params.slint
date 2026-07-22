@@ -1,0 +1,187 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+} from "../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+    Select,
+} from "../../../../../base/widgets.slint";
+
+export component ShapeParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Max Circles");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.shape.max-circles;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 12 : input-value;
+                Store.video-editor-bg-animation-config.shape.max-circles = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Radius Range");
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 2;
+
+            LineInput {
+                input-type: InputType.decimal;
+                text: Store.video-editor-bg-animation-config.shape.rad-min.to-fixed(1);
+
+                accepted => {
+                    Store.video-editor-bg-animation-config.shape.rad-min = self.text.to-float();
+                }
+            }
+
+            Label {
+                text: "-";
+            }
+
+            LineInput {
+                input-type: InputType.decimal;
+                text: Store.video-editor-bg-animation-config.shape.rad-max.to-fixed(1);
+
+                accepted => {
+                    Store.video-editor-bg-animation-config.shape.rad-max = self.text.to-float();
+                }
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Speed Range");
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 2;
+
+            LineInput {
+                input-type: InputType.decimal;
+                text: Store.video-editor-bg-animation-config.shape.speed-min.to-fixed(2);
+
+                accepted => {
+                    Store.video-editor-bg-animation-config.shape.speed-min = self.text.to-float();
+                }
+            }
+
+            Label {
+                text: "-";
+            }
+
+            LineInput {
+                input-type: InputType.decimal;
+                text: Store.video-editor-bg-animation-config.shape.speed-max.to-fixed(2);
+
+                accepted => {
+                    Store.video-editor-bg-animation-config.shape.speed-max = self.text.to-float();
+                }
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Max Opacity");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.shape.max-opacity.to-fixed(2);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.shape.max-opacity = value <= 0.0 ? 0.6 : value.min(1.0);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Circle Border");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.shape.circle-border.to-fixed(1);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.shape.circle-border = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Line Border");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.shape.line-border.to-fixed(2);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.shape.line-border = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.shape.bg-color-r = c.red;
+            Store.video-editor-bg-animation-config.shape.bg-color-g = c.green;
+            Store.video-editor-bg-animation-config.shape.bg-color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Background Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.shape.bg-color-r,
+                Store.video-editor-bg-animation-config.shape.bg-color-g,
+                Store.video-editor-bg-animation-config.shape.bg-color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+}
+

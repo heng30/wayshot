@@ -1,0 +1,280 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoEditorTrack,
+    VideoEditorTrackType,
+} from "../../../def.slint";
+import {
+    IconBtn,
+    PopupActionEntry,
+    PopupActionSetting,
+    ClickAndEditLabel,
+} from "../../../../base/widgets.slint";
+import { VEFilter } from "../filter.slint";
+
+export component TrackHead inherits Rectangle {
+    in-out property <int> index;
+    in-out property <VideoEditorTrack> track;
+
+    private property selected-flag <=> Store.video-editor-track-selected-flag;
+    private property <bool> is-dragging-this: Store.video-editor-track-header-is-dragging && Store.video-editor-drag-track-index == index;
+    private property <[PopupActionEntry]> track-action-entries: [
+        {
+            icon: Icons.move-up-light,
+            text: Logic.tr("Move Up"),
+            action: "video-editor-track-move-up",
+            user-data: index,
+        },
+        {
+            icon: Icons.move-down-light,
+            text: Logic.tr("Move Down"),
+            action: "video-editor-track-move-down",
+            user-data: index,
+        },
+        {
+            icon: Icons.to-bottom-light,
+            icon-rotation: 180deg,
+            text: Logic.tr("Move to Top"),
+            action: "video-editor-track-move-to-top",
+            user-data: index,
+        },
+        {
+            icon: Icons.to-bottom-light,
+            text: Logic.tr("Move to Bottom"),
+            action: "video-editor-track-move-to-bottom",
+            user-data: index,
+        },
+        { },
+        {
+            icon: Icons.video-light,
+            text: Logic.tr("Insert Video Track"),
+            action: "video-editor-insert-video-track",
+            user-data: index,
+        },
+        {
+            icon: Icons.audio-light,
+            text: Logic.tr("Insert Audio Track"),
+            action: "video-editor-insert-audio-track",
+            user-data: index,
+        },
+        {
+            icon: Icons.subtitle-light,
+            text: Logic.tr("Insert Subtitle Track"),
+            action: "video-editor-insert-subtitle-track",
+            user-data: index,
+        },
+        {
+            icon: Icons.image-light,
+            text: Logic.tr("Insert Image Track"),
+            action: "video-editor-insert-image-track",
+            user-data: index,
+        },
+        {
+            icon: Icons.text-light,
+            text: Logic.tr("Insert Text Track"),
+            action: "video-editor-insert-text-track",
+            user-data: index,
+        },
+        { },
+        {
+            disable: Logic.video-editor-is-subtitle-track(index),
+            icon: Icons.paste-light,
+            text: Logic.tr("Paste Filter"),
+            action: "video-editor-paste-filter-to-track",
+            user-data: index,
+        },
+        {
+            disable: Logic.video-editor-is-subtitle-track(index),
+            icon: Icons.delete-all-light,
+            text: Logic.tr("Remove All Filters"),
+            action: "video-editor-remove-all-filters-from-track",
+            user-data: index,
+        },
+        { },
+        {
+            disable: !Logic.video-editor-contain-audio-track(index),
+            icon: Icons.detach-light,
+            text: Logic.tr("Detach Audio Track"),
+            action: "video-editor-detach-audio-track",
+            user-data: index,
+        },
+        {
+            disable: !Logic.video-editor-contain-subtitle-track(index) || Logic.video-editor-is-subtitle-track(index),
+            icon: Icons.detach2-light,
+            text: Logic.tr("Detach Subtitle Track"),
+            action: "video-editor-detach-subtitle-track",
+            user-data: index,
+        },
+        { },
+        {
+            icon: Icons.move-to-end-light,
+            text: Logic.tr("Stretch To End"),
+            action: "video-editor-track-stretch-to-end",
+            user-data: index,
+        },
+        {
+            disable: track.segments.length == 0,
+            icon: Icons.clear-light,
+            text: Logic.tr("Remove All Gaps"),
+            action: "video-editor-track-remove-all-gap",
+            user-data: index,
+        },
+    ];
+
+    border-color: Theme.invert-base-color;
+    border-width: Logic.video-editor-is-selected-track(Store.video-editor-selected-tracks-index, index, root.selected-flag) ? Theme.default-border-width * (Theme.is-dark ? 1 : 2) : 0;
+    opacity: is-dragging-this ? 0.5 : 1.0;
+
+    Rectangle {
+        background: Store.video-editor-current-edited-track-index == index ? Theme.warning-color : transparent;
+        opacity: Theme.is-dark ? 0.2 : Theme.golden-ratio;
+    }
+
+    ta := TouchArea {
+        mouse-cursor: MouseCursor.move;
+
+        private property <bool> disable-moved;
+        private property <bool> inner-is-draging;
+
+        function greater-than-init-draging-threshold() -> bool {
+            abs(self.mouse-x - self.pressed-x) > Theme.padding * 2 || abs(self.mouse-y - self.pressed-y) > Theme.padding * 2
+        }
+
+        moved => {
+            if (disable-moved) {
+                return;
+            }
+            if (!inner-is-draging && greater-than-init-draging-threshold()) {
+                inner-is-draging = true;
+            }
+            if (!inner-is-draging || track.locked) {
+                return;
+            }
+            Store.video-editor-track-header-is-dragging = true;
+            Store.video-editor-drag-track-index = index;
+
+            // Calculate relative-y using accumulated height + mouse position offset
+            // This is scroll-independent because track heights don't change with scroll
+            let offset-from-header-top = self.mouse-y - self.pressed-y;
+            let accumulated-height = Logic.video-editor-get-track-accumulated-height(index);
+            let pressed-y-pixels = round(self.pressed-y / 1px);
+            let offset-y-pixels = round(offset-from-header-top / 1px);
+            let relative-y = accumulated-height + pressed-y-pixels + offset-y-pixels;
+
+            let target-idx = Logic.video-editor-find-track-reorder-target(relative-y, index);
+            if (target-idx >= 0) {
+                Store.video-editor-drag-track-target-index = target-idx;
+            }
+        }
+
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left) {
+                if (event.kind == PointerEventKind.down) {
+                    Store.video-editor-drag-track-index = index;
+                    Store.video-editor-drag-track-target-index = index;
+                } else if (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
+                    if (Store.video-editor-track-header-is-dragging && Store.video-editor-drag-track-index == index) {
+                        let target-idx = Store.video-editor-drag-track-target-index;
+                        if (target-idx >= 0 && target-idx != index) {
+                            Logic.video-editor-move-track-by-drag(index, target-idx);
+                        }
+                    } else if (event.kind == PointerEventKind.up && !inner-is-draging) {
+                        if (!(Store.video-editor-keyboard-modifiers.shift || Store.video-editor-keyboard-modifiers.control)) {
+                            Store.video-editor-current-edited-track-index = index;
+                            VEFilter.video-editor-update-subtitle-style-from-track(index);
+                        }
+                        Logic.video-editor-add-selected-track({
+                            index: index,
+                            modifiers: Store.video-editor-keyboard-modifiers,
+                        });
+
+                        root.selected-flag = !root.selected-flag;
+                    }
+                    inner-is-draging = false;
+                    Store.video-editor-track-header-is-dragging = false;
+                    Store.video-editor-drag-track-index = -1;
+                    Store.video-editor-drag-track-target-index = -1;
+                }
+            } else {
+                if (event.kind == PointerEventKind.down) {
+                    disable-moved = true;
+                } else if (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
+                    disable-moved = false;
+                }
+            }
+        }
+    }
+
+    vbox := VerticalLayout {
+        alignment: center;
+        width: Theme.icon-size * 8;
+        height: root.height;
+        spacing: Theme.spacing;
+        padding-left: Theme.padding;
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            width: parent.width;
+
+            ClickAndEditLabel {
+                enabled-double-click-enter-edit-mode: true;
+                text: track.name.is-empty ? Logic.defalut-video-editor-track-name(track.ty, index + 1) : track.name;
+            }
+
+            icon-hbox := HorizontalLayout {
+                alignment: end;
+                spacing: Theme.spacing * 2;
+
+                if track.ty == VideoEditorTrackType.Video && Logic.video-editor-contain-audio-track(index): IconBtn {
+                    width: Theme.icon-size;
+                    icon-size: Theme.icon-size * 0.8;
+                    icon: track.muted ? Icons.mute-light : Icons.unmute-light;
+                    gain-focus-when-clicked: false;
+                    hover-color: mod(index, 2) == 1 ? Theme.table-item-first : Theme.table-item-second;
+
+                    clicked => {
+                        Logic.video-editor-toggle-muted-track(index);
+                    }
+                }
+
+                IconBtn {
+                    width: Theme.icon-size;
+                    icon-size: Theme.icon-size * 0.8;
+                    icon: track.locked ? Icons.lock-light : Icons.unlock-light;
+                    gain-focus-when-clicked: false;
+                    hover-color: mod(index, 2) == 1 ? Theme.table-item-first : Theme.table-item-second;
+
+                    clicked => {
+                        Logic.video-editor-toggle-locked-track(index);
+                    }
+                }
+
+                IconBtn {
+                    width: Theme.icon-size;
+                    icon-size: Theme.icon-size * 0.9;
+                    icon: track.hiding ? Icons.eye-close-light : Icons.eye-light;
+                    gain-focus-when-clicked: false;
+                    hover-color: mod(index, 2) == 1 ? Theme.table-item-first : Theme.table-item-second;
+
+                    clicked => {
+                        Logic.video-editor-toggle-hiding-track(index);
+                    }
+                }
+
+                IconBtn {
+                    width: Theme.icon-size;
+                    icon: Icons.more-v-light;
+                    gain-focus-when-clicked: false;
+                    hover-color: mod(index, 2) == 1 ? Theme.table-item-first : Theme.table-item-second;
+
+                    clicked => {
+                        PopupActionSetting.show(self.absolute-position.x, self.absolute-position.y + self.preferred-height, track-action-entries);
+                    }
+                }
+            }
+        }
+    }
+}

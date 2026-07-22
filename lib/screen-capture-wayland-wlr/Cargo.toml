@@ -13,12 +13,10 @@ description.workspace = true
 [dependencies]
 log.workspace = true
 which.workspace = true
-image.workspace = true
 memmap2.workspace = true
 thiserror.workspace = true
 serde_json.workspace = true
 spin_sleep.workspace = true
-derive_setters.workspace = true
 wayland-client.workspace = true
 nix = { workspace = true, features = ["fs"] }
 serde = { workspace = true, features = ["derive"] }
@@ -29,4 +27,3 @@ wayland-protocols = { workspace = true, features = ["client", "unstable"] }
 [dev-dependencies]
 ctrlc.workspace = true
 env_logger.workspace = true
-tempfile.workspace = true

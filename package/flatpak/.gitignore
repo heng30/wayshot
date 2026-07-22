@@ -1,0 +1,6 @@
+/package/bin/
+/package/share/icons/
+*.flatpak
+build-dir/
+.flatpak-builder/
+*-repo/

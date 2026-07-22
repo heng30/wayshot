@@ -32,6 +32,7 @@ import {
     VerticalSettingIconsBar,
 } from "../setting/desktop.slint";
 import { Home } from "home.slint";
+import { FontDialog } from "font-dialog.slint";
 import { SourcesDialog } from "srouces-dialog.slint";
 import { CameraSettingDialog } from "camera-setting-dialog.slint";
 
@@ -94,16 +95,16 @@ component HorizontalHomeIconsBar inherits Rectangle {
         }
 
         IconBtn {
-            icon: Icons.transcribe-fill;
-            icon-size: root.icon-size * 1.3;
+            icon: Icons.video-editor-fill;
+            icon-size: root.icon-size * 1.1;
             show-icon-hover-background: root.show-icon-hover-background;
-            colorize: Store.current-tab-index == TabIndex.Transcribe ? Theme.thirdly-brand-color : Theme.icon-color;
+            colorize: Store.current-tab-index == TabIndex.VideoEditor ? Theme.thirdly-brand-color : Theme.icon-color;
             is-show-tip: root.is-show-tip;
             tip-position: root.tip-position;
-            tip: Logic.tr("transcribe");
+            tip: Logic.tr("editor");
 
             clicked => {
-                Logic.switch-tab(TabIndex.Transcribe);
+                Logic.switch-tab(TabIndex.VideoEditor);
             }
         }
 
@@ -127,7 +128,6 @@ component HorizontalStatusBar inherits StatusBar {
     background: Theme.secondary-background;
     is-show-icon: true;
     icon: Icons.brand;
-    title: AboutSetting.app-name;
     is-show-tip: true;
 
     HorizontalLayout {
@@ -229,16 +229,16 @@ component VerticalStatusBar inherits Rectangle {
                 }
 
                 IconBtn {
-                    icon: Icons.transcribe-fill;
-                    icon-size: root.icon-size * 1.3;
+                    icon: Icons.video-editor-fill;
+                    icon-size: root.icon-size * 1.1;
                     show-icon-hover-background: root.show-icon-hover-background;
-                    colorize: Store.current-tab-index == TabIndex.Transcribe ? Theme.thirdly-brand-color : Theme.icon-color;
+                    colorize: Store.current-tab-index == TabIndex.VideoEditor ? Theme.thirdly-brand-color : Theme.icon-color;
                     is-show-tip: root.is-show-tip;
                     tip-position: root.tip-position;
-                    tip: Logic.tr("transcribe");
+                    tip: Logic.tr("VideoEditor");
 
                     clicked => {
-                        Logic.switch-tab(TabIndex.Transcribe);
+                        Logic.switch-tab(TabIndex.VideoEditor);
                     }
                 }
 
@@ -271,6 +271,7 @@ component VerticalStatusBar inherits Rectangle {
 }
 
 export component DesktopPanel inherits Rectangle {
+    in property <string> title: AboutSetting.app-name;
     private property <bool> is-show-setting-dialog: Store.current-popup-index == PopupIndex.Setting;
     private property <bool> is-show-backup-dialog: Store.current-popup-index == PopupIndex.Backup;
     private property <bool> is-show-help-dialog: Store.current-popup-index == PopupIndex.Help;
@@ -281,21 +282,23 @@ export component DesktopPanel inherits Rectangle {
 
     background: Theme.base-background;
 
-    VerticalLayout {
-        if Store.setting-preference.no-frame: HorizontalStatusBar { }
+    if !Store.setting-preference.no-frame: HorizontalLayout {
+        VerticalStatusBar { }
 
-        HorizontalLayout {
-            vertical-stretch: 1;
+        Home {
+            width: root.width - Theme.sidebar-width;
+            height: root.height;
+        }
+    }
 
-            if !Store.setting-preference.no-frame: VerticalStatusBar {
-                vertical-stretch: 1;
-            }
+    if Store.setting-preference.no-frame: VerticalLayout {
+        HorizontalStatusBar {
+            title: root.title;
+        }
 
-            Home {
-                vertical-stretch: 1;
-                width: root.width - (Store.setting-preference.no-frame ? 0 : Theme.sidebar-width);
-                height: root.height - (Store.setting-preference.no-frame ? Theme.header-height : 0);
-            }
+        Home {
+            width: root.width;
+            height: root.height - Theme.header-height;
         }
     }
 
@@ -374,9 +377,19 @@ export component DesktopPanel inherits Rectangle {
         }
     }
 
+    if Store.is-show-font-dialog: FontDialog {
+        close => {
+            Store.is-show-font-dialog = false;
+            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+        }
+    }
+
     if PopupActionSetting.is-show: PopupAction {
         window-width: root.width;
         window-height: root.height;
+        font-size: Theme.default-font-size;
+        icon-size: self.font-size;
+        item-padding: Theme.padding * 1.5;
     }
 
     if ToolTipSetting.is-show: ToolTip {

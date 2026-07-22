@@ -1,0 +1,274 @@
+import { ListView } from "std-widgets.slint";
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+} from "../../../../def.slint";
+import {
+    Label,
+    IconBtn,
+    PopupActionEntry,
+    PopupActionSetting,
+    LineInput,
+} from "../../../../../base/widgets.slint";
+import {
+    SegmentFilter,
+    VEFilter,
+} from "../../filter.slint";
+import { FontPath } from "subtitle/font-path.slint";
+import { FontSize } from "subtitle/font-size.slint";
+import { Padding } from "subtitle/padding.slint";
+import { MarginVertical } from "subtitle/margin-vertical.slint";
+import { MarginHorizontal } from "subtitle/margin-horizontal.slint";
+import { OutlineWidth } from "subtitle/outline-width.slint";
+import { BorderRadius } from "subtitle/border-radius.slint";
+import { PrimaryColor } from "subtitle/primary-color.slint";
+import { OutlineColor } from "subtitle/outline-color.slint";
+import { BackgroundColor } from "subtitle/background-color.slint";
+import { TextAlignment } from "subtitle/text-alignment.slint";
+
+export component FilterSubtitleDetail inherits Rectangle {
+    x: Theme.padding / 2;
+
+    VerticalLayout {
+        alignment: start;
+        spacing: Theme.spacing * 2;
+        padding-bottom: Theme.padding * 2;
+
+        Rectangle {
+            background: Theme.secondary-background;
+
+            HorizontalLayout {
+                alignment: space-between;
+                padding: Theme.padding;
+                padding-left: Theme.padding * 2;
+
+                if !VEFilter.is-show-preset-subtitle-style-new-lineinput: Label {
+                    font-size: Theme.title3-font-size;
+                    text: Logic.tr("Subtitle Setting");
+                }
+
+                if VEFilter.is-show-preset-subtitle-style-new-lineinput: LineInput {
+                    font-size: Theme.default-font-size * 0.8;
+                    vpadding: Theme.padding;
+                    icon: Icons.check-box-light;
+                    icon-size: Theme.icon-size * Theme.golden-ratio;
+                    is-show-icon: true;
+                    show-icon-hover-background: false;
+                    placeholder-text: Logic.tr("enter name");
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    fs-timer := Timer {
+                        interval: 200ms;
+                        running: true;
+                        triggered() => {
+                            parent.focus();
+                            self.running = false;
+                        }
+                    }
+
+                    clicked => {
+                        VEFilter.create-preset-subtitle-style(self.text);
+                        VEFilter.is-show-preset-subtitle-style-new-lineinput = false;
+                    }
+
+                    accepted => {
+                        self.clicked();
+                    }
+
+                    key-pressed(key-event) => {
+                        if key-event.text == Key.Escape {
+                            VEFilter.is-show-preset-subtitle-style-new-lineinput = false;
+                        }
+                    }
+                }
+
+                IconBtn {
+                    icon: Icons.more-v-light;
+
+                    clicked => {
+                        PopupActionSetting.show(self.absolute-position.x, self.absolute-position.y + self.preferred-height, [
+                            {
+                                icon: Icons.add2-light,
+                                text: Logic.tr("Create Preset Style"),
+                                action: "video-editor-create-preset-subtitle-style",
+                            },
+                            {
+                                icon: Icons.menu-light,
+                                text: Logic.tr("Select Preset Style"),
+                                action: "video-editor-show-select-preset-subtitle-style",
+                            },
+                        ]);
+                    }
+                }
+            }
+        }
+
+        Flickable {
+            interactive: false;
+            VerticalLayout {
+                spacing: Theme.spacing * 4;
+                alignment: start;
+
+                FontPath {
+                    config <=> VEFilter.subtitle-style.font-path;
+                    apply(config) => {
+                        VEFilter.modify-font-path-filter(Store.video-editor-current-edited-track-index, config);
+                    }
+                }
+
+                FontSize {
+                    config <=> VEFilter.subtitle-style.font-size;
+                    apply(config) => {
+                        VEFilter.modify-font-size-filter(Store.video-editor-current-edited-track-index, config);
+                    }
+                }
+
+                PrimaryColor {
+                    config <=> VEFilter.subtitle-style.primary-color;
+                    apply(config) => {
+                        VEFilter.modify-primary-color-filter(Store.video-editor-current-edited-track-index, config);
+                    }
+                }
+
+                OutlineWidth {
+                    config <=> VEFilter.subtitle-style.outline-width;
+                    apply(config) => {
+                        VEFilter.modify-outline-width-filter(Store.video-editor-current-edited-track-index, config);
+                    }
+                }
+
+                OutlineColor {
+                    config <=> VEFilter.subtitle-style.outline-color;
+                    apply(config) => {
+                        VEFilter.modify-outline-color-filter(Store.video-editor-current-edited-track-index, config);
+                    }
+                }
+
+                BorderRadius {
+                    config <=> VEFilter.subtitle-style.border-radius;
+                    apply(config) => {
+                        VEFilter.modify-border-radius-filter(Store.video-editor-current-edited-track-index, config);
+                    }
+                }
+
+                BackgroundColor {
+                    config <=> VEFilter.subtitle-style.background-color;
+                    apply(config) => {
+                        VEFilter.modify-background-color-filter(Store.video-editor-current-edited-track-index, config);
+                    }
+                }
+
+                Padding {
+                    config <=> VEFilter.subtitle-style.padding;
+                    apply(config) => {
+                        VEFilter.modify-padding-filter(Store.video-editor-current-edited-track-index, config);
+                    }
+                }
+
+                MarginVertical {
+                    config <=> VEFilter.subtitle-style.margin-vertical;
+                    apply(config) => {
+                        VEFilter.modify-margin-vertical-filter(Store.video-editor-current-edited-track-index, config);
+                    }
+                }
+
+                MarginHorizontal {
+                    config <=> VEFilter.subtitle-style.margin-horizontal;
+                    apply(config) => {
+                        VEFilter.modify-margin-horizontal-filter(Store.video-editor-current-edited-track-index, config);
+                    }
+                }
+
+                TextAlignment {
+                    config <=> VEFilter.subtitle-style.text-alignment;
+                    apply(config) => {
+                        VEFilter.modify-text-alignment-filter(Store.video-editor-current-edited-track-index, config);
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component PresetFilterSubtitleDetail inherits Rectangle {
+    x: Theme.padding / 2;
+
+    VerticalLayout {
+        spacing: Theme.spacing;
+        padding-bottom: Theme.padding * 2;
+
+        Rectangle {
+            background: Theme.secondary-background;
+
+            HorizontalLayout {
+                alignment: space-between;
+                padding: Theme.padding;
+                padding-left: Theme.padding * 2;
+
+                IconBtn {
+                    icon: Icons.back-light;
+                    show-icon-hover-background: false;
+
+                    clicked => {
+                        VEFilter.is-show-preset-subtitle-style-panel = false;
+                    }
+                }
+            }
+        }
+
+        ListView {
+            for entry[index] in VEFilter.preset-subtitle-styles: Rectangle {
+                border-radius: Theme.border-radius;
+                background: Theme.table-item-background(index, false, ta.has-hover);
+
+                ta := TouchArea {
+                    mouse-cursor: MouseCursor.pointer;
+
+                    clicked => {
+                        VEFilter.subtitle-style = entry.style;
+                        VEFilter.is-show-preset-subtitle-style-panel = false;
+                        VEFilter.apply-preset-subtitle-style(Store.video-editor-current-edited-track-index, entry.style);
+                    }
+                }
+
+                hbox := HorizontalLayout {
+                    alignment: space-between;
+                    spacing: Theme.spacing * 2;
+                    padding: Theme.padding * 2;
+                    padding-right: Theme.padding * 3;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+                        alignment: start;
+
+                        Label {
+                            text: index + 1;
+                        }
+
+                        Label {
+                            text: entry.name;
+                            overflow: elide;
+                        }
+                    }
+
+                    IconBtn {
+                        icon: Icons.delete-light;
+                        hover-color: mod(index, 2) == 1 ? Theme.table-item-first : Theme.table-item-second;
+
+                        clicked => {
+                            VEFilter.remove-preset-subtitle-style(index);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

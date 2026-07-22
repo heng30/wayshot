@@ -1,0 +1,61 @@
+[package]
+name = "voxcpm-rs"
+version = "0.5.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Pure-Rust inference for VoxCPM2 on top of the Burn framework (Vulkan + CPU)."
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/mii-nipah/voxcpm-rs"
+homepage = "https://github.com/mii-nipah/voxcpm-rs"
+documentation = "https://docs.rs/voxcpm-rs"
+authors = ["nipah~✰! <mii_nipah@pm.me>"]
+keywords = ["tts", "voxcpm", "speech", "audio", "inference"]
+categories = ["multimedia::audio", "science"]
+exclude = ["vendor/", "examples_tmp/", "target/", "/.git/", "*.wav"]
+
+[features]
+default = ["cpu"]
+# Vulkan / WGPU backend (primary target: AMD + NVIDIA via wgpu).
+# Minimal build: fast cold start, ~5-7% slower steady-state.
+wgpu = ["burn/wgpu"]
+# Vulkan-only variant of `wgpu`: routes through cubecl-spirv instead of WGSL.
+# Unlocks bf16 / f16 native types, cooperative-matrix (matrix cores) on RDNA3+
+# and NVIDIA Ampere+, and other Vulkan-only extensions. Linux/Windows/Android
+# only (no Metal, no WebGPU, no DX12).
+vulkan = ["burn/wgpu", "burn/vulkan"]
+# Opt-in perf: enables burn-cubecl-fusion (auto-fuses elementwise chains
+# into single GPU kernels) and cubecl autotune (picks the best matmul
+# kernel per shape). Gains ~5-7% steady-state RTF but pays a cold-start
+# cost on the first 1-2 runs while cubecl measures kernels. Results are
+# cached in `target/autotune/` and persist across runs.
+# Tip: set `CUBECL_AUTOTUNE_LEVEL=minimal` at runtime to shrink the
+# cold-start cost (uses a cheap heuristic instead of measuring).
+wgpu-fast = ["wgpu", "burn/fusion", "burn/autotune"]
+# Pure-CPU fallback using ndarray. SIMD speeds up elementwise ops; ndarray's
+# native matmul is still single-threaded — enable `cpu-blas` (compiles a
+# vendored OpenBLAS, no system deps required) for multi-core matmul.
+cpu = ["burn/ndarray", "burn/simd"]
+cpu-blas = ["cpu", "burn/openblas"]
+# Convenience: enable both
+all-backends = ["wgpu", "cpu"]
+
+[dependencies]
+log.workspace = true
+half.workspace = true
+burn.workspace = true
+hound.workspace = true
+rubato.workspace = true
+memmap2.workspace = true
+bytemuck.workspace = true
+thiserror.workspace = true
+burn-store.workspace = true
+serde_json.workspace = true
+tokenizers.workspace = true
+safetensors.workspace = true
+serde = { workspace = true, features = ["derive"] }
+symphonia = { workspace = true, features = ["all"] }
+
+[dev-dependencies]
+approx.workspace = true
+env_logger.workspace = true

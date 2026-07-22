@@ -1,0 +1,60 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Util,
+    Store,
+    FontEntry,
+} from "../../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    FontPathDetail,
+} from "../../../filter.slint";
+
+export component FontPath inherits Rectangle {
+    in-out property <FontPathDetail> config;
+    private property <FontEntry> selected-font <=> Store.selected-font-entry;
+    private property <bool> font-exist: Logic.file-exist(config.font-path);
+
+    changed selected-font => {
+        font-li.text = selected-font.family;
+        config.font-path = selected-font.path;
+        config.font-family = selected-font.family;
+        config.font-style = selected-font.style;
+        self.apply(config);
+    }
+
+    callback apply(config: FontPathDetail);
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Font");
+        }
+
+        font-li := LineInput {
+            border-color: font-exist ? (Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%)) : Theme.danger-color;
+            read-only: true;
+            icon: Icons.font-light;
+            is-show-icon: true;
+            icon-size: Theme.icon-size * Theme.golden-ratio;
+            text: config.font-family;
+
+            changed has-focus => {
+                if (!self.has-focus) {
+                    Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                }
+            }
+
+            clicked => {
+                Store.is-show-font-dialog = true;
+            }
+        }
+    }
+}

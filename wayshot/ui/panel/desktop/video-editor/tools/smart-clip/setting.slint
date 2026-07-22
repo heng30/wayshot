@@ -1,0 +1,124 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    DownloaderState,
+} from "../../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    IconBtn,
+    LineInput,
+    ProgressBar,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../base/widgets.slint";
+
+export component SmartClipSettingDialog inherits MovingDialog {
+    title: Logic.tr("Smart Voice Clip Setting");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    private property setting <=> Store.video-editor-transcribe-setting;
+
+    SettingDetailInner {
+        for downloader[index] in Store.video-editor-smart-clip-models-dowloader: VerticalLayout {
+            alignment: start;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                pure function get-border-color(status: DownloaderState, exist-color: color, no-exist-color: color) -> color {
+                    if status == DownloaderState.Finished {
+                        return exist-color;
+                    } else {
+                        return Logic.file-exist(index == 0 ? setting.model-path : setting.model-tokenizer-path) ? exist-color : no-exist-color;
+                    }
+                }
+
+                model-path-li := LineInput {
+                    horizontal-stretch: 2;
+                    read-only: true;
+                    is-show-icon: true;
+                    icon: Icons.file-open-light;
+                    placeholder-text: index == 0 ? "model.pt" : "Qwen3-0.6B/tokenizer.json";
+                    text: index == 0 ? setting.model-path : setting.model-tokenizer-path;
+                    border-color: get-border-color(downloader.state, self.default-border-color, Theme.danger-color);
+
+                    clicked => {
+                        Logic.video-editor-smart-clip-choose-model-path(index);
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                        alignment: center;
+
+                        ProgressBar {
+                            height: model-path-li.preferred-height * 2 / 3;
+                            font-size: Theme.default-font-size * 2 / 3;
+                            finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                            progress: downloader.progress;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: Theme.spacing * 4;
+
+                        private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+
+                        IconBtn {
+                            is-show-tip: true;
+                            icon: downloading ? Icons.stop-light : Icons.download-light;
+                            colorize: downloading ? Theme.danger-color : Theme.icon-color;
+                            tip: downloading ? Logic.tr("cancel") : Logic.tr("download");
+
+                            clicked => {
+                                if (downloading) {
+                                    Logic.video-editor-smart-clip-model-cancel-download(index, downloader.url);
+                                } else {
+                                    Logic.video-editor-smart-clip-model-start-download(index, downloader.url);
+                                }
+                            }
+                        }
+
+                        IconBtn {
+                            icon: Icons.browser-light;
+                            is-show-tip: true;
+                            tip: Logic.tr("open url");
+
+                            clicked => {
+                                Util.open-url("Default", downloader.url);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Keep leading silence (ms)");
+            }
+
+            LineInput {
+                input-type: number;
+                placeholder-text: 100;
+                text: setting.keep-leading-silence-ms;
+                border-color: self.text.to-float() != setting.keep-leading-silence-ms ? Theme.danger-color : self.default-border-color;
+
+                accepted => {
+                    setting.keep-leading-silence-ms = self.text.to-float();
+                    Logic.video-editor-transcribe-update-setting(setting);
+                }
+            }
+        }
+    }
+}

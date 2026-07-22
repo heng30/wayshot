@@ -13,8 +13,6 @@ description.workspace = true
 [dependencies]
 log.workspace = true
 wio.workspace = true
-image.workspace = true
-once_cell.workspace = true
 thiserror.workspace = true
 crossbeam.workspace = true
 spin_sleep.workspace = true
@@ -39,5 +37,6 @@ winapi = { workspace = true, features = [
 ] }
 
 [dev-dependencies]
+image.workspace = true
 ctrlc.workspace = true
 env_logger.workspace = true

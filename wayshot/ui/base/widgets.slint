@@ -23,6 +23,7 @@ import { NoDataImg } from "no-data.slint";
 import { Divider } from "divider.slint";
 import { Link } from "link.slint";
 import { Dialog } from "dialog.slint";
+import { MovingDialog } from "moving-dialog.slint";
 import { ConfirmDialog, ConfirmDialogSetting } from "confirm-dialog.slint";
 import { MessageDialog, MessageDialogSetting } from "message-dialog.slint";
 import { Blanket } from "blanket.slint";
@@ -108,7 +109,7 @@ import { PinCodesCount, PinCodes } from "pin-codes.slint";
 import { Badge } from "badge.slint";
 import { Select } from "select.slint";
 import { Slider } from "slider.slint";
-import { Collapse, CollapseEntry } from "collapse.slint";
+import { Collapse, CollapseEntry, SingleCollapse } from "collapse.slint";
 import { Stretch } from "stretch.slint";
 import { Search } from "search.slint";
 import {
@@ -120,7 +121,12 @@ import { Tree } from "tree.slint";
 import { ExampleComponent } from "example-component.slint";
 import { SideBar } from "sidebar.slint";
 import { Paragraph, ParagraphEntry } from "paragraph.slint";
-import { AudioControl, SimpleAudioControl } from "audio-control.slint";
+import {
+    AudioControl,
+    SimpleAudioControl,
+    VolumePopup,
+    SpeedPopup,
+} from "audio-control.slint";
 import { VideoControl } from "video-control.slint";
 import { VideoPlayer } from "video-player.slint";
 import { Playlist } from "playlist.slint";
@@ -140,6 +146,14 @@ import { GroupBox } from "group-box.slint";
 import { AudioLevel } from "audio-level.slint";
 import { GentleBackground } from "gentle-backgound.slint";
 import { SoundWaveForm } from "sound-wave-form.slint";
+import { ReadonlySoundWaveForm } from "readonly-sound-wave-form.slint";
+import { MovingDivider } from "moving-divider.slint";
+import { Playhead } from "playhead.slint";
+import { UnsaveChangeDialog } from "unsave-change-dialog.slint";
+import { RecoveryDialog } from "recovery-dialog.slint";
+import { ColorPicker, ColorPickerPopup } from "color-picker.slint";
+import { VolumeIndicator } from "volume-indicator.slint";
+import { Checkerboard } from "checkerboard.slint";
 
 export {
     AppPosType,
@@ -166,6 +180,7 @@ export {
     Divider,
     Link,
     Dialog,
+    MovingDialog,
     ConfirmDialog,
     ConfirmDialogSetting,
     MessageDialog,
@@ -250,6 +265,7 @@ export {
     Select,
     Slider,
     Collapse,
+    SingleCollapse,
     CollapseEntry,
     Search,
     PopupAction,
@@ -264,6 +280,8 @@ export {
     Stretch,
     AudioControl,
     SimpleAudioControl,
+    VolumePopup,
+    SpeedPopup,
     VideoControl,
     VideoPlayer,
     Playlist,
@@ -289,4 +307,13 @@ export {
     AudioLevel,
     GentleBackground,
     SoundWaveForm,
+    ReadonlySoundWaveForm,
+    MovingDivider,
+    Playhead,
+    UnsaveChangeDialog,
+    RecoveryDialog,
+    ColorPicker,
+    ColorPickerPopup,
+    VolumeIndicator,
+    Checkerboard,
 }

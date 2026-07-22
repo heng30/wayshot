@@ -14,6 +14,7 @@ description.workspace = true
 log.workspace = true
 thiserror.workspace = true
 derivative.workspace = true
+pitch_shift.workspace = true
 derive_setters.workspace = true
 rayon = { workspace = true, optional = true }
 realfft = { workspace = true, optional = true }
@@ -32,7 +33,6 @@ symphonia = { workspace = true, features = [
 ] }
 
 [dev-dependencies]
-anyhow.workspace = true
 env_logger.workspace = true
 
 [features]

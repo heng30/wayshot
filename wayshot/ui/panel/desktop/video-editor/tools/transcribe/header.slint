@@ -1,0 +1,245 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    TranscribeProgressType,
+    Transcribe,
+    SmartMix,
+    FileType,
+} from "../../../../def.slint";
+import {
+    CenterLayout,
+    IconBtn,
+    GainFocus,
+    ProgressBar,
+    ElevatedBtn,
+    PopupActionSetting,
+    PopupActionEntry,
+    ConfirmDialogSetting,
+    Label,
+} from "../../../../../base/widgets.slint";
+
+export component Header inherits HorizontalLayout {
+    out property <bool> is-progressing: current-transcribe.progress-type == TranscribeProgressType.ImportingAudio || current-transcribe.progress-type == TranscribeProgressType.Transcribe || current-transcribe.progress-type == TranscribeProgressType.CorrectSubtitles;
+
+    private property <Transcribe> current-transcribe <=> Store.video-editor-transcribe;
+    private property <SmartMix> current-smart-mix <=> Store.video-editor-smart-mix;
+
+    private property <[PopupActionEntry]> popup-action-entries: [
+        {
+            icon: Icons.correction-light,
+            text: Logic.tr("AI Correction"),
+            action: "video-editor-transcribe-subtitles-correction",
+        },
+        {
+            icon: Icons.reference-light,
+            text: Logic.tr("AI Correction With Reference"),
+            action: "video-editor-transcribe-subtitles-correction-with-reference",
+        },
+        {
+            icon: Icons.list-accept2-light,
+            text: Logic.tr("Accept Correction"),
+            action: "video-editor-transcribe-subtitles-accept-correction",
+        },
+        {
+            icon: Icons.remove-light,
+            text: Logic.tr("Remove Correction"),
+            action: "video-editor-transcribe-subtitles-remove-correction",
+        },
+        { },
+        {
+            icon: Icons.to-lowercase-light,
+            text: Logic.tr("To Lowercase"),
+            action: "video-editor-transcribe-subtitles-to-lowercase",
+        },
+        {
+            icon: Icons.traditional-to-simple-chinese-light,
+            text: Logic.tr("To Simple Chinese"),
+            action: "video-editor-transcribe-subtitles-to-simple-chinese",
+        },
+        {
+            icon: Icons.number-light,
+            text: Logic.tr("To Primitive Number"),
+            action: "video-editor-transcribe-subtitles-to-primitive-numbers",
+        },
+        { },
+        {
+            icon: Icons.separator-light,
+            text: Logic.tr("Remove Separator"),
+            action: "video-editor-transcribe-subtitles-remove-separator",
+        },
+        {
+            icon: Icons.overlap-light,
+            text: Logic.tr("Adjust Overlap Timestamp"),
+            action: "video-editor-transcribe-subtitles-adjust-overlap-timestamp",
+        },
+    ];
+
+    callback show-replace-dialog();
+
+    pure function progress-type-str(ty: TranscribeProgressType) -> string {
+        if (ty == TranscribeProgressType.Transcribe) {
+            return Logic.tr("Transcribing");
+        } else if (ty == TranscribeProgressType.CorrectSubtitles) {
+            return Logic.tr("Correcting subtitles");
+        } else if (ty == TranscribeProgressType.ImportingAudio) {
+            return Logic.tr("Importing Audio");
+        } else if (ty == TranscribeProgressType.Cancelled) {
+            return Logic.tr("Cancelled");
+        } else if (ty == TranscribeProgressType.Finished) {
+            return Logic.tr("Finished");
+        } else if (ty == TranscribeProgressType.Failed) {
+            return Logic.tr("Failed");
+        } else {
+            return "";
+        }
+    }
+
+    pure function progress-type-color(ty: TranscribeProgressType) -> color {
+        if (ty == TranscribeProgressType.Cancelled) {
+            return Theme.warning-color;
+        } else if (ty == TranscribeProgressType.Failed) {
+            return Theme.danger-color;
+        } else {
+            return Theme.thirdly-brand-color;
+        }
+    }
+
+    spacing: Theme.spacing * 4;
+    height: outer-hbox.preferred-height;
+
+    VerticalLayout {
+        alignment: center;
+        width: root.width - outer-hbox.preferred-width - parent.spacing;
+
+        if current-transcribe.progress-type != TranscribeProgressType.None: HorizontalLayout {
+            ProgressBar {
+                private property <string> progress-text: progress-type-str(current-transcribe.progress-type);
+
+                width: 100%;
+                height: Theme.default-font-size + Theme.padding * 2;
+                clip: true;
+                font-weight: Theme.bold-font-weight;
+                progress: current-transcribe.progress;
+                finished-progress-color: progress-type-color(current-transcribe.progress-type);
+                unfinished-text: self.progress-text + "  " + self.calc-percent(self.progress) + "%";
+                finished-text: self.progress-text;
+            }
+        }
+    }
+
+    outer-hbox := HorizontalLayout {
+        alignment: end;
+        spacing: Theme.spacing * 8;
+
+        if is-progressing: ElevatedBtn {
+            icon: Icons.stop-light;
+            colorize: Theme.danger-color;
+            gain-focus-when-clicked: false;
+            is-show-tip: true;
+            tip-position: Bottom;
+            tip: Logic.tr("cancel");
+
+            clicked => {
+                Logic.video-editor-transcribe-cancel-progress(current-transcribe.progress-type);
+            }
+        }
+
+        Rectangle {
+            height: hbox.preferred-height;
+            border-radius: self.height / 2;
+            background: Theme.thirdly-background;
+            border-width: Theme.default-border-width;
+            border-color: Theme.base-border-color;
+
+            hbox := HorizontalLayout {
+                spacing: Theme.spacing * 4;
+                padding: Theme.padding * 2;
+                padding-left: Theme.padding * 4;
+                padding-right: Theme.padding * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("transcribe");
+                    icon: Icons.transcribe-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-transcribe-start();
+                    }
+                }
+
+                IconBtn {
+                    enabled: current-smart-mix.audio-entries.length > 0;
+                    is-show-tip: true;
+                    tip: Logic.tr("import from smart mix");
+                    icon: Icons.smart-mix-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-transcribe-import-from-smart-mix();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("export");
+                    icon: Icons.export-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-transcribe-export-subtitles();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("replace");
+                    icon: Icons.replace-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        root.show-replace-dialog();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("setting");
+                    icon: Icons.setting-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Store.video-editor-transcribe-is-show-setting-dialog = true;
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("remove all");
+                    icon: Icons.delete-all-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Remove all subtitles or not?"), "video-editor-transcribe-subtitles-clear", "");
+                    }
+                }
+
+                IconBtn {
+                    icon: Icons.more-v-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        PopupActionSetting.show(self.absolute-position.x + self.width, self.absolute-position.y, popup-action-entries);
+                    }
+                }
+            }
+        }
+    }
+}

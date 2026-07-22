@@ -1,7 +1,5 @@
-use crate::{
-    audio_level::{apply_gain, calc_rms_level},
-    speaker_recorder::{SpeakerRecorder, SpeakerRecorderConfig, SpeakerRecorderError},
-};
+use crate::speaker_recorder::{SpeakerRecorder, SpeakerRecorderConfig, SpeakerRecorderError};
+use audio_utils::audio_level::{apply_gain, calc_rms_level};
 use crossbeam::channel::Sender;
 use hound::WavSpec;
 use spin_sleep::SpinSleeper;

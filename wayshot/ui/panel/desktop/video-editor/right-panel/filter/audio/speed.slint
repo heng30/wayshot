@@ -1,0 +1,110 @@
+import {
+    Theme,
+    Logic,
+} from "../../../../../def.slint";
+import {
+    Label,
+    Slider,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ClickAndEditLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SpeedDetail,
+    SegmentFilter,
+} from "../../../filter.slint";
+
+export component Speed inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    private property <SpeedDetail> config: VEFilter.from-audio-speed-json(selected-filter.detail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "speed") {
+            debug(selected-filter.detail);
+            self.config = VEFilter.from-audio-speed-json(selected-filter.detail);
+            speed-slider.value = self.config.speed;
+        }
+    }
+
+    SettingDetailInner {
+        x: 0;
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                enabled: selected-filter.enabled;
+                text: Logic.tr("Speed");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+                alignment: space-between;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    speed-slider := Slider {
+                        enabled: selected-filter.enabled;
+                        minimum: 0.1;
+                        maximum: 10.0;
+                        value: config.speed;
+                        height: self.indicator-size * 0.3;
+                        unfinished-progress-color: Theme.thirdly-background;
+
+                        changed(value) => {
+                            config.speed = value;
+                        }
+
+                        released(value) => {
+                            config.speed = value;
+                            VEFilter.modify-audio-speed-filter(index, config);
+                        }
+                    }
+                }
+
+                ClickAndEditLabel {
+                    enabled: selected-filter.enabled;
+                    use-fixed-width: true;
+                    width: Theme.default-font-size * 3;
+                    text: config.speed.to-fixed(2) + "x";
+                    text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                    accepted(text) => {
+                        config.speed = text.to-float().clamp(0.1, 10);
+                        speed-slider.value = config.speed;
+                        VEFilter.modify-audio-speed-filter(index, config);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                alignment: start;
+                spacing: Theme.spacing * 3;
+
+                for preset in ["0.5", "0.75", "1.0", "1.25", "1.5", "2.0"]: Rectangle {
+                    Label {
+                        enabled: selected-filter.enabled;
+                        text: preset + "x";
+                        font-size: Theme.default-font-size * 0.8;
+                        color: self.enabled ? config.speed == preset.to-float() ? Theme.primary-text-color : Theme.secondary-text-color : Theme.disabled-color;
+                    }
+
+                    ta := TouchArea {
+                        enabled: selected-filter.enabled;
+                        mouse-cursor: MouseCursor.pointer;
+                        clicked => {
+                            config.speed = preset.to-float();
+                            speed-slider.value = config.speed;
+                            VEFilter.modify-audio-speed-filter(index, config);
+                        }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

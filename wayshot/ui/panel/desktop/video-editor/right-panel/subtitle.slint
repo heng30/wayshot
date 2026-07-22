@@ -1,0 +1,216 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VEFilter,
+    VideoEditorSubtitle,
+} from "../../../def.slint";
+import {
+    Label,
+    ClickAndEditLabel,
+    IconBtn,
+    LineInput,
+    TxtEdit,
+    ConfirmBtn,
+    TextBtnWithoutIcon,
+    Link,
+} from "../../../../base/widgets.slint";
+
+component Header inherits Rectangle {
+    in-out property <int> checked-index;
+
+    background: Theme.thirdly-background;
+    width: hbox.preferred-width + Theme.padding * 8;
+    height: hbox.preferred-height + Theme.padding * 2;
+    border-radius: self.height / 2;
+    border-width: Theme.default-border-width;
+    border-color: Theme.base-border-color;
+
+    hbox := HorizontalLayout {
+        x: Theme.padding * 4;
+        y: Theme.padding;
+        spacing: Theme.spacing * 4;
+
+        TextBtnWithoutIcon {
+            text: Logic.tr("New");
+            border-radius: self.height / 3;
+            text-color: checked-index == 0 ? Theme.light-text-color : Theme.regular-text-color;
+            background: checked-index == 0 ? Theme.thirdly-brand-color : transparent;
+
+            clicked => {
+                checked-index = 0;
+            }
+        }
+
+        TextBtnWithoutIcon {
+            text: Logic.tr("Modify");
+            border-radius: self.height / 3;
+            text-color: checked-index == 1 ? Theme.light-text-color : Theme.regular-text-color;
+            background: checked-index == 1 ? Theme.thirdly-brand-color : transparent;
+
+            clicked => {
+                checked-index = 1;
+            }
+        }
+    }
+}
+
+component SubtitleBody inherits Flickable {
+    in-out property <int> checked-index;
+    private property edited-subtitle <=> Store.video-editor-current-edited-subtitle;
+    private property <string> inner-start-timestamp: "00:00:00,000";
+    private property <string> inner-end-timestamp: "00:00:00,000";
+    private property <bool> show-warning-tip: !(Logic.file-exist(VEFilter.subtitle-style.font-path.font-path) && VEFilter.subtitle-style.font-size.font-size > 0);
+
+    changed edited-subtitle => {
+        modiy-te.text = edited-subtitle.subtitle;
+    }
+
+    VerticalLayout {
+        spacing: Theme.spacing * 2;
+        alignment: start;
+
+        VerticalLayout {
+            alignment: start;
+            padding: Theme.padding * 2;
+            spacing: Theme.spacing * 4;
+
+            HorizontalLayout {
+                alignment: space-between;
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    Label {
+                        width: self.font-size * 3;
+                        text: Logic.tr("Start") + ": ";
+                    }
+
+                    start-lb := Label {
+                        text: checked-index == 0 ? inner-start-timestamp : edited-subtitle.start-timestamp;
+                    }
+                }
+
+                if checked-index == 0: IconBtn {
+                    icon: Icons.locate-to-light;
+                    is-show-tip: true;
+                    tip: Logic.tr("use timeline timestamp");
+                    icon-size: Theme.icon-size * 0.8;
+
+                    clicked => {
+                        inner-start-timestamp = Logic.ms-to-srt-timestamp-ui(Store.video-editor-timeline-offset);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                alignment: space-between;
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    Label {
+                        width: self.font-size * 3;
+                        text: Logic.tr("End") + ": ";
+                    }
+
+                    end-lb := Label {
+                        text: checked-index == 0 ? inner-end-timestamp : edited-subtitle.end-timestamp;
+                    }
+                }
+
+                if checked-index == 0: IconBtn {
+                    icon: Icons.locate-to-light;
+                    is-show-tip: true;
+                    icon-size: Theme.icon-size * 0.8;
+                    tip: Logic.tr("use timeline timestamp");
+
+                    clicked => {
+                        inner-end-timestamp = Logic.ms-to-srt-timestamp-ui(Store.video-editor-timeline-offset);
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            height: Theme.default-font-size * 10;
+
+            new-te := TxtEdit {
+                visible: checked-index == 0;
+                placeholder: Logic.tr("Input subtitle");
+                height: 100%;
+            }
+
+            modiy-te := TxtEdit {
+                visible: checked-index == 1;
+                placeholder: Logic.tr("Input subtitle");
+                text: edited-subtitle.subtitle;
+                height: 100%;
+            }
+        }
+
+        HorizontalLayout {
+            ConfirmBtn {
+                text: checked-index == 0 ? Logic.tr("Add Subtitle") : Logic.tr("Update Subtitle");
+                icon: checked-index == 0 ? Icons.add2-light : Icons.update-light;
+                bg-color: checked-index == 0 ? Theme.success-color : Theme.thirdly-brand-color;
+                icon-size: checked-index == 0 ? Theme.icon-size : Theme.icon-size * 0.8;
+
+                clicked => {
+                    if (checked-index == 0) {
+                        Logic.video-editor-add-subtitle({
+                            start-timestamp: start-lb.text,
+                            end-timestamp: end-lb.text,
+                            subtitle: new-te.text,
+                        });
+                    } else {
+                        Logic.video-editor-update-subtitle({
+                            start-timestamp: start-lb.text,
+                            end-timestamp: end-lb.text,
+                            subtitle: modiy-te.text,
+                        });
+                    }
+                }
+            }
+        }
+
+        if Logic.video-editor-is-subtitle-track(Store.video-editor-current-edited-track-index): HorizontalLayout {
+            padding: Theme.padding * 2;
+            padding-top: Theme.padding * 4;
+            alignment: center;
+
+            Link {
+                text: Logic.tr("Click to set subtitle style");
+                color: show-warning-tip ? Theme.warning-color : Theme.regular-text-color;
+
+                clicked => {
+                    VEFilter.right-panel-selected-index = 0;
+                }
+            }
+        }
+    }
+}
+
+export component Subtitle inherits Rectangle {
+    in-out property <int> checked-index <=> Store.video-editor-subtitle-checked-index;
+
+    VerticalLayout {
+        spacing: Theme.spacing * 2;
+
+        HorizontalLayout {
+            alignment: center;
+
+            Header {
+                checked-index <=> checked-index;
+            }
+        }
+
+        SubtitleBody {
+            checked-index <=> checked-index;
+        }
+    }
+}

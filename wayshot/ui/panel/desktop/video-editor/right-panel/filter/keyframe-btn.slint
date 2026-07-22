@@ -1,0 +1,34 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+} from "../../../../def.slint";
+
+export component KeyframeButton inherits Rectangle {
+    in-out property <bool> enabled: true;
+    in-out property <bool> has-keyframe;
+    in-out property <color> inner-bg: has-keyframe ? (Theme.is-dark ? Colors.cyan : Colors.cyan.darker(30%)) : transparent;
+
+    callback clicked <=> ta.clicked;
+    callback moved <=> ta.moved;
+
+    width: Theme.icon-size * 0.8;
+    height: self.width;
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: parent.width * 0.6;
+        height: self.width;
+        transform-rotation: 45deg;
+        background: root.inner-bg;
+        border-width: has-keyframe ? 0px : 1.5px;
+        border-color: enabled ? Theme.icon-color : Theme.disabled-color;
+        border-radius: 2px;
+    }
+
+    ta := TouchArea {
+        enabled: enabled;
+        mouse-cursor: MouseCursor.pointer;
+    }
+}

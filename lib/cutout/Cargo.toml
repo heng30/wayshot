@@ -1,0 +1,15 @@
+[package]
+name = "cutout"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ort.workspace = true
+image.workspace = true
+ndarray.workspace = true
+thiserror.workspace = true
+imageproc.workspace = true
+derive_setters.workspace = true
+
+[dev-dependencies]
+clap = { workspace = true, features = ["derive"] }

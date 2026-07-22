@@ -1,0 +1,153 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    Transcribe,
+    TranscribeProgressType,
+    Subtitle,
+} from "../../../../def.slint";
+import {
+    CenterLayout,
+    ConfirmBtn,
+    IconBtn,
+    GainFocus,
+    PopupActionSetting,
+    PopupActionEntry,
+    ConfirmDialogSetting,
+    NoMessageImg,
+    Skeleton,
+    Label,
+    SkeletonType,
+    ClickAndEditLabel,
+    SoundWaveForm,
+} from "../../../../../base/widgets.slint";
+import { Header } from "header.slint";
+import { ScrollView } from "std-widgets.slint";
+import { SubtitleListItem } from "list-item.slint";
+
+component StartTranscribeField inherits VerticalLayout {
+    CenterLayout {
+        NoMessageImg {
+            width: min(root.width * Theme.golden-ratio, 640px);
+        }
+
+        HorizontalLayout {
+            alignment: center;
+
+            ConfirmBtn {
+                icon: Icons.transcribe-light;
+                text: Logic.tr("Start Transcribe");
+                auto-size-vpadding: Theme.padding * 2;
+
+                clicked => {
+                    Logic.video-editor-transcribe-start();
+                }
+            }
+        }
+    }
+}
+
+component SubtitleListView inherits ScrollView {
+    private property current-transcribe <=> Store.video-editor-transcribe;
+    private property <[Subtitle]> subtitles: Store.video-editor-transcribe.subtitles;
+    private property <bool> is-show-skeleton: (current-transcribe.progress-type == TranscribeProgressType.Transcribe && subtitles.length == 0);
+    private property <float> audio-player-progress: Store.video-editor-transcribe-audio-player-progress;
+    private property <length> current-playing-index-pos-y;
+    private property <length> current-playing-index-preferred-height;
+
+    function get-item-index-from-playing-index(playing-index: int) -> int {
+        return ceil(playing-index / 2);
+    }
+
+    function need-scroll() -> bool {
+        if (!current-transcribe.enable-playing-index || current-transcribe.playing-index < 0) {
+            return false;
+        }
+        let item-index = get-item-index-from-playing-index(current-transcribe.playing-index);
+        if (item-index < 0 || item-index >= subtitles.length) {
+            return false;
+        }
+        return !(current-playing-index-pos-y > abs(self.viewport-y) && current-playing-index-pos-y + current-playing-index-preferred-height < abs(self.viewport-y) + self.height);
+    }
+
+    function scroll-to-item() {
+        let item-index = get-item-index-from-playing-index(current-transcribe.playing-index);
+        if (item-index < 0 || item-index >= subtitles.length) {
+            return;
+        }
+        root.viewport-y = 0 - clamp(current-playing-index-pos-y, 0, root.viewport-height - root.height);
+    }
+
+    changed audio-player-progress => {
+        Logic.video-editor-transcribe-subtitles-update-playing-index(audio-player-progress);
+
+        if (current-transcribe.playing-index >= 0 && need-scroll()) {
+            scroll-to-item();
+        }
+    }
+
+    vbox := VerticalLayout {
+        spacing: Theme.spacing * 2;
+
+        if is-show-skeleton: Rectangle {
+            height: Theme.icon-size * 8;
+
+            Skeleton {
+                x: Theme.padding * 2;
+                y: Theme.padding * 2;
+                width: parent.width - Theme.padding * 4;
+                height: parent.height;
+                type: SkeletonType.List;
+            }
+        }
+
+        for entry[index] in subtitles: VerticalLayout {
+            spacing: Theme.spacing * 2;
+
+            private property inner-playing-index <=> Store.video-editor-transcribe.playing-index;
+            private property <bool> show-playing-separator: Store.video-editor-transcribe-audio-player-is-playing && index * 2 + 1 == current-transcribe.playing-index;
+
+            changed inner-playing-index => {
+                if (index * 2 == inner-playing-index) {
+                    current-playing-index-pos-y = self.y;
+                    current-playing-index-preferred-height = self.preferred-height;
+                }
+            }
+
+            SubtitleListItem {
+                index: index;
+                entry: entry;
+                width: root.width;
+            }
+
+            if show-playing-separator: Rectangle {
+                width: root.width;
+                height: Theme.padding;
+                border-radius: self.height / 2;
+                background: Theme.thirdly-brand-color;
+                opacity: Util.progress-value(2s);
+            }
+        }
+    }
+}
+
+export component Subtitles inherits Rectangle {
+    private property current-transcribe <=> Store.video-editor-transcribe;
+    private property <bool> is-transcribing: current-transcribe.progress-type == TranscribeProgressType.Transcribe;
+    private property <bool> is-show-no-message: current-transcribe.subtitles.length == 0 && !root.is-transcribing;
+
+    callback show-setting-dialog();
+
+    background: Theme.secondary-background;
+    border-radius: Theme.border-radius;
+
+    if !is-show-no-message: VerticalLayout {
+        padding: Theme.padding * 2;
+
+        SubtitleListView { }
+    }
+
+    if is-show-no-message: StartTranscribeField { }
+}

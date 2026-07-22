@@ -20,6 +20,5 @@ serde = { workspace = true, features = ["serde_derive"] }
 reqwest = { workspace = true, features = ["json", "stream"] }
 
 [dev-dependencies]
-anyhow.workspace = true
 env_logger.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

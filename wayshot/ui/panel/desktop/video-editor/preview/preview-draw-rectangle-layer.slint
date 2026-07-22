@@ -1,0 +1,291 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoPreviewSize,
+    VideoEditorLayerImage,
+    DrawRectangleDetail,
+} from "../../../def.slint";
+import { VEFilter, FilterType } from "../filter.slint";
+import { IconBtn, Divider, Label } from "../../../../base/widgets.slint";
+import { MoveHandle } from "move-handle.slint";
+
+export component PreviewDrawRectangleLayer inherits Rectangle {
+    in-out property <[VideoEditorLayerImage]> layers;
+    private property <float> width-hight-rate: self.width / self.height;
+    private property <FilterType> selected-filter-type <=> VEFilter.selected-filter.ty;
+
+    for index in layers.length: rec := Rectangle {
+        x: 0;
+        y: 0;
+
+        private property <VideoEditorLayerImage> layer: layers[layers.length - 1 - index];
+        private property <bool> is-edited-track: Store.video-editor-current-edited-track-index == layer.track-index;
+        private property <bool> has-keyframes: Logic.video-editor-segment-has-keyframes(layer.track-index, layer.segment-index);
+        private property <DrawRectangleDetail> config: is-edited-track && has-keyframes ? VEFilter.from-draw-rectangle-json(VEFilter.selected-filter.detail) : layer.draw-rectangle;
+        private property <bool> is-previewing: Store.video-editor-is-previewing;
+
+        changed is-previewing => {
+            if (is-edited-track && !is-previewing && has-keyframes) {
+                VEFilter.modify-draw-rectangle-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+            }
+        }
+
+        container-rec := Rectangle {
+            width: img.width;
+            height: img.height;
+
+            img := Image {
+                private property <length> parent-width: rec.width;
+                private property <length> parent-height: rec.height;
+                private property <float> width-hight-rate: self.source.width / self.source.height;
+
+                changed parent-width => {
+                    self.update-size();
+                }
+
+                changed parent-height => {
+                    self.update-size();
+                }
+
+                function update-size() {
+                    if (root.width-hight-rate > self.width-hight-rate) {
+                        self.height = root.height;
+                        self.width = self.height * self.width-hight-rate;
+                    } else {
+                        self.width = root.width;
+                        self.height = self.width / self.width-hight-rate;
+                    }
+                }
+
+                init => {
+                    self.update-size();
+                }
+
+                source: layer.original-image;
+                image-fit: ImageFit.contain;
+            }
+
+            if is-edited-track: Rectangle {
+                width: img.width;
+                height: img.height;
+
+                private property <length> min-rect-size: Theme.icon-size;
+
+                // Display values for positioning handles (relative to img)
+                private property <length> display-x: config.x * img.width;
+                private property <length> display-y: config.y * img.height;
+                private property <length> display-width: max(min-rect-size, config.width * img.width);
+                private property <length> display-height: max(min-rect-size, config.height * img.height);
+                private property <length> display-right: display-x + display-width;
+                private property <length> display-bottom: display-y + display-height;
+
+                // Store original config values when drag starts
+                private property <float> orig-x;
+                private property <float> orig-y;
+                private property <float> orig-width;
+                private property <float> orig-height;
+
+                // Store initial mouse position when drag starts for handles
+                private property <length> handle-pressed-x;
+                private property <length> handle-pressed-y;
+
+                rectangle-rec := Rectangle {
+                    x: display-x;
+                    y: display-y;
+                    width: display-width;
+                    height: display-height;
+                    border-radius: VEFilter.scale-pixel-for-resolution(config.corner-radius, img.height / 1px) * 1px;
+                    border-width: VEFilter.scale-pixel-for-resolution(config.border-width, img.height / 1px) * 1px;
+                    border-color: rgba(config.border-color-r, config.border-color-g, config.border-color-b, config.border-color-a / 255.0);
+                    background: rgba(config.fill-color-r, config.fill-color-g, config.fill-color-b, config.fill-color-a / 255.0);
+
+                    TouchArea {
+                        private property <bool> can-move;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left) {
+                                if (event.kind == PointerEventKind.down) {
+                                    can-move = true
+                                } else if (event.kind == PointerEventKind.up) {
+                                    can-move = false;
+                                    VEFilter.modify-draw-rectangle-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                                }
+                            }
+                        }
+
+                        moved => {
+                            if (!can-move) {
+                                return;
+                            }
+                            let norm-x = (self.mouse-x - self.pressed-x) / img.width;
+                            let norm-y = (self.mouse-y - self.pressed-y) / img.height;
+                            config.x = clamp(config.x + norm-x, 0, 1 - config.width);
+                            config.y = clamp(config.y + norm-y, 0, 1 - config.height);
+                        }
+                    }
+                }
+
+                top-left-handle := MoveHandle {
+                    x: display-x - self.width / 2;
+                    y: display-y - self.height / 2;
+                    index: 1;
+
+                    pressed-changed => {
+                        orig-x = config.x;
+                        orig-y = config.y;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 1, orig-x, orig-y, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-draw-rectangle-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+
+                // Top-right handle (corner 2) - positioned relative to img
+                top-right-handle := MoveHandle {
+                    x: display-right - self.width / 2;
+                    y: display-y - self.height / 2;
+                    index: 2;
+
+                    pressed-changed => {
+                        orig-x = config.x;
+                        orig-y = config.y;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 2, orig-x, orig-y, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-draw-rectangle-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+
+                // Bottom-right handle (corner 3) - positioned relative to img
+                bottom-right-handle := MoveHandle {
+                    x: display-right - self.width / 2;
+                    y: display-bottom - self.height / 2;
+                    index: 3;
+
+                    pressed-changed => {
+                        orig-x = config.x;
+                        orig-y = config.y;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 3, orig-x, orig-y, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-draw-rectangle-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+
+                // Bottom-left handle (corner 4) - positioned relative to img
+                bottom-left-handle := MoveHandle {
+                    x: display-x - self.width / 2;
+                    y: display-bottom - self.height / 2;
+                    index: 4;
+
+                    pressed-changed => {
+                        orig-x = config.x;
+                        orig-y = config.y;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 4, orig-x, orig-y, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-draw-rectangle-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+
+                function apply-resize(diff-x: length, diff-y: length, corner: int, orig-x-param: float, orig-y-param: float, orig-width-param: float, orig-height-param: float) {
+                    // Normalize delta to relative values based on display size
+                    let norm-x = diff-x / img.width;
+                    let norm-y = diff-y / img.height;
+                    let min-width-norm = min-rect-size / img.width;
+                    let min-height-norm = min-rect-size / img.height;
+
+                    // corner 1: top-left, 2: top-right, 3: bottom-right, 4: bottom-left
+                    if (corner == 1) { // top-left
+                        let new-x = orig-x-param + norm-x;
+                        let new-y = orig-y-param + norm-y;
+                        let new-width = orig-width-param - norm-x;
+                        let new-height = orig-height-param - norm-y;
+                        if (new-x >= 0 && new-width >= min-width-norm) {
+                            config.x = new-x;
+                            config.width = new-width;
+                        }
+                        if (new-y >= 0 && new-height >= min-height-norm) {
+                            config.y = new-y;
+                            config.height = new-height;
+                        }
+                    } else if (corner == 2) { // top-right
+                        let new-width = orig-width-param + norm-x;
+                        let new-y = orig-y-param + norm-y;
+                        let new-height = orig-height-param - norm-y;
+                        if (orig-x-param + new-width <= 1.0 && new-width >= min-width-norm) {
+                            config.width = new-width;
+                        }
+                        if (new-y >= 0 && new-height >= min-height-norm) {
+                            config.y = new-y;
+                            config.height = new-height;
+                        }
+                    } else if (corner == 3) { // bottom-right
+                        let new-width = orig-width-param + norm-x;
+                        let new-height = orig-height-param + norm-y;
+                        if (orig-x-param + new-width <= 1.0 && new-width >= min-width-norm) {
+                            config.width = new-width;
+                        }
+                        if (orig-y-param + new-height <= 1.0 && new-height >= min-height-norm) {
+                            config.height = new-height;
+                        }
+                    } else if (corner == 4) { // bottom-left
+                        let new-x = orig-x-param + norm-x;
+                        let new-width = orig-width-param - norm-x;
+                        let new-height = orig-height-param + norm-y;
+                        if (new-x >= 0 && new-width >= min-width-norm) {
+                            config.x = new-x;
+                            config.width = new-width;
+                        }
+                        if (orig-y-param + new-height <= 1.0 && new-height >= min-height-norm) {
+                            config.height = new-height;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

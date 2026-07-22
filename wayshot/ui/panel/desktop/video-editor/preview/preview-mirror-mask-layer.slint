@@ -1,0 +1,398 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoPreviewSize,
+    VideoEditorLayerImage,
+    MirrorMaskDetail,
+} from "../../../def.slint";
+import { VEFilter, FilterType } from "../filter.slint";
+import { IconBtn, Divider, Label } from "../../../../base/widgets.slint";
+import { MoveHandle } from "move-handle.slint";
+
+export component PreviewMirrorMaskLayer inherits Rectangle {
+    in-out property <[VideoEditorLayerImage]> layers;
+    private property <float> width-hight-rate: self.width / self.height;
+    private property <FilterType> selected-filter-type <=> VEFilter.selected-filter.ty;
+
+    for index in layers.length: rec := Rectangle {
+        x: 0;
+        y: 0;
+
+        private property <VideoEditorLayerImage> layer: layers[layers.length - 1 - index];
+        private property <bool> is-edited-track: Store.video-editor-current-edited-track-index == layer.track-index;
+        private property <bool> has-keyframes: Logic.video-editor-segment-has-keyframes(layer.track-index, layer.segment-index);
+        private property <MirrorMaskDetail> config: is-edited-track && has-keyframes ? VEFilter.from-mirror-mask-json(VEFilter.selected-filter.detail) : layer.mirror-mask;
+        private property <bool> is-previewing: Store.video-editor-is-previewing;
+
+        changed is-previewing => {
+            if (is-edited-track && !is-previewing && has-keyframes) {
+                VEFilter.modify-mirror-mask-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+            }
+        }
+
+        container-rec := Rectangle {
+            width: img.width;
+            height: img.height;
+
+            img := Image {
+                private property <length> parent-width: rec.width;
+                private property <length> parent-height: rec.height;
+                private property <float> width-hight-rate: self.source.width / self.source.height;
+
+                changed parent-width => {
+                    self.update-size();
+                }
+
+                changed parent-height => {
+                    self.update-size();
+                }
+
+                function update-size() {
+                    if (root.width-hight-rate > self.width-hight-rate) {
+                        self.height = root.height;
+                        self.width = self.height * self.width-hight-rate;
+                    } else {
+                        self.width = root.width;
+                        self.height = self.width / self.width-hight-rate;
+                    }
+                }
+
+                // Apply resize for the mirror mask band (center-based width only)
+                // handle: 1=left-edge, 2=right-edge
+                function apply-resize(screen-diff-x: length, screen-diff-y: length, handle: int, orig-cx: float, orig-cy: float, orig-w: float) {
+                    let min-size-norm = Theme.icon-size / self.width;
+
+                    // Work in pixel space for rotation to maintain correct aspect ratio
+                    let diff-px-x = screen-diff-x / 1px;
+                    let diff-px-y = screen-diff-y / 1px;
+
+                    // Rotate screen pixel delta into the band's local coordinate system
+                    let rotation-deg = config.rotation;
+                    let cos-val = cos(1deg * rotation-deg);
+                    let sin-val = sin(1deg * rotation-deg);
+                    let local-px-x = diff-px-x * cos-val + diff-px-y * sin-val;
+
+                    // Convert local pixel delta to normalized value (by width)
+                    let local-x = local-px-x / (self.width / 1px);
+
+                    if (handle == 1) { // left edge
+                        let new-w = orig-w - local-x;
+                        if (new-w >= min-size-norm) {
+                            config.width = new-w;
+                            config.center-x = orig-cx + local-x / 2;
+                        }
+                    } else if (handle == 2) { // right edge
+                        let new-w = orig-w + local-x;
+                        if (new-w >= min-size-norm) {
+                            config.width = new-w;
+                            config.center-x = orig-cx + local-x / 2;
+                        }
+                    }
+
+                    // Enforce boundary constraints
+                    config.width = clamp(config.width, min-size-norm, 1.0);
+                    config.center-x = clamp(config.center-x, 0.0, 1.0);
+                }
+
+                init => {
+                    self.update-size();
+                }
+
+                source: layer.original-image;
+                image-fit: ImageFit.contain;
+            }
+
+            if is-edited-track: Rectangle {
+                width: img.width;
+                height: img.height;
+
+                // Precompute rotation values
+                private property <float> sin-val: sin(1deg * config.rotation);
+                private property <float> cos-val: cos(1deg * config.rotation);
+
+                // Band center in pixels
+                private property <float> cx-px: config.center-x * img.width / 1px;
+                private property <float> cy-px: config.center-y * img.height / 1px;
+
+                // Half width in pixels
+                private property <float> half-w-px: config.width * img.width / 1px / 2;
+
+                // Left edge midpoint of the band (in screen pixels)
+                // Left edge in local frame: (-half_w, 0) relative to center
+                // After rotation: rotate (-half_w, 0) → (-half_w*cos, -half_w*sin)
+                private property <float> left-edge-x: cx-px + (-half-w-px) * cos-val;
+                private property <float> left-edge-y: cy-px + (-half-w-px) * sin-val;
+
+                // Right edge midpoint of the band (in screen pixels)
+                // Right edge in local frame: (half_w, 0) relative to center
+                private property <float> right-edge-x: cx-px + half-w-px * cos-val;
+                private property <float> right-edge-y: cy-px + half-w-px * sin-val;
+
+                // Store original values when drag starts
+                private property <float> orig-cx;
+                private property <float> orig-cy;
+                private property <float> orig-w;
+
+                // Store initial mouse position when drag starts for handles
+                private property <length> handle-pressed-x;
+                private property <length> handle-pressed-y;
+
+                // Move by dragging inside the band area
+                TouchArea {
+                    width: img.width;
+                    height: img.height;
+                    mouse-cursor: self.pressed ? grabbing : grab;
+
+                    private property <float> move-orig-cx;
+                    private property <float> move-orig-cy;
+
+                    pointer-event(event) => {
+                        if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                            move-orig-cx = config.center-x;
+                            move-orig-cy = config.center-y;
+                        }
+                    }
+
+                    moved => {
+                        let norm-x = (self.mouse-x - self.pressed-x) / img.width;
+                        let norm-y = (self.mouse-y - self.pressed-y) / img.height;
+
+                        let new-cx = move-orig-cx + norm-x;
+                        let new-cy = move-orig-cy + norm-y;
+
+                        config.center-x = clamp(new-cx, 0.0, 1.0);
+                        config.center-y = clamp(new-cy, 0.0, 1.0);
+                    }
+
+                    changed pressed => {
+                        if (!self.pressed) {
+                            VEFilter.modify-mirror-mask-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                        }
+                    }
+                }
+
+                // Clipped container for lines only
+                Rectangle {
+                    clip: true;
+                    width: img.width;
+                    height: img.height;
+
+                    private property <float> diagonal-3x: 3 * sqrt(img.width / 1px * (img.width / 1px) + img.height / 1px * (img.height / 1px));
+
+                    // Left line: positioned at left edge of band, rotated around band center
+                    left-line := Rectangle {
+                        x: (config.center-x - config.width / 2) * img.width;
+                        y: config.center-y * img.height - parent.diagonal-3x * 1px / 2;
+                        width: 2px;
+                        height: parent.diagonal-3x * 1px;
+                        background: white;
+
+                        transform-origin: { x: config.center-x * img.width - self.x, y: config.center-y * img.height - self.y };
+                        transform-rotation: 1deg * config.rotation;
+                    }
+
+                    // Right line
+                    right-line := Rectangle {
+                        x: (config.center-x + config.width / 2) * img.width;
+                        y: config.center-y * img.height - parent.diagonal-3x * 1px / 2;
+                        width: 2px;
+                        height: parent.diagonal-3x * 1px;
+                        background: white;
+
+                        transform-origin: { x: config.center-x * img.width - self.x, y: config.center-y * img.height - self.y };
+                        transform-rotation: 1deg * config.rotation;
+                    }
+                }
+
+                // --- Edge handles ---
+                // Left edge handle
+                left-edge-handle := Rectangle {
+                    x: parent.left-edge-x * 1px - self.width / 2;
+                    y: parent.left-edge-y * 1px - self.height / 2;
+                    width: Theme.icon-size * 0.7;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    background: white;
+                    border-width: 1px;
+                    border-color: Theme.thirdly-brand-color;
+
+                    TouchArea {
+                        mouse-cursor: ew-resize;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                                orig-cx = config.center-x;
+                                orig-cy = config.center-y;
+                                orig-w = config.width;
+                                handle-pressed-x = parent.x + self.mouse-x;
+                                handle-pressed-y = parent.y + self.mouse-y;
+                            }
+                        }
+
+                        moved => {
+                            if (self.pressed) {
+                                let diff-x = (parent.x + self.mouse-x) - handle-pressed-x;
+                                let diff-y = (parent.y + self.mouse-y) - handle-pressed-y;
+                                img.apply-resize(diff-x, diff-y, 1, orig-cx, orig-cy, orig-w);
+                            }
+                        }
+
+                        changed pressed => {
+                            if (!self.pressed) {
+                                VEFilter.modify-mirror-mask-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                            }
+                        }
+                    }
+                }
+
+                // Right edge handle
+                right-edge-handle := Rectangle {
+                    x: parent.right-edge-x * 1px - self.width / 2;
+                    y: parent.right-edge-y * 1px - self.height / 2;
+                    width: Theme.icon-size * 0.7;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    background: white;
+                    border-width: 1px;
+                    border-color: Theme.thirdly-brand-color;
+
+                    TouchArea {
+                        mouse-cursor: ew-resize;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                                orig-cx = config.center-x;
+                                orig-cy = config.center-y;
+                                orig-w = config.width;
+                                handle-pressed-x = parent.x + self.mouse-x;
+                                handle-pressed-y = parent.y + self.mouse-y;
+                            }
+                        }
+
+                        moved => {
+                            if (self.pressed) {
+                                let diff-x = (parent.x + self.mouse-x) - handle-pressed-x;
+                                let diff-y = (parent.y + self.mouse-y) - handle-pressed-y;
+                                img.apply-resize(diff-x, diff-y, 2, orig-cx, orig-cy, orig-w);
+                            }
+                        }
+
+                        changed pressed => {
+                            if (!self.pressed) {
+                                VEFilter.modify-mirror-mask-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                            }
+                        }
+                    }
+                }
+
+                // Line from center to rotation handle
+                Rectangle {
+                    clip: true;
+
+                    line-rec := Rectangle {
+                        x: (center-handle.x + center-handle.width / 2);
+                        y: (center-handle.y + center-handle.height / 2);
+                        width: 2px;
+                        height: sqrt((rotation-handle.x + rotation-handle.width / 2 - center-handle.x - center-handle.width / 2) / 1px * ((rotation-handle.x + rotation-handle.width / 2 - center-handle.x - center-handle.width / 2) / 1px) + (rotation-handle.y + rotation-handle.height / 2 - center-handle.y - center-handle.height / 2) / 1px * ((rotation-handle.y + rotation-handle.height / 2 - center-handle.y - center-handle.height / 2) / 1px)) * 1px;
+                        background: white;
+                        transform-origin: { x: 0px, y: 0px };
+                        transform-rotation: 1deg * (-atan2((rotation-handle.x + rotation-handle.width / 2 - center-handle.x - center-handle.width / 2) / 1px, (rotation-handle.y + rotation-handle.height / 2 - center-handle.y - center-handle.height / 2) / 1px) / 1deg);
+                    }
+                }
+
+                // Center handle
+                center-handle := Rectangle {
+                    x: config.center-x * parent.width - self.width / 2;
+                    y: config.center-y * parent.height - self.height / 2;
+                    width: Theme.default-font-size;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    background: white;
+
+                    TouchArea {
+                        private property <bool> can-move;
+                        mouse-cursor: move;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left) {
+                                if (event.kind == PointerEventKind.down) {
+                                    can-move = true;
+                                } else if (event.kind == PointerEventKind.up) {
+                                    can-move = false;
+                                    VEFilter.modify-mirror-mask-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                                }
+                            }
+                        }
+
+                        moved => {
+                            if (!can-move) {
+                                return;
+                            }
+                            let x = clamp(parent.x + self.mouse-x - self.pressed-x, 0, img.width - parent.width);
+                            let y = clamp(parent.y + self.mouse-y - self.pressed-y, 0, img.height - parent.height);
+                            config.center-x = clamp((x + parent.width / 2) / img.width, 0.0, 1.0);
+                            config.center-y = clamp((y + parent.height / 2) / img.height, 0.0, 1.0);
+                        }
+                    }
+                }
+
+                // Rotation handle
+                rotation-handle := Rectangle {
+                    private property <float> handle-distance: Theme.icon-size / 1px * 3;
+                    x: config.center-x * parent.width - self.handle-distance * sin-val * 1px - self.width / 2;
+                    y: config.center-y * parent.height + self.handle-distance * cos-val * 1px - self.height / 2;
+                    width: Theme.icon-size * 1.5;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    background: white;
+
+                    Image {
+                        source: Icons.rotation-fill;
+                        width: Theme.icon-size;
+                        height: self.width;
+                        image-fit: contain;
+                        colorize: Theme.danger-color;
+                    }
+
+                    TouchArea {
+                        private property <bool> can-rotate;
+                        private property <float> start-angle;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left) {
+                                if (event.kind == PointerEventKind.down) {
+                                    can-rotate = true;
+                                    let cx = config.center-x * img.width / 1px;
+                                    let cy = config.center-y * img.height / 1px;
+                                    let mx = (parent.x + self.mouse-x + parent.width / 2) / 1px;
+                                    let my = (parent.y + self.mouse-y + parent.height / 2) / 1px;
+                                    start-angle = atan2(my - cy, mx - cx) / 1deg;
+                                } else if (event.kind == PointerEventKind.up) {
+                                    can-rotate = false;
+                                    VEFilter.modify-mirror-mask-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                                }
+                            }
+                        }
+
+                        moved => {
+                            if (!can-rotate) {
+                                return;
+                            }
+                            let cx = config.center-x * img.width / 1px;
+                            let cy = config.center-y * img.height / 1px;
+                            let mx = (parent.x + self.mouse-x + parent.width / 2) / 1px;
+                            let my = (parent.y + self.mouse-y + parent.height / 2) / 1px;
+                            let current-angle = atan2(my - cy, mx - cx) / 1deg;
+                            let delta = current-angle - start-angle;
+                            start-angle = current-angle;
+                            config.rotation = Math.mod(config.rotation + delta, 360.0);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

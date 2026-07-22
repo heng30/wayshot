@@ -1,0 +1,28 @@
+[package]
+name = "imagedl-rs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "A Rust library for searching and downloading images from multiple sources"
+
+[dependencies]
+log.workspace = true
+url.workspace = true
+tokio.workspace = true
+regex.workspace = true
+bytes.workspace = true
+infer.workspace = true
+serde.workspace = true
+chrono.workspace = true
+futures.workspace = true
+scraper.workspace = true
+reqwest.workspace = true
+thiserror.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+urlencoding.workspace = true
+html-escape.workspace = true
+
+[dev-dependencies]
+clap.workspace = true
+tokio = { workspace = true, features = ["full", "test-util"] }

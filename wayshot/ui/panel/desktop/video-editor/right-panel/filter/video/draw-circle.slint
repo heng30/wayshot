@@ -1,0 +1,321 @@
+import {
+    Theme,
+    Logic,
+    Store,
+    Icons,
+    Util,
+} from "../../../../../def.slint";
+import {
+    Label,
+    CheckBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    FilterType,
+    DrawCircleDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component DrawCircle inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <DrawCircleDetail> config: VEFilter.from-draw-circle-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: DrawCircleDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "draw circle") {
+            self.config = VEFilter.from-draw-circle-json(selected-filter.detail);
+            radius-li.text = config.radius;
+            border-width-li.text = config.border-width;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                enabled: selected-filter.enabled;
+                text: Logic.tr("Position");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+                alignment: space-between;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+
+                    width-li := LineInput {
+                        read-only: true;
+                        enabled: selected-filter.enabled;
+                        input-type: InputType.decimal;
+                        text: config.center-x.to-fixed(2);
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+                    }
+
+                    Label {
+                        enabled: selected-filter.enabled;
+                        text: "X";
+                    }
+
+                    height-li := LineInput {
+                        read-only: true;
+                        enabled: selected-filter.enabled;
+                        input-type: InputType.decimal;
+                        text: config.center-y.to-fixed(2);
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "center", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "center", VEFilter.make-float2-value(config.center-x, config.center-y));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                enabled: selected-filter.enabled;
+                text: Logic.tr("Radius");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                radius-li := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.number;
+                    text: config.radius;
+                    border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    accepted => {
+                        config.radius = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "radius", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "radius", VEFilter.make-float-value(config.radius));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                enabled: selected-filter.enabled;
+                text: Logic.tr("Border Width");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                border-width-li := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.number;
+                    text: config.border-width;
+                    border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    accepted => {
+                        config.border-width = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "border_width", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "border_width", VEFilter.make-float-value(config.border-width));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+            private property <int> color-picker-id;
+
+            changed color-picker-confirmed-flag => {
+                if (color-picker-id != Store.video-editor-color-picker-id) {
+                    return;
+                }
+                let c = Store.video-editor-color-picker-color;
+                config.border-color-r = c.red;
+                config.border-color-g = c.green;
+                config.border-color-b = c.blue;
+                config.border-color-a = c.alpha;
+                apply(index, config);
+            }
+
+            SettingDetailLabel {
+                enabled: selected-filter.enabled;
+                text: Logic.tr("Border Color");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                LineInput {
+                    enabled: selected-filter.enabled;
+                    read-only: true;
+                    is-show-icon: true;
+                    text: Util.color-picker-str(config.border-color-r, config.border-color-g, config.border-color-b, config.border-color-a);
+                    is-show-color-block: true;
+                    color-block-color: Util.color-picker-hex-color(self.text);
+                    icon: Icons.color-picker-light;
+                    border-color: Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    clicked => {
+                        Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                        color-picker-id = Store.video-editor-color-picker-id;
+                        Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                        Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "border_color", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "border_color", VEFilter.make-color-value(config.border-color-r, config.border-color-g, config.border-color-b, config.border-color-a));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                enabled: selected-filter.enabled;
+                text: Logic.tr("Fill Color");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                SettingDetailInnerVbox {
+                    private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+                    private property <int> color-picker-id;
+
+                    changed color-picker-confirmed-flag => {
+                        if (color-picker-id != Store.video-editor-color-picker-id) {
+                            return;
+                        }
+                        let c = Store.video-editor-color-picker-color;
+                        config.fill-color-r = c.red;
+                        config.fill-color-g = c.green;
+                        config.fill-color-b = c.blue;
+                        config.fill-color-a = c.alpha;
+                        apply(index, config);
+                    }
+
+                    LineInput {
+                        enabled: selected-filter.enabled;
+                        read-only: true;
+                        is-show-icon: true;
+                        text: Util.color-picker-str(config.fill-color-r, config.fill-color-g, config.fill-color-b, config.fill-color-a);
+                        is-show-color-block: true;
+                        color-block-color: Util.color-picker-hex-color(self.text);
+                        icon: Icons.color-picker-light;
+                        border-color: Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        clicked => {
+                            Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                            color-picker-id = Store.video-editor-color-picker-id;
+                            Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                            Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "fill_color", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "fill_color", VEFilter.make-color-value(config.fill-color-r, config.fill-color-g, config.fill-color-b, config.fill-color-a));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

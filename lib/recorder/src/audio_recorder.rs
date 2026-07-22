@@ -1,20 +1,18 @@
-use crate::{RealTimeDenoise, apply_gain, calc_rms_level, denoise_model};
+use crate::RealTimeDenoise;
+use audio_utils::audio_level::{apply_gain, calc_rms_level};
 use cpal::{
     Device, Host, InputCallbackInfo, SampleFormat, Stream, StreamConfig,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use crossbeam::channel::Sender;
+use denoise::DENOISE_MODEL;
 use derive_setters::Setters;
 use hound::WavSpec;
-use nnnoiseless::RnnModel;
-use once_cell::sync::Lazy;
 use std::sync::{
     Arc,
     atomic::{AtomicI32, Ordering},
 };
 use thiserror::Error;
-
-static DENOISE_MODEL: Lazy<RnnModel> = Lazy::new(|| denoise_model());
 
 #[derive(Debug, Error)]
 pub enum AudioRecorderError {
@@ -168,7 +166,7 @@ impl AudioRecorder {
 
         let stream = physical_device
             .build_input_stream(
-                &stream_config,
+                stream_config,
                 callback,
                 |err| eprintln!("Audio stream error: {}", err),
                 None,

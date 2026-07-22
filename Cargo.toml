@@ -1,18 +1,29 @@
 [workspace]
 resolver = "3"
-exclude = ["lib/gpt-sovits"]
+default-members = ["wayshot"]
+exclude = ["lib/lfm-vl-candle"]
 members = ["wayshot", "wayshot-cursor", "tr-helper", "icon-helper", "lib/*"]
 
 [workspace.package]
-license = "MIT"
 edition = "2024"
 version = "0.1.0"
 readme = "README.md"
+license = "Apache-2.0 or GPLv3"
 authors = ["Heng30 <rongheng30@gmail.com>"]
-keywords = ["Rust", "GUI", "Wayland", "Linux", "wlr"]
+keywords = [
+  "Rust",
+  "GUI",
+  "Wayland",
+  "Linux",
+  "wlr",
+  "LLM",
+  "share screen",
+  "video editor",
+  "push stream",
+]
 homepage = "https://github.com/Heng30/wayshot"
 repository = "https://github.com/Heng30/wayshot"
-description = "It's a screen recorder."
+description = "It's a screen recorder, video editor, share screen tool and push stream tool."
 
 [profile.dev]
 lto = false
@@ -31,134 +42,336 @@ codegen-units = 1
 incremental = true
 
 [workspace.dependencies]
-cbc = "0.1"
-tar = "0.4"
-log = "0.4"
-hex = "0.4"
-aes = "0.8"
-syn = "2.0"
-sqlx = "0.8"
-rand = "0.9"
-clap = "4.5"
-toml = "0.9"
-duct = "1.1"
-uuid = "1.19"
-serde = "1.0"
-quote = "1.0"
-paste = "1.0"
-bytes = "1.11"
-tokio = "1.49"
-regex = "1.12"
-rayon = "1.11"
-slint = "1.14"
-flate2 = "1.1"
-anyhow = "1.0"
-chrono = "0.4"
-reqwest = "0.13"
-tempfile = "3.24"
-stacksafe = "1.0"
-getrandom = "0.3"
-once_cell = "1.21"
-serde_json = "1.0"
-webbrowser = "1.0"
-serde_with = "3.16"
-env_logger = "0.11"
-proc-macro2 = "1.0"
-slint-build = "1.14"
-wasm-bindgen = "0.2"
-display-info = "0.5"
-native-dialog = "0.9"
-derive_setters = "0.1"
-embed-resource = "3.0"
-android_logger = "0.15"
-android_clipboard = "0.1"
-
-# maybe outdated
-qrcode = "0.14"
-walkdir = "2.5"
-clipboard = "0.5"
-derivative = "2.2"
-console_log = "1.0"
-crypto-hash = "0.3"
-platform-dirs = "0.3"
-
-wio = "0.2"
-yuv = "0.8"
-mp4 = "0.14"
-nix = "0.31"
-opus = "0.3"
-pest = "2.8"
-x264 = "0.5"
-http = "1.4"
-rdev = "0.5"
-open = "5.3"
-cpal = "0.17"
-hound = "3.5"
-which = "8.0"
-ctrlc = "3.5"
-ashpd = "0.12"
-strum = "0.27"
-winapi = "0.3"
-fast2s = "0.3"
-webrtc = "0.14"
-nokhwa = "0.10"
-cfg-if = "1.0"
-fdk-aac = "0.8"
-futures = "0.3"
-memmap2 = "0.9"
-arpabet = "2.0"
-realfft = "3.5"
-ndarray = "0.17"
-windows = "0.62"
-jieba-rs = "0.8"
-pipewire = "0.9"
-num_enum = "0.7"
-openh264 = "0.9"
-rml_rtmp = "0.8"
-indexmap = "2.13"
-symphonia = "0.5"
-thiserror = "2.0"
-crossbeam = "0.8"
-byteorder = "1.5"
-photon-rs = "0.3"
-candle-nn = "0.9"
-imageproc = "0.26"
-tokio-util = "0.7"
-spin_sleep = "1.3"
-stunclient = "0.4"
-serde_yaml = "0.9"
-tokenizers = "0.22"
-nnnoiseless = "0.5"
-candle-core = "0.9"
-ffmpeg-next = "8.0"
-async-trait = "0.1"
-pest_derive = "2.8"
-async-stream = "0.3"
-tokio-stream = "0.1"
-async-openai = "0.32"
-strum_macros = "0.27"
-rustls-pemfile = "2.2"
-derive_builder = "0.20"
-wayland-client = "0.31"
-rustls-pki-types = "1.13"
-fast_image_resize = "6.0"
-wayland-protocols = "0.32"
-candle-transformers = "0.9"
-unicode-segmentation = "1.12"
-wayland-protocols-wlr = "0.3"
-rodio = { version = "0.21", default-features = false }
+cc = { version = "1.2", default-features = false }
+url = { version = "2.5", default-features = false }
+rgb = { version = "0.8", default-features = false }
+wio = { version = "0.2", default-features = false }
+yuv = { version = "0.8", default-features = false }
+cbc = { version = "0.2", default-features = false }
+tar = { version = "0.4", default-features = false }
+aes = { version = "0.9", default-features = false }
+mp4 = { version = "0.14", default-features = false }
+nix = { version = "0.31", default-features = false }
+lru = { version = "0.18", default-features = false }
+vte = { version = "0.15", default-features = false }
+opus = { version = "0.3", default-features = false }
+x264 = { version = "0.5", default-features = false }
+rdev = { version = "0.5", default-features = false }
+open = { version = "5.3", default-features = false }
+rmcp = { version = "2.0", default-features = false }
+half = { version = "2.7", default-features = false }
+duct = { version = "1.1", default-features = false }
+md-5 = { version = "0.11", default-features = false }
+cpal = { version = "0.18", default-features = false }
+hound = { version = "3.5", default-features = false }
+ctrlc = { version = "3.5", default-features = false }
+paste = { version = "1.0", default-features = false }
+kodama = { version = "0.3", default-features = false }
+infer = { version = "0.22", default-features = false }
+tokio = { version = "1.49", default-features = false }
+rayon = { version = "1.11", default-features = false }
+rodio = { version = "0.22", default-features = false }
+winapi = { version = "0.3", default-features = false }
+fast2s = { version = "0.3", default-features = false }
+cfg-if = { version = "1.0", default-features = false }
+rubato = { version = "4.0", default-features = false }
 rustls = { version = "0.23", default-features = false }
+nokhwa = { version = "0.10", default-features = false }
+webrtc = { version = "0.17", default-features = false }
+pinyin = { version = "0.11", default-features = false }
+base64 = { version = "0.22", default-features = false }
+fdk-aac = { version = "0.8", default-features = false }
+memmap2 = { version = "0.9", default-features = false }
+realfft = { version = "3.5", default-features = false }
+arboard = { version = "3.6", default-features = false }
+walkdir = { version = "2.5", default-features = false }
+windows = { version = "0.62", default-features = false }
+scraper = { version = "0.27", default-features = false }
+rml_rtmp = { version = "0.8", default-features = false }
+schemars = { version = "1.2", default-features = false }
+bytemuck = { version = "1.25", default-features = false }
+pipewire = { version = "0.10", default-features = false }
+tempfile = { version = "3.24", default-features = false }
+symphonia = { version = "0.6", default-features = false }
+photon-rs = { version = "0.3", default-features = false }
+voxcpm-rs = { version = "0.5", default-features = false }
+stacksafe = { version = "1.0", default-features = false }
+candle-nn = { version = "0.11", default-features = false }
+indicatif = { version = "0.18", default-features = false }
+serde_yaml = { version = "0.9", default-features = false }
+tokio-util = { version = "0.7", default-features = false }
+delaunator = { version = "1.1", default-features = false }
+spin_sleep = { version = "1.3", default-features = false }
+flac-codec = { version = "1.3", default-features = false }
+derivative = { version = "2.2", default-features = false }
+webbrowser = { version = "1.0", default-features = false }
+safetensors = { version = "0.8", default-features = false }
+deep_filter = { version = "0.2", default-features = false }
+nnnoiseless = { version = "0.5", default-features = false }
+pin-project = { version = "1.1", default-features = false }
+pitch_shift = { version = "2.1", default-features = false }
+async-trait = { version = "0.1", default-features = false }
+crypto-hash = { version = "0.3", default-features = false }
+html-escape = { version = "0.2", default-features = false }
+urlencoding = { version = "2.1", default-features = false }
+ndarray-npy = { version = "0.10", default-features = false }
+candle-core = { version = "0.11", default-features = false }
+egui_extras = { version = "0.35", default-features = false }
+display-info = { version = "0.5", default-features = false }
+cmudict-fast = { version = "0.8", default-features = false }
+portable-pty = { version = "0.9", default-features = false }
 tokio-rustls = { version = "0.26", default-features = false }
-chinese-number = { version = "0.7", default-features = false }
-image = { version = "0.25", default-features = false, features = ["png"] }
-ort = { version = "2.0.0-rc.11", default-features = false, features = [
+strum_macros = { version = "0.28", default-features = false }
+platform-dirs = { version = "0.3", default-features = false }
+native-dialog = { version = "0.9", default-features = false }
+derive_setters = { version = "0.1", default-features = false }
+embed-resource = { version = "3.0", default-features = false }
+chinese-number = { version = "0.8", default-features = false }
+wayland-client = { version = "0.31", default-features = false }
+mp3lame-encoder = { version = "0.2", default-features = false }
+crossbeam-channel = { version = "0.5", default-features = false }
+wayland-protocols = { version = "0.32", default-features = false }
+alacritty_terminal = { version = "0.26", default-features = false }
+candle-transformers = { version = "0.11", default-features = false }
+unicode-segmentation = { version = "1.12", default-features = false }
+wayland-protocols-wlr = { version = "0.3", default-features = false }
+
+hex = { version = "0.4", default-features = false, features = ["std"] }
+log = { version = "0.4", default-features = false, features = ["std"] }
+num = { version = "0.4", default-features = false, features = ["std"] }
+http = { version = "1.4", default-features = false, features = ["std"] }
+burn = { version = "0.21", default-features = false, features = ["std"] }
+rand = { version = "0.10", default-features = false, features = ["std"] }
+uuid = { version = "1.19", default-features = false, features = ["std"] }
+bytes = { version = "1.11", default-features = false, features = ["std"] }
+anyhow = { version = "1.0", default-features = false, features = ["std"] }
+strum = { version = "0.28", default-features = false, features = ["std"] }
+approx = { version = "0.5", default-features = false, features = ["std"] }
+ashpd = { version = "0.13", default-features = false, features = ["tokio"] }
+ndarray = { version = "0.17", default-features = false, features = ["std"] }
+num_enum = { version = "0.7", default-features = false, features = ["std"] }
+indexmap = { version = "2.13", default-features = false, features = ["std"] }
+thiserror = { version = "2.0", default-features = false, features = ["std"] }
+crossbeam = { version = "0.8", default-features = false, features = ["std"] }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+byteorder = { version = "1.5", default-features = false, features = ["std"] }
+qrcode = { version = "0.14", default-features = false, features = ["image"] }
+speakrs = { version = "0.5", default-features = false, features = ["online"] }
+num-traits = { version = "0.2", default-features = false, features = ["std"] }
+tiny-skia = { version = "0.12", default-features = false, features = ["std"] }
+once_cell = { version = "1.21", default-features = false, features = ["std"] }
+serde_json = { version = "1.0", default-features = false, features = ["std"] }
+which = { version = "8.0", default-features = false, features = ["real-sys"] }
+silero = { version = "0.6", default-features = false, features = ["bundled"] }
+hf-hub = { version = "1.0", default-features = false, features = ["blocking"] }
+openh264 = { version = "0.9", default-features = false, features = ["source"] }
+num-complex = { version = "0.4", default-features = false, features = ["std"] }
+quote = { version = "1.0", default-features = false, features = ["proc-macro"] }
+stunclient = { version = "0.4", default-features = false, features = ["async"] }
+tokenizers = { version = "0.23", default-features = false, features = ["onig"] }
+scenesdetect = { version = "0.1", default-features = false, features = ["std"] }
+
+syn = { version = "2.0", default-features = false, features = [
+  "derive",
+  "parsing",
+  "printing",
+  "proc-macro",
+  "clone-impls",
+] }
+toml = { version = "1.0", default-features = false, features = [
+  "std",
+  "display",
+] }
+sqlx = { version = "0.9", default-features = false, features = [
+  "json",
+  "macros",
+  "migrate",
+] }
+clap = { version = "4.5", default-features = false, features = [
+  "std",
+  "help",
+  "color",
+  "usage",
+  "derive",
+  "suggestions",
+  "error-context",
+] }
+axum = { version = "0.8", default-features = false, features = [
+  "json",
+  "http1",
+  "tokio",
+  "matched-path",
+  "original-uri",
+] }
+serde = { version = "1.0", default-features = false, features = [
+  "std",
+  "derive",
+] }
+webpx = { version = "0.4", default-features = false, features = [
+  "encode",
+  "animation",
+] }
+usvg = { version = "0.47", default-features = false, features = [
+  "text",
+  "system-fonts",
+  "memmap-fonts",
+] }
+resvg = { version = "0.47", default-features = false, features = [
+  "text",
+  "system-fonts",
+  "memmap-fonts",
+  "raster-images",
+] }
+image = { version = "0.25", default-features = false, features = [
+  "png",
+  "gif",
+  "bmp",
+  "ico",
+  "tga",
+  "pnm",
+  "hdr",
+  "qoi",
+  "jpeg",
+  "webp",
+  "tiff",
+] }
+slint = { version = "1.17", default-features = false, features = [
+  "compat-1-2",
+] }
+flate2 = { version = "1.1", default-features = false, features = [
+  "rust_backend",
+] }
+regex = { version = "1.12", default-features = false, features = [
+  "std",
+  "perf",
+  "unicode",
+] }
+chrono = { version = "0.4", default-features = false, features = [
+  "std",
+  "clock",
+  "serde",
+] }
+rustfft = { version = "6.4", default-features = false, features = [
+  "avx",
+  "sse",
+] }
+syntect = { version = "5.3", default-features = false, features = [
+  "html",
+  "default-themes",
+  "default-onig",
+  "default-syntaxes",
+] }
+futures = { version = "0.3", default-features = false, features = [
+  "std",
+  "async-await",
+] }
+bincode = { version = "2.0", default-features = false, features = [
+  "std",
+  "derive",
+] }
+voxudio = { version = "0.7", default-features = false, features = [
+  "knf",
+  "opus",
+  "sonic",
+  "device",
+] }
+eframe = { version = "0.35", default-features = false, features = [
+  "glow",
+  "x11",
+  "wayland",
+  "default_fonts",
+] }
+reqwest = { version = "0.13", default-features = false, features = [
+  "json",
+  "gzip",
+  "socks",
+  "brotli",
+  "stream",
+  "cookies",
+  "charset",
+  "default-tls",
+] }
+jieba-rs = { version = "0.10", default-features = false, features = [
+  "default-dict",
+] }
+vorbis_rs = { version = "0.5", default-features = false, features = [
+  "stream-serial-rng",
+] }
+imageproc = { version = "0.27", default-features = false, features = [
+  "text",
+  "rayon",
+] }
+minijinja = { version = "2.21", default-features = false, features = [
+  "debug",
+  "macros",
+  "serde",
+  "builtins",
+  "multi_template",
+  "deserialization",
+  "std_collections",
+] }
+ffmpeg-next = { version = "8.0", default-features = false, features = [
+  "codec",
+  "device",
+  "filter",
+  "format",
+  "software-scaling",
+  "software-resampling",
+] }
+env_logger = { version = "0.11", default-features = false, features = [
+  "auto-color",
+  "humantime",
+] }
+ttf-parser = { version = "0.25", default-features = false, features = [
+  "std",
+  "glyph-names",
+  "variable-fonts",
+  "opentype-layout",
+] }
+ort = { version = "2.0.0-rc.12", default-features = false, features = [
   "std",
   "cuda",
   "tls-rustls",
   "download-binaries",
 ] }
+burn-store = { version = "0.21", default-features = false, features = [
+  "std",
+  "pytorch",
+  "safetensors",
+] }
+slint-build = { version = "1.17", default-features = false, features = [
+  "default",
+] }
+cosmic-text = { version = "0.19", default-features = false, features = [
+  "std",
+  "swash",
+  "fontconfig",
+] }
+tokio-stream = { version = "0.1", default-features = false, features = [
+  "time",
+] }
+deconvolution = { version = "0.2", default-features = false, features = [
+  "rayon",
+] }
+rustls-pemfile = { version = "2.2", default-features = false, features = [
+  "std",
+] }
+derive_builder = { version = "0.20", default-features = false, features = [
+  "std",
+] }
+portable-atomic = { version = "1.13", default-features = false, features = [
+  "fallback",
+] }
+fast_image_resize = { version = "6.0", default-features = false, features = [
+  "std",
+] }
+tikv-jemallocator = { version = "0.7", default-features = false, features = [
+  "background_threads",
+  "unprefixed_malloc_on_supported_platforms",
+] }
 
 bot = { path = "lib/bot" }
+term = { path = "lib/term" }
 mp4m = { path = "lib/mp4m" }
 wrtc = { path = "lib/wrtc" }
 srtmp = { path = "lib/srtmp" }
@@ -166,21 +379,49 @@ cutil = { path = "lib/cutil" }
 sqldb = { path = "lib/sqldb" }
 pmacro = { path = "lib/pmacro" }
 camera = { path = "lib/camera" }
+cutout = { path = "lib/cutout" }
+denoise = { path = "lib/denoise" }
 bytesio = { path = "lib/bytesio" }
+turn-rs = { path = "lib/turn-rs" }
 recorder = { path = "lib/recorder" }
+live2d-rs = { path = "lib/live2d-rs" }
+mcp-server = { path = "lib/mcp-server" }
+draw-utils = { path = "lib/draw-utils" }
+screenshot = { path = "lib/screenshot" }
+imagedl-rs = { path = "lib/imagedl-rs" }
+musicdl-rs = { path = "lib/musicdl-rs" }
+code-image = { path = "lib/code-image" }
 downloader = { path = "lib/downloader" }
 mp4-player = { path = "lib/mp4-player" }
+musicgen-rs = { path = "lib/musicgen-rs" }
+screentshot = { path = "lib/screentshot" }
+dewatermark = { path = "lib/dewatermark" }
 audio-utils = { path = "lib/audio-utils" }
 video-utils = { path = "lib/video-utils" }
+lfm-vl-onnx = { path = "lib/lfm-vl-onnx" }
+clear-vision = { path = "lib/clear-vision" }
+record-audio = { path = "lib/record-audio" }
+video-editor = { path = "lib/video-editor" }
 tensor-utils = { path = "lib/tensor-utils" }
 fun-ast-nano = { path = "lib/fun-ast-nano" }
+bili-danmaku = { path = "lib/bili-danmaku" }
 image-effect = { path = "lib/image-effect" }
+stem-splitter = { path = "lib/stem-splitter" }
+deepfilter-rs = { path = "lib/deepfilter-rs" }
 video-encoder = { path = "lib/video-encoder" }
+paddle-ocr-rs = { path = "lib/paddle-ocr-rs" }
 screen-capture = { path = "lib/screen-capture" }
+image-animation = { path = "lib/image-animation" }
+subtitle-remover = { path = "lib/subtitle-remover" }
 background-remover = { path = "lib/background-remover" }
+background-animation = { path = "lib/background-animation" }
+similar-video-segment = { path = "lib/similar-video-segment" }
 screen-capture-windows = { path = "lib/screen-capture-windows" }
 screen-capture-wayland-wlr = { path = "lib/screen-capture-wayland-wlr" }
 screen-capture-wayland-portal = { path = "lib/screen-capture-wayland-portal" }
 
 [patch.crates-io]
-esaxx-rs = { path = "lib/esaxx-rs" }
+speakrs = { path = "vendor/speakrs" }
+esaxx-rs = { path = "vendor/esaxx-rs" }
+voxcpm-rs = { path = "vendor/voxcpm-rs" }
+deep_filter = { path = "vendor/deep_filter" }

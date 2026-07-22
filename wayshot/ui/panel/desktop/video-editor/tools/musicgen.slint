@@ -1,0 +1,364 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    DownloaderState,
+    VideoEditorMusicGenConfig,
+    MusicGenModel,
+    Util,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    LineInput,
+    IconBtn,
+    TextBtnWithoutIcon,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ProgressBar,
+    NoDataImg,
+    Select,
+    SimpleAudioControl,
+    TxtEdit,
+} from "../../../../base/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+
+component LeftHeader inherits HorizontalLayout {
+    spacing: Theme.spacing * 8;
+    alignment: is-generating ? stretch : end;
+
+    private property <bool> is-generating: Store.video-editor-musicgen-is-generating;
+    private property <bool> has-prompt: !Store.video-editor-musicgen-config.prompt.is-empty;
+
+    if is-generating: HorizontalLayout {
+        spacing: Theme.spacing * 4;
+
+        VerticalLayout {
+            alignment: center;
+
+            ProgressBar {
+                height: Theme.icon-size;
+                progress: Store.video-editor-musicgen-progress;
+            }
+        }
+
+        ElevatedBtn {
+            icon: Icons.stop-light;
+            colorize: Theme.danger-color;
+            gain-focus-when-clicked: false;
+
+            clicked => {
+                Logic.video-editor-musicgen-cancel();
+            }
+        }
+    }
+
+    rec := Rectangle {
+        width: hbox.preferred-width;
+        height: hbox.preferred-height;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    enabled: !is-generating;
+                    is-show-tip: true;
+                    tip: Logic.tr("Generate prompt from subtitles");
+                    icon: Icons.ai-robot-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-musicgen-generate-prompt();
+                    }
+                }
+
+                IconBtn {
+                    enabled: !is-generating && has-prompt;
+                    is-show-tip: true;
+                    tip: Logic.tr("generate");
+                    icon: Icons.send-up-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-musicgen-generate();
+                    }
+                }
+
+                IconBtn {
+                    enabled: !is-generating && Store.video-editor-musicgen-audio-duration-ms > 0;
+                    is-show-tip: true;
+                    tip: Logic.tr("export");
+                    icon: Icons.export-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-musicgen-export-audio();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("setting");
+                    icon: Icons.setting-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Store.video-editor-is-show-musicgen-setting-dialog = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component MusicGenDialog inherits MovingDialog {
+    title: Logic.tr("Music Generation");
+    icon: Icons.music-light;
+    header-width: Theme.moving-dialog-width;
+    head-y: self.height * 0.1;
+
+    init => {
+        if (!Logic.video-editor-musicgen-setting-is-valid()) {
+            Store.video-editor-is-show-musicgen-setting-dialog = true;
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 4;
+
+        LeftHeader { }
+
+        VerticalLayout {
+            spacing: Theme.spacing * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                Label {
+                    text: Logic.tr("Duration (seconds)");
+                    vertical-alignment: center;
+                }
+
+                LineInput {
+                    input-type: number;
+                    text: Store.video-editor-musicgen-config.duration;
+                    border-color: self.text != Store.video-editor-musicgen-config.duration ? Theme.danger-color : self.default-border-color;
+
+                    accepted => {
+                        Store.video-editor-musicgen-config.duration = Math.round(self.text.to-float()).max(5);
+                        Logic.video-editor-musicgen-update-config(Store.video-editor-musicgen-config);
+                    }
+                }
+            }
+
+            TxtEdit {
+                height: Theme.icon-size * 6;
+                placeholder: Logic.tr("Enter a prompt to describe the music you want to generate...");
+                text <=> Store.video-editor-musicgen-config.prompt;
+            }
+        }
+
+        SimpleAudioControl {
+            is-playing: Store.video-editor-musicgen-audio-player-is-playing;
+            progress: Store.video-editor-musicgen-audio-player-progress;
+            current-sound: Store.video-editor-musicgen-audio-sound * 100;
+            current-speed: 1.0;
+            current-time: Util.seconds-to-media-timestamp(self.progress * Store.video-editor-musicgen-audio-duration-ms / 1000);
+            end-time: Util.seconds-to-media-timestamp(Store.video-editor-musicgen-audio-duration-ms / 1000);
+            is-hide-speed-btn: true;
+
+            private property <bool> inner-is-playing <=> Store.video-editor-musicgen-audio-player-is-playing;
+            changed inner-is-playing => {
+                self.is-playing = inner-is-playing;
+            }
+
+            play => {
+                Logic.video-editor-musicgen-play-audio();
+            }
+
+            stop => {
+                Logic.video-editor-musicgen-stop-audio();
+            }
+
+            sound-changed(sound) => {
+                Logic.video-editor-musicgen-audio-player-sound-changed(sound / 100);
+            }
+
+            sound-released(sound) => {
+                Logic.video-editor-musicgen-audio-player-sound-changed(sound / 100);
+            }
+
+            progress-changed(value) => {
+                Logic.video-editor-musicgen-audio-player-progress-changed(value);
+            }
+
+            progress-released(value) => {
+                Logic.video-editor-musicgen-audio-player-progress-released(value);
+            }
+
+            progress-pressed(value) => {
+                Logic.video-editor-musicgen-audio-player-progress-pressed(value);
+            }
+        }
+    }
+}
+
+export component MusicGenSettingDialog inherits MovingDialog {
+    title: Logic.tr("Music Generation Setting");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    private property <VideoEditorMusicGenConfig> config: Store.video-editor-musicgen-config;
+    private property <[string]> model-dirs: [
+        config.small-model-dir,
+        config.small-fp16-model-dir,
+        config.small-quant-model-dir,
+        config.medium-model-dir,
+        config.medium-fp16-model-dir,
+        config.medium-quant-model-dir,
+        config.large-model-dir,
+    ];
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Export directory");
+            }
+
+            LineInput {
+                read-only: true;
+                is-show-icon: true;
+                icon: Icons.file-open-light;
+                placeholder-text: Logic.tr("Export directory");
+                text: Store.video-editor-musicgen-config.export-dir;
+                border-color: Logic.dir-exist(self.text) ? self.default-border-color : Theme.danger-color;
+
+                clicked => {
+                    Logic.video-editor-musicgen-choose-export-dir();
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Select model");
+            }
+
+            model-sl := Select {
+                values: [
+                    "Small",
+                    "Small Fp16",
+                    "Small Quant",
+                    "Medium",
+                    "Medium Fp16",
+                    "Medium Quant",
+                    "Large"
+                ];
+                current-value: self.values[Store.video-editor-musicgen-config.selected-model-index];
+                current-index: Store.video-editor-musicgen-config.selected-model-index;
+                gain-focus-when-clicked: false;
+
+                selected(index, value) => {
+                    Store.video-editor-musicgen-config.selected-model-index = index;
+                    Logic.video-editor-musicgen-update-config(config);
+                }
+            }
+        }
+
+        VerticalLayout {
+            for downloader[index] in Store.video-editor-musicgen-models-downloader: HorizontalLayout {
+                private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+                private property <[string]> model-names: [
+                    "Small",
+                    "Small Fp16",
+                    "Small Quant",
+                    "Medium",
+                    "Medium Fp16",
+                    "Medium Quant",
+                    "Large"
+                ];
+
+                if model-names[index] == model-sl.current-value: SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Model directory");
+                    }
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+
+                        LineInput {
+                            read-only: true;
+                            is-show-icon: true;
+                            icon: Icons.file-open-light;
+                            placeholder-text: model-names[index] + " " + "model directory";
+                            text: root.model-dirs[index];
+
+                            clicked => {
+                                Logic.video-editor-musicgen-choose-model-dir();
+                            }
+                        }
+
+                        if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                            alignment: center;
+
+                            ProgressBar {
+                                height: Theme.icon-size * 0.8;
+                                font-size: Theme.default-font-size * 2 / 3;
+                                finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                                progress: downloader.progress;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            alignment: end;
+                            spacing: Theme.spacing * 4;
+
+                            IconBtn {
+                                is-show-tip: true;
+                                icon: downloading ? Icons.stop-light : Icons.download-light;
+                                colorize: downloading ? Theme.danger-color : Theme.icon-color;
+                                tip: downloading ? Logic.tr("cancel") : Logic.tr("download");
+
+                                clicked => {
+                                    if (downloading) {
+                                        Logic.video-editor-musicgen-model-cancel-download(index, downloader.url);
+                                    } else {
+                                        Logic.video-editor-musicgen-model-start-download(index, downloader.url);
+                                    }
+                                }
+                            }
+
+                            IconBtn {
+                                icon: Icons.browser-light;
+                                is-show-tip: true;
+                                tip: Logic.tr("open url");
+
+                                clicked => {
+                                    Util.open-url("Default", downloader.url);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

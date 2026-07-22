@@ -154,7 +154,8 @@ impl Qwen3Attention {
                 (key_states, value_states)
             }
         };
-        self.kv_cache = Some((key_states.clone(), value_states.clone()));
+        // Detach KV cache to break BackpropOp chain - caches are inference-only.
+        self.kv_cache = Some((key_states.detach(), value_states.detach()));
         let attn_output = eager_attention_forward(
             &query_states,
             &key_states,

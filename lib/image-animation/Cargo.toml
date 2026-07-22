@@ -1,0 +1,30 @@
+[package]
+name = "image-animation"
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+license.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description.workspace = true
+
+[dependencies]
+log.workspace = true
+mp4m.workspace = true
+image.workspace = true
+serde.workspace = true
+webpx.workspace = true
+thiserror.workspace = true
+derivative.workspace = true
+draw-utils.workspace = true
+spin_sleep.workspace = true
+video-utils.workspace = true
+video-encoder.workspace = true
+derive_setters.workspace = true
+background-animation.workspace = true
+
+[dev-dependencies]
+log.workspace = true
+env_logger.workspace = true

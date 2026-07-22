@@ -1,0 +1,908 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    TTSConfig,
+    TTSVoice,
+    TTSEntry,
+    Util,
+    DownloaderState,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    LineInput,
+    ConfirmBtn,
+    CancelBtn,
+    TextBtnWithoutIcon,
+    IconBtn,
+    TxtEdit,
+    ElevatedBtn,
+    ConfirmDialogSetting,
+    SimpleAudioControl,
+    CancelAndConfirmIconsBtn,
+    ToolTipSetting,
+    ProgressBar,
+    ToastSetting,
+    ToastStatus,
+    NoMessageImg,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+} from "../../../../base/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+import { PreviewSettingDialog } from "../preview/preview-setting-dialog.slint";
+
+component RightPanel inherits VerticalLayout {
+    in-out property <TTSConfig> config <=> Store.video-editor-tts-config;
+
+    spacing: Theme.spacing * 2;
+
+    Rectangle {
+        HorizontalLayout {
+            alignment: center;
+            padding: Theme.padding * 2;
+
+            Label {
+                text: Logic.tr("Reference Voice");
+                horizontal-alignment: center;
+                font-size: Theme.title5-font-size;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 4;
+            padding-right: Theme.padding * 2;
+            alignment: end;
+
+            IconBtn {
+                is-show-tip: true;
+                tip: Logic.tr("Import voice");
+                icon: Icons.import2-light;
+
+                clicked => {
+                    Logic.video-editor-tts-import-voice();
+                }
+            }
+        }
+    }
+
+    rec := Rectangle {
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+        border-radius: Theme.border-radius;
+
+        if Store.video-editor-tts-voices.length == 0: Rectangle {
+            NoMessageImg {
+                text: Logic.tr("Import Voice");
+            }
+
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    Logic.video-editor-tts-import-voice();
+                }
+            }
+        }
+
+        if Store.video-editor-tts-voices.length > 0: ScrollView {
+            viewport-height: vbox.preferred-height;
+
+            vbox := VerticalLayout {
+                padding: rec.border-width;
+
+                for v[idx] in Store.video-editor-tts-voices: Rectangle {
+                    background: Theme.table-item-background(idx, v.path == config.reference-audio-path, ta.has-hover);
+                    border-color: Theme.danger-color;
+                    border-width: !v.built-in && !Logic.file-exist(v.path) ? Theme.default-border-width : 0;
+
+                    ta := TouchArea {
+                        clicked => {
+                            if (config.reference-audio-path == v.path) {
+                                return;
+                            } else {
+                                config.reference-audio-path = v.path;
+                                Logic.video-editor-tts-update-config(config);
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: space-between;
+                        spacing: Theme.spacing * 4;
+                        padding-right: Theme.padding * 2;
+
+                        HorizontalLayout {
+                            alignment: start;
+                            spacing: Theme.spacing * 4;
+                            padding: Theme.padding * 2;
+
+                            IconBtn {
+                                icon: v.built-in ? Icons.built-in-light : Icons.star-round-fill;
+                                icon-size: v.built-in ? Theme.icon-size * Theme.golden-ratio : Theme.icon-size * 0.8;
+                                colorize: v.built-in ? Theme.icon-color : (v.marked ? Theme.warning-color : Theme.icon-color);
+
+                                clicked => {
+                                    if (!v.built-in) {
+                                        Logic.video-editor-tts-toggle-voice-marked(idx);
+                                    }
+                                }
+                            }
+
+                            Label {
+                                text: v.built-in ? Logic.tr(v.name) : v.name;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: Theme.spacing * 3;
+
+                            if !v.built-in: IconBtn {
+                                icon: Icons.delete-light;
+
+                                clicked => {
+                                    Logic.video-editor-tts-remove-voice(idx);
+                                }
+                            }
+
+                            IconBtn {
+                                icon: Icons.control-start-light;
+
+                                clicked => {
+                                    Logic.video-editor-tts-play-voice(v.path);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Label {
+        text: Logic.tr("Tip: Use clean audio (3-10s) for best results");
+        color: Theme.have-read-text-color;
+        font-size: Theme.default-font-size * 0.85;
+    }
+}
+
+component LeftHeader inherits HorizontalLayout {
+    alignment: space-between;
+    spacing: Theme.spacing * 8;
+
+    in-out property <bool> is-add <=> Store.video-editor-is-show-tts-add-dialog;
+    in-out property <bool> is-playing;
+    in-out property <TTSConfig> config <=> Store.video-editor-tts-config;
+    private property <bool> is-generating-all: Store.video-editor-tts-is-generating-all;
+
+    if !is-generating-all: HorizontalLayout {
+        alignment: start;
+
+        Label {
+            font-size: Theme.title3-font-size;
+            text: Logic.tr("Total Entries") + ": " + Store.video-editor-tts-entries.length;
+        }
+    }
+
+    if is-generating-all: HorizontalLayout {
+        alignment: start;
+        width: root.width - rec.width - root.spacing;
+        spacing: Theme.spacing * 4;
+
+        VerticalLayout {
+            alignment: center;
+            width: parent.width - cancel-btn.width - parent.spacing;
+
+            ProgressBar {
+                clip: true;
+                width: parent.width;
+                height: Theme.default-font-size + Theme.padding * 2;
+                font-weight: Theme.bold-font-weight;
+                progress: Store.video-editor-tts-generating-all-progress;
+            }
+        }
+
+        cancel-btn := ElevatedBtn {
+            icon: Icons.stop-light;
+            colorize: Theme.danger-color;
+            gain-focus-when-clicked: false;
+            is-show-tip: true;
+            tip-position: Bottom;
+            tip: Logic.tr("cancel");
+
+            clicked => {
+                Logic.video-editor-tts-cancel-generating-all();
+            }
+        }
+    }
+
+    rec := Rectangle {
+        width: hbox.preferred-width;
+        height: hbox.preferred-height;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("add");
+                    icon: Icons.add-light;
+                    icon-size: Theme.icon-size * 0.8;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        root.is-add = !root.is-add;
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("add preamble");
+                    icon: Icons.text-light;
+                    icon-size: Theme.icon-size * 0.8;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-tts-add-preamble-entry();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("generate");
+                    icon: Icons.send-up-light;
+                    icon-size: Theme.icon-size;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-tts-generate-all-speech();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("export");
+                    icon: Icons.export-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-tts-export-to-playlist();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("remove all speech");
+                    icon: Icons.clear-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Remove all speech or not?"), "video-editor-tts-remove-all-speech", "");
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("remove all");
+                    icon: Icons.delete-all-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Remove all or not?"), "video-editor-tts-remove-all-entries", "");
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("setting");
+                    icon: Icons.setting-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Store.video-editor-is-show-tts-setting-dialog = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+component LeftPanel inherits VerticalLayout {
+    in-out property <TTSConfig> config <=> Store.video-editor-tts-config;
+
+    spacing: Theme.spacing * 2;
+
+    LeftHeader { }
+
+    rec := Rectangle {
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+        border-radius: Theme.border-radius;
+
+        if Store.video-editor-tts-entries.length == 0: Rectangle {
+            NoMessageImg {
+                text: Logic.tr("Click to Add");
+            }
+
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    Store.video-editor-is-show-tts-add-dialog = true;
+                }
+            }
+        }
+
+        if Store.video-editor-tts-entries.length > 0: ScrollView {
+            private property <float> audio-player-progress: Store.video-editor-tts-audio-player-progress;
+            private property playing-index <=> Store.video-editor-tts-audio-playing-index;
+            private property <length> list-item-height;
+
+            function need-scroll() -> bool {
+                if (list-item-height <= 0 || playing-index < 0) {
+                    return false;
+                }
+                let pos = playing-index * list-item-height;
+                return !(pos > abs(self.viewport-y) && pos < abs(self.viewport-y) + self.height - list-item-height);
+            }
+
+            function scroll-to-item() {
+                if (list-item-height <= 0 || playing-index < 0) {
+                    return;
+                }
+                self.viewport-y = 0 - clamp(playing-index * list-item-height - list-item-height / 2, 0, self.viewport-height - self.height);
+            }
+
+            changed audio-player-progress => {
+                if (playing-index >= 0 && need-scroll()) {
+                    scroll-to-item();
+                }
+            }
+
+            vbox := VerticalLayout {
+                spacing: Theme.spacing * 1.5;
+                padding: rec.border-width + Theme.padding * 2;
+
+                for entry[idx] in Store.video-editor-tts-entries: Rectangle {
+                    height: entry-card.preferred-height;
+                    border-radius: Theme.border-radius;
+                    border-width: Theme.default-border-width;
+                    border-color: (Store.video-editor-tts-audio-playing-index == idx && Store.video-editor-tts-audio-player-is-playing) ? Theme.thirdly-brand-color : (entry.samples.length > 0 ? Theme.base-border-color : Theme.danger-color);
+                    background: te.text.character-count > config.max-char-count ? Theme.danger-color : Theme.secondary-background;
+
+                    private property <bool> is-edited;
+
+                    init => {
+                        if (idx == 0) {
+                            list-item-height = 0;
+                        }
+                        list-item-height = max(self.height + vbox.spacing, list-item-height);
+                    }
+
+                    entry-card := VerticalLayout {
+                        alignment: start;
+                        spacing: Theme.padding * 4;
+                        padding: Theme.padding * 2;
+
+                        te := TxtEdit {
+                            init => {
+                                if (entry.text.is-empty) {
+                                    is-edited = true;
+                                }
+                            }
+
+                            height: self.font-size * 4;
+                            text: entry.text;
+                            read-only: !is-edited;
+                            text-color: Theme.primary-text-color;
+                            placeholder: Logic.tr("enter content");
+                            border-color: self.text.character-count > Store.video-editor-tts-config.max-char-count ? Theme.danger-color : self.default-border-color;
+                        }
+
+                        HorizontalLayout {
+                            alignment: space-between;
+
+                            HorizontalLayout {
+                                alignment: start;
+                                spacing: Theme.spacing * 4;
+
+                                Label {
+                                    text: "#" + (idx + 1);
+                                    color: Theme.have-read-text-color;
+                                }
+
+                                Label {
+                                    text: Logic.tr("Duration") + ": " + entry.duration + "s";
+                                    color: Theme.have-read-text-color;
+                                }
+
+                                if idx == 0: Label {
+                                    text: Logic.tr("Timbre and prosody significantly influence subsequent speech generation");
+                                    color: Theme.have-read-text-color;
+                                    overflow: elide;
+                                }
+                            }
+
+                            HorizontalLayout {
+                                spacing: Theme.spacing * 4;
+
+                                if te.text != entry.text: CancelAndConfirmIconsBtn {
+                                    cancelled => {
+                                        is-edited = false;
+                                        ToolTipSetting.hide();
+                                        edit-btn.checked = false;
+                                        te.text = entry.text;
+                                    }
+
+                                    confirmed => {
+                                        is-edited = false;
+                                        ToolTipSetting.hide();
+                                        edit-btn.checked = false;
+                                        Logic.video-editor-tts-update-entry(idx, te.text);
+                                        te.text = entry.text;
+                                    }
+                                }
+
+                                IconBtn {
+                                    is-show-tip: true;
+                                    tip: entry.samples.length > 0 ? Logic.tr("Regenerate") : Logic.tr("Generate");
+                                    icon: Icons.refresh-small-light;
+                                    icon-size: Theme.icon-size * 1.1;
+                                    transform-rotation: entry.is-generating ? Util.progress-angle(360deg, 1s) : 0deg;
+
+                                    clicked => {
+                                        Logic.video-editor-tts-generate-speech(idx);
+                                    }
+                                }
+
+                                IconBtn {
+                                    is-show-tip: true;
+                                    tip: Logic.tr("Play");
+                                    icon: Icons.control-start-light;
+
+                                    clicked => {
+                                        Logic.video-editor-tts-play-speech(idx);
+                                    }
+                                }
+
+                                edit-btn := IconBtn {
+                                    is-show-tip: true;
+                                    tip: Logic.tr("Edit");
+                                    icon: Icons.edit-light;
+                                    icon-size: Theme.icon-size * 0.7;
+                                    checked: is-edited;
+                                    checked-color: Theme.checked-background;
+
+                                    clicked => {
+                                        is-edited = !is-edited;
+                                        if (is-edited) {
+                                            te.focus();
+                                        }
+                                    }
+                                }
+
+                                IconBtn {
+                                    is-show-tip: true;
+                                    tip: Logic.tr("Insert Below");
+                                    icon: Icons.cell-insert-below-light;
+
+                                    clicked => {
+                                        Logic.video-editor-tts-insert-entry(idx);
+                                    }
+                                }
+
+                                IconBtn {
+                                    is-show-tip: true;
+                                    tip: Logic.tr("Remove Audio");
+                                    icon: Icons.clear-light;
+                                    enabled: entry.samples.length > 0;
+
+                                    clicked => {
+                                        Logic.video-editor-tts-clear-entry-audio(idx);
+                                    }
+                                }
+
+                                IconBtn {
+                                    is-show-tip: true;
+                                    tip: Logic.tr("Delete");
+                                    icon: Icons.delete-light;
+
+                                    clicked => {
+                                        Logic.video-editor-tts-remove-entry(idx);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    SimpleAudioControl {
+        is-playing: Store.video-editor-tts-audio-player-is-playing;
+        progress: Store.video-editor-tts-audio-player-progress;
+        current-sound: Store.video-editor-tts-audio-sound * 100;
+        current-time: Util.seconds-to-media-timestamp(self.progress * self.duration-ms / 1000);
+        end-time: Util.seconds-to-media-timestamp(self.duration-ms / 1000);
+
+        private property <int> duration-ms: Logic.video-editor-tts-get-total-duration(Store.video-editor-tts-entries, Store.video-editor-tts-update-total-time-flag);
+        private property inner-is-playing <=> Store.video-editor-tts-audio-player-is-playing;
+        changed inner-is-playing => {
+            self.is-playing = inner-is-playing;
+        }
+
+        play => {
+            if (Logic.video-editor-tts-has-empty-speech()) {
+                self.is-playing = false;
+                Store.video-editor-tts-audio-player-is-playing = false;
+                Util.show-toast("Found empty entry", ToastStatus.Warning);
+                return;
+            }
+            let start-timestamp = duration-ms * Store.video-editor-tts-audio-player-progress;
+            Logic.video-editor-tts-play-all-speech(start-timestamp, duration-ms);
+        }
+
+        stop => {
+            Logic.video-editor-tts-stop-playing-all-speech();
+        }
+
+        sound-changed(sound) => {
+            Logic.video-editor-tts-audio-player-sound-changed(sound / 100);
+        }
+
+        sound-released(sound) => {
+            Logic.video-editor-tts-audio-player-sound-released(sound / 100);
+        }
+
+        progress-changed(value) => {
+            Logic.video-editor-tts-audio-player-progress-changed(value);
+        }
+
+        progress-released(value) => {
+            Logic.video-editor-tts-audio-player-progress-released(value);
+        }
+
+        progress-pressed(value) => {
+            Logic.video-editor-tts-audio-player-progress-pressed(value);
+        }
+    }
+}
+
+export component TTSDialog inherits MovingDialog {
+    title: Logic.tr("VoxCPM TTS");
+    icon: Icons.tts-light;
+    header-width: Theme.moving-dialog-width;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+    body-height: root.header-width * Theme.golden-ratio;
+
+    init => {
+        if (!Logic.video-editor-tts-setting-is-valid()) {
+            Store.video-editor-is-show-tts-setting-dialog = true;
+        }
+    }
+
+    HorizontalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        private property <length> inner-width: self.width - self.spacing - self.padding * 2;
+
+        LeftPanel {
+            width: parent.inner-width * 0.7;
+        }
+
+        RightPanel {
+            width: parent.inner-width * 0.3;
+        }
+    }
+}
+
+
+export component TTSSettingDialog inherits MovingDialog {
+    title: Logic.tr("VoxCPM Setting");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    private property setting <=> Store.video-editor-tts-config;
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Save directory");
+            }
+
+            LineInput {
+                read-only: true;
+                text: setting.save-dir;
+                icon: Icons.file-open-light;
+                is-show-icon: true;
+                border-color: Logic.dir-exist(setting.model-dir) ? self.default-border-color : Theme.danger-color;
+
+                clicked => {
+                    Logic.video-editor-tts-open-choose-save-dir();
+                }
+            }
+        }
+
+        for downloader[index] in Store.video-editor-tts-models-dowloader: VerticalLayout {
+            alignment: start;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                pure function get-border-color(status: DownloaderState, exist-color: color, no-exist-color: color) -> color {
+                    if status == DownloaderState.Finished {
+                        return exist-color;
+                    } else {
+                        return Logic.dir-exist(setting.model-dir) ? exist-color : no-exist-color;
+                    }
+                }
+
+                model-path-li := LineInput {
+                    horizontal-stretch: 2;
+                    read-only: true;
+                    is-show-icon: true;
+                    icon: Icons.file-open-light;
+                    placeholder-text: "VoxCPM2";
+                    text: setting.model-dir;
+                    border-color: get-border-color(downloader.state, self.default-border-color, Theme.danger-color);
+
+                    clicked => {
+                        Logic.video-editor-tts-choose-model-dir();
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                        alignment: center;
+
+                        ProgressBar {
+                            height: Theme.default-font-size * 2 / 3;
+                            font-size: Theme.default-font-size * 2 / 3;
+                            finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                            progress: downloader.progress;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: Theme.spacing * 4;
+
+                        IconBtn {
+                            enabled: downloader.state != DownloaderState.Downloading;
+                            is-show-tip: true;
+                            icon: Icons.download-light;
+                            tip: Logic.tr("download");
+
+                            clicked => {
+                                Logic.video-editor-tts-model-start-download(downloader.url);
+                            }
+                        }
+
+                        IconBtn {
+                            icon: Icons.browser-light;
+                            is-show-tip: true;
+                            tip: Logic.tr("open url");
+
+                            clicked => {
+                                Util.open-url("Default", downloader.url);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Max characters per entry");
+            }
+
+            LineInput {
+                input-type: InputType.number;
+                enable-step: true;
+                number-step: 50;
+                text: setting.max-char-count > 0 ? setting.max-char-count : 500;
+                border-color: self.text.to-float().round() == setting.max-char-count ? self.default-border-color : Theme.danger-color;
+
+                accepted => {
+                    let val = self.text.to-float().round().clamp(50, 500);
+                    setting.max-char-count = val;
+                    self.text = val;
+                    Logic.video-editor-tts-update-config(setting);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Max token count");
+                tip: Logic.tr("Controls the maximum number of latent patches for speech generation.") + Logic.tr("Upper limit for auto-estimated max_len. Default 300 (~20s)");
+            }
+
+            LineInput {
+                input-type: InputType.number;
+                enable-step: true;
+                number-step: 100;
+                text: setting.max-token-count > 0 ? setting.max-token-count : 2000;
+                border-color: self.text.to-float().round() == setting.max-token-count ? self.default-border-color : Theme.danger-color;
+
+                accepted => {
+                    let val = self.text.to-float().round().clamp(50, 5000);
+                    setting.max-token-count = val;
+                    self.text = val;
+                    Logic.video-editor-tts-update-config(setting);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Context Reset Interval");
+                tip: Logic.tr("Reset continuation context every N entries to prevent voice drift");
+            }
+
+            LineInput {
+                input-type: InputType.number;
+                placeholder-text: "5";
+                text: setting.context-reset-interval;
+                border-color: self.text.to-float().round() == setting.context-reset-interval ? self.default-border-color : Theme.danger-color;
+
+                accepted => {
+                    let val = self.text.to-float().max(1);
+                    self.text = val;
+                    setting.context-reset-interval = val;
+                    Logic.video-editor-tts-update-config(setting);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: "CFG";
+                tip: Logic.tr("0.5-2.0 recommended");
+            }
+
+            LineInput {
+                input-type: InputType.decimal;
+                placeholder-text: "1.0";
+                text: setting.cfg-value;
+                border-color: self.text.to-float() == setting.cfg-value ? self.default-border-color : Theme.danger-color;
+
+                accepted => {
+                    let val = self.text.to-float().clamp(0.1, 5.0);
+                    self.text = val;
+                    setting.cfg-value = val;
+                    Logic.video-editor-tts-update-config(setting);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Preamble");
+                tip: Logic.tr("Guide word for primer audio generation, helps anchor voice tone and style");
+            }
+
+            LineInput {
+                placeholder-text: Logic.tr("Enter preamble text");
+                text: setting.preamble;
+                border-color: self.text == setting.preamble ? self.default-border-color : Theme.danger-color;
+
+                accepted => {
+                    setting.preamble = self.text;
+                    Logic.video-editor-tts-update-config(setting);
+                }
+            }
+        }
+
+        SettingDetailSwitch {
+            icon: Icons.gpu-light;
+            text: Logic.tr("Use GPU Acceleration");
+            checked: setting.use-gpu;
+
+            toggled => {
+                setting.use-gpu = self.checked;
+                Logic.video-editor-tts-update-config(setting);
+            }
+        }
+    }
+}
+
+
+export component TTSAddDialog inherits MovingDialog {
+    title: Logic.tr("VoxCPM Add");
+    icon: Icons.add2-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+    enable-resize: true;
+    body-height: root.header-width * Theme.golden-ratio;
+
+    VerticalLayout {
+        spacing: Theme.spacing * 2;
+        padding: Theme.padding * 2;
+
+        Timer {
+            interval: 100ms;
+            running: true;
+
+            triggered() => {
+                input-te.focus();
+                self.running = false;
+            }
+        }
+
+        input-te := TxtEdit {
+            text <=> Store.video-editor-tts-input-text;
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 4;
+            alignment: space-between;
+
+            ConfirmBtn {
+                width: 33%;
+                text: Logic.tr("Auto Segment");
+                icon: Icons.segmentation-light;
+                height: self.font-size + Theme.padding * 4;
+                bg-color: Theme.info-color;
+
+                clicked => {
+                    if !input-te.text.is-empty {
+                        Logic.video-editor-tts-auto-segment(input-te.text);
+                    }
+                }
+            }
+
+            ConfirmBtn {
+                width: 33%;
+                text: Logic.tr("AI Segment");
+                icon: Icons.ai-robot-light;
+                height: self.font-size + Theme.padding * 4;
+                bg-color: Theme.success-color;
+
+                clicked => {
+                    if !input-te.text.is-empty {
+                        Logic.video-editor-tts-ai-segment(input-te.text);
+                    }
+                }
+            }
+
+            ConfirmBtn {
+                width: 33%;
+                text: Logic.tr("Add");
+                icon: Icons.add2-light;
+                height: self.font-size + Theme.padding * 4;
+
+                clicked => {
+                    if !input-te.text.is-empty {
+                        Logic.video-editor-tts-add-entry(input-te.text);
+                        input-te.clear();
+                        Store.video-editor-is-show-tts-add-dialog = false;
+                    }
+                }
+            }
+        }
+    }
+}

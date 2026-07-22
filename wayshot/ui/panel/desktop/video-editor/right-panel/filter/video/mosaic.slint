@@ -1,0 +1,181 @@
+import {
+    Theme,
+    Logic,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+} from "../../../../../def.slint";
+import {
+    Label,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    MosaicDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component Mosaic inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <MosaicDetail> config: VEFilter.from-mosaic-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: MosaicDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "mosaic") {
+            self.config = VEFilter.from-mosaic-json(selected-filter.detail);
+            block-size-li.text = self.config.block-size.to-fixed(2);
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Position");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing;
+
+                LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.decimal;
+                    text: config.left.to-fixed(2);
+                    read-only: true;
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+                }
+
+                Label {
+                    text: "X";
+                    enabled: selected-filter.enabled;
+                }
+
+                LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.decimal;
+                    text: config.top.to-fixed(2);
+                    read-only: true;
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "region", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "region", VEFilter.make-float2-value(config.left, config.top));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Size");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing;
+
+                LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.decimal;
+                    text: config.width.to-fixed(2);
+                    read-only: true;
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+                }
+
+                Label {
+                    enabled: selected-filter.enabled;
+                    text: "X";
+                }
+
+                LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.decimal;
+                    text: config.height.to-fixed(2);
+                    read-only: true;
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "size", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "size", VEFilter.make-float2-value(config.width, config.height));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Block Size");
+                enabled: selected-filter.enabled;
+                tip: "pixels (min: 1)";
+            }
+
+            block-size-li := LineInput {
+                enabled: selected-filter.enabled;
+                input-type: InputType.number;
+                text: config.block-size;
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    let val = round(self.text.to-float());
+                    config.block-size = val > 0 ? val : 1;
+                    apply(index, config);
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

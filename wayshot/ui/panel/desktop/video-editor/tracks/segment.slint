@@ -1,0 +1,1114 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoEditorTrackType,
+    VideoEditorTrackSegment,
+    VideoEditorTrack,
+    VideoEditorTracksManager,
+    SelectedTrackIndex,
+    SelectedSegmentIndex,
+    VEFilter,
+    Keyframe,
+    PropertyTrack,
+} from "../../../def.slint";
+import {
+    Divider,
+    PopupActionEntry,
+    PopupActionSetting,
+    ReadonlySoundWaveForm,
+    Label,
+    IconBtn,
+} from "../../../../base/widgets.slint";
+
+component SegmentKeyframeMarker inherits Image {
+    in property <string> property-name;  // Name of the property this keyframe belongs to
+    in property <int> old-time-ms;  // Original time-ms for move/delete operations
+    in-out property <bool> selected;
+    in property <Keyframe> keyframe;
+    in property <VideoEditorTrackSegment> segment;
+    in property <length> parent-width;
+    in property <length> length-pre-second;
+    in property <bool> is-text-keyframe;  // Flag to distinguish text keyframes from filter keyframes
+    in property <int> track-index;
+    in property <int> segment-index;
+
+    private property <length> initial-x: 0;
+    private property <int> initial-time-ms: 0;
+
+    callback property-selected(string);
+
+    source: Icons.keyframe-fill;
+    preferred-width: Theme.icon-size;
+    preferred-height: self.width;
+    colorize: selected ? (Theme.is-dark ? Colors.cyan : Colors.cyan.darker(30%)) : Theme.light-text-color;
+
+    ta := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+
+        private property <bool> init-pressed-flag;
+
+        clicked => {
+            root.property-selected(root.property-name);
+            Store.video-editor-timeline-offset = segment.timeline-offset + keyframe.time-ms;
+
+            if (!is-text-keyframe && VEFilter.selected-filter-index >= 0) {
+                VEFilter.selected-filter.detail = VEFilter.get-filter-detail-at-time(VEFilter.selected-filter-index, keyframe.time-ms);
+            }
+        }
+
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left) {
+                if (event.kind == PointerEventKind.down) {
+                    initial-x = root.x;
+                    initial-time-ms = root.old-time-ms;
+                } else if (event.kind == PointerEventKind.up) {
+                    init-pressed-flag = false;
+
+                    if (root.x != initial-x) {
+                        let raw-time-ms = round((root.x + root.width / 2) * 1000 / length-pre-second);
+                        let new-time-ms = clamp(raw-time-ms, 0, segment.duration);
+
+                        if (is-text-keyframe) {
+                            let absolute-old-time-ms = segment.timeline-offset + initial-time-ms;
+                            let absolute-new-time-ms = segment.timeline-offset + new-time-ms;
+                            Logic.video-editor-move-text-keyframe(property-name, absolute-old-time-ms, absolute-new-time-ms);
+                        } else {
+                            VEFilter.move-keyframe(VEFilter.selected-filter-index, property-name, initial-time-ms, new-time-ms);
+                        }
+                    }
+                }
+            } else if (event.button == PointerEventButton.right && event.kind == PointerEventKind.down) {
+                if (is-text-keyframe) {
+                    let absolute-time-ms = segment.timeline-offset + old-time-ms;
+                    let user-data-str = track-index + "|" + segment-index + "|" + property-name + "|" + absolute-time-ms;
+                    PopupActionSetting.show(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y,
+                        [
+                        {
+                            icon: Icons.playhead-light,
+                            text: Logic.tr("To playhead"),
+                            action: "video-editor-segment-text-keyframe-to-playhead",
+                            user-data: user-data-str,
+                        },
+                        {
+                            icon: Icons.delete-light,
+                            text: Logic.tr("Delete"),
+                            action: "video-editor-segment-remove-text-keyframe",
+                            user-data: user-data-str,
+                        }
+                    ]);
+                } else {
+                    // Format user-data as "filter-index|property-name|time-ms"
+                    let filter-index-str = VEFilter.selected-filter-index;
+                    let time-ms-str = old-time-ms;
+                    let user-data-str = filter-index-str + "|" + property-name + "|" + time-ms-str;
+                    PopupActionSetting.show(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y,
+
+        [
+                        {
+                            icon: Icons.playhead-light,
+                            text: Logic.tr("To playhead"),
+                            action: "video-editor-segment-keyframe-to-playhead",
+                            user-data: user-data-str,
+                        },
+                        {
+                            icon: Icons.delete-light,
+                            text: Logic.tr("Delete"),
+                            action: "video-editor-segment-remove-keyframe-by-property",
+                            user-data: user-data-str,
+                        }
+                    ]);
+                }
+            }
+        }
+
+        moved => {
+            let detal-x = self.mouse-x - self.pressed-x;
+            if (!init-pressed-flag && abs(detal-x) < Theme.padding * 2) {
+                return;
+            }
+            init-pressed-flag = true;
+            root.x = clamp(root.x + detal-x - root.width / 2, -root.width / 2, root.parent-width - root.width / 2)
+        }
+    }
+}
+
+component Segment inherits Rectangle {
+    in-out property <int> index;
+    in-out property <int> track-index;
+    in-out property <VideoEditorTrackSegment> segment;
+    in-out property <VideoEditorTrackType> track-type;
+    in property <length> length-pre-second;
+    in property <bool> track-locked;
+
+    // 边界限制: 不能超过这些值
+    in property <int> min-offset-ms: 0;      // 最小timeline-offset（不能与前一个segment重叠）
+    in property <int> max-end-ms: 100000000; // 最大结束位置（不能与后一个segment重叠）
+    in property <int> track-duration-ms: 0;  // track总时长
+    in property <bool> is-last-segment: false; // 是否是最后一个segment（允许超出track duration）
+
+    private property <bool> show-keyframes: Logic.video-editor-is-selected-segment(Store.video-editor-selected-segments-index, selected-segment-index, root.selected-flag) && segment.filters.length > 0;
+
+    private property <bool> show-text-keyframes: Logic.video-editor-is-selected-segment(Store.video-editor-selected-segments-index, selected-segment-index, root.selected-flag) && track-type == VideoEditorTrackType.Text;
+
+    private property <bool> show-thumbnail: Store.video-editor-preference-config.track.show-thumbnail;
+    private property <bool> show-filename: Store.video-editor-preference-config.track.show-filename;
+    private property <bool> selected-flag <=> Store.video-editor-segment-selected-flag;
+    private property <string> selected-segment-index-str: track-index + ":" + index;
+    private property <SelectedSegmentIndex> selected-segment-index: {
+        index: index,
+        track-index: track-index,
+        modifiers: Store.video-editor-keyboard-modifiers,
+    };
+
+    private property <[PopupActionEntry]> segment-action-entries: [
+        {
+            disable: !Logic.video-editor-is-video-segment(track-index, index),
+            icon: segment.audio-muted ? Icons.unmute-light : Icons.mute-light,
+            text: segment.audio-muted ? Logic.tr("Unmute") : Logic.tr("Mute"),
+            action: "video-editor-segment-toggle-audio",
+            user-data: selected-segment-index-str,
+        },
+        {
+            icon: segment.hiding ? Icons.eye-light : Icons.close-eye-light,
+            text: segment.hiding ? Logic.tr("Enable Segment") : Logic.tr("Disable Segment"),
+            action: "video-editor-segment-toggle-enable",
+            user-data: selected-segment-index-str,
+        },
+        { },
+        {
+            disable: segment.hiding || !Logic.video-editor-is-video-segment(track-index, index),
+            icon: Icons.scenes-light,
+            text: Logic.tr("Intelligent Scene Segmentation"),
+            action: "video-editor-segment-intelligent-scene-segmentation",
+            user-data: selected-segment-index-str,
+        },
+        {
+            disable: segment.audio-muted || segment.hiding || !Logic.video-editor-is-audio-segment(track-index, index),
+            icon: Icons.audio-lines-light,
+            text: Logic.tr("Intelligent Voice Segmentation"),
+            action: "video-editor-segment-intelligent-voice-segmentation",
+            user-data: selected-segment-index-str,
+        },
+        {
+            disable: segment.audio-muted || segment.hiding || !Logic.video-editor-is-audio-segment(track-index, index),
+            icon: Icons.voice-over-light,
+            text: Logic.tr("Smart Voice Clip"),
+            action: "video-editor-segment-smart-voice-clip",
+            user-data: selected-segment-index-str,
+        },
+        { },
+        {
+            disable: segment.audio-muted || segment.hiding || !Logic.video-editor-is-audio-segment(track-index, index) || !Logic.video-editor-is-video-segment(track-index, index),
+            icon: Icons.audio-light,
+            text: Logic.tr("Detach Audio"),
+            action: "video-editor-segment-detach-audio",
+            user-data: selected-segment-index-str,
+        },
+        {
+            disable: !Logic.video-editor-is-subtitle-segment(track-index, index),
+            icon: Icons.subtitle-light,
+            text: Logic.tr("Detach Subtitle"),
+            action: "video-editor-segment-detach-subtitle",
+            user-data: selected-segment-index-str,
+        },
+        { },
+        {
+            disable: !Logic.video-editor-is-video-segment(track-index, index),
+            icon: Icons.frame-light,
+            text: Logic.tr("Extract Frames"),
+            action: "video-editor-segment-extract-frames",
+            user-data: selected-segment-index-str,
+        },
+        {
+            disable: !Logic.video-editor-is-audio-segment(track-index, index),
+            icon: Icons.audio-light,
+            text: Logic.tr("Export Audio"),
+            action: "video-editor-segment-export-audio",
+            user-data: selected-segment-index-str,
+        },
+        {
+            disable: !Logic.video-editor-is-video-segment(track-index, index),
+            icon: Icons.gif-light,
+            text: Logic.tr("Export GIF"),
+            action: "video-editor-segment-export-gif",
+            user-data: selected-segment-index-str,
+        },
+        {
+            disable: !Logic.video-editor-is-video-segment(track-index, index),
+            icon: Icons.image-light,
+            text: Logic.tr("Export Long Screenshot"),
+            action: "video-editor-segment-export-long-screenshot",
+            user-data: selected-segment-index-str,
+        },
+        {
+            disable: !Logic.video-editor-is-video-segment(track-index, index),
+            icon: Icons.export-video-light,
+            text: Logic.tr("Export Selected as MP4"),
+            action: "video-editor-segment-export-selected-mp4",
+            user-data: selected-segment-index-str,
+        },
+        { },
+        {
+            icon: Icons.playhead-light,
+            text: Logic.tr("Resize to playhead"),
+            action: "video-editor-segment-resize-to-playhead",
+            user-data: selected-segment-index-str,
+        },
+        {
+            icon: Icons.jump-top-light,
+            icon-rotation: -90deg,
+            text: Logic.tr("Resize to previous segment"),
+            action: "video-editor-segment-resize-to-previous-segment",
+            user-data: selected-segment-index-str,
+        },
+        {
+            icon: Icons.jump-top-light,
+            icon-rotation: 90deg,
+            text: Logic.tr("Resize to next segment"),
+            action: "video-editor-segment-resize-to-next-segment",
+            user-data: selected-segment-index-str,
+        },
+        { },
+        {
+            disable: !Logic.video-editor-segment-contain-filter(track-index, index),
+            icon: Icons.filter-light,
+            text: Logic.tr("Remove All Filters"),
+            action: "video-editor-segment-remove-all-filters",
+            user-data: selected-segment-index-str,
+        },
+        {
+            disable: !Logic.video-editor-segment-has-keyframes(track-index, index),
+            icon: Icons.remove-keyframe-light,
+            text: Logic.tr("Remove All Keyframes"),
+            action: "video-editor-segment-remove-all-keyframes",
+            user-data: selected-segment-index-str,
+        },
+        { },
+        {
+            icon: Icons.left-right-gap-light,
+            text: Logic.tr("Remove Gap"),
+            action: "video-editor-segment-remove-gap",
+            user-data: selected-segment-index-str,
+        },
+        {
+            icon: Icons.right-gap-light,
+            text: Logic.tr("Remove Left Gap"),
+            action: "video-editor-segment-remove-left-gap",
+            user-data: selected-segment-index-str,
+        },
+        {
+            icon: Icons.left-gap-light,
+            text: Logic.tr("Remove Right Gap"),
+            action: "video-editor-segment-remove-right-gap",
+            user-data: selected-segment-index-str,
+        },
+    ];
+
+    private property <int> drag-start-offset-ms: 0;  // 开始拖拽时的 timeline-offset
+    private property <int> drag-start-source-offset-ms: 0;  // 开始拖拽时的 source-offset
+    private property <int> drag-start-duration-ms: 0;  // 开始拖拽时的 duration
+    private property <length> drag-start-x: 0;  // 开始拖拽时的 segment 宽度（用于计算比例）
+    private property <length> drag-start-absolute-mouse-x: 0;  // 开始拖拽时鼠标的绝对 x 位置
+    private property <length> drag-start-absolute-mouse-y: 0;  // 开始拖拽时鼠标的绝对 y 位置
+    private property <bool> link-enabled: Store.video-editor-ui-state.enabled-link-track;
+
+    // image, 文字 和 subtitle 类型不受源文件时长限制（图片没有固定时长，字幕是纯文本）
+    private property <bool> is-time-independent-track: root.track-type == VideoEditorTrackType.Image || root.track-type == VideoEditorTrackType.Subtitle || root.track-type == VideoEditorTrackType.Text;
+
+    // 是否是正在拖拽的segment
+    private property <bool> is-active-drag: Store.video-editor-segment-is-dragging && Store.video-editor-drag-segment-uuid == segment.uuid;
+    private property <bool> is-active-resize-drag;
+
+    // 是否是正在跨轨道拖拽的segment（源segment）
+    private property <bool> is-active-cross-track-drag: Store.video-editor-segment-cross-track-dragging && Store.video-editor-drag-segment-uuid == segment.uuid;
+
+    // 是否是需要联动移动的segment（同一track中，在被拖拽segment之后）
+    // 注意: 当 enabled-link-all-tracks 时，同轨道所有 segment 都联动
+    private property <bool> is-linked-drag:
+        Store.video-editor-segment-is-dragging && link-enabled && track-index == Store.video-editor-drag-segment-track-index && index > Store.video-editor-drag-segment-index;
+
+    // 是否需要同轨道全部联动（enabled-link-all-tracks 模式下，同轨道被拖拽segment之后的 segment 都移动）
+    private property <bool> is-same-track-all-linked-drag:
+        Store.video-editor-segment-is-dragging && Store.video-editor-ui-state.enabled-link-all-tracks && Store.video-editor-drag-is-move && track-index == Store.video-editor-drag-segment-track-index && index > Store.video-editor-drag-segment-index;
+
+    // 是否需要跨轨道联动移动（其他track中与拖拽segment有重叠的segment及其后续segment，排除锁定轨道）
+    private property <bool> is-cross-track-linked-drag:
+        Store.video-editor-segment-is-dragging && Store.video-editor-ui-state.enabled-link-all-tracks && Store.video-editor-drag-is-move && track-index != Store.video-editor-drag-segment-track-index && !track-locked && Logic.video-editor-is-link-all-movable(track-index, index, Store.video-editor-drag-original-offset, Store.video-editor-drag-original-duration);
+
+    // 预览值计算:
+    // 1. 被拖拽的segment: 使用Store中的预览值
+    // 2. 同轨道联动的segment: 原值 + 拖拽偏移量
+    // 3. 同轨道全部联动的segment: 原值 + 拖拽偏移量
+    // 4. 跨轨道联动的segment: 原值 + 拖拽偏移量
+    // 5. 其他segment: 使用原值
+    private property <int> display-timeline-offset:
+        Store.video-editor-segment-cross-track-dragging ? segment.timeline-offset : is-active-drag ? Store.video-editor-drag-preview-offset : (is-linked-drag || is-same-track-all-linked-drag || is-cross-track-linked-drag) ? segment.timeline-offset + Store.video-editor-drag-delta-ms : segment.timeline-offset;
+    private property <int> display-duration: is-active-drag ? Store.video-editor-drag-preview-duration : segment.duration;
+
+    public function start-drag() {
+        Store.video-editor-drag-segment-uuid = root.segment.uuid;
+        Store.video-editor-drag-segment-track-index = root.track-index;
+        Store.video-editor-drag-segment-index = root.index;
+        Store.video-editor-drag-preview-offset = root.segment.timeline-offset;
+        Store.video-editor-drag-preview-duration = root.segment.duration;
+        Store.video-editor-drag-delta-ms = 0;
+        Store.video-editor-drag-original-offset = root.segment.timeline-offset;
+        Store.video-editor-drag-original-duration = root.segment.duration;
+        root.drag-start-offset-ms = root.segment.timeline-offset;
+        root.drag-start-source-offset-ms = root.segment.source-offset;
+        root.drag-start-duration-ms = root.segment.duration;
+        root.drag-start-x = root.width;
+
+        // 当 link-all-tracks 启用时，获取所有segment的最小timeline-offset
+        if (Store.video-editor-ui-state.enabled-link-all-tracks) {
+            Store.video-editor-drag-min-all-tracks-offset = Logic.video-editor-get-min-all-tracks-offset();
+        } else {
+            Store.video-editor-drag-min-all-tracks-offset = 0;
+        }
+    }
+
+    // 结束拖拽时重置Store状态
+    public function end-drag() {
+        Store.video-editor-segment-is-dragging = false;
+        Store.video-editor-drag-is-move = false;
+        Store.video-editor-drag-delta-ms = 0;
+        Store.video-editor-segment-cross-track-dragging = false;
+        Store.video-editor-segment-cross-track-target-index = -1;
+        Store.video-editor-segment-cross-track-will-split = false;
+        Store.video-editor-segment-cross-track-split-segment-index = -1;
+    }
+
+    background: Logic.video-editor-track-segment-color(track-type, segment.hiding);
+    opacity: is-active-cross-track-drag ? 0.5 : (Theme.is-dark ? Theme.golden-ratio : 0.8);
+    x: display-timeline-offset / 1000 * length-pre-second;
+    width: display-duration / 1000 * length-pre-second;
+    border-width: Logic.video-editor-is-selected-segment(Store.video-editor-selected-segments-index, selected-segment-index, root.selected-flag) ? 2px : 0;
+    border-radius: Theme.border-radius / Theme.golden-ratio;
+    border-color: Theme.invert-base-color;
+    clip: true;
+
+    if !segment.audio-muted: ReadonlySoundWaveForm {
+        private property <length> waveform-width: is-active-resize-drag ? drag-start-duration-ms / 1000 * length-pre-second : segment.duration / 1000 * length-pre-second;
+        private property <length> waveform-x: is-active-resize-drag && Store.video-editor-drag-preview-offset != segment.timeline-offset ? (segment.timeline-offset - Store.video-editor-drag-preview-offset) / 1000 * length-pre-second : 0;
+
+        x: waveform-x;
+        width: waveform-width;
+        is-mono: segment.preview-audio-channels == 1;
+        data: segment.preview-audio-samples;
+        amplitude-scale: max(segment.preview-audio-amplitude-scale, Store.video-editor-preference-config.track.audio-track-waveform-amplification);
+        sample-color: parent.background.darker(50%);
+    }
+
+    if (show-thumbnail && track-type == VideoEditorTrackType.Video) && segment.left-thumbnail.width > 0: Image {
+        y: 0;
+        x: 0;
+        height: parent.height / 2;
+        source: segment.left-thumbnail;
+    }
+
+    if track-type == VideoEditorTrackType.Image && segment.left-thumbnail.width > 0: Image {
+        y: 0;
+        x: 0;
+        height: parent.height;
+        source: segment.left-thumbnail;
+    }
+
+    if show-filename && !segment.filename.is-empty && track-type == VideoEditorTrackType.Image: Rectangle {
+        x: Theme.padding;
+        y: Theme.padding / 2;
+        background: Theme.dark-bg-color;
+        border-radius: Theme.border-radius;
+        width: if-vbox.preferred-width;
+        height: if-vbox.preferred-height;
+        opacity: 0.8;
+
+        if-vbox := VerticalLayout {
+            alignment: center;
+            padding: Theme.padding / 2;
+            padding-left: Theme.padding;
+            padding-right: Theme.padding;
+
+            Label {
+                text: segment.filename;
+                color: Theme.light-text-color;
+                font-size: Theme.default-font-size * 0.8;
+            }
+        }
+    }
+
+    if show-filename && !segment.filename.is-empty && track-type == VideoEditorTrackType.Video: Rectangle {
+        x: Theme.padding;
+        y: Theme.padding / 2;
+        background: Theme.dark-bg-color;
+        border-radius: Theme.border-radius;
+        width: vf-vbox.preferred-width;
+        height: vf-vbox.preferred-height;
+        opacity: 0.8;
+
+        vf-vbox := VerticalLayout {
+            alignment: center;
+            padding: Theme.padding / 2;
+            padding-left: Theme.padding;
+            padding-right: Theme.padding;
+
+            Label {
+                text: segment.filename;
+                color: Theme.light-text-color;
+                font-size: Theme.default-font-size * 0.8;
+            }
+        }
+    }
+
+    if show-filename && !segment.filename.is-empty && track-type == VideoEditorTrackType.Audio: Label {
+        x: Theme.padding;
+        y: Theme.padding / 2;
+        text: segment.filename;
+        color: Theme.light-text-color;
+        font-size: Theme.default-font-size * 0.8;
+    }
+
+    if track-type == VideoEditorTrackType.Subtitle: Label {
+        x: Theme.padding;
+        y: (parent.height - self.preferred-height) / 2;
+        text: segment.subtitle-text;
+        color: Theme.light-text-color;
+        font-size: Theme.default-font-size;
+        overflow: elide;
+    }
+
+    if track-type == VideoEditorTrackType.Text: Label {
+        x: Theme.padding;
+        y: (parent.height - self.preferred-height) / 2;
+        text: segment.overlay-text;
+        color: Theme.light-text-color;
+        font-size: Theme.default-font-size;
+        overflow: elide;
+    }
+
+    if show-thumbnail && track-type == VideoEditorTrackType.Video && segment.right-thumbnail.width > 0: Image {
+        visible: self.width * 2 < root.width - Theme.spacing * 2;
+        y: 0;
+        x: root.width - self.width;
+        height: parent.height / 2;
+        source: segment.right-thumbnail;
+    }
+
+    if track-type == VideoEditorTrackType.Image && segment.right-thumbnail.width > 0: Image {
+        visible: self.width * 2 < root.width - Theme.spacing * 2;
+        y: 0;
+        x: root.width - self.width;
+        height: parent.height;
+        source: segment.right-thumbnail;
+    }
+
+    if track-type == VideoEditorTrackType.Video || track-type == VideoEditorTrackType.Audio: Divider {
+        background: parent.background.darker(50%);
+    }
+
+    ta := TouchArea {
+        mouse-cursor: track-locked ? MouseCursor.not-allowed : MouseCursor.move;
+
+        private property <bool> right-button-pressed;
+
+        pointer-event(event) => {
+            if (track-locked) {
+                return;
+            }
+            if (event.button == PointerEventButton.right) {
+                right-button-pressed = true;
+                PopupActionSetting.show(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, segment-action-entries);
+            } else if (event.button == PointerEventButton.left) {
+                if (event.kind == PointerEventKind.down) {
+                    root.drag-start-absolute-mouse-x = self.absolute-position.x + self.mouse-x;
+                    root.drag-start-absolute-mouse-y = self.absolute-position.y + self.mouse-y;
+                    root.start-drag();
+                } else if (event.kind == PointerEventKind.up) {
+                    if (Store.video-editor-segment-cross-track-dragging) {
+                        if (Store.video-editor-segment-cross-track-target-index >= 0) {
+                            // 统一使用 cross-track move 处理所有情况（包括同轨道）
+                            Logic.video-editor-commit-segment-cross-track-move(
+                                root.track-index,
+                                root.index,
+                                Store.video-editor-segment-cross-track-target-index,
+                                Store.video-editor-segment-cross-track-timeline-offset-ms,
+                                Store.video-editor-segment-cross-track-will-split,
+                                Store.video-editor-segment-cross-track-split-segment-index);
+                        }
+                    } else if (Store.video-editor-segment-is-dragging) {
+                        Logic.video-editor-commit-segment-move(
+                            selected-segment-index,
+                            Store.video-editor-drag-preview-offset);
+                    }
+                    root.end-drag();
+                } else if (event.kind == PointerEventKind.cancel) {
+                    root.end-drag();
+                }
+            }
+        }
+
+        clicked => {
+            right-button-pressed = false;
+            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+
+            if (Store.video-editor-segment-is-dragging) {
+                return;
+            }
+            if (!(Store.video-editor-keyboard-modifiers.shift || Store.video-editor-keyboard-modifiers.control)) {
+                Store.video-editor-current-edited-track-index = track-index;
+                VEFilter.video-editor-update-subtitle-style-from-track(track-index);
+            }
+            Logic.video-editor-add-selected-segment({
+                index: index,
+                track-index: root.track-index,
+                modifiers: Store.video-editor-keyboard-modifiers,
+            });
+
+            Logic.video-editor-unselect-all-tracks();
+            root.selected-flag = !root.selected-flag;
+
+            if (track-type != VideoEditorTrackType.Text) {
+                Store.video-editor-is-editing-text-segment = false;
+            }
+            if (track-type == VideoEditorTrackType.Subtitle) {
+                Logic.video-editor-update-edited-subtitle-from-segment(track-index, index);
+                Store.video-editor-subtitle-checked-index = 1; // Switch to Modify tab
+                VEFilter.right-panel-selected-index = 1; // Switch right panel to Subtitle tab
+                VEFilter.is-in-edit-mode = false;
+            } else if (track-type == VideoEditorTrackType.Text) {
+                Logic.video-editor-load-text-element(track-index, index);
+                VEFilter.right-panel-selected-index = 2; // Switch right panel to Text tab
+            } else {
+                VEFilter.right-panel-selected-index = 0; // Switch right panel to Filter tab
+
+                // 显示第一个滤镜参数面板
+                if (segment.filters.length > 0) {
+                    VEFilter.selected-filter-index = 0;
+                    VEFilter.selected-filter = segment.filters[0];
+                    VEFilter.is-in-edit-mode = VEFilter.is-edit-mode-filter(segment.filters[0].name);
+                }
+            }
+        }
+
+        moved => {
+            if (track-locked || right-button-pressed) {
+                return;
+            }
+
+            // 使用绝对位置计算增量，避免因 segment 位置变化导致的抖动
+            let current-absolute-mouse-x = self.absolute-position.x + self.mouse-x;
+            let current-absolute-mouse-y = self.absolute-position.y + self.mouse-y;
+            let delta-x = current-absolute-mouse-x - root.drag-start-absolute-mouse-x;
+            let delta-y = current-absolute-mouse-y - root.drag-start-absolute-mouse-y;
+            let abs-movement = max(abs(delta-x), abs(delta-y));
+
+            let drag-threshold = 5px;
+            if (abs-movement < drag-threshold) {
+                return;
+            }
+
+            // 检测是否进入跨轨道拖拽模式（Y 方向移动超过轨道高度）
+            // 启用联动所有轨道时禁用跨轨道拖拽，避免误触
+            let track-height = parent.height;
+            if (abs(delta-y) > track-height && !Store.video-editor-ui-state.enabled-link-all-tracks) {
+                // 跨轨道拖拽模式
+                Store.video-editor-segment-cross-track-dragging = true;
+                Store.video-editor-segment-is-dragging = true;
+                Store.video-editor-drag-is-move = true;
+
+                // 计算目标轨道
+                let relative-y = round((current-absolute-mouse-y - Store.video-editor-tracks-area-absolute-top-left-position.y - Store.video-editor-item-tracks-viewport-y) / 1px);
+                let target-track-index = Logic.video-editor-find-drag-target-track(relative-y);
+
+                if (target-track-index >= 0) {
+                    // 检查类型匹配和锁定状态
+                    let target-track = Store.video-editor-tracks-manager.tracks[target-track-index];
+                    if (target-track.ty == root.track-type && !target-track.locked) {
+                        Store.video-editor-segment-cross-track-target-index = target-track-index;
+
+                        // 计算目标时间位置
+                        let relative-x = current-absolute-mouse-x - Store.video-editor-tracks-area-absolute-top-left-position.x - Store.video-editor-item-track-header-width - Store.video-editor-item-tracks-viewport-x;
+                        let fps = Logic.fps-to-int(Store.video-editor-new-project-config.preview-config.fps);
+                        let length-per-second = fps * Store.video-editor-ui-state.tracks-zoom-level.to-float() * 1px;
+                        let timeline-offset-ms = round(relative-x * 1000 / length-per-second);
+
+                        // 限制时间偏移不能小于 0
+                        let clamped-timeline-offset = timeline-offset-ms < 0 ? 0 : timeline-offset-ms;
+
+                        // 应用 snap 逻辑（跨轨道模式：只检查目标轨道）
+                        let snap-threshold-ms = Store.video-editor-preference-config.track.snap-threshold-ms;
+                        let snap-result = Logic.video-editor-find-snap-position(clamped-timeline-offset, snap-threshold-ms, root.track-index, root.index, target-track-index);
+                        Store.video-editor-segment-cross-track-timeline-offset-ms = snap-result.position;
+
+                        // 检测是否需要分割目标轨道中的 segment
+                        // 同轨道时需要排除正在拖拽的 segment
+                        let split-segment-index = Logic.video-editor-find-segment-at-time-excluding(
+                            target-track-index,
+                            clamped-timeline-offset,
+                            target-track-index == root.track-index ? root.index : -1);
+                        if (split-segment-index >= 0) {
+                            Store.video-editor-segment-cross-track-will-split = true;
+                            Store.video-editor-segment-cross-track-split-segment-index = split-segment-index;
+                        } else {
+                            Store.video-editor-segment-cross-track-will-split = false;
+                            Store.video-editor-segment-cross-track-split-segment-index = -1;
+                        }
+                    } else {
+                        // 类型不匹配或轨道锁定，不允许作为目标
+                        Store.video-editor-segment-cross-track-target-index = -1;
+                        Store.video-editor-segment-cross-track-will-split = false;
+                        Store.video-editor-segment-cross-track-split-segment-index = -1;
+                    }
+                } else {
+                    // 无效目标轨道
+                    Store.video-editor-segment-cross-track-target-index = -1;
+                    Store.video-editor-segment-cross-track-will-split = false;
+                    Store.video-editor-segment-cross-track-split-segment-index = -1;
+                }
+            } else if (Store.video-editor-segment-cross-track-dragging) {
+                // 已经处于跨轨道模式，鼠标回到原轨道附近
+                // 继续计算目标轨道（可能是原轨道），保持自由放置模式
+
+                // 计算目标轨道
+                let relative-y = round((current-absolute-mouse-y - Store.video-editor-tracks-area-absolute-top-left-position.y - Store.video-editor-item-tracks-viewport-y) / 1px);
+                let target-track-index = Logic.video-editor-find-drag-target-track(relative-y);
+
+                if (target-track-index >= 0) {
+                    let target-track = Store.video-editor-tracks-manager.tracks[target-track-index];
+                    if (target-track.ty == root.track-type && !target-track.locked) {
+                        Store.video-editor-segment-cross-track-target-index = target-track-index;
+
+                        // 计算目标时间位置
+                        let relative-x = current-absolute-mouse-x - Store.video-editor-tracks-area-absolute-top-left-position.x - Store.video-editor-item-track-header-width - Store.video-editor-item-tracks-viewport-x;
+                        let fps = Logic.fps-to-int(Store.video-editor-new-project-config.preview-config.fps);
+                        let length-per-second = fps * Store.video-editor-ui-state.tracks-zoom-level.to-float() * 1px;
+                        let timeline-offset-ms = round(relative-x * 1000 / length-per-second);
+                        let clamped-timeline-offset = timeline-offset-ms < 0 ? 0 : timeline-offset-ms;
+
+                        // 应用 snap 逻辑（跨轨道继续模式：只检查目标轨道）
+                        let snap-threshold-ms = Store.video-editor-preference-config.track.snap-threshold-ms;
+                        let snap-result = Logic.video-editor-find-snap-position(clamped-timeline-offset, snap-threshold-ms, root.track-index, root.index, target-track-index);
+                        Store.video-editor-segment-cross-track-timeline-offset-ms = snap-result.position;
+
+                        // 检测是否需要分割目标轨道中的 segment
+                        let split-segment-index = Logic.video-editor-find-segment-at-time-excluding(
+                            target-track-index,
+                            clamped-timeline-offset,
+                            target-track-index == root.track-index ? root.index : -1);
+                        if (split-segment-index >= 0) {
+                            Store.video-editor-segment-cross-track-will-split = true;
+                            Store.video-editor-segment-cross-track-split-segment-index = split-segment-index;
+                        } else {
+                            Store.video-editor-segment-cross-track-will-split = false;
+                            Store.video-editor-segment-cross-track-split-segment-index = -1;
+                        }
+                    } else {
+                        Store.video-editor-segment-cross-track-target-index = -1;
+                        Store.video-editor-segment-cross-track-will-split = false;
+                        Store.video-editor-segment-cross-track-split-segment-index = -1;
+                    }
+                } else {
+                    Store.video-editor-segment-cross-track-target-index = -1;
+                    Store.video-editor-segment-cross-track-will-split = false;
+                    Store.video-editor-segment-cross-track-split-segment-index = -1;
+                }
+            } else {
+                // 原有的同轨道拖拽逻辑（受限模式）
+                Store.video-editor-segment-is-dragging = true;
+                Store.video-editor-drag-is-move = true; // 标记为移动操作（非resize）
+
+                // 减去阈值
+                let effective-delta = delta-x - (delta-x > 0 ? drag-threshold : -drag-threshold);
+                // 使用初始宽度计算 ms 变化量
+                let diff-ms = root.drag-start-duration-ms * effective-delta / root.drag-start-x;
+                let raw-offset = root.drag-start-offset-ms + round(diff-ms);
+
+                // 最后一个segment向右移动不受限制（允许超出track duration）
+                // 启用 link-all-tracks 时也不受下一个 segment 限制（后续 segment 会跟随移动）
+                let clamped-offset = raw-offset < root.min-offset-ms ? root.min-offset-ms : (root.link-enabled || Store.video-editor-ui-state.enabled-link-all-tracks || root.is-last-segment ? raw-offset : (raw-offset + root.segment.duration > root.max-end-ms ? root.max-end-ms - root.segment.duration : raw-offset));
+
+                // 当 link-all-tracks 启用时，额外限制向左移动的距离
+                // max-negative-delta = 所有segment的最小offset值
+                // 因为所有segment可以向左移动的最大距离就是让最小segment到达位置0
+                let max-negative-delta = Store.video-editor-drag-min-all-tracks-offset;
+                let constrained-offset = Store.video-editor-ui-state.enabled-link-all-tracks && (clamped-offset - root.segment.timeline-offset) < -max-negative-delta ? root.segment.timeline-offset - max-negative-delta : clamped-offset;
+
+                // 应用 snap 逻辑（检查 segment 的起始位置和结束位置）
+                let snap-threshold-ms = Store.video-editor-preference-config.track.snap-threshold-ms;
+
+                // 检查起始位置的 snap
+                let snap-start-result = Logic.video-editor-find-snap-position(constrained-offset, snap-threshold-ms, root.track-index, root.index, -1);
+                let snapped-start = snap-start-result.position;
+                let is-start-snapped = snap-start-result.snapped;
+
+                // 检查结束位置的 snap
+                let end-position = constrained-offset + root.segment.duration;
+                let snap-end-result = Logic.video-editor-find-snap-position(end-position, snap-threshold-ms, root.track-index, root.index, -1);
+                let snapped-end = snap-end-result.position;
+                let is-end-snapped = snap-end-result.snapped;
+
+                // 计算基于 snapped-end 的 offset
+                let offset-from-end-snap = snapped-end - root.segment.duration;
+
+                // 选择有效的 snap：使用三元表达式选择最终 offset
+                let distance-start = abs(snapped-start - constrained-offset);
+                let distance-end = abs(offset-from-end-snap - constrained-offset);
+
+                // 优先级：两个都有效时选择更近的，否则选择有效的那个，都没效则用原始值
+                let final-offset = is-start-snapped && is-end-snapped ? (distance-start <= distance-end ? snapped-start : offset-from-end-snap) : (is-start-snapped ? snapped-start : (is-end-snapped ? offset-from-end-snap : constrained-offset));
+
+                Store.video-editor-drag-preview-offset = final-offset;
+                Store.video-editor-drag-delta-ms = final-offset - root.segment.timeline-offset;
+            }
+        }
+    }
+
+    if segment.audio-muted && (track-type == VideoEditorTrackType.Video): HorizontalLayout {
+        x: root.width - self.width - Theme.padding * 2;
+        y: root.height - self.height - Theme.padding;
+        width: Theme.icon-size;
+        height: Theme.icon-size;
+
+        IconBtn {
+            colorize: white;
+            icon: Icons.mute-fill;
+            show-icon-hover-background: false;
+
+            clicked => {
+                Logic.video-editor-segment-toggle-audio({
+                    track-index: track-index,
+                    index: index,
+                });
+            }
+        }
+    }
+
+    // 左边缘: 调整duration和offset
+    Rectangle {
+        x: 0;
+        width: Theme.padding;
+        background: lta.has-hover ? (Theme.is-dark ? Colors.white : Colors.darkgray) : transparent;
+
+        lta := TouchArea {
+            mouse-cursor: track-locked ? MouseCursor.not-allowed : MouseCursor.col-resize;
+
+            pointer-event(event) => {
+                if (track-locked) {
+                    return;
+                }
+                if (event.button == PointerEventButton.left) {
+                    if (event.kind == PointerEventKind.down) {
+                        root.drag-start-absolute-mouse-x = self.absolute-position.x + self.mouse-x;
+                        root.is-active-resize-drag = true;
+                        root.start-drag();
+                    } else if (event.kind == PointerEventKind.up) {
+                        if (Store.video-editor-segment-is-dragging) {
+                            Logic.video-editor-commit-segment-resize(
+                                selected-segment-index,
+                                true,
+                                Store.video-editor-drag-preview-duration,
+                                Store.video-editor-drag-preview-offset);
+                        }
+                        root.is-active-resize-drag = false;
+                        root.end-drag();
+                    } else if (event.kind == PointerEventKind.cancel) {
+                        root.is-active-resize-drag = false;
+                        root.end-drag();
+                    }
+                }
+            }
+
+            moved => {
+                if (track-locked) {
+                    return;
+                }
+                // 使用绝对位置计算增量，避免因 segment 位置变化导致的抖动
+                let current-absolute-mouse-x = self.absolute-position.x + self.mouse-x;
+                let delta-x = current-absolute-mouse-x - root.drag-start-absolute-mouse-x;
+                let abs-movement = abs(delta-x);
+
+                let drag-threshold = 5px;
+                if (abs-movement < drag-threshold) {
+                    return;
+                }
+                Store.video-editor-segment-is-dragging = true;
+
+                let min-duration-ms = 100;
+                let effective-delta = delta-x - (delta-x > 0 ? drag-threshold : -drag-threshold);
+                let diff-ms = root.drag-start-duration-ms * effective-delta / root.drag-start-x;
+                let raw-offset = root.drag-start-offset-ms + round(diff-ms);
+                let raw-duration = root.drag-start-duration-ms - round(diff-ms);
+
+                // 联动模式：offset不变，只改变duration
+                if (root.link-enabled) {
+                    let max-timeline-increase = is-time-independent-track ? 100000000 : round(root.drag-start-source-offset-ms / root.segment.playback-speed);
+                    let max-duration = root.drag-start-duration-ms + max-timeline-increase;
+                    let constrained-duration = raw-duration < min-duration-ms ? min-duration-ms : (raw-duration > max-duration ? max-duration : raw-duration);
+
+                    Store.video-editor-drag-preview-offset = root.drag-start-offset-ms;
+                    Store.video-editor-drag-preview-duration = constrained-duration;
+                    // duration 变化导致后续 segment 需要移动
+                    Store.video-editor-drag-delta-ms = constrained-duration - root.drag-start-duration-ms;
+                } else {
+                    let max-offset-for-min-duration = root.drag-start-offset-ms + root.drag-start-duration-ms - min-duration-ms;
+
+                    let constrained-offset = raw-duration < min-duration-ms ? max-offset-for-min-duration : raw-offset;
+                    let constrained-duration = raw-duration < min-duration-ms ? min-duration-ms : raw-duration;
+
+                    // 计算基于源文件的最小offset（source-offset >= 0）
+                    // 新 source-offset = drag-start-source-offset-ms - (新 timeline-offset - drag-start-offset-ms) * playback_speed
+                    // 限制: 新 source-offset >= 0 => 新 timeline-offset >= drag-start-offset-ms - drag-start-source-offset-ms / playback_speed
+                    let min-source-offset-ms = round(root.drag-start-source-offset-ms / root.segment.playback-speed);
+                    let min-source-timeline-offset = root.drag-start-offset-ms - min-source-offset-ms;
+                    let min-allowed-offset = is-time-independent-track ? root.min-offset-ms : (min-source-timeline-offset > root.min-offset-ms ? min-source-timeline-offset : root.min-offset-ms);
+
+                    let base-offset = constrained-offset < min-allowed-offset ? min-allowed-offset : constrained-offset;
+                    let base-duration = constrained-offset < min-allowed-offset ? root.drag-start-offset-ms + root.drag-start-duration-ms - min-allowed-offset : constrained-duration;
+
+                    // 应用 snap 逻辑（左边缘调整：snap 到相邻轨道边缘或 playhead）
+                    let snap-threshold-ms = Store.video-editor-preference-config.track.snap-threshold-ms;
+                    let snap-result = Logic.video-editor-find-snap-position(base-offset, snap-threshold-ms, root.track-index, root.index, -1);
+                    let snapped-offset = snap-result.position;
+                    // 调整 duration 以保持结束位置不变，但要确保 duration 不小于最小值
+                    let snapped-duration = root.drag-start-offset-ms + root.drag-start-duration-ms - snapped-offset;
+                    // 如果没有找到 snap 或 snap 后的 duration 小于最小值，使用原始值
+                    let final-offset = snap-result.snapped && snapped-duration >= min-duration-ms ? snapped-offset : base-offset;
+                    let final-duration = snap-result.snapped && snapped-duration >= min-duration-ms ? snapped-duration : base-duration;
+
+                    Store.video-editor-drag-preview-offset = final-offset;
+                    Store.video-editor-drag-preview-duration = final-duration;
+                    Store.video-editor-drag-delta-ms = final-offset - root.segment.timeline-offset;
+                }
+            }
+        }
+    }
+
+    // 右边缘: 仅调整duration
+    Rectangle {
+        x: root.width - self.width;
+        width: (is-last-segment && root.width < Theme.padding * 2) ? Theme.padding / 2 : Theme.padding;
+        background: rta.has-hover ? Colors.red : Theme.primary-text-color;
+
+        rta := TouchArea {
+            mouse-cursor: track-locked ? MouseCursor.not-allowed : MouseCursor.col-resize;
+
+            pointer-event(event) => {
+                if (track-locked) {
+                    return;
+                }
+                if (event.button == PointerEventButton.left) {
+                    if (event.kind == PointerEventKind.down) {
+                        root.drag-start-absolute-mouse-x = self.absolute-position.x + self.mouse-x;
+                        root.is-active-resize-drag = true;
+                        root.end-drag();
+                        root.start-drag();
+                    } else if (event.kind == PointerEventKind.up) {
+                        if (Store.video-editor-segment-is-dragging) {
+                            Logic.video-editor-commit-segment-resize(
+                                    selected-segment-index,
+                                    false,
+                                    Store.video-editor-drag-preview-duration,
+                                    Store.video-editor-drag-preview-offset);
+                        }
+                        root.is-active-resize-drag = false;
+                        root.end-drag();
+                    } else if (event.kind == PointerEventKind.cancel) {
+                        root.is-active-resize-drag = false;
+                        root.end-drag();
+                    }
+                }
+            }
+
+            moved => {
+                if (track-locked) {
+                    return;
+                }
+                // 使用ta的绝对位置作为基准，避免宽度变化导致的双重影响
+                let mouse-relative-to-ta-right-edge = root.width - self.width + self.mouse-x;
+                let current-absolute-mouse-x = ta.absolute-position.x + mouse-relative-to-ta-right-edge;
+                let delta-x = current-absolute-mouse-x - root.drag-start-absolute-mouse-x;
+                let abs-movement = abs(delta-x);
+
+                let drag-threshold = 5px;
+                if (abs-movement < drag-threshold) {
+                    return;
+                }
+                Store.video-editor-segment-is-dragging = true;
+
+                let min-duration-ms = 100;
+                let effective-delta = delta-x - (delta-x > 0 ? drag-threshold : -drag-threshold);
+                let diff-ms = root.drag-start-duration-ms * effective-delta / root.drag-start-x;
+                let raw-duration = root.drag-start-duration-ms + round(diff-ms);
+
+                // 计算基于源文件的最大 duration
+                // 源内容结束位置 = source_offset + original_duration
+                // 剩余可用源内容 = source_duration - source_offset - original_duration
+                // 最大 timeline duration = duration + 剩余源内容 / playback_speed
+                let remaining-source-content = is-time-independent-track ? 100000000 : (root.segment.source-duration - root.segment.source-offset - root.segment.original-duration);
+                let max-timeline-increase = round(remaining-source-content / root.segment.playback-speed);
+                let max-source-duration = root.segment.duration + max-timeline-increase;
+
+                // 非联动模式下，受下一个 segment 位置限制
+                let max-next-segment-duration = root.max-end-ms - root.drag-start-offset-ms;
+
+                // 最终的最大 duration 取两者的最小值
+                let max-duration = root.is-last-segment ? max-source-duration : min(max-source-duration, max-next-segment-duration);
+
+                // 联动模式或联动所有轨道模式下不受下一个 segment 限制，只受源文件限制
+                let final-max-duration = root.link-enabled || Store.video-editor-ui-state.enabled-link-all-tracks ? max-source-duration : max-duration;
+
+                let base-duration = raw-duration < min-duration-ms ? min-duration-ms : (raw-duration > final-max-duration ? final-max-duration : raw-duration);
+
+                // 应用 snap 逻辑（右边缘调整：snap 结束位置到相邻轨道边缘或 playhead）
+                let snap-threshold-ms = Store.video-editor-preference-config.track.snap-threshold-ms;
+                let end-position-ms = root.drag-start-offset-ms + base-duration;
+                let snap-result = Logic.video-editor-find-snap-position(end-position-ms, snap-threshold-ms, root.track-index, root.index, -1);
+                let snapped-end = snap-result.position;
+                let snapped-duration = snapped-end - root.drag-start-offset-ms;
+                // 如果没有找到 snap 或 snap 后的 duration 小于最小值，使用原始值
+                let final-duration = snap-result.snapped && snapped-duration >= min-duration-ms ? snapped-duration : base-duration;
+
+                Store.video-editor-drag-preview-duration = final-duration;
+
+                // 联动模式下，更新 delta 以便后续 segment 实时移动
+                if (root.link-enabled) {
+                    Store.video-editor-drag-delta-ms = final-duration - root.drag-start-duration-ms;
+                }
+            }
+        }
+    }
+
+    if show-keyframes || show-text-keyframes: keyframes-area := Rectangle {
+        in-out property selected-property-name <=> Store.video-editor-selected-keyframe-property-name;
+        private property <[PropertyTrack]> property-tracks:
+            show-text-keyframes ? Logic.video-editor-get-text-property-tracks(track-index, index) : VEFilter.get-property-tracks(VEFilter.selected-filter-index);
+        // private property <length> marker-size: Theme.icon-size * Theme.golden-ratio;
+        private property <length> marker-size: clamp(self.height / property-tracks.length, Theme.icon-size * 0.2, Theme.icon-size * Theme.golden-ratio);
+
+        x: 0;
+        y: 0;
+
+        for prop-track[prop-idx] in property-tracks: Rectangle {
+            y: 0;
+            height: parent.height;
+            width: parent.width;
+
+            for kf[kf-idx] in prop-track.keyframes: SegmentKeyframeMarker {
+                private property <length> relative-timeline-offset: kf.time-ms * length-pre-second / 1000;
+                x: relative-timeline-offset - marker-size / 2;
+                y: parent.height / 2 - marker-size / 2 + (prop-idx - (property-tracks.length - 1) / 2.0) * marker-size;
+                width: marker-size;
+                parent-width: root.width;
+                length-pre-second: length-pre-second;
+                height: marker-size;
+                property-name: prop-track.property-name;
+                old-time-ms: kf.time-ms;
+                selected: self.property-name == selected-property-name;
+                keyframe: kf;
+                segment: segment;
+                is-text-keyframe: show-text-keyframes;
+                track-index: track-index;
+                segment-index: index;
+
+                property-selected(name) => {
+                    selected-property-name = name;
+                };
+            }
+        }
+    }
+}
+
+export component TrackSegments inherits Rectangle {
+    in-out property <int> track-index;
+    in-out property <VideoEditorTrack> track;
+
+    private property <length> length-pre-second: Logic.fps-to-int(Store.video-editor-new-project-config.preview-config.fps) * Store.video-editor-ui-state.tracks-zoom-level.to-float() * 1px;
+
+    // 是否是拖拽目标轨道（高亮条件）
+    private property <bool> is-drag-target-track:
+        Store.video-editor-item-is-dragging && Store.video-editor-item-is-in-tracks-area && Store.video-editor-item-drag-target-track-index == track-index && !Store.video-editor-item-is-add-to-new-track;
+
+    // 是否是跨轨道拖拽的目标轨道
+    private property <bool> is-cross-track-drag-target:
+        Store.video-editor-segment-cross-track-dragging && Store.video-editor-segment-cross-track-target-index == track-index;
+
+    width: track.duration / 1000 * length-pre-second;
+    background: mod(track-index, 2) == 0 ? Theme.table-item-first : Theme.table-item-second;
+
+    TouchArea {
+        clicked => {
+            Store.video-editor-current-edited-track-index = track-index;
+        }
+    }
+
+    // 轨道高亮边框（当拖拽目标是当前轨道时）
+    if is-drag-target-track: Rectangle {
+        width: parent.width;
+        height: parent.height;
+        border-width: Theme.default-border-width * 2;
+        border-color: Theme.secondary-brand-color;
+        border-radius: Theme.border-radius;
+        background: Theme.brand-color.with-alpha(0.3);
+    }
+
+    // 拖拽预览 Segment（显示将要插入的位置）
+    if is-drag-target-track: Rectangle {
+        width: Theme.icon-size * 8;
+        height: root.height - Theme.padding / 2;
+        opacity: 0.5;
+        y: Theme.padding / 4;
+        x: Store.video-editor-item-drag-timeline-offset-ms / 1000 * length-pre-second;
+        background: Logic.video-editor-track-segment-color(track.ty, false);
+        border-radius: Theme.border-radius / Theme.golden-ratio;
+        border-width: Theme.default-border-width * 2;
+        border-color: Theme.secondary-brand-color;
+    }
+
+    // 跨轨道拖拽时的目标轨道高亮
+    if is-cross-track-drag-target: Rectangle {
+        width: parent.width;
+        height: parent.height;
+        border-width: Theme.default-border-width * 2;
+        border-color: Theme.secondary-brand-color;
+        border-radius: Theme.border-radius;
+        background: Theme.brand-color.with-alpha(0.3);
+    }
+
+    // 预览 segment（跨轨道拖拽时显示在目标轨道的插入位置）
+    if is-cross-track-drag-target: Rectangle {
+        y: Theme.padding / 4;
+        height: root.height - Theme.padding / 2;
+        x: Store.video-editor-segment-cross-track-timeline-offset-ms / 1000 * length-pre-second;
+        width: Store.video-editor-drag-preview-duration / 1000 * length-pre-second;
+        opacity: 0.5;
+        background: Logic.video-editor-track-segment-color(track.ty, false);
+        border-radius: Theme.border-radius / Theme.golden-ratio;
+        border-width: Theme.default-border-width * 2;
+        border-color: Theme.secondary-brand-color;
+    }
+
+    // 分割指示线（当预览 segment 覆盖目标 segment 时显示）
+    if is-cross-track-drag-target && Store.video-editor-segment-cross-track-will-split: Rectangle {
+        x: Store.video-editor-segment-cross-track-timeline-offset-ms / 1000 * length-pre-second;
+        width: Theme.default-border-width * 2;
+        height: parent.height;
+        background: Theme.danger-color;
+    }
+
+    for segment[idx] in track.segments: Segment {
+        index: idx;
+        track-index: track-index;
+        track-type: track.ty;
+        track-locked: track.locked;
+        segment: segment;
+        height: root.height - Theme.padding / 2;
+        length-pre-second: length-pre-second;
+        track-duration-ms: track.duration;
+        is-last-segment: idx == track.segments.length - 1;
+
+        min-offset-ms: idx > 0 ? track.segments[idx - 1].timeline-offset + track.segments[idx - 1].duration : 0;
+        max-end-ms: idx < track.segments.length - 1 ? track.segments[idx + 1].timeline-offset : track.duration;
+    }
+}

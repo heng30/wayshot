@@ -1,0 +1,126 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    GlobalSpeedFilterConfig,
+} from "../../../../def.slint";
+import {
+    Label,
+    Slider,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+    ClickAndEditLabel,
+    LineInput,
+} from "../../../../../base/widgets.slint";
+import { GlobalFilterType } from "export.slint";
+
+component SpeedHeader inherits HorizontalLayout {
+    alignment: space-between;
+
+    private property <GlobalSpeedFilterConfig> config <=> Store.video-editor-global-filter-config.global-speed;
+
+    changed config => {
+        sw.checked = Store.video-editor-global-filter-config.global-speed.enabled;
+    }
+
+    sw := SettingDetailSwitch {
+        text: Logic.tr("Enable Filter");
+        background: transparent;
+        icon: Icons.filter-light;
+        spacing: Theme.spacing * 6;
+        checked: Store.video-editor-global-filter-config.global-speed.enabled;
+        gain-focus-when-clicked: false;
+
+        toggled => {
+            Store.video-editor-global-filter-config.global-speed.enabled = self.checked;
+            Logic.video-editor-global-filter-speed-toggle-enable();
+        }
+    }
+}
+
+component SpeedContent inherits Rectangle {
+    clip: true;
+    border-width: Theme.default-border-width;
+    border-color: Theme.base-border-color;
+    border-radius: Theme.border-radius;
+
+    VerticalLayout {
+        spacing: Theme.spacing * 4;
+        padding: Theme.padding * 4;
+
+        private property <GlobalSpeedFilterConfig> config <=> Store.video-editor-global-filter-config.global-speed;
+
+        changed config => {
+            speed-li.text = Store.video-editor-global-filter-config.global-speed.speed.to-fixed(2);
+        }
+
+        function update-config() {
+            Logic.video-editor-global-filter-speed-update();
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                enabled: Store.video-editor-global-filter-config.global-speed.enabled;
+                text: Logic.tr("Speed");
+            }
+
+            speed-li := LineInput {
+                input-type: decimal;
+                enabled: Store.video-editor-global-filter-config.global-speed.enabled;
+                text: Store.video-editor-global-filter-config.global-speed.speed.to-fixed(2);
+                text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                accepted => {
+                    Store.video-editor-global-filter-config.global-speed.speed = self.text.to-float().clamp(0.1, 10);
+                    self.text = Store.video-editor-global-filter-config.global-speed.speed.to-fixed(2);
+                    update-config();
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                enabled: Store.video-editor-global-filter-config.global-speed.enabled;
+                text: Logic.tr("Presets");
+            }
+
+            HorizontalLayout {
+                alignment: start;
+                spacing: Theme.spacing * 4;
+
+                private property <float> speed: Store.video-editor-global-filter-config.global-speed.speed;
+
+                for preset in ["0.5", "0.75", "1.0", "1.25", "1.5", "1.75", "2.0", "2.5", "3.0"]: Rectangle {
+                    Label {
+                        enabled: Store.video-editor-global-filter-config.global-speed.enabled;
+                        text: preset + "x";
+                        color: self.enabled ? (speed == preset.to-float() ? Theme.primary-text-color : Theme.secondary-text-color) : Theme.disabled-color;
+                    }
+
+                    TouchArea {
+                        enabled: Store.video-editor-global-filter-config.global-speed.enabled;
+                        mouse-cursor: MouseCursor.pointer;
+
+                        clicked => {
+                            let new-speed = preset.to-float();
+                            Store.video-editor-global-filter-config.global-speed.speed = new-speed;
+                            speed-li.text = new-speed;
+                            update-config();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component GlobalSpeedPanel inherits VerticalLayout {
+    alignment: start;
+    spacing: Theme.spacing * 2;
+
+    SpeedHeader { }
+
+    SpeedContent { }
+}

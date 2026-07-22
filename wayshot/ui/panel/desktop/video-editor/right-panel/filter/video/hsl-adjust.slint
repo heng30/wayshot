@@ -1,0 +1,298 @@
+import {
+    Theme,
+    Logic,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+} from "../../../../../def.slint";
+import {
+    ClickAndEditLabel,
+    LineInput,
+    Slider,
+    RadioBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    HslAdjustDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+import { Icons } from "../../../../../../base/icon.slint";
+
+export component HslAdjust inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <HslAdjustDetail> config: VEFilter.from-hsl-adjust-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: HslAdjustDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "hsl adjust") {
+            self.config = VEFilter.from-hsl-adjust-json(selected-filter.detail);
+            hue-shift-sl.value = self.config.hue-shift;
+            saturation-sl.value = self.config.saturation;
+            lightness-sl.value = self.config.lightness;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Hue Shift");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        hue-shift-sl := Slider {
+                            minimum: -180.0;
+                            maximum: 180.0;
+                            value: config.hue-shift;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.hue-shift = value;
+                            }
+
+                            released(value) => {
+                                config.hue-shift = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: round(config.hue-shift);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.hue-shift = text.to-float().clamp(-180, 180);
+                            hue-shift-sl.value = config.hue-shift;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "hue_shift", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "hue_shift", VEFilter.make-float-value(config.hue-shift));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Saturation");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+                        saturation-sl := Slider {
+                            minimum: -1.0;
+                            maximum: 1.0;
+                            value: config.saturation;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.saturation = value;
+                            }
+
+                            released(value) => {
+                                config.saturation = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.saturation.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.saturation = text.to-float().clamp(-1, 1);
+                            saturation-sl.value = config.saturation;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "saturation", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "saturation", VEFilter.make-float-value(config.saturation));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Lightness");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+                        lightness-sl := Slider {
+                            minimum: -1.0;
+                            maximum: 1.0;
+                            value: config.lightness;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.lightness = value;
+                            }
+
+                            released(value) => {
+                                config.lightness = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.lightness.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.lightness = text.to-float().clamp(-1, 1);
+                            lightness-sl.value = config.lightness;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "lightness", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "lightness", VEFilter.make-float-value(config.lightness));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailSwitch {
+            enabled: selected-filter.enabled;
+            icon: Icons.luminance-light;
+            text: Logic.tr("Preserve Luminance");
+            checked: config.preserve-luminance;
+            gain-focus-when-clicked: false;
+            background: Theme.thirdly-background;
+
+            toggled => {
+                config.preserve-luminance = !config.preserve-luminance;
+                apply(index, config);
+            }
+        }
+
+        if config.preserve-luminance: SettingDetailInnerVbox {
+            padding-left: Theme.padding * 4;
+
+            VerticalLayout {
+                spacing: Theme.spacing * 4;
+                padding-left: Theme.padding * 2;
+
+                RadioBtn {
+                    enabled: selected-filter.enabled && config.preserve-luminance;
+                    text: "BT.709 (HDTV)";
+                    checked: config.luminance-standard == 0;
+
+                    check => {
+                        config.luminance-standard = 0;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    enabled: selected-filter.enabled && config.preserve-luminance;
+                    text: "BT.601 (SDTV)";
+                    checked: config.luminance-standard == 1;
+
+                    check => {
+                        config.luminance-standard = 1;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    enabled: selected-filter.enabled && config.preserve-luminance;
+                    text: "BT.2020 (HDR)";
+                    checked: config.luminance-standard == 2;
+
+                    check => {
+                        config.luminance-standard = 2;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

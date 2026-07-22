@@ -1,0 +1,332 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    TextElement,
+    VideoEditorLayerImage,
+    VideoEditorTrack,
+    VideoEditorTrackType,
+    TransformDetail,
+} from "../../../def.slint";
+import { Label, IconBtn } from "../../../../base/widgets.slint";
+import { VEFilter } from "../filter.slint";
+
+export component PreviewTextLayer inherits Rectangle {
+    private property <TextElement> text-element <=> Store.video-editor-current-text-element;
+    private property <int> edited-track-index: Store.video-editor-current-edited-track-index;
+    private property <int> segment-index: Store.video-editor-selected-segments-index.length > 0 ? Store.video-editor-selected-segments-index[0].index : -1;
+    private property <int> timeline-offset: Store.video-editor-timeline-offset;
+    private property <length> text-x: text-element.position-x * self.width;
+    private property <length> text-y: text-element.position-y * self.height;
+    private property <length> bounding-box-padding: Theme.padding * 5;
+    private property <bool> is-previewing: Store.video-editor-is-previewing;
+    private property <float> preview-width-height-rate: self.width / self.height;
+    private property <bool> show-vertical-center-guide;
+    private property <bool> show-horizontal-center-guide;
+    in-out property <bool> toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    init => {
+        if (Store.video-editor-is-editing-text-segment && edited-track-index >= 0 && segment-index >= 0) {
+            let interpolated = Logic.video-editor-get-text-element-at-playhead(edited-track-index, segment-index);
+            text-element.position-x = interpolated.position-x;
+            text-element.position-y = interpolated.position-y;
+            text-element.rotation = interpolated.rotation;
+            text-element.opacity = interpolated.opacity;
+        }
+    }
+
+    changed timeline-offset => {
+        if (Store.video-editor-is-editing-text-segment && edited-track-index >= 0 && segment-index >= 0) {
+            let interpolated = Logic.video-editor-get-text-element-at-playhead(edited-track-index, segment-index);
+            text-element.position-x = interpolated.position-x;
+            text-element.position-y = interpolated.position-y;
+            text-element.rotation = interpolated.rotation;
+            text-element.opacity = interpolated.opacity;
+        }
+    }
+
+    for index in Store.video-editor-preview-layer-images.length: Rectangle {
+        private property <int> layer-index: Store.video-editor-preview-layer-images.length - 1 - index;
+        private property <VideoEditorLayerImage> layer: Store.video-editor-preview-layer-images[layer-index];
+        private property <VideoEditorTrack> track: Store.video-editor-tracks-manager.tracks[layer.track-index];
+        private property <bool> is-matching: layer.track-index == edited-track-index && track.ty == VideoEditorTrackType.Text;
+
+        // Non-text, non-edited tracks: use transform to position/scale/rotate
+        if !is-matching && track.ty != VideoEditorTrackType.Text: Rectangle {
+            private property <TransformDetail> layer-transform: layer.transform;
+
+            x: root.width * layer-transform.center-x-percent - self.width / 2;
+            y: root.height * layer-transform.center-y-percent - self.height / 2;
+            width: layer-img.width;
+            height: layer-img.height;
+
+            layer-img := Image {
+                private property <float> img-width-height-rate: self.source.width / self.source.height;
+
+                function update-size() {
+                    if (root.preview-width-height-rate > self.img-width-height-rate) {
+                        self.height = root.height * layer-transform.zoom-level;
+                        self.width = self.height * self.img-width-height-rate;
+                    } else {
+                        self.width = root.width * layer-transform.zoom-level;
+                        self.height = self.width / self.img-width-height-rate;
+                    }
+                }
+
+                source: layer.original-image;
+                image-fit: ImageFit.contain;
+                transform-rotation: layer-transform.rotation;
+
+                init => {
+                    self.update-size();
+                }
+
+                changed source => {
+                    self.update-size();
+                }
+            }
+
+            changed layer-transform => {
+                layer-img.update-size();
+            }
+        }
+
+        if !is-matching && track.ty == VideoEditorTrackType.Text: Rectangle {
+            width: root.width;
+            height: root.height;
+
+            text-layer-img := Image {
+                source: layer.image;
+                image-fit: ImageFit.contain;
+            }
+        }
+
+        if is-matching: Rectangle {
+            private property inner-text-element <=> text-element;
+            private property <length> snap-threshold: 10px;
+
+            changed inner-text-element => {
+                self.x = root.text-x - floor(self.width / 2px) * 1px;
+                self.y = root.text-y - floor(self.height / 2px) * 1px;
+            }
+
+            x: root.text-x - floor(self.width / 2px) * 1px;
+            y: root.text-y - floor(self.height / 2px) * 1px;
+            width: img.width;
+            height: img.height;
+
+            img := Image {
+                source: layer.original-image;
+                image-fit: ImageFit.contain;
+                transform-rotation: text-element.rotation;
+                opacity: text-element.opacity;
+            }
+
+            if !text-element.text.is-empty: Rectangle {
+                transform-rotation: img.transform-rotation;
+
+                top-line := HorizontalLayout {
+                    x: -bounding-box-padding;
+                    y: -bounding-box-padding;
+                    width: img.width + bounding-box-padding * 2;
+                    height: 2px;
+                    alignment: space-between;
+
+                    for index in ceil(img.width / Theme.icon-size / 2): Rectangle {
+                        width: Theme.icon-size;
+                        height: 100%;
+                        background: white;
+                    }
+                }
+
+                bottom-line := HorizontalLayout {
+                    x: -bounding-box-padding;
+                    y: img.height - self.height + bounding-box-padding;
+                    width: img.width + bounding-box-padding * 2;
+                    alignment: space-between;
+                    height: 2px;
+
+                    for index in ceil(img.width / Theme.icon-size / 2): Rectangle {
+                        width: Theme.icon-size;
+                        height: 100%;
+                        background: white;
+                    }
+                }
+
+                left-line := VerticalLayout {
+                    x: -bounding-box-padding;
+                    y: -bounding-box-padding;
+                    width: 2px;
+                    height: img.height + bounding-box-padding * 2;
+                    alignment: space-between;
+
+                    for index in ceil(img.height / Theme.icon-size / 2): Rectangle {
+                        height: Theme.icon-size;
+                        width: 100%;
+                        background: white;
+                    }
+                }
+
+                right-line := VerticalLayout {
+                    x: img.width - self.width + bounding-box-padding;
+                    y: -bounding-box-padding;
+                    width: 2px;
+                    height: img.height + bounding-box-padding * 2;
+                    alignment: space-between;
+
+                    for index in ceil(img.height / Theme.icon-size / 2): Rectangle {
+                        height: Theme.icon-size;
+                        width: 100%;
+                        background: white;
+                    }
+                }
+
+                // Resize handle circle at bottom-right corner
+                resize-handle := Rectangle {
+                    x: img.width - self.width / 2 + bounding-box-padding;
+                    y: img.height - self.height / 2 + bounding-box-padding;
+                    width: Theme.default-font-size;
+                    height: self.width;
+                    background: white;
+                    border-radius: self.width / 2;
+                    border-width: Theme.default-border-width;
+                    border-color: black;
+
+                    TouchArea {
+                        mouse-cursor: MouseCursor.se-resize;
+
+                        private property <float> orig-font-size;
+                        private property <bool> can-resize;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left) {
+                                if (event.kind == PointerEventKind.down) {
+                                    can-resize = true;
+                                } else if (event.kind == PointerEventKind.up) {
+                                    can-resize = false;
+
+                                    let scale = (img.width / img.source.width);
+                                    let new-font-size = round(text-element.font-size / 1px * scale);
+                                    if (new-font-size >= 1) {
+                                        text-element.font-size = new-font-size;
+                                        Logic.video-editor-update-text-element(text-element);
+                                    }
+                                }
+                            }
+                        }
+
+                        moved => {
+                            if (self.can-resize) {
+                                img.width += self.mouse-x - self.pressed-x;
+                            }
+                        }
+                    }
+                }
+            }
+
+            TouchArea {
+                mouse-cursor: self.pressed ? grabbing : grab;
+
+                private property <length> orig-position-x;
+                private property <length> orig-position-y;
+
+                pointer-event(event) => {
+                    if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                        orig-position-x = self.pressed-x;
+                        orig-position-y = self.pressed-y;
+                    }
+                }
+
+                moved => {
+                    if (self.pressed) {
+                        let modifiers = Store.video-editor-keyboard-modifiers;
+                        // All calculations in float (pixel values)
+                        let new-x-float = parent.x / 1px + self.mouse-x / 1px - self.pressed-x / 1px;
+                        let new-y-float = parent.y / 1px + self.mouse-y / 1px - self.pressed-y / 1px;
+
+                        // Calculate center position
+                        let center-x-float = new-x-float + self.width / 2px;
+                        let center-y-float = new-y-float + self.height / 2px;
+                        let root-center-x-float = root.width / 2px;
+                        let root-center-y-float = root.height / 2px;
+                        let snap-threshold-float = parent.snap-threshold / 1px;
+
+                        // Reset guide visibility
+                        root.show-vertical-center-guide = false;
+                        root.show-horizontal-center-guide = false;
+
+                        // Control: horizontal only, Shift: vertical only
+                        if (modifiers.control) {
+                            parent.x = new-x-float * 1px;
+                        } else if (modifiers.shift) {
+                            parent.y = new-y-float * 1px;
+                        } else {
+                            // Check for snap to center
+                            if (abs(center-x-float - root-center-x-float) < snap-threshold-float) {
+                                parent.x = (root-center-x-float - self.width / 2px) * 1px;
+                                root.show-vertical-center-guide = true;
+                            } else {
+                                parent.x = new-x-float * 1px;
+                            }
+
+                            if (abs(center-y-float - root-center-y-float) < snap-threshold-float) {
+                                parent.y = (root-center-y-float - self.height / 2px) * 1px;
+                                root.show-horizontal-center-guide = true;
+                            } else {
+                                parent.y = new-y-float * 1px;
+                            }
+                        }
+                    }
+                }
+
+                scroll-event(event) => {
+                    let rotation_deg = text-element.rotation / 1deg;
+                    let delta = Store.video-editor-keyboard-modifiers.shift ? 10.0 : 30.0;
+                    let new_rotation_deg = event.delta-y > 0 ? mod(rotation_deg - delta + 360.0, 360.0) : mod(rotation_deg + delta, 360.0);
+                    text-element.rotation = new_rotation_deg * 1deg;
+                    Logic.video-editor-update-text-element(text-element);
+
+                    if (Logic.video-editor-text-property-has-keyframe-at-playhead(edited-track-index, segment-index, "rotation", toggle-keyframe-flag)) {
+                        let kf_value = VEFilter.make-float-value(new_rotation_deg);
+                        Logic.video-editor-update-text-keyframe-value("rotation", Store.video-editor-timeline-offset, kf_value);
+                    }
+                    accept
+                }
+
+                changed pressed => {
+                    if (!self.pressed) {
+                        root.show-vertical-center-guide = false;
+                        root.show-horizontal-center-guide = false;
+
+                        let final-x = (parent.x + floor(self.width / 2px) * 1px) / root.width;
+                        let final-y = (parent.y + floor(self.height / 2px) * 1px) / root.height;
+                        Logic.video-editor-update-text-position(final-x, final-y);
+
+                        if (Logic.video-editor-text-property-has-keyframe-at-playhead(edited-track-index, segment-index, "position", toggle-keyframe-flag)) {
+                            let kf_value = VEFilter.make-float2-value(final-x, final-y);
+                            Logic.video-editor-update-text-keyframe-value("position", Store.video-editor-timeline-offset, kf_value);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if show-vertical-center-guide: Rectangle {
+        x: (root.width - self.width) / 2;
+        y: 0;
+        width: Theme.default-border-width;
+        height: root.height;
+        background: Theme.thirdly-brand-color;
+    }
+
+    if show-horizontal-center-guide: Rectangle {
+        x: 0;
+        y: (root.height - self.height) / 2;
+        width: root.width;
+        height: Theme.default-border-width;
+        background: Theme.thirdly-brand-color;
+    }
+}

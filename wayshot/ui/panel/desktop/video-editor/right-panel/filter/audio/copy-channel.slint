@@ -1,0 +1,61 @@
+import {
+    Theme,
+    Logic,
+} from "../../../../../def.slint";
+import {
+    RadioBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    CopyChannelDetail,
+} from "../../../filter.slint";
+
+export component CopyChannel inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <CopyChannelDetail> config: VEFilter.from-copy-channel-json(selected-filter.detail);
+
+    SettingDetailInner {
+        interactive: false;
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Direction");
+                enabled: selected-filter.enabled;
+            }
+
+            VerticalLayout {
+                spacing: Theme.spacing * 4;
+                padding-left: Theme.padding * 2;
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: Logic.tr("Left → Right");
+                    checked: config.direction == 0;
+
+                    check => {
+                        config.direction = 0;
+                        VEFilter.modify-copy-channel-filter(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: Logic.tr("Right → Left");
+                    checked: config.direction == 1;
+
+                    check => {
+                        config.direction = 1;
+                        VEFilter.modify-copy-channel-filter(index, config);
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}
+

@@ -1,0 +1,182 @@
+import {
+    Theme,
+    Logic,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+} from "../../../../../def.slint";
+import {
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    CompressorDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component Compressor inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <CompressorDetail> config: VEFilter.from-compressor-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    changed selected-filter => {
+        if (selected-filter.name == "compressor") {
+            self.config = VEFilter.from-compressor-json(selected-filter.detail);
+            markup-gain-li.text = self.config.makeup-gain.to-fixed(2);
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Threshold (dB)");
+                enabled: selected-filter.enabled;
+            }
+
+            LineInput {
+                enabled: selected-filter.enabled;
+                input-type: InputType.decimal;
+                text: config.threshold.to-fixed(2);
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    config.threshold = self.text.to-float();
+                    VEFilter.modify-compressor-filter(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Ratio");
+                enabled: selected-filter.enabled;
+            }
+
+            LineInput {
+                enabled: selected-filter.enabled;
+                input-type: InputType.decimal;
+                text: config.ratio.to-fixed(2);
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    config.ratio = self.text.to-float();
+                    VEFilter.modify-compressor-filter(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Attack (ms)");
+                enabled: selected-filter.enabled;
+            }
+
+            LineInput {
+                enabled: selected-filter.enabled;
+                input-type: InputType.decimal;
+                text: config.attack.to-fixed(2);
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    config.attack = self.text.to-float();
+                    VEFilter.modify-compressor-filter(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Release (ms)");
+                enabled: selected-filter.enabled;
+            }
+
+            LineInput {
+                enabled: selected-filter.enabled;
+                input-type: InputType.decimal;
+                text: config.release.to-fixed(2);
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    config.release = self.text.to-float();
+                    VEFilter.modify-compressor-filter(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Makeup gain (dB)");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing;
+
+                markup-gain-li := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.decimal;
+                    text: config.makeup-gain.to-fixed(2);
+                    border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    accepted => {
+                        config.makeup-gain = self.text.to-float();
+                        VEFilter.modify-compressor-filter(index, config);
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "makeup_gain", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "makeup_gain", VEFilter.make-float-value(config.makeup-gain));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}
+

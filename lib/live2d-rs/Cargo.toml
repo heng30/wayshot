@@ -1,0 +1,13 @@
+[package]
+name = "live2d-rs"
+version.workspace = true
+edition.workspace = true
+description = "Headless Live2D renderer — renders Live2D/Cubism models to RGBA image buffers (pure CPU, no GPU required)"
+
+[dependencies]
+serde_json.workspace = true
+serde = { workspace = true, features = ["derive"] }
+image = { workspace = true, default-features = false, features = ["png"] }
+
+[dev-dependencies]
+clap = { workspace = true, features = ["derive"] }

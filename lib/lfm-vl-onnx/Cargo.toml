@@ -1,0 +1,18 @@
+[package]
+name = "lfm-vl-onnx"
+version.workspace = true
+edition.workspace = true
+description = "LFM2.5-VL inference library in Rust (ONNX)"
+
+[dependencies]
+log.workspace = true
+ort.workspace = true
+image.workspace = true
+ndarray.workspace = true
+thiserror.workspace = true
+tokenizers.workspace = true
+
+[dev-dependencies]
+anyhow.workspace = true
+env_logger.workspace = true
+clap = { workspace = true, features = ["derive"] }

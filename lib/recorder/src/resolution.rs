@@ -21,7 +21,7 @@ use std::fmt;
 pub enum Resolution {
     /// Keep original resolution with specified dimensions
     Original((u32, u32)),
-    /// 480p resolution (480x640 pixels)
+    /// 480p resolution (854x480 pixels)
     P480,
     /// 720p resolution (1280x720 pixels)
     P720,
@@ -218,7 +218,7 @@ impl Resolution {
             Resolution::P2K => (2560, 1440),
             Resolution::P1080 => (1920, 1080),
             Resolution::P720 => (1280, 720),
-            Resolution::P480 => (640, 480),
+            Resolution::P480 => (854, 480),
         }
     }
 }
@@ -240,7 +240,7 @@ impl fmt::Display for Resolution {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Resolution::Original((w, h)) => write!(f, "Original({}x{})", w, h),
-            Resolution::P480 => write!(f, "480p (640x480)"),
+            Resolution::P480 => write!(f, "480p (854x480)"),
             Resolution::P720 => write!(f, "720p (1280x720)"),
             Resolution::P1080 => write!(f, "1080p (1920x1080)"),
             Resolution::P2K => write!(f, "2K (2560x1440)"),
@@ -290,3 +290,4 @@ mod tests {
         assert!(!res.needs_scaling(1920, 1080));
     }
 }
+

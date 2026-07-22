@@ -1,0 +1,52 @@
+import {
+    Theme,
+    Logic,
+    Store,
+} from "../../../../../def.slint";
+import {
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    NormalizeDetail,
+} from "../../../filter.slint";
+
+export component Normalize inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <NormalizeDetail> config: VEFilter.from-normalize-json(selected-filter.detail);
+
+    SettingDetailInner {
+        interactive: false;
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Target level (dB)");
+                enabled: selected-filter.enabled;
+            }
+
+            LineInput {
+                enabled: selected-filter.enabled;
+                input-type: InputType.decimal;
+                text: config.target-level-db.to-fixed(2);
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    config.target-level-db = self.text.to-float();
+                    VEFilter.modify-normalize-filter(index, config);
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

@@ -1,0 +1,699 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoPreviewSize,
+    VideoEditorLayerImage,
+    CropDetail,
+} from "../../../def.slint";
+import { VEFilter, FilterType } from "../filter.slint";
+import { IconBtn, Divider, Label } from "../../../../base/widgets.slint";
+import { MoveHandle } from "move-handle.slint";
+
+export component PreviewCropLayers inherits Rectangle {
+    in-out property <[VideoEditorLayerImage]> layers;
+    private property <float> width-hight-rate: self.width / self.height;
+    private property <FilterType> selected-filter-type <=> VEFilter.selected-filter.ty;
+
+    for index in layers.length: rec := Rectangle {
+        x: 0;
+        y: 0;
+
+        private property <VideoEditorLayerImage> layer: layers[layers.length - 1 - index];
+        private property <bool> is-edited-track: Store.video-editor-current-edited-track-index == layer.track-index;
+        private property <bool> has-keyframes: Logic.video-editor-segment-has-keyframes(layer.track-index, layer.segment-index);
+        private property <CropDetail> config: is-edited-track && has-keyframes ? VEFilter.from-crop-json(VEFilter.selected-filter.detail) : layer.crop;
+        private property <bool> is-previewing: Store.video-editor-is-previewing;
+
+        changed is-previewing => {
+            if (is-edited-track && !is-previewing && has-keyframes) {
+                VEFilter.modify-crop-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+            }
+        }
+
+        if is-edited-track: container-rec := Rectangle {
+            width: img.width;
+            height: img.height;
+
+            function keep-circle-size() {
+                let img-width = img.source.width;
+                let img-height = img.source.height;
+
+                let px-width = config.width * img-width;
+                let px-height = config.height * img-height;
+
+                if (px-width == px-height) {
+                    return;
+                }
+                let diameter-px = min(px-width, px-height);
+                config.width = diameter-px / img-width;
+                config.height = diameter-px / img-height;
+            }
+
+            TouchArea {
+                scroll-event(event) => {
+                    accept
+                }
+            }
+
+            img := Image {
+                private property <length> parent-width: rec.width;
+                private property <length> parent-height: rec.height;
+                private property <float> width-hight-rate: self.source.width / self.source.height;
+
+                changed parent-width => {
+                    self.update-size();
+                }
+
+                changed parent-height => {
+                    self.update-size();
+                }
+
+                function update-size() {
+                    if (root.width-hight-rate > self.width-hight-rate) {
+                        self.height = root.height;
+                        self.width = self.height * self.width-hight-rate;
+                    } else {
+                        self.width = root.width;
+                        self.height = self.width / self.width-hight-rate;
+                    }
+                }
+
+                function apply-resize(diff-x: length, diff-y: length, corner: int, orig-left: float, orig-top: float, orig-width: float, orig-height: float) {
+                    // For circle mode, use consistent scale to maintain circle shape
+                    let norm-x = config.shape == 1 ? diff-x / min(self.width, self.height) : diff-x / self.width;
+                    let norm-y = config.shape == 1 ? diff-y / min(self.width, self.height) : diff-y / self.height;
+                    let min-width-norm = Theme.icon-size / self.width;
+                    let min-height-norm = Theme.icon-size / self.height;
+
+                    // Circle mode: constrain width == height
+                    if (config.shape == 1) {
+                        // For circle: work in min-source ratio units for consistent calculations
+                        let min-source-side = min(self.source.width, self.source.height);
+
+                        // Convert original values to min-source ratio
+                        let orig-left-min = orig-left * self.source.width / min-source-side;
+                        let orig-top-min = orig-top * self.source.height / min-source-side;
+                        let orig-size-min = max(orig-width, orig-height);  // size in min-source ratio
+
+                        // Boundary limits in min-source ratio
+                        let right-boundary-min = self.source.width / min-source-side;
+                        let bottom-boundary-min = self.source.height / min-source-side;
+
+                        // Minimum size normalized (in min-source ratio terms)
+                        let min-size-norm = max(min-width-norm, min-height-norm);
+
+                        // corner 1: top-left, 2: top-right, 3: bottom-right, 4: bottom-left
+                        if (corner == 1) { // top-left: decrease size, increase left and top
+                            // For top-left, moving left/up increases size
+                            let delta = min(-norm-x, -norm-y);
+                            // Compute new size clamped to minimum
+                            let new-size-min = max(min-size-norm, orig-size-min + delta);
+                            // Calculate new left/top in min-ratio (size increases, position moves away)
+                            let size-diff = new-size-min - orig-size-min;
+                            let new-left-min = orig-left-min - size-diff;
+                            let new-top-min = orig-top-min - size-diff;
+
+                            // Handle boundary constraints
+                            if (new-left-min < 0) {
+                                // Hit left boundary - adjust size
+                                let bounded-size-min = max(min-size-norm, orig-size-min + orig-left-min);
+                                config.left = 0;
+                                config.top = (orig-top-min - (bounded-size-min - orig-size-min)) * min-source-side / self.source.height;
+                                config.width = bounded-size-min * min-source-side / self.source.width;
+                                config.height = bounded-size-min * min-source-side / self.source.height;
+                            } else if (new-top-min < 0) {
+                                // Hit top boundary - adjust size
+                                let bounded-size-min = max(min-size-norm, orig-size-min + orig-top-min);
+                                config.top = 0;
+                                config.left = (orig-left-min - (bounded-size-min - orig-size-min)) * min-source-side / self.source.width;
+                                config.width = bounded-size-min * min-source-side / self.source.width;
+                                config.height = bounded-size-min * min-source-side / self.source.height;
+                            } else {
+                                config.left = new-left-min * min-source-side / self.source.width;
+                                config.top = new-top-min * min-source-side / self.source.height;
+                                config.width = new-size-min * min-source-side / self.source.width;
+                                config.height = new-size-min * min-source-side / self.source.height;
+                            }
+                        } else if (corner == 2) { // top-right: adjust width, decrease top
+                            // Moving right increases size, moving up decreases top
+                            let delta = max(norm-x, -norm-y);
+                            let new-size-min = max(min-size-norm, orig-size-min + delta);
+                            let size-diff = new-size-min - orig-size-min;
+                            let new-top-min = orig-top-min - size-diff;
+                            let max-size-by-right-min = right-boundary-min - orig-left-min;
+
+                            // Check right boundary
+                            if (orig-left-min + new-size-min > right-boundary-min) {
+                                // Constrain to right boundary
+                                let bounded-size-min = max(min-size-norm, max-size-by-right-min);
+                                config.width = bounded-size-min * min-source-side / self.source.width;
+                                config.height = bounded-size-min * min-source-side / self.source.height;
+                                let new-top-min-boundary = max(0, orig-top-min - (bounded-size-min - orig-size-min));
+                                config.top = new-top-min-boundary * min-source-side / self.source.height;
+                            } else if (new-top-min < 0) {
+                                // Hit top boundary
+                                let bounded-size-min = max(min-size-norm, orig-top-min + orig-size-min);
+                                config.top = 0;
+                                config.width = bounded-size-min * min-source-side / self.source.width;
+                                config.height = bounded-size-min * min-source-side / self.source.height;
+                            } else {
+                                config.top = new-top-min * min-source-side / self.source.height;
+                                config.width = new-size-min * min-source-side / self.source.width;
+                                config.height = new-size-min * min-source-side / self.source.height;
+                            }
+                        } else if (corner == 3) { // bottom-right: increase width and height
+                            // Moving right or down increases size
+                            let delta = max(norm-x, norm-y);
+                            let new-size-min = max(min-size-norm, orig-size-min + delta);
+                            // Check right and bottom boundaries
+                            let max-size-by-right-min = right-boundary-min - orig-left-min;
+                            let max-size-by-bottom-min = bottom-boundary-min - orig-top-min;
+                            let max-size-min = min(max-size-by-right-min, max-size-by-bottom-min);
+                            let bounded-size-min = max(min-size-norm, min(new-size-min, max-size-min));
+                            config.width = bounded-size-min * min-source-side / self.source.width;
+                            config.height = bounded-size-min * min-source-side / self.source.height;
+                        } else if (corner == 4) { // bottom-left: decrease left, increase height
+                            // Moving left decreases size, moving down increases height
+                            let delta = max(-norm-x, norm-y);
+                            let new-size-min = max(min-size-norm, orig-size-min + delta);
+                            let size-diff = new-size-min - orig-size-min;
+                            let new-left-min = orig-left-min - size-diff;
+                            let max-size-by-bottom-min = bottom-boundary-min - orig-top-min;
+
+                            // Check left and bottom boundaries
+                            if (new-left-min < 0) {
+                                // Hit left boundary
+                                let bounded-size-min = max(min-size-norm, orig-left-min + orig-size-min);
+                                config.left = 0;
+                                config.width = bounded-size-min * min-source-side / self.source.width;
+                                config.height = bounded-size-min * min-source-side / self.source.height;
+                            } else if (orig-top-min + new-size-min > bottom-boundary-min) {
+                                // Hit bottom boundary
+                                let bounded-size-min = max(min-size-norm, max-size-by-bottom-min);
+                                config.width = bounded-size-min * min-source-side / self.source.width;
+                                config.height = bounded-size-min * min-source-side / self.source.height;
+                                config.left = (orig-left-min - (bounded-size-min - orig-size-min)) * min-source-side / self.source.width;
+                            } else {
+                                config.left = new-left-min * min-source-side / self.source.width;
+                                config.width = new-size-min * min-source-side / self.source.width;
+                                config.height = new-size-min * min-source-side / self.source.height;
+                            }
+                        }
+                    } else {
+                        // Rectangle mode: original behavior
+                        // corner 1: top-left, 2: top-right, 3: bottom-right, 4: bottom-left
+                        if (corner == 1) { // top-left
+                            let new-left = orig-left + norm-x;
+                            let new-top = orig-top + norm-y;
+                            let new-width = orig-width - norm-x;
+                            let new-height = orig-height - norm-y;
+                            if (new-left >= 0 && new-width >= min-width-norm) {
+                                config.left = new-left;
+                                config.width = new-width;
+                            }
+                            if (new-top >= 0 && new-height >= min-height-norm) {
+                                config.top = new-top;
+                                config.height = new-height;
+                            }
+                        } else if (corner == 2) { // top-right
+                            let new-width = orig-width + norm-x;
+                            let new-top = orig-top + norm-y;
+                            let new-height = orig-height - norm-y;
+                            if (config.left + new-width <= 1.0 && new-width >= min-width-norm) {
+                                config.width = new-width;
+                            }
+                            if (new-top >= 0 && new-height >= min-height-norm) {
+                                config.top = new-top;
+                                config.height = new-height;
+                            }
+                        } else if (corner == 3) { // bottom-right
+                            let new-width = orig-width + norm-x;
+                            let new-height = orig-height + norm-y;
+                            if (config.left + new-width <= 1.0 && new-width >= min-width-norm) {
+                                config.width = new-width;
+                            }
+                            if (config.top + new-height <= 1.0 && new-height >= min-height-norm) {
+                                config.height = new-height;
+                            }
+                        } else if (corner == 4) { // bottom-left
+                            let new-left = orig-left + norm-x;
+                            let new-width = orig-width - norm-x;
+                            let new-height = orig-height + norm-y;
+                            if (new-left >= 0 && new-width >= min-width-norm) {
+                                config.left = new-left;
+                                config.width = new-width;
+                            }
+                            if (config.top + new-height <= 1.0 && new-height >= min-height-norm) {
+                                config.height = new-height;
+                            }
+                        } else if (corner == 5) { // top edge
+                            let new-top = orig-top + norm-y;
+                            let new-height = orig-height - norm-y;
+                            if (new-top >= 0 && new-height >= min-height-norm) {
+                                config.top = new-top;
+                                config.height = new-height;
+                            }
+                        } else if (corner == 6) { // right edge
+                            let new-width = orig-width + norm-x;
+                            if (config.left + new-width <= 1.0 && new-width >= min-width-norm) {
+                                config.width = new-width;
+                            }
+                        } else if (corner == 7) { // bottom edge
+                            let new-height = orig-height + norm-y;
+                            if (config.top + new-height <= 1.0 && new-height >= min-height-norm) {
+                                config.height = new-height;
+                            }
+                        } else if (corner == 8) { // left edge
+                            let new-left = orig-left + norm-x;
+                            let new-width = orig-width - norm-x;
+                            if (new-left >= 0 && new-width >= min-width-norm) {
+                                config.left = new-left;
+                                config.width = new-width;
+                            }
+                        }
+                    }
+                }
+
+                init => {
+                    self.update-size();
+                }
+
+                source: layer.original-image;
+                image-fit: ImageFit.contain;
+            }
+
+            if is-edited-track: Rectangle {
+                width: img.width;
+                height: img.height;
+
+                private property <length> min-crop-size: Theme.icon-size;
+
+                // Display values with minimum size clamping (only for visual display)
+                private property <length> display-left: config.left * img.width;
+                private property <length> display-top: config.top * img.height;
+                // For circle mode, use width-based size for both dimensions to ensure perfect circle
+                private property <length> circle-size: config.shape == 1 ? max(min-crop-size, min(config.width * img.width, min(img.width - display-left, img.height - display-top))) : 0px;
+                private property <length> display-width: config.shape == 1 ? circle-size : max(min-crop-size, min(config.width * img.width, img.width - display-left));
+                private property <length> display-height: config.shape == 1 ? circle-size : max(min-crop-size, min(config.height * img.height, img.height - display-top));
+                private property <length> display-right: display-left + display-width;
+                private property <length> display-bottom: display-top + display-height;
+
+                // Store original config.values when drag starts
+                private property <float> orig-left;
+                private property <float> orig-top;
+                private property <float> orig-width;
+                private property <float> orig-height;
+
+                // Store initial mouse position (relative to img) when drag starts for handles
+                private property <length> handle-pressed-x;
+                private property <length> handle-pressed-y;
+
+                TouchArea {
+                    width: img.width;
+                    height: img.height;
+                    mouse-cursor: self.pressed ? grabbing : grab;
+
+                    private property <float> move-orig-left;
+                    private property <float> move-orig-top;
+
+                    pointer-event(event) => {
+                        if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                            move-orig-left = config.left;
+                            move-orig-top = config.top;
+                        }
+                    }
+
+                    moved => {
+                        let norm-x = (self.mouse-x - self.pressed-x) / img.width;
+                        let norm-y = (self.mouse-y - self.pressed-y) / img.height;
+
+                        let new-left = move-orig-left + norm-x;
+                        let new-top = move-orig-top + norm-y;
+
+                        config.left = max(0, min(1 - config.width, new-left));
+                        config.top = max(0, min(1 - config.height, new-top));
+                    }
+
+                    changed pressed => {
+                        if (!self.pressed) {
+                            VEFilter.modify-crop-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                        }
+                    }
+                }
+
+                if config.shape == 0: Rectangle {
+                    x: display-left;
+                    y: display-top;
+                    width: display-width;
+                    height: display-height;
+                    background: Theme.hover-background;
+                    opacity: Theme.golden-ratio;
+                }
+
+                if config.shape == 1: Rectangle {
+                    init => {
+                        keep-circle-size();
+                    }
+
+                    x: display-left;
+                    y: display-top;
+                    width: display-width;
+                    height: display-height;
+                    border-radius: self.width / 2;
+                    border-width: 2px;
+                    border-color: white;
+                    background: Theme.hover-background;
+                    opacity: Theme.golden-ratio;
+                }
+
+                top-edge := Rectangle {
+                    x: display-left;
+                    y: display-top - Theme.icon-size / 2;
+                    width: display-width;
+                    height: Theme.icon-size;
+
+                    TouchArea {
+                        mouse-cursor: ns-resize;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                                orig-left = config.left;
+                                orig-top = config.top;
+                                orig-width = config.width;
+                                orig-height = config.height;
+                                handle-pressed-x = parent.x + self.mouse-x;
+                                handle-pressed-y = parent.y + self.mouse-y;
+                            }
+                        }
+
+                        moved => {
+                            if (self.pressed) {
+                                let diff-x = (parent.x + self.mouse-x) - handle-pressed-x;
+                                let diff-y = (parent.y + self.mouse-y) - handle-pressed-y;
+                                img.apply-resize(diff-x, diff-y, 5, orig-left, orig-top, orig-width, orig-height);
+                            }
+                        }
+
+                        changed pressed => {
+                            if (!self.pressed) {
+                                VEFilter.modify-crop-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        y: parent.height / 2 - 1px;
+                        width: parent.width;
+                        height: 2px;
+
+                        HorizontalLayout {
+                            width: parent.width;
+                            height: parent.height;
+                            alignment: space-between;
+
+                            for index in ceil(self.width / Theme.icon-size / 2): Rectangle {
+                                width: Theme.icon-size;
+                                height: 100%;
+                                background: white;
+                            }
+                        }
+                    }
+                }
+
+                bottom-edge := Rectangle {
+                    x: display-left;
+                    y: display-bottom - Theme.icon-size / 2;
+                    width: display-width;
+                    height: Theme.icon-size;
+
+                    TouchArea {
+                        mouse-cursor: ns-resize;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                                orig-left = config.left;
+                                orig-top = config.top;
+                                orig-width = config.width;
+                                orig-height = config.height;
+                                handle-pressed-x = parent.x + self.mouse-x;
+                                handle-pressed-y = parent.y + self.mouse-y;
+                            }
+                        }
+
+                        moved => {
+                            if (self.pressed) {
+                                let diff-x = (parent.x + self.mouse-x) - handle-pressed-x;
+                                let diff-y = (parent.y + self.mouse-y) - handle-pressed-y;
+                                img.apply-resize(diff-x, diff-y, 7, orig-left, orig-top, orig-width, orig-height);
+                            }
+                        }
+
+                        changed pressed => {
+                            if (!self.pressed) {
+                                VEFilter.modify-crop-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        y: parent.height / 2 - 1px;
+                        width: parent.width;
+                        height: 2px;
+
+                        HorizontalLayout {
+                            width: parent.width;
+                            height: parent.height;
+                            alignment: space-between;
+
+                            for index in ceil(self.width / Theme.icon-size / 2): Rectangle {
+                                width: Theme.icon-size;
+                                height: 100%;
+                                background: white;
+                            }
+                        }
+                    }
+                }
+
+                left-edge := Rectangle {
+                    x: display-left - Theme.icon-size / 2;
+                    y: display-top;
+                    width: Theme.icon-size;
+                    height: display-height;
+
+                    TouchArea {
+                        mouse-cursor: ew-resize;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                                orig-left = config.left;
+                                orig-top = config.top;
+                                orig-width = config.width;
+                                orig-height = config.height;
+                                handle-pressed-x = parent.x + self.mouse-x;
+                                handle-pressed-y = parent.y + self.mouse-y;
+                            }
+                        }
+
+                        moved => {
+                            if (self.pressed) {
+                                let diff-x = (parent.x + self.mouse-x) - handle-pressed-x;
+                                let diff-y = (parent.y + self.mouse-y) - handle-pressed-y;
+                                img.apply-resize(diff-x, diff-y, 8, orig-left, orig-top, orig-width, orig-height);
+                            }
+                        }
+
+                        changed pressed => {
+                            if (!self.pressed) {
+                                VEFilter.modify-crop-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        x: parent.width / 2 - 1px;
+                        width: 2px;
+                        height: parent.height;
+
+                        VerticalLayout {
+                            width: parent.width;
+                            height: parent.height;
+                            alignment: space-between;
+
+                            for index in ceil(self.height / Theme.icon-size / 2): Rectangle {
+                                height: Theme.icon-size;
+                                width: 100%;
+                                background: white;
+                            }
+                        }
+                    }
+                }
+
+                right-edge := Rectangle {
+                    x: display-right - Theme.icon-size / 2;
+                    y: display-top;
+                    width: Theme.icon-size;
+                    height: display-height;
+
+                    TouchArea {
+                        mouse-cursor: ew-resize;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                                orig-left = config.left;
+                                orig-top = config.top;
+                                orig-width = config.width;
+                                orig-height = config.height;
+                                handle-pressed-x = parent.x + self.mouse-x;
+                                handle-pressed-y = parent.y + self.mouse-y;
+                            }
+                        }
+
+                        moved => {
+                            if (self.pressed) {
+                                let diff-x = (parent.x + self.mouse-x) - handle-pressed-x;
+                                let diff-y = (parent.y + self.mouse-y) - handle-pressed-y;
+                                img.apply-resize(diff-x, diff-y, 6, orig-left, orig-top, orig-width, orig-height);
+                            }
+                        }
+
+                        changed pressed => {
+                            if (!self.pressed) {
+                                VEFilter.modify-crop-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        x: parent.width / 2 - 1px;
+                        width: 2px;
+                        height: parent.height;
+
+                        VerticalLayout {
+                            width: parent.width;
+                            height: parent.height;
+                            alignment: space-between;
+
+                            for index in ceil(self.height / Theme.icon-size / 2): Rectangle {
+                                height: Theme.icon-size;
+                                width: 100%;
+                                background: white;
+                            }
+                        }
+                    }
+                }
+
+                // Top-left handle
+                top-left-handle := MoveHandle {
+                    x: display-left - self.width / 2;
+                    y: display-top - self.height / 2;
+                    index: 1;
+
+                    pressed-changed => {
+                        orig-left = config.left;
+                        orig-top = config.top;
+                        orig-width = config.width;
+                        orig-height = config.height;
+
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 1,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-crop-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+
+                // Top-right handle
+                top-right-handle := MoveHandle {
+                    x: display-right - self.width / 2;
+                    y: display-top - self.height / 2;
+                    index: 2;
+
+                    pressed-changed => {
+                        orig-left = config.left;
+                        orig-top = config.top;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 2,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-crop-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+
+                // Bottom-right handle
+                bottom-right-handle := MoveHandle {
+                    x: display-right - self.width / 2;
+                    y: display-bottom - self.height / 2;
+                    index: 3;
+
+                    pressed-changed => {
+                        orig-left = config.left;
+                        orig-top = config.top;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 3,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-crop-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+
+                // Bottom-left handle
+                bottom-left-handle := MoveHandle {
+                    x: display-left - self.width / 2;
+                    y: display-bottom - self.height / 2;
+                    index: 4;
+
+                    pressed-changed => {
+                        orig-left = config.left;
+                        orig-top = config.top;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 4,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-crop-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+            }
+        }
+    }
+}

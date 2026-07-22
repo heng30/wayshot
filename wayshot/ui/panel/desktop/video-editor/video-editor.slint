@@ -1,0 +1,187 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+} from "../../def.slint";
+import {
+    MovingDivider,
+    Blanket,
+    UnsaveChangeDialog,
+    RecoveryDialog,
+    ColorPickerPopup,
+} from "../../../base/widgets.slint";
+import { Shortcut } from "shortcut.slint";
+import { Header } from "header.slint";
+import { Footer } from "footer.slint";
+import { Tracks } from "tracks/tracks.slint";
+import { LeftPanel } from "left-panel/left-panel.slint";
+import { RightPanel } from "right-panel/right-panel.slint";
+import { Preview } from "preview/preview.slint";
+import { TopModalDialog } from "top-modal-dialog.slint";
+import { TopMovingDialog } from "top-moving-dialog.slint";
+
+component Body inherits Rectangle {
+    lp := LeftPanel {
+        x: 0;
+        width: max(self.min-width, root.width * Store.video-editor-ui-state.left-panel-width.to-float());
+    }
+
+    ld := MovingDivider {
+        x: lp.width;
+
+        changed pressed => {
+            if (!self.pressed) {
+                Logic.video-editor-update-ui-state();
+                Logic.video-editor-preview-seek(Store.video-editor-timeline-offset);
+            }
+        }
+
+        moved => {
+            lp.width = clamp(lp.width - (self.pressed-x - self.mouse-x), lp.min-width, root.width - self.width - rd.width - rp.width);
+
+            let rate = lp.width / root.width;
+            Store.video-editor-ui-state.left-panel-width = rate.to-fixed(2);
+        }
+    }
+
+    preview := Preview {
+        x: ld.x + ld.width;
+        width: max(root.width - lp.width - ld.width - rd.width - rp.width, 0);
+    }
+
+    rd := MovingDivider {
+        x: preview.x + preview.width;
+
+        changed pressed => {
+            if (!self.pressed) {
+                Logic.video-editor-update-ui-state();
+                Logic.video-editor-preview-seek(Store.video-editor-timeline-offset);
+            }
+        }
+
+        moved => {
+            rp.width = clamp(rp.width + (self.pressed-x - self.mouse-x), rp.min-width, root.width - self.width - ld.width - lp.width);
+
+            let rate = rp.width / root.width;
+            Store.video-editor-ui-state.right-panel-width = rate.to-fixed(2);
+        }
+    }
+
+    rp := RightPanel {
+        x: rd.x + rd.width;
+        width: max(self.min-width, root.width * Store.video-editor-ui-state.right-panel-width.to-float());
+    }
+}
+
+export component VideoEditor inherits Rectangle {
+    private property <bool> color-picker-toggle-flag <=> Store.video-editor-color-picker-toggle-flag;
+    changed color-picker-toggle-flag => {
+        color-picker.show();
+    }
+
+    private property <int> current-edited-track-index: Store.video-editor-current-edited-track-index;
+    private property <bool> focus-flag <=> Store.video-editor-focus-flag;
+
+    changed current-edited-track-index => {
+        fs.focus();
+    }
+
+    changed focus-flag => {
+        fs.focus();
+    }
+
+    fs-timer := Timer {
+        interval: 200ms;
+        running: true;
+
+        triggered() => {
+            fs.focus();
+            self.running = false;
+        }
+    }
+
+    fs := Shortcut {
+        header := Header {
+            y: 0;
+        }
+
+        body := Body {
+            y: header.y + header.height;
+            height: root.height - header.height - td.height - tracks.height - footer.height;
+        }
+
+        td := MovingDivider {
+            y: body.y + body.height;
+            orientation: horizontal;
+
+            changed pressed => {
+                if (!self.pressed) {
+                    Logic.video-editor-update-ui-state();
+                    Logic.video-editor-preview-seek(Store.video-editor-timeline-offset);
+                }
+            }
+
+            moved => {
+                tracks.height = clamp(tracks.height + (self.pressed-y - self.mouse-y), 0, max(root.height - self.height - header.height - footer.height, tracks.max-height));
+
+                let rate = tracks.height / root.height;
+                Store.video-editor-ui-state.tracks-height = rate.to-fixed(2);
+            }
+        }
+
+        tracks := Tracks {
+            y: td.y + td.height;
+            height: root.height * clamp(Store.video-editor-ui-state.tracks-height.to-float(), 0.0, 1.0);
+        }
+
+        footer := Footer {
+            y: tracks.y + tracks.height;
+        }
+    }
+
+    TopMovingDialog {
+        app-focus => {
+            fs.focus();
+        }
+    }
+
+    TopModalDialog {
+        app-focus => {
+            fs.focus();
+        }
+    }
+
+    color-picker := ColorPickerPopup {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 4;
+        selected-color <=> Store.video-editor-color-picker-color;
+
+        confirmed(color) => {
+            Store.video-editor-color-picker-color = Util.color-picker-hex-color(color);
+            Store.video-editor-color-picker-confirmed-flag = !Store.video-editor-color-picker-confirmed-flag;
+            fs.focus();
+        }
+    }
+
+    if Store.video-editor-item-is-dragging: Rectangle {
+        x: Store.video-editor-drag-item-absolute-position.x - parent.absolute-position.x;
+        y: Store.video-editor-drag-item-absolute-position.y - parent.absolute-position.y - self.height / 2;
+        width: draged-hbox.preferred-width;
+        height: draged-hbox.preferred-height;
+        border-radius: Theme.border-radius;
+        background: Theme.secondary-background;
+        border-width: Theme.default-border-width * 2;
+        border-color: Theme.base-border-color;
+
+        draged-hbox := HorizontalLayout {
+            padding: Theme.padding * 2;
+
+            Image {
+                source: Store.video-editor-drag-item.thumbnail;
+                width: Theme.icon-size * 3;
+            }
+        }
+    }
+}

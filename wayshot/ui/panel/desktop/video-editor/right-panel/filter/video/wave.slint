@@ -1,0 +1,476 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Util,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+} from "../../../../../def.slint";
+import {
+    ClickAndEditLabel,
+    LineInput,
+    Slider,
+    Select,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    IconBtn,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    WaveDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component Wave inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <WaveDetail> config: VEFilter.from-wave-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: WaveDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "wave") {
+            self.config = VEFilter.from-wave-json(selected-filter.detail);
+            amplitude-sl.value = self.config.amplitude;
+            frequency-sl.value = self.config.frequency;
+            speed-sl.value = self.config.speed;
+            center-x-sl.value = self.config.center-x;
+            center-y-sl.value = self.config.center-y;
+            phase-input.text = self.config.phase;
+            wave-type-combo.current-index = self.config.wave-type;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            HorizontalLayout {
+                spacing: Theme.spacing;
+                alignment: space-between;
+
+                SettingDetailLabel {
+                    text: Logic.tr("Center X");
+                    enabled: selected-filter.enabled;
+                }
+
+                IconBtn {
+                    icon: Icons.refresh-light;
+                    icon-size: Theme.icon-size * Theme.golden-ratio;
+                    enabled: selected-filter.enabled;
+
+                    clicked => {
+                        config.center-x = 0.5;
+                        apply(index, config);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        center-x-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.center-x;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.center-x = value;
+                            }
+
+                            released(value) => {
+                                config.center-x = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.center-x.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.center-x = text.to-float().clamp(0, 1);
+                            center-x-sl.value = config.center-x;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "center_x", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "center_x", VEFilter.make-float-value(config.center-x));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Center Y
+        SettingDetailInnerVbox {
+            HorizontalLayout {
+                spacing: Theme.spacing;
+                alignment: space-between;
+
+                SettingDetailLabel {
+                    text: Logic.tr("Center Y");
+                    enabled: selected-filter.enabled;
+                }
+
+                IconBtn {
+                    icon: Icons.refresh-light;
+                    icon-size: Theme.icon-size * Theme.golden-ratio;
+                    enabled: selected-filter.enabled;
+
+                    clicked => {
+                        config.center-y = 0.5;
+                        apply(index, config);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        center-y-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.center-y;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.center-y = value;
+                            }
+
+                            released(value) => {
+                                config.center-y = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.center-y.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.center-y = text.to-float().clamp(0, 1);
+                            center-y-sl.value = config.center-y;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "center_y", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "center_y", VEFilter.make-float-value(config.center-y));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Amplitude
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Amplitude");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        amplitude-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 100.0;
+                            value: config.amplitude;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.amplitude = value;
+                            }
+
+                            released(value) => {
+                                config.amplitude = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.amplitude.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.amplitude = text.to-float().clamp(0, 100);
+                            amplitude-sl.value = config.amplitude;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "amplitude", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "amplitude", VEFilter.make-float-value(config.amplitude));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Frequency
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Frequency");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        frequency-sl := Slider {
+                            minimum: 0.1;
+                            maximum: 10.0;
+                            value: config.frequency;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.frequency = value;
+                            }
+
+                            released(value) => {
+                                config.frequency = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.frequency.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.frequency = text.to-float().clamp(0, 100);
+                            frequency-sl.value = config.frequency;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "frequency", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "frequency", VEFilter.make-float-value(config.frequency));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Speed
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Speed");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        speed-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 10.0;
+                            value: config.speed;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.speed = value;
+                            }
+
+                            released(value) => {
+                                config.speed = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.speed.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.speed = text.to-float().clamp(0, 10);
+                            speed-sl.value = config.speed;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "speed", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "speed", VEFilter.make-float-value(config.speed));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Phase (non-keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Phase");
+                enabled: selected-filter.enabled;
+                tip: "0-360";
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                phase-input := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.number;
+                    text: config.phase;
+                    placeholder: "0-360";
+
+                    accepted => {
+                        config.phase = self.text.to-float();
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        // Wave Type (non-keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Wave Type");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                wave-type-combo := Select {
+                    enabled: selected-filter.enabled;
+                    gain-focus-when-clicked: false;
+                    background: Theme.thirdly-background;
+
+                    values: [
+                        Logic.tr("Horizontal"),
+                        Logic.tr("Vertical"),
+                        Logic.tr("Radial"),
+                        Logic.tr("Concentric")
+                    ];
+                    current-index: config.wave-type;
+                    current-value: config.wave-type == 0 ? Logic.tr("Horizontal") : config.wave-type == 1 ? Logic.tr("Vertical") : config.wave-type == 2 ? Logic.tr("Radial") : Logic.tr("Concentric");
+
+                    selected(idx, value) => {
+                        config.wave-type = idx;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

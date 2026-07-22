@@ -128,13 +128,13 @@ pub fn init(ui: &AppWindow) {
 }
 
 fn inner_init(ui: &AppWindow) {
-    #[cfg(feature = "desktop-wayland-wlr")]
+    #[cfg(feature = "wayland-wlr")]
     global_store!(ui).set_feature_type(FeatureType::WaylandWlr);
 
-    #[cfg(feature = "desktop-wayland-portal")]
+    #[cfg(feature = "wayland-portal")]
     global_store!(ui).set_feature_type(FeatureType::WaylandPortal);
 
-    #[cfg(feature = "desktop-windows")]
+    #[cfg(feature = "windows")]
     global_store!(ui).set_feature_type(FeatureType::Windows);
 
     global_store!(ui).set_preview_image(Default::default());
@@ -449,7 +449,7 @@ fn choose_save_dir(ui: &AppWindow) {
     let ui_weak = ui.as_weak();
 
     tokio::spawn(async move {
-        let Some(dir) = picker_directory(ui_weak.clone(), &tr("Choose save directory"), "") else {
+        let Some(dir) = picker_directory(ui_weak.clone(), &tr("Choose save directory")) else {
             return;
         };
 
@@ -492,7 +492,7 @@ fn refresh_speaker(ui: &AppWindow, show_toast: bool) {
         }
     } else {
         if show_toast {
-            toast_success!(ui, "refresh successfully");
+            toast_success!(ui, tr("refresh successfully"));
         }
     }
 }
@@ -520,7 +520,7 @@ fn audio_changed(ui: &AppWindow, name: SharedString, show_toast: bool) {
         }
     } else {
         if show_toast {
-            toast_success!(ui, "change input audio device successfully");
+            toast_success!(ui, tr("change input audio device successfully"));
         }
     }
 }
@@ -572,8 +572,7 @@ fn start_recording(ui: &AppWindow) {
     {
         let ui_weak = ui.as_weak();
         tokio::spawn(async move {
-            let Some(dir) = picker_directory(ui_weak.clone(), &tr("Choose save directory"), "")
-            else {
+            let Some(dir) = picker_directory(ui_weak.clone(), &tr("Choose save directory")) else {
                 return;
             };
 
@@ -855,10 +854,33 @@ fn open_file(ui: &AppWindow, file: SharedString) {
     }
 }
 
-pub fn picker_directory(ui: Weak<AppWindow>, title: &str, filename: &str) -> Option<PathBuf> {
+pub fn picker_directory(ui: Weak<AppWindow>, title: &str) -> Option<PathBuf> {
     let result = native_dialog::DialogBuilder::file()
         .set_title(title)
-        .set_filename(filename)
+        .open_single_dir()
+        .show();
+
+    match result {
+        Ok(Some(path)) => Some(path),
+        Err(e) => {
+            toast::async_toast_warn(
+                ui,
+                format!("{}. {}: {}", tr("Choose directory failed"), tr("Reason"), e),
+            );
+            None
+        }
+        _ => None,
+    }
+}
+
+pub fn picker_directory_with_location(
+    ui: Weak<AppWindow>,
+    title: &str,
+    location: &str,
+) -> Option<PathBuf> {
+    let result = native_dialog::DialogBuilder::file()
+        .set_title(title)
+        .set_location(location)
         .open_single_dir()
         .show();
 

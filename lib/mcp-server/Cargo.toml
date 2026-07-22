@@ -1,0 +1,31 @@
+[package]
+name = "mcp-server"
+license.workspace = true
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "MCP server for Wayshot video editor"
+
+[dependencies]
+log.workspace = true
+schemars.workspace = true
+thiserror.workspace = true
+serde_json.workspace = true
+tokio-util.workspace = true
+derivative.workspace = true
+video-editor.workspace = true
+uuid = { workspace = true, features = ["v4"] }
+tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true, features = ["derive"] }
+axum = { workspace = true, features = ["http1", "tokio"] }
+rmcp = { workspace = true, features = [
+  "server",
+  "macros",
+  "schemars",
+  "transport-io",
+  "transport-streamable-http-server",
+] }

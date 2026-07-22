@@ -1,0 +1,419 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    BackgroundRemoverModel,
+    DownloaderState,
+    Util,
+    VideoEditorBgRemoverConfig,
+    Downloader,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    LineInput,
+    IconBtn,
+    TextBtnWithoutIcon,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ProgressBar,
+    NoMessageImg,
+    Select,
+    NoDataImg,
+} from "../../../../base/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+import { Checkerboard } from "../../../../base/checkerboard.slint";
+
+component LeftHeader inherits HorizontalLayout {
+    spacing: Theme.spacing * 8;
+    alignment: is-processing ? stretch : end;
+
+    private property <bool> is-processing: Store.video-editor-bg-remover-is-processing;
+    private property <bool> has-imported-image: Store.video-editor-bg-remover-image.width > 0;
+    private property <bool> has-processed-image: Store.video-editor-bg-remover-processed-image.width > 0;
+
+    if is-processing: HorizontalLayout {
+        spacing: Theme.spacing * 4;
+
+        VerticalLayout {
+            alignment: center;
+            ProgressBar {
+                height: Theme.icon-size;
+                progress: Store.video-editor-bg-remover-progress;
+            }
+        }
+
+        ElevatedBtn {
+            icon: Icons.stop-light;
+            colorize: Theme.danger-color;
+            gain-focus-when-clicked: false;
+
+            clicked => {
+                Logic.video-editor-bg-remover-process-cancel();
+            }
+        }
+    }
+
+    rec := Rectangle {
+        width: hbox.preferred-width;
+        height: hbox.preferred-height;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("import");
+                    icon: Icons.import2-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-bg-remover-import-image();
+                    }
+                }
+
+                IconBtn {
+                    enabled: !is-processing && has-imported-image;
+                    is-show-tip: true;
+                    tip: Logic.tr("process");
+                    icon: Icons.image-processing-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-bg-remover-process-image();
+                    }
+                }
+
+                IconBtn {
+                    enabled: has-processed-image;
+                    is-show-tip: true;
+                    tip: Logic.tr("export");
+                    icon: Icons.export-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-bg-remover-export-to-playlist();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("remove all");
+                    icon: Icons.clear-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-bg-remover-remove-all-images();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("setting");
+                    icon: Icons.setting-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Store.video-editor-is-show-bg-remover-setting-dialog = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+component ProcessPanel inherits VerticalLayout {
+    private property <image> original-image: Store.video-editor-bg-remover-image;
+    private property <image> processed-image: Store.video-editor-bg-remover-processed-image;
+    private property <bool> is-processing <=> Store.video-editor-bg-remover-is-processing;
+    private property <float> split-pos: 0.5;
+
+    pure function contain-scale(panel-w: length, panel-h: length, img-w: int, img-h: int) -> float {
+        if (img-w <= 0 || img-h <= 0) {
+            return 1.0;
+        }
+        let sx = panel-w / 1px / img-w;
+        let sy = panel-h / 1px / img-h;
+        return sx < sy ? sx : sy;
+    }
+
+    pure function displayed-w(panel-w: length, panel-h: length, img-w: int, img-h: int) -> length {
+        contain-scale(panel-w, panel-h, img-w, img-h) * img-w * 1px;
+    }
+
+    pure function displayed-h(panel-w: length, panel-h: length, img-w: int, img-h: int) -> length {
+        contain-scale(panel-w, panel-h, img-w, img-h) * img-h * 1px;
+    }
+
+    spacing: Theme.spacing * 2;
+
+    img-rect := Rectangle {
+        clip: true;
+        border-radius: Theme.border-radius;
+        border-width: Theme.default-border-width;
+        border-color: processed-image.width > 0 && !is-processing ? Theme.success-color : Theme.base-border-color;
+        background: Theme.secondary-background;
+
+        // Layer 1: Full original image (always visible underneath)
+        if original-image.width > 0: Image {
+            x: (img-rect.width - displayed-w(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 2;
+            y: (img-rect.height - displayed-h(img-rect.width, img-rect.height, original-image.width, original-image.height)) / 2;
+            width: displayed-w(img-rect.width, img-rect.height, original-image.width, original-image.height);
+            height: displayed-h(img-rect.width, img-rect.height, original-image.width, original-image.height);
+            source: original-image;
+            image-fit: fill;
+        }
+
+        // Layer 2: Processed image clipped to the right portion
+        if processed-image.width > 0: Checkerboard {
+            x: split-pos * img-rect.width;
+            width: (1.0 - split-pos) * img-rect.width;
+            height: img-rect.height;
+            clip: true;
+            row-count: self.height / Theme.icon-size;
+            col-count: self.width / Theme.icon-size;
+
+            Image {
+                x: -split-pos * img-rect.width + (img-rect.width - displayed-w(img-rect.width, img-rect.height, processed-image.width, processed-image.height)) / 2;
+                y: (img-rect.height - displayed-h(img-rect.width, img-rect.height, processed-image.width, processed-image.height)) / 2;
+                width: displayed-w(img-rect.width, img-rect.height, processed-image.width, processed-image.height);
+                height: displayed-h(img-rect.width, img-rect.height, processed-image.width, processed-image.height);
+                source: processed-image;
+                image-fit: fill;
+            }
+        }
+
+        // Layer 3: Split handle line and grip circle
+        if processed-image.width > 0: Rectangle {
+            x: split-pos * img-rect.width - 1px;
+            width: 2px;
+            height: img-rect.height;
+            background: black;
+
+            grip := Rectangle {
+                x: parent.width / 2 - self.width / 2;
+                y: img-rect.height / 2 - self.height / 2;
+                width: Theme.icon-size * 1.5;
+                height: self.width;
+                border-radius: self.width / 2;
+                border-width: 2px;
+                border-color: black;
+                background: white;
+
+                Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: Icons.moving-h-light;
+                    colorize: black;
+                }
+            }
+
+            handle-ta := TouchArea {
+                width: Theme.icon-size * 2;
+                x: parent.width / 2 - self.width / 2;
+                mouse-cursor: MouseCursor.col-resize;
+
+                moved => {
+                    if (self.pressed) {
+                        let new-split = (handle-ta.mouse-x + handle-ta.absolute-position.x - img-rect.absolute-position.x) / img-rect.width;
+                        // Calculate image display bounds relative to img-rect
+                        let disp-w = displayed-w(img-rect.width, img-rect.height, original-image.width, original-image.height);
+                        let img-left-pct = (img-rect.width - disp-w) / 2 / img-rect.width;
+                        let img-right-pct = 1 - img-left-pct;
+                        split-pos = new-split.clamp(img-left-pct, img-right-pct);
+                    }
+                }
+            }
+        }
+
+        if original-image.width == 0: NoDataImg {
+            text: Logic.tr("Click Import");
+            image: Icons.no-image-fill;
+            font-size: Theme.title3-font-size;
+            colorize: Theme.primary-text-color;
+
+            TouchArea {
+                mouse-cursor: pointer;
+
+                clicked => {
+                    Logic.video-editor-bg-remover-import-image();
+                }
+            }
+        }
+    }
+}
+
+export component BgRemoverDialog inherits MovingDialog {
+    title: Logic.tr("Background Remover");
+    icon: Icons.clear-light;
+    header-width: Theme.moving-dialog-width;
+    body-height: root.header-width * Theme.golden-ratio;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+
+    init => {
+        if (!Logic.video-editor-bg-remover-setting-is-valid()) {
+            Store.video-editor-is-show-bg-remover-setting-dialog = true;
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        LeftHeader { }
+
+        ProcessPanel {
+            width: parent.width - parent.padding * 2;
+        }
+    }
+}
+
+export component BgRemoverSettingDialog inherits MovingDialog {
+    title: Logic.tr("Background Remover Setting");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    private property <VideoEditorBgRemoverConfig> config: Store.video-editor-bg-remover-config;
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Export directory");
+            }
+
+            LineInput {
+                read-only: true;
+                text: config.export-dir;
+                icon: Icons.file-open-light;
+                is-show-icon: true;
+
+                clicked => {
+                    Logic.video-editor-bg-remover-choose-export-dir();
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Select model");
+            }
+
+            Select {
+                values: ["Modnet", "RMBG-1.4"];
+                current-value: self.values[Store.video-editor-bg-remover-config.selected-model-index];
+                current-index: Store.video-editor-bg-remover-config.selected-model-index;
+                gain-focus-when-clicked: false;
+
+                selected(index, value) => {
+                    Store.video-editor-bg-remover-config.selected-model-index = index;
+                    Logic.video-editor-bg-remover-update-config(config);
+                }
+            }
+        }
+
+        VerticalLayout {
+            private property <int> index: Store.video-editor-bg-remover-config.selected-model-index;
+            private property <Downloader> downloader: Store.video-editor-bg-remover-models-downloader[index];
+
+            alignment: start;
+
+            hbox := HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                pure function get-border-color(status: DownloaderState, path: string) -> color {
+                    if status == DownloaderState.Finished {
+                        return Theme.base-border-color;
+                    } else {
+                        return Logic.file-exist(path) ? Theme.base-border-color : Theme.danger-color;
+                    }
+                }
+
+                pure function get-path(idx: int) -> string {
+                    if idx == 0 {
+                        return config.modnet-path;
+                    } else {
+                        return config.rmbg-path;
+                    }
+                }
+
+                model-path-li := LineInput {
+                    horizontal-stretch: 2;
+                    read-only: true;
+                    is-show-icon: true;
+                    icon: Icons.file-open-light;
+                    placeholder-text: index == 0 ? "modnet.onnx" : "rmbg-model.onnx";
+                    text: get-path(index);
+                    border-color: get-border-color(downloader.state, get-path(index));
+
+                    clicked => {
+                        Logic.video-editor-bg-remover-choose-model-path(index);
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                        alignment: center;
+
+                        ProgressBar {
+                            height: model-path-li.preferred-height * 2 / 3;
+                            font-size: Theme.default-font-size * 2 / 3;
+                            finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                            progress: downloader.progress;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: Theme.spacing * 4;
+
+                        private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+
+                        IconBtn {
+                            is-show-tip: true;
+                            icon: downloading ? Icons.stop-light : Icons.download-light;
+                            colorize: downloading ? Theme.danger-color : Theme.icon-color;
+                            tip: downloading ? Logic.tr("cancel") : Logic.tr("download");
+
+                            clicked => {
+                                if (downloading) {
+                                    Logic.video-editor-bg-remover-model-cancel-download(index, downloader.url);
+                                } else {
+                                    Logic.video-editor-bg-remover-model-start-download(index, downloader.url);
+                                }
+                            }
+                        }
+
+                        IconBtn {
+                            icon: Icons.browser-light;
+                            is-show-tip: true;
+                            tip: Logic.tr("open url");
+
+                            clicked => {
+                                Util.open-url("Default", downloader.url);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

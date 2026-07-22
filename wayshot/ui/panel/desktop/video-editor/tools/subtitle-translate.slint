@@ -1,0 +1,157 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    SubtitleTranslateProgressType,
+    SubtitleTranslateConfig,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    IconBtn,
+    LineInput,
+    ProgressBar,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ConfirmBtn,
+} from "../../../../base/widgets.slint";
+import { TxtEdit } from "../../../../base/txtedit.slint";
+
+component Footer inherits HorizontalLayout {
+    private property <bool> is-ai-available;
+    private property <SubtitleTranslateConfig> config <=> Store.video-editor-subtitle-translate-config;
+    private property <bool> is-translating: Store.video-editor-subtitle-translate-progress-type == SubtitleTranslateProgressType.Translating;
+
+    spacing: Theme.spacing * 8;
+    alignment: is-translating || !is-ai-available ? stretch : end;
+
+    init => {
+        is-ai-available = Logic.is-ai-model-available();
+    }
+
+    if !is-ai-available: Label {
+        text: Logic.tr("Please set up the AI model and API key");
+        color: Theme.danger-color;
+        font-size: Theme.title5-font-size;
+    }
+
+    if is-translating && is-ai-available: HorizontalLayout {
+        spacing: Theme.spacing * 4;
+
+        VerticalLayout {
+            alignment: center;
+
+            ProgressBar {
+                height: Theme.icon-size;
+                progress: Store.video-editor-subtitle-translate-progress;
+            }
+        }
+
+        ElevatedBtn {
+            icon: Icons.stop-light;
+            colorize: Theme.danger-color;
+            gain-focus-when-clicked: false;
+            is-show-tip: true;
+            tip: Logic.tr("cancel");
+
+            clicked => {
+                Logic.video-editor-subtitle-translate-cancel();
+            }
+        }
+    }
+
+    if !is-translating && is-ai-available && !config.prompt.is-empty: HorizontalLayout {
+        alignment: end;
+
+        ConfirmBtn {
+            text: Logic.tr("Translate");
+            icon: Icons.translation-light;
+            icon-size: Theme.icon-size * 0.8;
+
+            clicked => {
+                Logic.video-editor-subtitle-translate-start(config);
+            }
+        }
+    }
+}
+
+export component SubtitleTranslateDialog inherits MovingDialog {
+    title: Logic.tr("Subtitle Translate");
+    icon: Icons.translation-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.15;
+
+    private property <SubtitleTranslateProgressType> progress-type: Store.video-editor-subtitle-translate-progress-type;
+    private property <bool> is-translating: progress-type == SubtitleTranslateProgressType.Translating;
+    private property <SubtitleTranslateConfig> config <=> Store.video-editor-subtitle-translate-config;
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 4;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                enabled: !is-translating;
+                text: Logic.tr("Batch Size");
+            }
+
+            batch-li := LineInput {
+                input-type: number;
+                text: config.batch-size;
+                enabled: !is-translating;
+                border-color: self.text.to-float() != config.batch-size ? Theme.danger-color : self.default-border-color;
+
+                accepted => {
+                    let val = Math.round(self.text.to-float()).max(1);
+                    config.batch-size = val;
+                    self.text = val;
+                    Logic.video-editor-subtitle-translate-update-config(config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                enabled: !is-translating;
+                text: Logic.tr("Max Retries");
+            }
+
+            retries-li := LineInput {
+                input-type: number;
+                text: config.max-retries;
+                enabled: !is-translating;
+                border-color: self.text.to-float() != config.max-retries ? Theme.danger-color : self.default-border-color;
+
+                accepted => {
+                    let val = Math.round(self.text.to-float()).max(0);
+                    config.max-retries = val;
+                    self.text = val;
+                    Logic.video-editor-subtitle-translate-update-config(config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Prompt");
+                enabled: !is-translating;
+            }
+
+            prompt-te := TxtEdit {
+                text: config.prompt;
+                enabled: !is-translating;
+                placeholder: Logic.tr("Translate the subtitles to English");
+                height: self.font-size * 6;
+
+                edited => {
+                    config.prompt = self.text;
+                }
+            }
+        }
+
+        Footer { }
+    }
+}

@@ -58,8 +58,7 @@ fn test_yi_context() {
     assert_eq!(chinese_numbers_to_primitive_numbers("一直"), "一直");
     assert_eq!(chinese_numbers_to_primitive_numbers("一定"), "一定");
     assert_eq!(chinese_numbers_to_primitive_numbers("已经"), "已经");
-    // 但"一个"应该转换，因为"个"是量词
-    assert_eq!(chinese_numbers_to_primitive_numbers("一个人"), "1个人");
+    assert_eq!(chinese_numbers_to_primitive_numbers("一个人"), "一个人");
     assert_eq!(
         chinese_numbers_to_primitive_numbers("这本书有一百页"),
         "这本书有100页"
@@ -180,7 +179,9 @@ fn test_non_standard_formats() {
     assert_eq!(chinese_numbers_to_primitive_numbers("二十六十四"), "2614");
     // 完整的x86-64平台描述
     assert_eq!(
-        chinese_numbers_to_primitive_numbers("主要针对的平台是叉八六杠六十四二十六十四，还有power P C64。"),
+        chinese_numbers_to_primitive_numbers(
+            "主要针对的平台是叉八六杠六十四二十六十四，还有power P C64。"
+        ),
         "主要针对的平台是叉86杠642614，还有power P C64。"
     );
 }

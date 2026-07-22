@@ -1,21 +1,30 @@
 slint::include_modules!();
 
-#[cfg(any(feature = "desktop", feature = "mobile"))]
 #[macro_use]
 extern crate derivative;
 
-#[cfg(any(feature = "desktop", feature = "mobile"))]
-mod config;
+#[cfg(feature = "jemalloc")]
+extern crate tikv_jemallocator;
 
-#[cfg(any(feature = "desktop", feature = "mobile"))]
-mod version;
+#[cfg(feature = "jemalloc")]
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
+// Configure jemalloc at compile-time via the malloc_conf symbol.
+// dirty_decay_ms:10 — purge dirty pages after 10s via background threads.
+// muzzy_decay_ms:0  — immediately return muzzy pages to the OS.
+// This symbol is read by jemalloc on init, before any allocation.
+#[cfg(feature = "jemalloc")]
+#[unsafe(no_mangle)]
+pub static malloc_conf: &[u8] = b"dirty_decay_ms:10,muzzy_decay_ms:0\0";
 
 #[cfg(feature = "database")]
 mod db;
 
+mod config;
 mod logic;
+mod version;
 
-#[cfg(feature = "desktop")]
 pub fn init_logger() {
     use std::io::Write;
 
@@ -50,26 +59,6 @@ pub fn init_logger() {
         .init();
 }
 
-#[cfg(feature = "android")]
-fn init_logger() {
-    android_logger::init_once(
-        android_logger::Config::default()
-            .with_max_level(log::LevelFilter::Trace)
-            .with_filter(
-                android_logger::FilterBuilder::new()
-                    .filter_level(log::LevelFilter::Debug)
-                    .build(),
-            ),
-    );
-}
-
-#[cfg(feature = "web")]
-fn init_logger() {
-    use log::Level;
-    console_log::init_with_level(Level::Trace).expect("error initializing log");
-}
-
-#[cfg(any(feature = "desktop", feature = "mobile"))]
 async fn ui_before() {
     init_logger();
     config::init();
@@ -83,34 +72,10 @@ async fn ui_before() {
     }
 }
 
-#[cfg(feature = "web")]
-fn ui_before() {
-    init_logger();
-}
-
 fn ui_after(ui: &AppWindow) {
     logic::init(ui);
 }
 
-#[cfg(feature = "android")]
-#[unsafe(no_mangle)]
-#[tokio::main]
-async fn android_main(app: slint::android::AndroidApp) {
-    log::debug!("start...");
-
-    slint::android::init(app).unwrap();
-
-    ui_before().await;
-    let ui = AppWindow::new().unwrap();
-    global_store!(ui).set_device_type(DeviceType::Mobile);
-    ui_after(&ui);
-
-    ui.run().unwrap();
-
-    log::debug!("exit...");
-}
-
-#[cfg(feature = "desktop")]
 pub async fn desktop_main() {
     log::debug!("start...");
 
@@ -120,21 +85,6 @@ pub async fn desktop_main() {
     ui_after(&ui);
 
     global_util!(ui).invoke_set_window_center();
-
-    ui.run().unwrap();
-
-    log::debug!("exit...");
-}
-
-#[cfg(feature = "web")]
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen::prelude::wasm_bindgen(start))]
-pub fn main() {
-    log::debug!("start...");
-
-    ui_before();
-    let ui = AppWindow::new().unwrap();
-    global_store!(ui).set_device_type(DeviceType::Web);
-    ui_after(&ui);
 
     ui.run().unwrap();
 

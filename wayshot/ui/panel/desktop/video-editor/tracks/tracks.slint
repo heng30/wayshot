@@ -1,0 +1,322 @@
+import { ListView, ScrollView } from "std-widgets.slint";
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoEditorTrackType,
+    VideoEditorTrackSegment,
+    VideoEditorTrack,
+    VideoEditorTracksManager,
+} from "../../../def.slint";
+import {
+    Divider,
+    IconBtn,
+    Playhead,
+    PopupActionEntry,
+    PopupActionSetting,
+    ClickAndEditLabel,
+    NoDataImg,
+} from "../../../../base/widgets.slint";
+import { Tool } from "tool.slint";
+import { TrackHead } from "header.slint";
+import { Timeline } from "timeline.slint";
+import { TrackSegments } from "segment.slint";
+import { NoMessageImg } from "../../../../base/no-message.slint";
+
+component LeftTrackHead inherits Rectangle {
+    in-out property <int> index;
+    in-out property <VideoEditorTrack> track;
+
+    background: mod(index, 2) == 0 ? Theme.table-item-first : Theme.table-item-second;
+    width: hbox.preferred-width;
+
+    // Drop indicator line when dragging track header
+    Rectangle {
+        visible: Store.video-editor-track-header-is-dragging && Store.video-editor-drag-track-target-index == index;
+        height: Theme.default-border-width * 2;
+        background: Theme.invert-base-color;
+        y: Store.video-editor-drag-track-index > index ? -self.height / 2 : parent.height - self.height / 2;
+    }
+
+    // Drop indicator line when dragging playlist item to header area (insert at this position)
+    Rectangle {
+        visible: Store.video-editor-item-is-in-tracks-area && Store.video-editor-item-is-dragging && Store.video-editor-item-is-add-to-new-track && Store.video-editor-item-new-track-insert-index == index;
+        height: Theme.default-border-width * 2;
+        background: Theme.invert-base-color;
+        y: -self.height / 2;
+        width: parent.width;
+    }
+
+    // Drop indicator line when dragging playlist item to header area (insert at end)
+    Rectangle {
+        visible: Store.video-editor-item-is-in-tracks-area && Store.video-editor-item-is-dragging && Store.video-editor-item-is-add-to-new-track && Store.video-editor-item-new-track-insert-index == Store.video-editor-tracks-manager.tracks.length && index == Store.video-editor-tracks-manager.tracks.length - 1;
+        height: Theme.default-border-width * 2;
+        background: Theme.invert-base-color;
+        y: parent.height - self.height / 2;
+        width: parent.width;
+    }
+
+    hbox := HorizontalLayout {
+        padding-bottom: Theme.padding / 2;
+        height: root.height;
+
+        th := TrackHead {
+            index: index;
+            track: track;
+            height: parent.height;
+        }
+    }
+}
+
+component TracksList inherits Rectangle {
+    in-out property viewport-height <=> header-lv.viewport-height;
+    in-out property tracks <=> Store.video-editor-tracks-manager.tracks;
+    out property <length> track-header-width;
+    in property playhead-x <=> playhead.x;
+    in-out property viewport-x <=> segments-lv.viewport-x;
+    out property viewport-width <=> segments-lv.viewport-width;
+    out property visible-width <=> segments-lv.visible-width;
+    out property <length> header-viewport-y <=> header-lv.viewport-y;
+
+    callback scroll-event <=> scroll-ta.scroll-event;
+
+    changed track-header-width => {
+        Store.video-editor-item-track-header-width = self.track-header-width;
+    }
+
+    public function update-header-position() {
+        Store.video-editor-track-header-area-absolute-top-left-position = {
+            x: header-lv.absolute-position.x,
+            y: header-lv.absolute-position.y,
+        };
+    }
+
+    changed header-viewport-y => {
+        Store.video-editor-item-tracks-viewport-y = self.header-viewport-y;
+        update-header-position();
+    }
+
+    if !hbox.visible: NoDataImg {
+        colorize: Theme.icon-color;
+        height: root.height * Theme.golden-ratio;
+        image: Store.video-editor-item-is-in-tracks-area && Store.video-editor-item-is-dragging ? Icons.add-with-rect-light : Icons.empty-fill;
+        text: Store.video-editor-item-is-in-tracks-area && Store.video-editor-item-is-dragging ? Logic.tr("Add Track") : Logic.tr("No Tracks");
+    }
+
+    hbox := HorizontalLayout {
+        visible: Store.video-editor-tracks-manager.tracks.length > 0;
+
+        private property <int> track-len: Store.video-editor-tracks-manager.tracks.length;
+        changed track-len => {
+            if (track-len == 0) {
+                header-lv.viewport-y = 0;
+                segments-lv.viewport-x = 0;
+            } else if (header-lv.viewport-height > header-lv-vbox.preferred-height) {
+                header-lv.viewport-y = 0;
+            }
+        }
+
+        header-lv := ScrollView {
+            width: track-header-width;
+            vertical-scrollbar-policy: ScrollBarPolicy.always-off;
+            horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+
+            header-lv-vbox := VerticalLayout {
+                padding-bottom: segments-lv.viewport-width > segments-lv.width ? 15px : 0;
+
+                for track[index] in tracks: LeftTrackHead {
+                    init => {
+                        if (index == 0) {
+                            root.track-header-width = self.width;
+                        }
+                    }
+
+                    height: Logic.video-editor-track-height(track.ty);
+                    index: index;
+                    track: track;
+                }
+            }
+        }
+
+        segments-lv := ScrollView {
+            viewport-height: header-lv.viewport-height;
+            viewport-width: vbox.preferred-width;
+            preferred-height: header-lv.preferred-height;
+            viewport-y <=> header-lv.viewport-y;
+
+            Rectangle {
+                scroll-ta := TouchArea {
+                    clicked => {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                vbox := VerticalLayout {
+                    for track[index] in tracks: TrackSegments {
+                        track-index: index;
+                        track: track;
+                        height: Logic.video-editor-track-height(track.ty);
+                    }
+                }
+
+                playhead := Rectangle {
+                    width: Theme.default-font-size;
+                    height: vbox.preferred-height;
+                    y: 0;
+
+                    changed y => {
+                        self.y = 0;
+                    }
+
+                    Rectangle {
+                        width: 1px;
+                        height: vbox.preferred-height;
+                        background: Theme.invert-base-color;
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component Tracks inherits Rectangle {
+    max-height: max(vbox.preferred-height, tl.viewport-height + vtool.preferred-height + timeline.height + vbox.padding * 2 + vbox.spacing + tlvbox.spacing);
+
+    function locate-to() {
+        tl.viewport-x = -clamp(timeline.playhead-x - tl.visible-width / 2, 0, tl.viewport-width);
+    }
+
+    vbox := VerticalLayout {
+        padding: Theme.padding * 2;
+        padding-left: Theme.padding;
+        padding-right: Theme.padding;
+        spacing: Theme.spacing * 2;
+
+        vtool := VerticalLayout {
+            padding-left: Theme.padding * 2;
+            padding-right: Theme.padding * 2;
+
+            Tool {
+                locate-to => {
+                    root.locate-to();
+                }
+
+                jump-to-track-start => {
+                    tl.viewport-x = 0;
+                    Store.video-editor-timeline-offset = 0;
+                    Logic.video-editor-timeline-seek(Store.video-editor-timeline-offset);
+                }
+
+                jump-to-track-end => {
+                    tl.viewport-x = -clamp(tl.viewport-width - tl.visible-width, 0, tl.viewport-width);
+                    Store.video-editor-timeline-offset = Store.video-editor-tracks-manager.duration;
+                    Logic.video-editor-timeline-seek(Store.video-editor-timeline-offset);
+                }
+
+                jump-to-segment-start => {
+                    Logic.video-editor-preview-jump-to-segment-start();
+                    root.locate-to();
+                }
+
+                jump-to-segment-end => {
+                    Logic.video-editor-preview-jump-to-segment-end();
+                    root.locate-to();
+                }
+
+                fit-to-view => {
+                    let duration = Store.video-editor-tracks-manager.duration;
+                    let fps = Logic.fps-to-int(Store.video-editor-new-project-config.preview-config.fps);
+                    if (duration > 0 && fps > 0) {
+                        tl.viewport-x = 0;
+                        let zoom-level = (tl.visible-width / 1px) * 1000.0 / (duration * fps);
+                        Store.video-editor-ui-state.tracks-zoom-level = min(zoom-level, Store.video-editor-max-zoom-level);
+                        Logic.video-editor-update-ui-state();
+                    }
+                }
+            }
+        }
+
+        tlvbox := VerticalLayout {
+            timeline := Timeline {
+                viewport-x <=> tl.viewport-x;
+                viewport-width: tl.viewport-width;
+                header-width: tl.track-header-width;
+                timeline-width: tl.viewport-width;
+
+                moved => {
+                    if (!self.playhead-in-viewport()) {
+                        if (self.playhead-x < abs(tl.viewport-x)) {
+                            tl.viewport-x = - clamp(abs(tl.viewport-x) - tl.visible-width / 2, 0, tl.viewport-width);
+                        } else {
+                            tl.viewport-x = - clamp(abs(tl.viewport-x) + tl.visible-width / 2, 0, tl.viewport-width);
+                        }
+                    }
+                }
+
+                // Keep playhead visible, when previewing
+                update-preview-timeline-offset => {
+                    if (!self.playhead-in-viewport()) {
+                        tl.viewport-x = -clamp(self.playhead-x - tl.visible-width / 2, 0, tl.viewport-width);
+                    }
+                }
+
+                scroll-event(event) => {
+                    if (timeline.viewport-width > timeline.width) {
+                        if (event.delta-y > 0) {
+                            tl.viewport-x = -clamp(abs(tl.viewport-x) - tl.visible-width / 4, 0, tl.viewport-width);
+                        } else if (event.delta-y < 0) {
+                            tl.viewport-x = -clamp(abs(tl.viewport-x) + tl.visible-width / 4, 0, tl.viewport-width);
+                        }
+                    }
+                    accept
+                }
+            }
+
+            tl := TracksList {
+                playhead-x: timeline.playhead-x;
+
+                function update-position() {
+                    Store.video-editor-tracks-area-absolute-top-left-position = self.absolute-position;
+                    Store.video-editor-tracks-area-absolute-bottom-right-position = {
+                        x: self.absolute-position.x + self.width,
+                        y: self.absolute-position.y + self.height,
+                    };
+                    Store.video-editor-item-tracks-viewport-x = self.viewport-x;
+                    self.update-header-position();
+                }
+
+                function debug-position() {
+                    debug("(top, left): ", Store.video-editor-tracks-area-absolute-top-left-position.x, Store.video-editor-tracks-area-absolute-top-left-position.y);
+                    debug("(bottom, right): ", Store.video-editor-tracks-area-absolute-bottom-right-position.x, Store.video-editor-tracks-area-absolute-bottom-right-position.y);
+                }
+
+                changed width => {
+                    update-position();
+                }
+
+                changed height => {
+                    update-position();
+                }
+
+                changed viewport-x => {
+                    Store.video-editor-item-tracks-viewport-x = self.viewport-x;
+                }
+
+                scroll-event(event) => {
+                    timeline.scroll-event(event);
+                }
+            }
+        }
+    }
+
+    divider := Divider {
+        x: tlvbox.x + tl.track-header-width;
+        y: tlvbox.y;
+        visible: Store.video-editor-tracks-manager.tracks.length > 0;
+        width: Theme.default-border-width;
+        height: tlvbox.height;
+        background: Theme.regular-text-color;
+    }
+}

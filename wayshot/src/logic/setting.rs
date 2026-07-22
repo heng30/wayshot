@@ -74,10 +74,16 @@ pub fn init(ui: &AppWindow) {
         all.preference.language = setting.language.into();
         all.preference.always_on_top = setting.always_on_top;
         all.preference.no_frame = setting.no_frame;
+
+        let is_dark_changed = all.preference.is_dark != setting.is_dark;
         all.preference.is_dark = setting.is_dark;
         _ = config::save(all);
 
-        if cfg!(feature = "desktop") && !ui.window().is_maximized() {
+        if is_dark_changed {
+            crate::global_terminal_state!(ui).invoke_theme_changed(setting.is_dark);
+        }
+
+        if !ui.window().is_maximized() {
             ui.global::<crate::Util>().invoke_update_window_size();
         }
 
@@ -118,7 +124,6 @@ pub fn init(ui: &AppWindow) {
     app_setting!(ui, share_screen_client, false);
     app_setting!(ui, share_screen, true);
     app_setting!(ui, push_stream, true);
-    app_setting!(ui, transcribe, false);
     app_setting!(ui, ai_model, true);
 
     global_logic!(ui).on_get_setting_camera(move || {
@@ -157,23 +162,20 @@ pub fn init(ui: &AppWindow) {
         cutil::fs::pretty_bytes_size(bytes).into()
     });
 
-    #[cfg(feature = "desktop")]
-    {
-        let ui_weak = ui.as_weak();
-        global_logic!(ui).on_backup(move |setting| {
-            backup(ui_weak.clone(), setting);
-        });
+    let ui_weak = ui.as_weak();
+    global_logic!(ui).on_backup(move |setting| {
+        backup(ui_weak.clone(), setting);
+    });
 
-        let ui_weak = ui.as_weak();
-        global_logic!(ui).on_recover(move || {
-            recover(ui_weak.clone());
-        });
+    let ui_weak = ui.as_weak();
+    global_logic!(ui).on_recover(move || {
+        recover(ui_weak.clone());
+    });
 
-        let ui_weak = ui.as_weak();
-        global_logic!(ui).on_uninstall(move || {
-            uninstall(ui_weak.clone());
-        });
-    }
+    let ui_weak = ui.as_weak();
+    global_logic!(ui).on_uninstall(move || {
+        uninstall(ui_weak.clone());
+    });
 }
 
 fn init_setting(ui: &AppWindow) {
@@ -195,7 +197,6 @@ fn init_setting(ui: &AppWindow) {
     global_store!(ui).set_setting_control(config::all().control.into());
 }
 
-#[cfg(feature = "desktop")]
 fn backup(ui: slint::Weak<AppWindow>, setting: crate::slint_generatedAppWindow::SettingBackup) {
     use crate::logic::toast;
 
@@ -252,17 +253,17 @@ fn backup(ui: slint::Weak<AppWindow>, setting: crate::slint_generatedAppWindow::
             }
             _ => toast::async_toast_warn(
                 ui,
-                tr(&format!(
-                    "Can't find config_path: {} or data_path: {}",
+                format!(
+                    "{}: {} {}",
+                    tr("Can't find config_path or data_path"),
                     all.config_path.as_path().display(),
                     all.db_path.as_path().display()
-                )),
+                ),
             ),
         }
     });
 }
 
-#[cfg(feature = "desktop")]
 fn recover(ui: slint::Weak<AppWindow>) {
     use crate::logic::toast;
 
@@ -331,7 +332,6 @@ fn recover(ui: slint::Weak<AppWindow>) {
     });
 }
 
-#[cfg(feature = "desktop")]
 fn uninstall(ui: slint::Weak<AppWindow>) {
     let ui = ui.unwrap();
     let all = config::all();

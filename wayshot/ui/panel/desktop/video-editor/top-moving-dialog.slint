@@ -1,0 +1,1017 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    ChapterSummaryProgressType,
+    SubtitleTranslateProgressType,
+} from "../../def.slint";
+import { HelpDialog } from "help-dialog.slint";
+import { RecentDialog } from "recent-dialog.slint";
+import { BackupProgressDialog } from "backup-progress-dialog.slint";
+import { ItemPreviewDialog } from "left-panel/item-preview-dialog.slint";
+
+import { MetadataDialog } from "tools/metadata-dialog.slint";
+import { OCRDialog, OCRSettingDialog } from "tools/ocr.slint";
+import { CodeImageDialog } from "tools/code-image-dialog.slint";
+import { PureColorImageDialog } from "tools/pure-color-image-dialog.slint";
+import { RecordAudioDialog } from "tools/record-audio-dialog.slint";
+import { BackgroundAnimationDialog } from "tools/bg-animation/panel.slint";
+import { ImageAnimationDialog } from "tools/img-animation/panel.slint";
+import { GlobalFilterDialog } from "tools/global-filter/panel.slint";
+import {
+    TTSDialog,
+    TTSAddDialog,
+    TTSSettingDialog,
+} from "tools/tts-dialog.slint";
+import {
+    BgRemoverDialog,
+    BgRemoverSettingDialog,
+} from "tools/bg-remover.slint";
+import {
+    MusicGenDialog,
+    MusicGenSettingDialog,
+} from "tools/musicgen.slint";
+import {
+    DewatermarkDialog,
+    DewatermarkSettingDialog,
+} from "tools/dewatermark.slint";
+import {
+    SubtitleRemoverDialog,
+    SubtitleRemoverSettingDialog,
+} from "tools/subtitle-remover.slint";
+import {
+    CutoutDialog,
+    CutoutSettingDialog,
+} from "tools/cutout.slint";
+import {
+    StemSplitterDialog,
+    StemSplitterSettingDialog,
+} from "tools/stem-splitter.slint";
+import {
+    DeepFilterDialog,
+    DeepFilterSettingDialog,
+} from "tools/deep-filter.slint";
+import {
+    SimilarVideoSegmentDialog,
+    SimilarVideoSegmentSettingDialog,
+} from "tools/similar-video-segment.slint";
+import {
+    SpeakersDialog,
+    SpeakersSettingDialog,
+} from "tools/speakers.slint";
+import {
+    TranscribeDialog,
+    TranscribeTextDialog,
+    TranscribeSettingDialog,
+} from "tools/transcribe/panel.slint";
+import { SceneDetectDialog } from "tools/scene-detect.slint";
+import { LongScreenshotDialog } from "tools/long-screenshot-dialog.slint";
+import { ChapterSummaryDialog } from "tools/chapter-summary.slint";
+import { MemoDialog } from "tools/memo-dialog.slint";
+import { SubtitleTranslateDialog } from "tools/subtitle-translate.slint";
+import {
+    SmartClipDialog,
+    SmartClipReferenceDialog,
+} from "tools/smart-clip/panel.slint";
+import { SmartClipSettingDialog } from "tools/smart-clip/setting.slint";
+import {
+    SmartMixPanel,
+    SmartMixSettingDialog,
+} from "tools/smart-mix.slint";
+import {
+    OnlineSearchImageSettingDialog,
+    OnlineSearchAudioSettingDialog,
+} from "left-panel/online-search.slint";
+import { ReplaceDialog } from "../../../base/widgets.slint";
+import {
+    ClearVisionDialog,
+    ClearVisionSettingDialog,
+} from "tools/clear-vision.slint";
+import {
+    DanmakuAddItemsDialog,
+    DanmakuFetchItemsDialog,
+} from "tools/global-filter/danmaku.slint";
+
+export component TopMovingDialog inherits Rectangle {
+    callback app-focus();
+
+    if Store.video-editor-is-show-tts-dialog: TTSDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-tts-release-resource();
+            Store.video-editor-is-show-tts-dialog = false;
+            Store.video-editor-is-show-tts-add-dialog = false;
+            Store.video-editor-is-show-tts-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-is-show-tts-add-dialog = false;
+            Store.video-editor-is-show-tts-setting-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-tts-setting-dialog: TTSSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-tts-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-tts-add-dialog: TTSAddDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-tts-add-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-transcribe-is-show-dialog: TranscribeDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-transcribe-is-show-dialog = false;
+            Store.video-editor-transcribe-is-show-replace-dialog = false;
+            Store.video-editor-transcribe-is-show-setting-dialog = false;
+            Store.video-editor-transcribe-is-show-original-text-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-transcribe-is-show-replace-dialog = false;
+            Store.video-editor-transcribe-is-show-setting-dialog = false;
+            Store.video-editor-transcribe-is-show-original-text-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-smart-clip-is-show-dialog: SmartClipDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-smart-clip-is-show-dialog = false;
+            Store.video-editor-smart-clip-is-show-reference-dialog = false;
+            Store.video-editor-smart-clip-is-show-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-smart-clip-is-show-reference-dialog = false;
+            Store.video-editor-smart-clip-is-show-setting-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-smart-clip-is-show-reference-dialog: SmartClipReferenceDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-smart-clip-is-show-reference-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-smart-clip-is-show-setting-dialog: SmartClipSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-smart-clip-is-show-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-transcribe-is-show-replace-dialog: ReplaceDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-transcribe-is-show-replace-dialog = false;
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+        replace(old-text, new-text) => {
+            Logic.video-editor-transcribe-subtitles-replace-text(old-text, new-text);
+        }
+    }
+
+    if Store.video-editor-transcribe-is-show-original-text-dialog: TranscribeTextDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-transcribe-is-show-original-text-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-transcribe-is-show-setting-dialog: TranscribeSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-transcribe-is-show-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-ocr-dialog: OCRDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-ocr-clear();
+            Store.video-editor-is-show-ocr-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-ocr-setting-dialog: OCRSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-ocr-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-bg-remover-dialog: BgRemoverDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-bg-remover-dialog = false;
+            Store.video-editor-is-show-bg-remover-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-is-show-bg-remover-setting-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-bg-remover-setting-dialog: BgRemoverSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-bg-remover-setting-dialog = false;
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-musicgen-dialog: MusicGenDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-musicgen-stop-audio();
+            Store.video-editor-is-show-musicgen-dialog = false;
+            Store.video-editor-is-show-musicgen-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-is-show-musicgen-setting-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-musicgen-setting-dialog: MusicGenSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-musicgen-setting-dialog = false;
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-similar-video-segment-dialog: SimilarVideoSegmentDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-similar-video-segment-remove-all();
+            Store.video-editor-is-show-similar-video-segment-dialog = false;
+            Store.video-editor-is-show-similar-video-segment-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-is-show-similar-video-segment-setting-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-similar-video-segment-setting-dialog: SimilarVideoSegmentSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-similar-video-segment-setting-dialog = false;
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-dewatermark-dialog: DewatermarkDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-dewatermark-remove-all-images();
+            Store.video-editor-is-show-dewatermark-dialog = false;
+            Store.video-editor-is-show-dewatermark-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-is-show-dewatermark-setting-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-dewatermark-setting-dialog: DewatermarkSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-dewatermark-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-subtitle-remover-dialog: SubtitleRemoverDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-subtitle-remover-remove-all();
+            Store.video-editor-is-show-subtitle-remover-dialog = false;
+            Store.video-editor-is-show-subtitle-remover-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-is-show-subtitle-remover-setting-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-subtitle-remover-setting-dialog: SubtitleRemoverSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-subtitle-remover-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-cutout-dialog: CutoutDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-cutout-remove-all-images();
+            Store.video-editor-is-show-cutout-dialog = false;
+            Store.video-editor-is-show-cutout-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-is-show-cutout-setting-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-cutout-setting-dialog: CutoutSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-cutout-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-clear-vision-dialog: ClearVisionDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-clear-vision-remove-all-images();
+            Store.video-editor-is-show-clear-vision-dialog = false;
+            Store.video-editor-is-show-clear-vision-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-is-show-clear-vision-setting-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-clear-vision-setting-dialog: ClearVisionSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-clear-vision-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-stem-splitter-dialog: StemSplitterDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-stem-splitter-remove-all();
+            Store.video-editor-is-show-stem-splitter-dialog = false;
+            Store.video-editor-is-show-stem-splitter-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-is-show-stem-splitter-setting-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-stem-splitter-setting-dialog: StemSplitterSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-stem-splitter-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-deep-filter-dialog: DeepFilterDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-deep-filter-remove-all();
+            Store.video-editor-is-show-deep-filter-dialog = false;
+            Store.video-editor-is-show-deep-filter-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-is-show-deep-filter-setting-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-deep-filter-setting-dialog: DeepFilterSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-deep-filter-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-speakers-dialog: SpeakersDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-speakers-remove-all();
+            Store.video-editor-is-show-speakers-dialog = false;
+            Store.video-editor-is-show-speakers-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-is-show-speakers-setting-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-speakers-setting-dialog: SpeakersSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-speakers-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-code-image-dialog: CodeImageDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-code-image-config.code = "";
+            Store.video-editor-is-show-code-image-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-pure-color-image-dialog: PureColorImageDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-pure-color-image-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-bg-animation-dialog: BackgroundAnimationDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-bg-animation-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-img-animation-dialog: ImageAnimationDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-img-animation-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-global-filter-dialog: GlobalFilterDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-global-filter-dialog = false;
+            Store.video-editor-global-filter-danmaku-is-show-add-items-dialog = false;
+            Store.video-editor-global-filter-danmaku-is-show-fetch-items-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-global-filter-danmaku-is-show-add-items-dialog = false;
+            Store.video-editor-global-filter-danmaku-is-show-fetch-items-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-global-filter-danmaku-is-show-add-items-dialog: DanmakuAddItemsDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-global-filter-danmaku-is-show-add-items-dialog = false;
+        }
+    }
+
+    if Store.video-editor-global-filter-danmaku-is-show-fetch-items-dialog: DanmakuFetchItemsDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-global-filter-danmaku-is-show-fetch-items-dialog = false;
+        }
+    }
+
+    if Store.video-editor-is-show-help-dialog: HelpDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-help-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-metadata-dialog: MetadataDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-metadata-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-record-audio-dialog: RecordAudioDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            if (Store.video-editor-is-recording-audio) {
+                self.stop();
+            }
+            Store.video-editor-is-show-record-audio-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-recent-dialog: RecentDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-recent-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-item-preview-dialog: ItemPreviewDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-item-preview-dialog = false;
+            Logic.video-editor-item-preview-stop();
+            Store.video-editor-item-preview-progress = 0;
+            Store.video-editor-item-preview-end-time = "";
+            Store.video-editor-item-preview-current-time = "";
+            Store.video-editor-item-preview-is-playing = false;
+            Store.video-editor-item-preview-image = @image-url("");
+            Store.video-editor-item-preview-subtitle-entries = [];
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-backup-progress-dialog: BackupProgressDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-backup-progress-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-scene-detect-dialog: SceneDetectDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-scene-detect-cancel();
+            Store.video-editor-is-show-scene-detect-dialog = false;
+            Store.video-editor-scene-detect-is-progressing = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-long-screenshot-dialog: LongScreenshotDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-long-screenshot-cancel();
+            Store.video-editor-is-show-long-screenshot-dialog = false;
+            Store.video-editor-long-screenshot-is-progressing = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-chapter-summary-dialog: ChapterSummaryDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-chapter-summary-cancel();
+            Store.video-editor-is-show-chapter-summary-dialog = false;
+            Store.video-editor-chapter-summary-progress-type = ChapterSummaryProgressType.None;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-subtitle-translate-dialog: SubtitleTranslateDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-subtitle-translate-cancel();
+            Store.video-editor-is-show-subtitle-translate-dialog = false;
+            Store.video-editor-subtitle-translate-progress-type = SubtitleTranslateProgressType.None;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-memo-dialog: MemoDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-memo-close();
+            Store.video-editor-is-show-memo-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-smart-mix-is-show-dialog: SmartMixPanel {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-smart-mix-is-show-dialog = false;
+            Store.video-editor-smart-mix-is-show-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-smart-mix-is-show-setting-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-smart-mix-is-show-setting-dialog: SmartMixSettingDialog {
+        close => {
+            Store.video-editor-smart-mix-is-show-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-online-search-image-setting-dialog: OnlineSearchImageSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-online-search-image-setting-dialog = false;
+            Logic.video-editor-online-search-image-update-config(Store.video-editor-online-search-image-setting);
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-online-search-audio-setting-dialog: OnlineSearchAudioSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-online-search-audio-setting-dialog = false;
+            Logic.video-editor-online-search-audio-update-config(Store.video-editor-online-search-audio-setting);
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+}

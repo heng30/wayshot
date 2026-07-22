@@ -17,7 +17,6 @@ hound.workspace = true
 rayon.workspace = true
 strum.workspace = true
 cfg-if.workspace = true
-realfft.workspace = true
 candle-nn.workspace = true
 thiserror.workspace = true
 serde_json.workspace = true
@@ -28,7 +27,6 @@ candle-core.workspace = true
 tensor-utils.workspace = true
 strum_macros.workspace = true
 derive_setters.workspace = true
-candle-transformers.workspace = true
 serde = { workspace = true, features = ["derive"] }
 audio-utils = { workspace = true, features = ["extraction"] }
 
@@ -37,5 +35,6 @@ anyhow.workspace = true
 env_logger.workspace = true
 
 [features]
-cuda = ["candle-nn/cuda", "candle-core/cuda", "candle-transformers/cuda"]
-metal = ["candle-nn/metal", "candle-core/metal", "candle-transformers/metal"]
+mkl = ["candle-nn/mkl"]
+cuda = ["candle-nn/cuda", "candle-core/cuda"]
+metal = ["candle-nn/metal", "candle-core/metal"]

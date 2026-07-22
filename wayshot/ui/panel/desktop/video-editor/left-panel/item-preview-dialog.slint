@@ -1,0 +1,224 @@
+import { ListView } from "std-widgets.slint";
+import {
+    Theme,
+    Icons,
+    Store,
+    Logic,
+    MediaType,
+    VideoEditorPlaylistItem,
+    VideoEditorSubtitle,
+} from "../../../def.slint";
+import {
+    Label,
+    Slider,
+    IconBtn,
+    MovingDialog,
+    VideoPlayer,
+    CenterLayout,
+    NoMessageImg,
+    SimpleAudioControl,
+} from "../../../../base/widgets.slint";
+
+component ImagePreview inherits Rectangle {
+    in property <image> image;
+
+    VerticalLayout {
+        alignment: center;
+
+        if image.width == 0: CenterLayout {
+            alignment: center;
+            padding: Theme.spacing * 4;
+
+            NoMessageImg {
+                text: Logic.tr("No Found");
+            }
+        }
+
+        if image.width > 0: Image {
+            source: image;
+            image-fit: ImageFit.contain;
+        }
+    }
+}
+
+component SubtitlePreview inherits Rectangle {
+    private property <[VideoEditorSubtitle]> entries: Store.video-editor-item-preview-subtitle-entries;
+
+    VerticalLayout {
+        if entries.length == 0: CenterLayout {
+            alignment: center;
+            padding: Theme.spacing * 4;
+
+            NoMessageImg {
+                text: Logic.tr("No Subtitle");
+            }
+        }
+
+        if entries.length > 0: ListView {
+            height: root.width * Theme.golden-ratio;
+
+            for entry[index] in entries: VerticalLayout {
+                padding-bottom: Theme.spacing;
+
+                Rectangle {
+                    height: item-vbox.preferred-height;
+                    border-radius: Theme.border-radius;
+                    background: Theme.secondary-background;
+
+                    item-vbox := VerticalLayout {
+                        spacing: Theme.spacing;
+                        padding: Theme.padding * 2;
+
+                        HorizontalLayout {
+                            alignment: start;
+                            spacing: Theme.spacing * 2;
+
+                            Label {
+                                text: (index + 1) + ".";
+                                color: Theme.regular-text-color;
+                            }
+
+                            Label {
+                                text: entry.start-timestamp;
+                                color: Theme.regular-text-color;
+                            }
+
+                            Label {
+                                text: "→";
+                                color: Theme.regular-text-color;
+                            }
+
+                            Label {
+                                text: entry.end-timestamp;
+                                color: Theme.regular-text-color;
+                            }
+                        }
+
+                        Label {
+                            text: entry.subtitle;
+                            wrap: word-wrap;
+                            color: Theme.primary-text-color;
+                            font-size: Theme.default-font-size + 2px;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component ItemPreviewDialog inherits MovingDialog {
+    private property <bool> is-playing <=> Store.video-editor-item-preview-is-playing;
+    private property <float> progress <=> Store.video-editor-item-preview-progress;
+    private property <string> current-time <=> Store.video-editor-item-preview-current-time;
+    private property <string> end-time <=> Store.video-editor-item-preview-end-time;
+    private property <VideoEditorPlaylistItem> preview-item <=> Store.video-editor-preview-item;
+
+    title: preview-item.name;
+    enable-resize: preview-item.media-type != MediaType.Audio;
+    head-y: self.height * 0.2;
+    header-width: Theme.default-font-size * (preview-item.media-type == MediaType.Video ? 45 : 30);
+    min-header-width: Theme.default-font-size * 20;
+    min-body-height: Theme.moving-dialog-min-height * 2;
+    icon: preview-item.media-type == MediaType.Video ? Icons.video-light : preview-item.media-type == MediaType.Audio ? Icons.audio-light : preview-item.media-type == MediaType.Image ? Icons.image-light : preview-item.media-type == MediaType.Subtitle ? Icons.subtitle-light : Icons.file-open-light;
+
+    VerticalLayout {
+        padding: Theme.padding * (preview-item.media-type == MediaType.Video ? 0 : 2);
+
+        if preview-item.media-type == MediaType.Video: VideoPlayer {
+            player-image: Store.video-editor-item-preview-image;
+            is-playing: is-playing;
+            is-real-time-player-mode: true;
+            show-progress-bar: true;
+            show-prev-buttons: false;
+            show-next-buttons: false;
+            show-playlist-button: false;
+            show-full-screen-btn: false;
+            show-speed-btn: false;
+            show-subtitle-btn: false;
+            current-time: current-time != "" ? current-time : "00:00";
+            end-time: end-time != "" ? end-time : "00:00";
+            show-controls: true;
+            progress: progress * 100;
+            width: root.header-width;
+            height: root.header-width * Theme.golden-ratio;
+
+            private property inner-is-playing <=> root.is-playing;
+            changed inner-is-playing => {
+                self.is-playing = inner-is-playing;
+            }
+
+            private property inner-progress <=> root.progress;
+            changed inner-progress => {
+                self.progress = inner-progress * 100;
+            }
+
+            play => {
+                Logic.video-editor-item-preview-play();
+            }
+
+            stop => {
+                Logic.video-editor-item-preview-stop();
+            }
+
+            sound-changed(sound) => {
+                Logic.video-editor-item-preview-sound-released(sound);
+            }
+
+            progress-changed(p) => {
+                Logic.video-editor-item-preview-seek(p / 100.0);
+            }
+        }
+
+        if preview-item.media-type == MediaType.Audio: SimpleAudioControl {
+            progress: progress;
+            is-playing: is-playing;
+            current-sound: Store.video-editor-ui-state.preview-volume;
+            current-time: current-time != "" ? current-time : "00:00";
+            end-time: end-time != "" ? end-time : "00:00";
+
+            private property inner-is-playing <=> root.is-playing;
+            changed inner-is-playing => {
+                self.is-playing = inner-is-playing;
+            }
+
+            play => {
+                Logic.video-editor-item-preview-play();
+            }
+
+            stop => {
+                Logic.video-editor-item-preview-stop();
+            }
+
+            sound-changed(sound) => {
+                Logic.video-editor-item-preview-sound-changed(sound);
+            }
+
+            sound-released(sound) => {
+                Logic.video-editor-item-preview-sound-released(sound);
+            }
+
+            progress-changed(value) => {
+                Logic.video-editor-item-preview-progress-changed(value);
+            }
+
+            progress-released(value) => {
+                Logic.video-editor-item-preview-progress-released(value);
+            }
+
+            progress-pressed(value) => {
+                Logic.video-editor-item-preview-progress-pressed(value);
+            }
+        }
+
+        if preview-item.media-type == MediaType.Image: ImagePreview {
+            image: Store.video-editor-item-preview-image;
+        }
+
+        if preview-item.media-type == MediaType.Subtitle: SubtitlePreview {
+            init => {
+                root.header-width = Theme.default-font-size * 40;
+            }
+        }
+    }
+}

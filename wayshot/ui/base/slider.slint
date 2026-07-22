@@ -3,6 +3,10 @@ import { Logic } from "../logic.slint";
 import { ProgressBar } from "progress-bar.slint";
 import { Label } from "label.slint";
 
+// NOTE:
+//  使用时需要注意value和changed回调，由于小数的精度问题造成的循环调用。
+//  可以使用value.to_fixed(2).to_float()函数，限制小数精度
+
 // Example:
 // Slider {
 //     value: 30;
@@ -20,7 +24,7 @@ export component Slider inherits Rectangle {
     in-out property <float> value: 0;
     in-out property <float> minimum: 0;
     in-out property <float> maximum: 100;
-    in-out property <length> indicator-size: Theme.icon-size * 2;
+    in-out property <length> indicator-size: Theme.default-font-size;
     in-out property <Orientation> orientation: Orientation.horizontal;
 
     in-out property enabled <=> ta.enabled;
@@ -31,6 +35,14 @@ export component Slider inherits Rectangle {
     in-out property <color> unfinished-progress-color: Theme.secondary-background;
 
     private property <bool> indicator-has-hover;
+
+    changed width => {
+        indicator.update-position();
+    }
+
+    changed height => {
+        indicator.update-position();
+    }
 
     changed minimum => {
         pb.progress = (Math.clamp(value, minimum, maximum) - minimum) / (maximum - minimum);
@@ -51,8 +63,8 @@ export component Slider inherits Rectangle {
     callback released(value: float);
     callback pressed(value: float);
 
-    width: orientation == Orientation.horizontal ? 400px : Theme.default-font-size;
-    height: orientation == Orientation.horizontal ? Theme.default-font-size : 400px;
+    preferred-width: orientation == Orientation.horizontal ? 400px : root.indicator-size * 0.3;
+    preferred-height: orientation == Orientation.horizontal ? root.indicator-size * 0.3 : 400px;
     border-radius: orientation == Orientation.horizontal ? self.height / 2 : self.width / 2;
 
     pb := ProgressBar {
@@ -100,7 +112,7 @@ export component Slider inherits Rectangle {
         border-radius: self.width / 2;
         border-width: indicator-ta.pressed ? 2px : 0;
         border-color: root.finished-progress-color;
-        background: Theme.light-text-color;
+        background: root.enabled ? Theme.light-text-color : Theme.disabled-color;
         drop-shadow-blur: Theme.padding * 2;
         drop-shadow-color: indicator-ta.pressed ? self.border-color : Theme.secondary-background.darker(30%);
 

@@ -1,0 +1,235 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+} from "../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../base/widgets.slint";
+
+export component GalaxyParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Star Count");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.galaxy.star-count;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 200 : input-value;
+                Store.video-editor-bg-animation-config.galaxy.star-count = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Rotation Period");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.galaxy.rotation-period.to-fixed(1);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.galaxy.rotation-period = value <= 0.0 ? 10.0 : value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Appear Duration");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.galaxy.appear-duration.to-fixed(1);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.galaxy.appear-duration = value <= 0.0 ? 10.0 : value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Breathing Period");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.galaxy.breathing-period.to-fixed(1);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.galaxy.breathing-period = value < 0.0 ? 0.0 : value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Breathing Min");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.galaxy.breathing-min.to-fixed(2);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.galaxy.breathing-min = value <= 0.0 ? 0.75 : value.min(1.0);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Perspective");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.galaxy.perspective.to-fixed(1);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.galaxy.perspective = value <= 0.0 ? 100.0 : value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Glow Intensity");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.galaxy.glow-intensity.to-fixed(2);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.galaxy.glow-intensity = value.min(3.0).max(0.0);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Min Distance");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.galaxy.min-distance.to-fixed(1);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.galaxy.min-distance = value <= 0.0 ? 65.0 : value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Max Distance");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.galaxy.max-distance.to-fixed(1);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.galaxy.max-distance = value <= 0.0 ? 90.0 : value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Min Size");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.galaxy.min-size.to-fixed(2);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.galaxy.min-size = value <= 0.0 ? 0.25 : value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Max Size");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.galaxy.max-size.to-fixed(2);
+
+            accepted => {
+                let value = self.text.to-float();
+                Store.video-editor-bg-animation-config.galaxy.max-size = value <= 0.0 ? 0.75 : value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.galaxy.bg-color-r = c.red;
+            Store.video-editor-bg-animation-config.galaxy.bg-color-g = c.green;
+            Store.video-editor-bg-animation-config.galaxy.bg-color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Background Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.galaxy.bg-color-r,
+                Store.video-editor-bg-animation-config.galaxy.bg-color-g,
+                Store.video-editor-bg-animation-config.galaxy.bg-color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+}
+

@@ -1,0 +1,21 @@
+[package]
+name = "deepfilter-rs"
+version = "0.1.0"
+edition = "2024"
+description = "Real-time audio denoising and dereverberation using DeepFilterNet with ONNX Runtime"
+
+[dependencies]
+log.workspace = true
+ort.workspace = true
+ndarray.workspace = true
+thiserror.workspace = true
+num-complex.workspace = true
+deep_filter.workspace = true
+realfft = { workspace = true, optional = true }
+
+[dev-dependencies]
+hound.workspace = true
+
+[features]
+default = []
+rolling = ["dep:realfft"]

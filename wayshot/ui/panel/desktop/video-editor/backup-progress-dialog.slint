@@ -1,0 +1,47 @@
+import {
+    Theme,
+    Icons,
+    Store,
+    Logic,
+} from "../../def.slint";
+import {
+    Label,
+    ProgressBar,
+    MovingDialog,
+    ElevatedBtn,
+} from "../../../base/widgets.slint";
+
+export component BackupProgressDialog inherits MovingDialog {
+    title: Logic.tr("Backing Project");
+    icon: Icons.backup-light;
+    head-y: self.height * 0.3;
+    header-width: hbox.preferred-width;
+
+    private property <bool> show-cancel-btn: Store.video-editor-backup-progress < 1.0 && !Store.video-editor-backup-is-canceled;
+
+    hbox := HorizontalLayout {
+        alignment: space-between;
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 4;
+
+        VerticalLayout {
+            alignment: center;
+
+            ProgressBar {
+                height: Theme.icon-size * 1.3;
+                progress: Store.video-editor-backup-progress;
+                finished-progress-color: Store.video-editor-backup-is-canceled ? Theme.warning-color : Theme.thirdly-brand-color;
+            }
+        }
+
+        if show-cancel-btn: ElevatedBtn {
+            icon: Icons.stop-light;
+            colorize: Theme.danger-color;
+            gain-focus-when-clicked: false;
+
+            clicked => {
+                Logic.video-editor-cancel-backup-project();
+            }
+        }
+    }
+}

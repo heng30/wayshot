@@ -2,7 +2,7 @@ use crate::{
     Result,
     model::{
         common::{
-            NaiveAttention, TwoLinearMLP, eager_attention_forward, get_conv1d, get_layer_norm,
+            NaiveAttention, TwoLinearMLP, conv1d_group_parallel, eager_attention_forward, get_conv1d, get_layer_norm,
         },
         fun_asr_nano::config::FunASRNanoConfig,
         qwen3::{Qwen3Config, Qwen3Model},
@@ -83,8 +83,7 @@ impl MultiHeadedAttentionSANM {
         let fsmn_memory = fsmn_memory
             .pad_with_zeros(D::Minus1, self.left_padding, self.right_padding)?
             .contiguous()?;
-        let fsmn_memory = self.fsmn_block.forward(&fsmn_memory)?;
-        // let fsmn_memory = conv1d_group_parallel(&fsmn_memory, &self.fsmn_block)?;
+        let fsmn_memory = conv1d_group_parallel(&fsmn_memory, &self.fsmn_block)?;
 
         let fsmn_memory = fsmn_memory.transpose(1, 2)?;
         let fsmn_memory = fsmn_memory.add(&v)?;

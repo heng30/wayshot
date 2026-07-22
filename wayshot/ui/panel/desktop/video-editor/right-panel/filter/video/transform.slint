@@ -1,0 +1,272 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+} from "../../../../../def.slint";
+import {
+    Label,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+    IconBtn,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    TransformDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component Transform inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <TransformDetail> config: VEFilter.from-transform-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: TransformDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "transform") {
+            self.config = VEFilter.from-transform-json(selected-filter.detail);
+            center-x-li.text = self.config.center-x-percent.to-fixed(2);
+            center-y-li.text = self.config.center-y-percent.to-fixed(2);
+            rotation-li.text = (self.config.rotation / 1deg).to-fixed(0);
+            zoom-li.text = self.config.zoom-level.to-fixed(2);
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+        SettingDetailInnerVbox {
+            HorizontalLayout {
+                alignment: space-between;
+
+                SettingDetailLabel {
+                    enabled: selected-filter.enabled;
+                    text: Logic.tr("Position");
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        IconBtn {
+                            icon: Icons.refresh-light;
+                            icon-size: Theme.icon-size * Theme.golden-ratio;
+                            enabled: selected-filter.enabled;
+
+                            clicked => {
+                                config.center-x-percent = 0.5;
+                                config.center-y-percent = 0.5;
+                                apply(index, config);
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+
+                    center-x-li := LineInput {
+                        enabled: selected-filter.enabled;
+                        input-type: InputType.decimal;
+                        text: config.center-x-percent.to-fixed(2);
+                        border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        accepted => {
+                            config.center-x-percent = self.text.to-float();
+                            apply(index, config);
+                        }
+                    }
+
+                    Label {
+                        text: "X";
+                        color: selected-filter.enabled ? Theme.primary-text-color : Theme.disabled-color;
+                    }
+
+                    center-y-li := LineInput {
+                        enabled: selected-filter.enabled;
+                        input-type: InputType.decimal;
+                        text: config.center-y-percent.to-fixed(2);
+                        border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        accepted => {
+                            config.center-y-percent = self.text.to-float();
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "center_percent", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "center_percent", VEFilter.make-float2-value(config.center-x-percent, config.center-y-percent));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            HorizontalLayout {
+                alignment: space-between;
+
+                SettingDetailLabel {
+                    enabled: selected-filter.enabled;
+                    text: Logic.tr("Rotation");
+                    tip: Logic.tr("positive=clockwise, negative=counter-clockwise (Shift+Scroll)");
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        IconBtn {
+                            icon: Icons.refresh-light;
+                            icon-size: Theme.icon-size * Theme.golden-ratio;
+                            enabled: selected-filter.enabled;
+
+                            clicked => {
+                                config.rotation = 0deg;
+                                apply(index, config);
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+                rotation-li := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.decimal;
+                    text: (config.rotation / 1deg).to-fixed(0);
+                    border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    accepted => {
+                        config.rotation = self.text.to-float() * 1deg;
+                        apply(index, config);
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "rotation", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "rotation", VEFilter.make-float-value(config.rotation / 1deg));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            HorizontalLayout {
+                alignment: space-between;
+
+                SettingDetailLabel {
+                    enabled: selected-filter.enabled;
+                    text: Logic.tr("Zoom level");
+                    tip: Logic.tr("greater than 0 (Ctrl+Scroll)");
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        IconBtn {
+                            icon: Icons.refresh-light;
+                            icon-size: Theme.icon-size * Theme.golden-ratio;
+                            enabled: selected-filter.enabled;
+
+                            clicked => {
+                                config.zoom-level = 1;
+                                apply(index, config);
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+                zoom-li := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.decimal;
+                    text: config.zoom-level.to-fixed(2);
+                    border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    accepted => {
+                        config.zoom-level = max(self.text.to-float(), 0);
+                        apply(index, config);
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "zoom_level", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "zoom_level", VEFilter.make-float-value(config.zoom-level));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::RngExt;
 use serde::{Serialize, Serializer};
 use std::{fmt, time::SystemTime};
 

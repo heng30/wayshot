@@ -1,0 +1,19 @@
+[package]
+name = "turn-rs"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+image.workspace = true
+thiserror.workspace = true
+rgb = { workspace = true, optional = true }
+clap = { workspace = true, features = ["derive"], optional = true }
+webpx = { workspace = true, features = ["animation"], optional = true }
+
+[features]
+default = []
+animation = ["webpx", "rgb", "clap"]
+
+[[example]]
+name = "flip_demo"
+required-features = ["animation"]

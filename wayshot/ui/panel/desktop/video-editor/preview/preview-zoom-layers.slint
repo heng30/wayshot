@@ -1,0 +1,200 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoPreviewSize,
+    VideoEditorLayerImage,
+    ZoomDetail,
+} from "../../../def.slint";
+import { VEFilter, FilterType } from "../filter.slint";
+import { IconBtn, Divider, Label } from "../../../../base/widgets.slint";
+
+export component PreviewZoomLayers inherits Rectangle {
+    in-out property <[VideoEditorLayerImage]> layers;
+    private property <float> width-hight-rate: self.width / self.height;
+    private property <FilterType> selected-filter-type <=> VEFilter.selected-filter.ty;
+
+    for index in layers.length: rec := Rectangle {
+        x: 0;
+        y: 0;
+
+        private property <VideoEditorLayerImage> layer: layers[layers.length - 1 - index];
+        private property <ZoomDetail> zoom: layer.zoom;
+        private property <bool> is-edited-track: Store.video-editor-current-edited-track-index == layer.track-index;
+
+        if is-edited-track: container-rec := Rectangle {
+            width: img.width;
+            height: img.height;
+
+            TouchArea {
+                scroll-event(event) => {
+                    accept
+                }
+            }
+
+            img := Image {
+                private property <length> parent-width: rec.width;
+                private property <length> parent-height: rec.height;
+                private property <float> width-hight-rate: self.source.width / self.source.height;
+
+                changed parent-width => {
+                    self.update-size();
+                }
+
+                changed parent-height => {
+                    self.update-size();
+                }
+
+                function update-size() {
+                    if (root.width-hight-rate > self.width-hight-rate) {
+                        self.height = root.height;
+                        self.width = self.height * self.width-hight-rate;
+                    } else {
+                        self.width = root.width;
+                        self.height = self.width / self.width-hight-rate;
+                    }
+                }
+
+                init => {
+                    self.update-size();
+                }
+
+                source: layer.original-image;
+                image-fit: ImageFit.contain;
+            }
+
+            if is-edited-track: Rectangle {
+                width: img.width;
+                height: img.height;
+
+                private property <length> min-zoom-size: Theme.icon-size;
+                private property <length> display-left: (zoom.center-x - zoom.level / 2) * img.width;
+                private property <length> display-top: (zoom.center-y - zoom.level / 2) * img.height;
+                private property <length> display-width: max(min-zoom-size, min(zoom.level * img.width, img.width - display-left));
+                private property <length> display-height: max(min-zoom-size, min(zoom.level * img.height, img.height - display-top));
+                private property <length> display-right: display-left + display-width;
+                private property <length> display-bottom: display-top + display-height;
+
+                TouchArea {
+                    width: img.width;
+                    height: img.height;
+                    mouse-cursor: self.pressed ? grabbing : grab;
+
+                    private property <float> move-orig-center-x;
+                    private property <float> move-orig-center-y;
+
+                    pointer-event(event) => {
+                        if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                            move-orig-center-x = zoom.center-x;
+                            move-orig-center-y = zoom.center-y;
+                        }
+                    }
+
+                    moved => {
+                        let norm-x = (self.mouse-x - self.pressed-x) / img.width;
+                        let norm-y = (self.mouse-y - self.pressed-y) / img.height;
+
+                        let new-center-x = move-orig-center-x + norm-x;
+                        let new-center-y = move-orig-center-y + norm-y;
+
+                        // Constrain center so target area stays within bounds
+                        zoom.center-x = max(zoom.level / 2, min(1 - zoom.level / 2, new-center-x));
+                        zoom.center-y = max(zoom.level / 2, min(1 - zoom.level / 2, new-center-y));
+                    }
+
+                    scroll-event(event) => {
+                        if (event.delta-y > 0) {
+                            zoom.level = max(0.05, zoom.level * 0.95);
+                        } else if (event.delta-y < 0) {
+                            zoom.level = min(1.0, zoom.level * 1.05);
+                        }
+                        VEFilter.modify-zoom-filter(VEFilter.selected-filter-index, zoom, selected-filter-type);
+                        accept
+                    }
+
+                    changed pressed => {
+                        if (!self.pressed) {
+                            VEFilter.modify-zoom-filter(VEFilter.selected-filter-index, zoom, selected-filter-type);
+                        }
+                    }
+                }
+
+                bg-rec := Rectangle {
+                    x: top-line.x;
+                    y: top-line.y;
+                    width: top-line.width;
+                    height: left-line.height;
+                    background: Theme.hover-background;
+                    opacity: Theme.golden-ratio;
+                }
+
+                Rectangle {
+                    x: bg-rec.x + (bg-rec.width - self.width) / 2;
+                    y: bg-rec.y + (bg-rec.height - self.height) / 2;
+                    background: Theme.danger-color;
+                    width: Theme.icon-size / 2;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                }
+
+                top-line := HorizontalLayout {
+                    x: display-left;
+                    y: display-top - 1px;
+                    width: display-width;
+                    height: 2px;
+                    alignment: space-between;
+
+                    for index in ceil(self.width / Theme.icon-size / 2): Rectangle {
+                        width: Theme.icon-size;
+                        height: 100%;
+                        background: white;
+                    }
+                }
+
+                bottom-line := HorizontalLayout {
+                    x: display-left;
+                    y: display-bottom - 1px;
+                    width: display-width;
+                    height: 2px;
+                    alignment: space-between;
+
+                    for index in ceil(self.width / Theme.icon-size / 2): Rectangle {
+                        width: Theme.icon-size;
+                        height: 100%;
+                        background: white;
+                    }
+                }
+
+                left-line := VerticalLayout {
+                    x: display-left - 1px;
+                    y: display-top;
+                    width: 2px;
+                    height: display-height;
+                    alignment: space-between;
+
+                    for index in ceil(self.height / Theme.icon-size / 2): Rectangle {
+                        height: Theme.icon-size;
+                        width: 100%;
+                        background: white;
+                    }
+                }
+
+                right-line := VerticalLayout {
+                    x: display-right - 1px;
+                    y: display-top;
+                    width: 2px;
+                    height: display-height;
+                    alignment: space-between;
+
+                    for index in ceil(self.height / Theme.icon-size / 2): Rectangle {
+                        height: Theme.icon-size;
+                        width: 100%;
+                        background: white;
+                    }
+                }
+            }
+        }
+    }
+}

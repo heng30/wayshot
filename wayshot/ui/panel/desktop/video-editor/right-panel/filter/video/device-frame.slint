@@ -1,0 +1,104 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Util,
+    Store,
+} from "../../../../../def.slint";
+import {
+    Select,
+    LineInput,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    DeviceFrameDetail,
+} from "../../../filter.slint";
+
+export component DeviceFrame inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <DeviceFrameDetail> config: VEFilter.from-device-frame-json(selected-filter.detail);
+    in-out property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+    private property <int> video-editor-color-picker-id;
+
+    changed color-picker-confirmed-flag => {
+        if (video-editor-color-picker-id != Store.video-editor-color-picker-id) {
+            return;
+        }
+        let c = Store.video-editor-color-picker-color;
+        config.screen-background-r = c.red;
+        config.screen-background-g = c.green;
+        config.screen-background-b = c.blue;
+        config.screen-background-a = c.alpha;
+        apply(index, config);
+    }
+
+    callback apply(index: int, config: DeviceFrameDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "device frame") {
+            self.config = VEFilter.from-device-frame-json(selected-filter.detail);
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Device");
+                enabled: selected-filter.enabled;
+            }
+
+            device-select := Select {
+                enabled: selected-filter.enabled;
+                gain-focus-when-clicked: false;
+                background: Theme.thirdly-background;
+                values: VEFilter.device-frame-names();
+                current-value: config.device-name;
+
+                selected(idx, value) => {
+                    config.device-name = value;
+                    apply(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Screen Background");
+                enabled: selected-filter.enabled;
+            }
+
+            LineInput {
+                read-only: true;
+                is-show-icon: true;
+                enabled: selected-filter.enabled;
+                text: Util.color-picker-str(config.screen-background-r, config.screen-background-g, config.screen-background-b, config.screen-background-a);
+                is-show-color-block: true;
+                color-block-color: Util.color-picker-hex-color(self.text);
+                icon: Icons.color-picker-light;
+                border-color: Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                clicked => {
+                    Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                    root.video-editor-color-picker-id = Store.video-editor-color-picker-id;
+                    Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                    Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

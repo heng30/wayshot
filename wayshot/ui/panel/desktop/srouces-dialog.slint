@@ -70,7 +70,7 @@ export component SourcesDialog inherits Dialog {
 
             ListView {
                 for item[index] in Store.audio-sources: Rectangle {
-                    background: ta1.has-hover ? Theme.checked-background : (Math.mod(index, 2) == 0 ? Theme.table-item-first : Theme.table-item-second);
+                    background: Theme.table-item-background(index, false, ta1.has-hover);
 
                     ta1 := TouchArea {
                         clicked => {
@@ -124,7 +124,7 @@ export component SourcesDialog inherits Dialog {
 
             ListView {
                 for item[index] in Store.video-sources: Rectangle {
-                    background: ta.has-hover ? Theme.checked-background : (Math.mod(index, 2) == 0 ? Theme.table-item-first : Theme.table-item-second);
+                    background: Theme.table-item-background(index, false, ta.has-hover);
 
                     ta := TouchArea {
                         clicked => {
@@ -208,7 +208,7 @@ export component SourcesDialog inherits Dialog {
 
             if Store.camera-sources.length != 0: ListView {
                 for item[index] in Store.camera-sources: Rectangle {
-                    background: camera-ta.has-hover ? Theme.checked-background : (Math.mod(index, 2) == 0 ? Theme.table-item-first : Theme.table-item-second);
+                    background: Theme.table-item-background(index, false, camera-ta.has-hover);
 
                     camera-ta := TouchArea {
                         clicked => {

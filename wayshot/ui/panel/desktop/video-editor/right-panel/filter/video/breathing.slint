@@ -1,0 +1,297 @@
+import {
+    Theme,
+    Logic,
+    Store,
+} from "../../../../../def.slint";
+import {
+    ClickAndEditLabel,
+    LineInput,
+    Slider,
+    Select,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    BreathingDetail,
+} from "../../../filter.slint";
+import { IconBtn } from "../../../../../../base/icon-btn.slint";
+import { Icons } from "../../../../../../base/icon.slint";
+
+export component Breathing inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <BreathingDetail> config: VEFilter.from-breathing-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: BreathingDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "breathing") {
+            self.config = VEFilter.from-breathing-json(selected-filter.detail);
+            breathing-duration-input.text = self.config.breathing-duration-ms;
+            min-scale-sl.value = self.config.min-scale;
+            center-x-sl.value = self.config.center-x;
+            center-y-sl.value = self.config.center-y;
+            curve-combo.current-index = self.config.curve;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Breathing Duration (ms)");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    breathing-duration-input := LineInput {
+                        input-type: number;
+                        text: config.breathing-duration-ms;
+                        border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
+                        enabled: selected-filter.enabled;
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        accepted => {
+                            let val = round(self.text.to-float());
+                            if (val > 0) {
+                                config.breathing-duration-ms = val;
+                                apply(index, config);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Curve Type (non-keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Curve");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                curve-combo := Select {
+                    enabled: selected-filter.enabled;
+                    gain-focus-when-clicked: false;
+                    background: Theme.thirdly-background;
+
+                    values: [Logic.tr("Ease In Out"), Logic.tr("Linear")];
+                    current-index: config.curve;
+                    current-value: config.curve == 0 ? Logic.tr("Ease In Out") : Logic.tr("Linear");
+
+                    selected(idx, value) => {
+                        config.curve = idx;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            HorizontalLayout {
+                alignment: space-between;
+                spacing: Theme.spacing * 2;
+
+                SettingDetailLabel {
+                    text: Logic.tr("Center X");
+                    enabled: selected-filter.enabled;
+                }
+
+                IconBtn {
+                    icon: Icons.refresh-small-light;
+                    enabled: selected-filter.enabled;
+
+                    clicked => {
+                        config.center-x = 0.5;
+                        center-x-sl.value = config.center-x;
+                        apply(index, config);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        center-x-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.center-x;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.center-x = value;
+                            }
+
+                            released(value) => {
+                                config.center-x = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.center-x.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.center-x = text.to-float().clamp(0, 1);
+                            center-x-sl.value = config.center-x;
+                            apply(index, config);
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            HorizontalLayout {
+                alignment: space-between;
+                spacing: Theme.spacing * 2;
+
+                SettingDetailLabel {
+                    text: Logic.tr("Center Y");
+                    enabled: selected-filter.enabled;
+                }
+
+                IconBtn {
+                    icon: Icons.refresh-small-light;
+                    enabled: selected-filter.enabled;
+
+                    clicked => {
+                        config.center-y = 0.5;
+                        center-y-sl.value = config.center-y;
+                        apply(index, config);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+                        center-y-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.center-y;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.center-y = value;
+                            }
+
+                            released(value) => {
+                                config.center-y = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.center-y.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.center-y = text.to-float().clamp(0, 1);
+                            center-y-sl.value = config.center-y;
+                            apply(index, config);
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Min Scale");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        min-scale-sl := Slider {
+                            minimum: 0.1;
+                            maximum: 1.0;
+                            value: config.min-scale;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.min-scale = value;
+                            }
+
+                            released(value) => {
+                                config.min-scale = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.min-scale.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.min-scale = text.to-float().clamp(0, 1);
+                            min-scale-sl.value = config.min-scale;
+                            apply(index, config);
+                        }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

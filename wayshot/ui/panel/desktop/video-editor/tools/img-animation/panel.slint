@@ -1,0 +1,270 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    ImageAnimationType,
+    ImageAnimationConfig,
+} from "../../../../def.slint";
+import {
+    SideBarEntry,
+} from "../../../../../base/def.slint";
+import {
+    Label,
+    MovingDialog,
+    ConfirmBtn,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    NoDataImg,
+    SideBar,
+    CheckBtn,
+    CircleProgress,
+    Select,
+} from "../../../../../base/widgets.slint";
+import { ScrollParams } from "scroll-params.slint";
+import { GradeMarkParams } from "grade-mark-params.slint";
+import { ArrowParams } from "arrow-params.slint";
+import { RectDrawParams } from "rect-draw-params.slint";
+
+export component ImageAnimationDialog inherits MovingDialog {
+    title: Logic.tr("Image Animation");
+    icon: Icons.image-light;
+    header-width: Theme.moving-dialog-width;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+    body-height: root.header-width * Theme.golden-ratio;
+
+    private property <bool> is-recording: Store.video-editor-img-animation-is-recording;
+    private property <bool> is-previewing: Store.video-editor-img-animation-is-previewing;
+    private property <image> preview-image: Store.video-editor-img-animation-preview-image;
+    private property <bool> enabled-record: Store.video-editor-img-animation-record-enabled;
+    private property <bool> has-preview: preview-image.width > 0;
+    private property <ImageAnimationType> selected-animation: Store.video-editor-img-animation-config.animation-type;
+
+    private property <[SideBarEntry]> animation-entries: [
+        {
+            key: "Scroll",
+            is-open: false,
+            category: Logic.tr("Scroll"),
+            icon: Icons.image-light,
+            children: []
+        },
+        {
+            key: "Arrow",
+            is-open: false,
+            category: Logic.tr("Arrow"),
+            icon: Icons.arrow-forward-light,
+            children: []
+        },
+        {
+            key: "RectDraw",
+            is-open: false,
+            category: Logic.tr("Rect Draw"),
+            icon: Icons.shape-light,
+            children: []
+        },
+        {
+            key: "GradeMark",
+            is-open: false,
+            category: Logic.tr("Grade Mark"),
+            icon: Icons.edit-light,
+            children: []
+        },
+    ];
+
+    HorizontalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        private property <length> inner-width: self.width - self.spacing * 2 - self.padding * 2;
+        private property <length> sidebar-width: Theme.default-font-size * 12;
+        private property <length> params-width: self.inner-width * 0.25;
+        private property <length> preview-width: self.inner-width - sidebar-width - params-width;
+        private property <ImageAnimationConfig> config <=> Store.video-editor-img-animation-config;
+
+        SideBar {
+            width: sidebar-width;
+            entries: animation-entries;
+            selected-key: Logic.image-animation-type-to-string(selected-animation);
+            is-show-search: false;
+            category-font-size: Theme.title5-font-size;
+
+            clicked(category, title, key) => {
+                Store.video-editor-img-animation-config.animation-type = Logic.string-to-image-animation-type(key);
+            }
+        }
+
+        Rectangle {
+            width: preview-width;
+            background: Theme.secondary-background;
+
+            VerticalLayout {
+                spacing: Theme.spacing * 2;
+                padding: Theme.padding * 2;
+
+                VerticalLayout {
+                    vertical-stretch: 1;
+
+                    Rectangle {
+                        background: black;
+                        border-radius: Theme.border-radius;
+
+                        if !has-preview && (!is-recording || !is-previewing): NoDataImg {
+                            image: Icons.preview-light;
+                            colorize: gray;
+                            text: Logic.tr("No Preview");
+                        }
+
+                        if !enabled-record && has-preview: VerticalLayout {
+                            width: parent.width - Theme.padding * 4;
+                            height: parent.height - Theme.padding * 4;
+
+                            img := Image {
+                                width: parent.width;
+                                height: parent.height;
+                                source: root.preview-image;
+                                image-fit: contain;
+                            }
+                        }
+
+                        if enabled-record && is-recording: CircleProgress {
+                            ring-width: Theme.icon-size * Theme.golden-ratio;
+                            radius: Theme.icon-size * 5;
+                            progress: Store.video-editor-img-animation-record-progress;
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 10;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        record-ck := CheckBtn {
+                            text: enabled-record ? Logic.tr("Record enabled") : Logic.tr("Record disabled");
+                            checked: enabled-record;
+                            gain-focus-when-clicked: false;
+                            enabled: !is-previewing && !is-recording;
+
+                            toggled => {
+                                enabled-record = !enabled-record;
+
+                                if (enabled-record) {
+                                    if (is-previewing) {
+                                        Logic.video-editor-img-animation-stop-preview();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: start;
+                    spacing: Theme.spacing * 2;
+
+                    if !enabled-record: VerticalLayout {
+                        if is-previewing: ConfirmBtn {
+                            text: Logic.tr("Stop Preview");
+                            icon: Icons.control-stop-light;
+                            auto-size-vpadding: Theme.padding * 2;
+                            bg-color: Theme.success-color;
+
+                            clicked => {
+                                Logic.video-editor-img-animation-stop-preview();
+                            }
+                        }
+
+                        if !is-previewing: ConfirmBtn {
+                            text: Logic.tr("Start Preview");
+                            icon: Icons.control-start-light;
+                            auto-size-vpadding: Theme.padding * 2;
+
+                            clicked => {
+                                Logic.video-editor-img-animation-start-preview(Store.video-editor-img-animation-config);
+                            }
+                        }
+                    }
+
+                    if enabled-record: VerticalLayout {
+                        if is-recording: ConfirmBtn {
+                            text: Logic.tr("Stop Record");
+                            icon: Icons.control-stop-light;
+                            auto-size-vpadding: Theme.padding * 2;
+                            bg-color: Theme.success-color;
+
+                            clicked => {
+                                Logic.video-editor-img-animation-stop-record();
+                            }
+                        }
+
+                        if !is-recording: ConfirmBtn {
+                            text: Logic.tr("Start Record");
+                            icon: Icons.control-start-light;
+                            auto-size-vpadding: Theme.padding * 2;
+
+                            clicked => {
+                                Logic.video-editor-img-animation-start-record(Store.video-editor-img-animation-config);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Flickable {
+            interactive: false;
+            width: params-width;
+            viewport-height: params-vbox.preferred-height;
+
+            params-vbox := VerticalLayout {
+                x: 0;
+                y: 0;
+                width: parent.width;
+                spacing: Theme.spacing * 4;
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Resolution");
+                    }
+
+                    resolution-select := Select {
+                        values: ["480P", "720P", "1080P", "2K", "4K"];
+                        current-value: Logic.resolution-from-width-height(
+                            Store.video-editor-img-animation-config.width,
+                            Store.video-editor-img-animation-config.height);
+                        gain-focus-when-clicked: false;
+
+                        selected(index, value) => {
+                            let wh = Logic.resolution-to-width-height(value);
+                            Store.video-editor-img-animation-config.width = wh[0];
+                            Store.video-editor-img-animation-config.height = wh[1];
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("FPS");
+                    }
+
+                    fps-select := Select {
+                        values: [10, 15, 24, 25, 30, 60];
+                        current-value: Store.video-editor-img-animation-config.fps;
+                        gain-focus-when-clicked: false;
+
+                        selected(index, value) => {
+                            Store.video-editor-img-animation-config.fps = round(value.to-float());
+                        }
+                    }
+                }
+
+                if selected-animation == ImageAnimationType.Scroll: ScrollParams { }
+                if selected-animation == ImageAnimationType.GradeMark: GradeMarkParams { }
+                if selected-animation == ImageAnimationType.Arrow: ArrowParams { }
+                if selected-animation == ImageAnimationType.RectDraw: RectDrawParams { }
+            }
+        }
+    }
+}

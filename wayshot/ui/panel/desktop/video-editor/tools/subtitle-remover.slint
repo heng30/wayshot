@@ -1,0 +1,461 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    DownloaderState,
+    VideoEditorSubtitleRemoverConfig,
+    Util,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    LineInput,
+    IconBtn,
+    TextBtnWithoutIcon,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ProgressBar,
+    NoDataImg,
+    Select,
+    Slider,
+    SettingDetailSwitch,
+} from "../../../../base/widgets.slint";
+
+component LeftHeader inherits HorizontalLayout {
+    private property <bool> is-processing: Store.video-editor-subtitle-remover-is-processing;
+    private property <bool> has-video: Store.video-editor-subtitle-remover-image.width > 0;
+
+    spacing: Theme.spacing * 8;
+    alignment: is-processing ? stretch : end;
+
+    if is-processing: HorizontalLayout {
+        spacing: Theme.spacing * 4;
+
+        VerticalLayout {
+            alignment: center;
+
+            ProgressBar {
+                height: Theme.icon-size;
+                progress: Store.video-editor-subtitle-remover-progress;
+            }
+        }
+
+        ElevatedBtn {
+            is-show-tip: true;
+            tip: Logic.tr("cancel");
+            icon: Icons.stop-light;
+            colorize: Theme.danger-color;
+
+            clicked => {
+                Logic.video-editor-subtitle-remover-cancel();
+            }
+        }
+    }
+
+    // Right side: action buttons
+    rec := Rectangle {
+        width: hbox.preferred-width;
+        height: hbox.preferred-height;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("import");
+                    icon: Icons.import2-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-subtitle-remover-import-video();
+                    }
+                }
+
+                IconBtn {
+                    enabled: !is-processing && has-video && Store.video-editor-subtitle-remover-rect-width > 0;
+                    is-show-tip: true;
+                    tip: Logic.tr("process");
+                    icon: Icons.image-processing-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-subtitle-remover-process();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("remove");
+                    icon: Icons.clear-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-subtitle-remover-remove-all();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("setting");
+                    icon: Icons.setting-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Store.video-editor-is-show-subtitle-remover-setting-dialog = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+component PreviewPanel inherits VerticalLayout {
+    spacing: Theme.spacing * 2;
+
+    private property <image> preview-image: Store.video-editor-subtitle-remover-image;
+    private property <image> rect-overlay: Store.video-editor-subtitle-remover-rectangle-overlay;
+    private property <bool> is-processing: Store.video-editor-subtitle-remover-is-processing;
+    private property <bool> is-drawing;
+    private property <float> draw-start-x;
+    private property <float> draw-start-y;
+    private property <float> draw-current-x;
+    private property <float> draw-current-y;
+
+    // Timer: refresh rectangle overlay every 100ms while drawing
+    overlay-timer := Timer {
+        interval: 100ms;
+        running: is-drawing;
+
+        triggered() => {
+            // Convert screen coords to image coords before sending to Rust
+            let scale = contain-scale(img-rect.width, img-rect.height, preview-image.width, preview-image.height);
+            let ox = offset-x(img-rect.width, img-rect.height, preview-image.width, preview-image.height) / 1px;
+            let oy = offset-y(img-rect.width, img-rect.height, preview-image.width, preview-image.height) / 1px;
+
+            let img-x1 = (draw-start-x - ox) / scale;
+            let img-y1 = (draw-start-y - oy) / scale;
+            let img-x2 = (draw-current-x - ox) / scale;
+            let img-y2 = (draw-current-y - oy) / scale;
+
+            Logic.video-editor-subtitle-remover-overlay-refresh(img-x1, img-y1, img-x2, img-y2);
+        }
+    }
+
+    // Compute contain-fit scale for the image
+    pure function contain-scale(panel-w: length, panel-h: length, img-w: int, img-h: int) -> float {
+        if (img-w <= 0 || img-h <= 0) {
+            return 1.0;
+        }
+        let sx = panel-w / 1px / img-w;
+        let sy = panel-h / 1px / img-h;
+        return sx < sy ? sx : sy;
+    }
+
+    pure function displayed-w(panel-w: length, panel-h: length, img-w: int, img-h: int) -> length {
+        contain-scale(panel-w, panel-h, img-w, img-h) * img-w * 1px;
+    }
+
+    pure function displayed-h(panel-w: length, panel-h: length, img-w: int, img-h: int) -> length {
+        contain-scale(panel-w, panel-h, img-w, img-h) * img-h * 1px;
+    }
+
+    pure function offset-x(panel-w: length, panel-h: length, img-w: int, img-h: int) -> length {
+        (panel-w - displayed-w(panel-w, panel-h, img-w, img-h)) / 2;
+    }
+
+    pure function offset-y(panel-w: length, panel-h: length, img-w: int, img-h: int) -> length {
+        (panel-h - displayed-h(panel-w, panel-h, img-w, img-h)) / 2;
+    }
+
+    // Preview area
+    img-rect := Rectangle {
+        clip: true;
+        border-radius: Theme.border-radius;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+        background: Theme.secondary-background;
+
+        if preview-image.width > 0: Image {
+            x: offset-x(img-rect.width, img-rect.height, preview-image.width, preview-image.height);
+            y: offset-y(img-rect.width, img-rect.height, preview-image.width, preview-image.height);
+            width: displayed-w(img-rect.width, img-rect.height, preview-image.width, preview-image.height);
+            height: displayed-h(img-rect.width, img-rect.height, preview-image.width, preview-image.height);
+            source: preview-image;
+            image-fit: fill;
+        }
+
+        // Rectangle overlay
+        if rect-overlay.width > 0: Image {
+            x: offset-x(img-rect.width, img-rect.height, preview-image.width, preview-image.height);
+            y: offset-y(img-rect.width, img-rect.height, preview-image.width, preview-image.height);
+            width: displayed-w(img-rect.width, img-rect.height, preview-image.width, preview-image.height);
+            height: displayed-h(img-rect.width, img-rect.height, preview-image.width, preview-image.height);
+            source: rect-overlay;
+            image-fit: fill;
+        }
+
+        if preview-image.width == 0: NoDataImg {
+            text: Logic.tr("Click Import");
+            image: Icons.no-image-fill;
+            font-size: Theme.title3-font-size;
+            colorize: Theme.primary-text-color;
+
+            TouchArea {
+                mouse-cursor: pointer;
+
+                clicked => {
+                    Logic.video-editor-subtitle-remover-import-video();
+                }
+            }
+        }
+
+        if !is-processing && preview-image.width > 0: TouchArea {
+            mouse-cursor: MouseCursor.crosshair;
+
+            pointer-event(event) => {
+                if (preview-image.width > 0 && event.button == PointerEventButton.left) {
+                    if (event.kind == PointerEventKind.down) {
+                        is-drawing = true;
+                        draw-start-x = self.mouse-x / 1px;
+                        draw-start-y = self.mouse-y / 1px;
+                        draw-current-x = self.mouse-x / 1px;
+                        draw-current-y = self.mouse-y / 1px;
+                    } else if (event.kind == PointerEventKind.up) {
+                        is-drawing = false;
+                        // Convert to image coordinates
+                        let scale = contain-scale(img-rect.width, img-rect.height, preview-image.width, preview-image.height);
+                        let ox = offset-x(img-rect.width, img-rect.height, preview-image.width, preview-image.height) / 1px;
+                        let oy = offset-y(img-rect.width, img-rect.height, preview-image.width, preview-image.height) / 1px;
+
+                        let x1 = (draw-start-x - ox) / scale;
+                        let y1 = (draw-start-y - oy) / scale;
+                        let x2 = (draw-current-x - ox) / scale;
+                        let y2 = (draw-current-y - oy) / scale;
+
+                        let rx = x1 < x2 ? x1 : x2;
+                        let ry = y1 < y2 ? y1 : y2;
+                        let rw = Math.abs(x2 - x1);
+                        let rh = Math.abs(y2 - y1);
+
+                        Logic.video-editor-subtitle-remover-rect-drawn(rx, ry, rw, rh);
+                    }
+                }
+            }
+
+            moved => {
+                if (preview-image.width > 0 && is-drawing) {
+                    draw-current-x = self.mouse-x / 1px;
+                    draw-current-y = self.mouse-y / 1px;
+                }
+            }
+        }
+    }
+
+    if preview-image.width > 0: HorizontalLayout {
+        spacing: Theme.spacing * 4;
+
+        Label {
+            text: Store.video-editor-subtitle-remover-current-time + "/" + Store.video-editor-subtitle-remover-total-time;
+            vertical-alignment: center;
+        }
+
+        VerticalLayout {
+            alignment: center;
+
+            Slider {
+                enabled: !Store.video-editor-subtitle-remover-is-processing;
+                value: Store.video-editor-subtitle-remover-slider-position;
+                height: self.indicator-size * 0.3;
+                minimum: 0.0;
+                maximum: 1.0;
+
+                released(val) => {
+                    Logic.video-editor-subtitle-remover-seek(val);
+                }
+            }
+        }
+    }
+}
+
+export component SubtitleRemoverDialog inherits MovingDialog {
+    title: Logic.tr("Subtitle Remover");
+    icon: Icons.subtitles-slash-light;
+    header-width: Theme.moving-dialog-width;
+    body-height: root.header-width * Theme.golden-ratio;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+
+    init => {
+        if (!Logic.video-editor-subtitle-remover-setting-is-valid()) {
+            Store.video-editor-is-show-subtitle-remover-setting-dialog = true;
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        LeftHeader { }
+
+        PreviewPanel {
+            width: parent.width - parent.padding * 2;
+        }
+    }
+}
+
+export component SubtitleRemoverSettingDialog inherits MovingDialog {
+    title: Logic.tr("Subtitle Remover Setting");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    private property <VideoEditorSubtitleRemoverConfig> config: Store.video-editor-subtitle-remover-config;
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Export directory");
+            }
+
+            LineInput {
+                read-only: true;
+                text: config.export-dir;
+                icon: Icons.file-open-light;
+                is-show-icon: true;
+                border-color: Logic.dir-exist(config.export-dir) ? self.default-border-color : Theme.danger-color;
+
+                clicked => {
+                    Logic.video-editor-subtitle-remover-choose-export-dir();
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Model");
+            }
+
+            for downloader[index] in Store.video-editor-subtitle-remover-models-downloader: VerticalLayout {
+                alignment: start;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    pure function get-border-color(status: DownloaderState, path: string) -> color {
+                        if status == DownloaderState.Finished {
+                            return Theme.base-border-color;
+                        } else {
+                            return Logic.file-exist(path) ? Theme.base-border-color : Theme.danger-color;
+                        }
+                    }
+
+                    model-path-li := LineInput {
+                        horizontal-stretch: 2;
+                        read-only: true;
+                        is-show-icon: true;
+                        icon: Icons.file-open-light;
+                        placeholder-text: "lama_fp32.onnx";
+                        text: config.lama-path;
+                        border-color: get-border-color(downloader.state, config.lama-path);
+
+                        clicked => {
+                            Logic.video-editor-subtitle-remover-choose-model-path(index);
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+
+                        if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                            alignment: center;
+
+                            ProgressBar {
+                                height: model-path-li.preferred-height * 2 / 3;
+                                font-size: Theme.default-font-size * 2 / 3;
+                                finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                                progress: downloader.progress;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            alignment: end;
+                            spacing: Theme.spacing * 4;
+
+                            private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+
+                            IconBtn {
+                                is-show-tip: true;
+                                icon: downloading ? Icons.stop-light : Icons.download-light;
+                                colorize: downloading ? Theme.danger-color : Theme.icon-color;
+                                tip: downloading ? Logic.tr("cancel") : Logic.tr("download");
+
+                                clicked => {
+                                    if (downloading) {
+                                        Logic.video-editor-subtitle-remover-model-cancel-download(index, downloader.url);
+                                    } else {
+                                        Logic.video-editor-subtitle-remover-model-start-download(index, downloader.url);
+                                    }
+                                }
+                            }
+
+                            IconBtn {
+                                icon: Icons.browser-light;
+                                is-show-tip: true;
+                                tip: Logic.tr("open url");
+
+                                clicked => {
+                                    Util.open-url("Default", downloader.url);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailSwitch {
+            text: Logic.tr("Save by Segments");
+            icon: Icons.save-light;
+            icon-size: Theme.icon-size * 0.8;
+            checked: config.is-segment-save;
+
+            toggled => {
+                config.is-segment-save = !config.is-segment-save;
+                Logic.video-editor-subtitle-remover-update-config(config);
+            }
+        }
+
+        if config.is-segment-save: SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Segment Duration (seconds)");
+            }
+
+            LineInput {
+                text: config.segment-duration;
+                input-type: number;
+                border-color: self.text == config.segment-duration ? self.default-border-color : Theme.danger-color;
+
+                accepted => {
+                    let current = self.text.to-float().max(0);
+                    config.segment-duration = current;
+                    self.text = current;
+                    Logic.video-editor-subtitle-remover-update-config(config);
+                }
+            }
+        }
+    }
+}

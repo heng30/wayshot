@@ -5,6 +5,7 @@ import {
     Icons,
     SettingPreference,
     DeviceType,
+    StartupTab,
 } from "../../def.slint";
 import {
     SettingDetailInner,
@@ -108,6 +109,22 @@ export component Preference inherits SettingDetail {
             fonts-select := Select {
                 values: ["Default", "Source Han Serif CN", "Source Han Sans CN"];
                 current-value: Store.setting-preference.font-family;
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Startup tab");
+            }
+
+            startup-select := Select {
+                values: [
+                    Logic.startup-tab-to-str(StartupTab.Recorder),
+                    Logic.startup-tab-to-str(StartupTab.VideoEditor),
+                    Logic.startup-tab-to-str(StartupTab.Transcribe),
+                    Logic.startup-tab-to-str(StartupTab.ShareScreen),
+                ];
+                current-value: Logic.startup-tab-to-str( Store.setting-preference.startup-tab);
             }
         }
 

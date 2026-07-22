@@ -9,6 +9,10 @@ mod ve_ffmpeg;
 
 use derive_setters::Setters;
 use image::{ImageBuffer, Rgb};
+use yuv::{
+    YuvChromaSubsampling, YuvConversionMode, YuvPlanarImageMut, YuvRange, YuvStandardMatrix,
+    rgb_to_yuv420,
+};
 
 // Standard video timescale (90kHz) for better compatibility
 pub const VIDEO_TIMESCALE: u32 = 90000;
@@ -28,7 +32,11 @@ pub type ResizedImageBuffer = ImageBuffer<Rgb<u8>, Vec<u8>>;
 #[derive(Debug, Clone)]
 pub enum EncodedFrame {
     Empty(u64),
-    Frame((u64, Vec<u8>)),
+    Frame {
+        timestamp: u64,
+        data: Vec<u8>,
+        is_keyframe: bool,
+    },
     End,
 }
 
@@ -41,16 +49,105 @@ impl Default for EncodedFrame {
 pub trait VideoEncoder {
     fn encode_frame(&mut self, img: ResizedImageBuffer) -> Result<EncodedFrame>;
     fn headers(&mut self) -> Result<Vec<u8>>;
-    fn flush(self: Box<Self>, cb: Box<dyn FnMut(Vec<u8>) + 'static>) -> Result<()>;
+    fn flush(self: Box<Self>, cb: Box<dyn FnMut(Vec<u8>, bool) + 'static>) -> Result<()>;
 }
 
-#[derive(Clone, Debug, Setters)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CompressionPreset {
+    Ultrafast,
+    Superfast,
+    Veryfast,
+    Faster,
+    Fast,
+    #[default]
+    Medium,
+    Slow,
+    Slower,
+    Veryslow,
+}
+
+impl CompressionPreset {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Ultrafast => "ultrafast",
+            Self::Superfast => "superfast",
+            Self::Veryfast => "veryfast",
+            Self::Faster => "faster",
+            Self::Fast => "fast",
+            Self::Medium => "medium",
+            Self::Slow => "slow",
+            Self::Slower => "slower",
+            Self::Veryslow => "veryslow",
+        }
+    }
+
+    #[cfg(feature = "x264")]
+    pub fn as_x264_preset(&self) -> x264::Preset {
+        match self {
+            Self::Ultrafast => x264::Preset::Ultrafast,
+            Self::Superfast => x264::Preset::Superfast,
+            Self::Veryfast => x264::Preset::Veryfast,
+            Self::Faster => x264::Preset::Faster,
+            Self::Fast => x264::Preset::Fast,
+            Self::Medium => x264::Preset::Medium,
+            Self::Slow => x264::Preset::Slow,
+            Self::Slower => x264::Preset::Slower,
+            Self::Veryslow => x264::Preset::Veryslow,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Tune {
+    #[default]
+    None,
+    Film,
+    Animation,
+    Grain,
+    Stillimage,
+    Fastdecode,
+    Zerolatency,
+}
+
+impl Tune {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Film => "film",
+            Self::Animation => "animation",
+            Self::Grain => "grain",
+            Self::Stillimage => "stillimage",
+            Self::Fastdecode => "fastdecode",
+            Self::Zerolatency => "zerolatency",
+        }
+    }
+
+    #[cfg(feature = "x264")]
+    pub fn as_x264_tune(&self) -> x264::Tune {
+        match self {
+            Self::None => x264::Tune::None,
+            Self::Film => x264::Tune::Film,
+            Self::Animation => x264::Tune::Animation,
+            Self::Grain => x264::Tune::Grain,
+            Self::Stillimage => x264::Tune::None,
+            Self::Fastdecode => x264::Tune::None,
+            Self::Zerolatency => x264::Tune::None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Setters)]
 #[setters(prefix = "with_")]
 pub struct VideoEncoderConfig {
     pub width: u32,
     pub height: u32,
     pub fps: u32,
     pub annexb: bool,
+
+    // CRF (Constant Rate Factor) - lower = better quality, larger file (0-51)
+    pub crf: Option<u8>, // If None, uses encoder default (typically 23)
+    pub preset: Option<CompressionPreset>,
+    pub tune: Option<Tune>,
 }
 
 impl VideoEncoderConfig {
@@ -60,6 +157,9 @@ impl VideoEncoderConfig {
             height,
             fps: 25,
             annexb: false,
+            crf: None,
+            preset: None,
+            tune: None,
         }
     }
 }
@@ -79,10 +179,6 @@ pub fn new(config: VideoEncoderConfig) -> Result<Box<dyn VideoEncoder>> {
 }
 
 pub fn rgb_to_i420_yuv(rgb_data: &[u8], width: u32, height: u32) -> Result<Vec<u8>> {
-    use yuv::{
-        YuvChromaSubsampling, YuvConversionMode, YuvPlanarImageMut, YuvRange, YuvStandardMatrix,
-        rgb_to_yuv420,
-    };
     let frame_size = (width * height) as usize;
 
     let mut planar_image =

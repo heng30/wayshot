@@ -1,0 +1,180 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+} from "../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+    Select,
+} from "../../../../../base/widgets.slint";
+
+export component FluidParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Resolution Divisor");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.fluid.resolution-divisor;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 8 : input-value;
+                Store.video-editor-bg-animation-config.fluid.resolution-divisor = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Viscosity");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.fluid.viscosity.to-fixed(4);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.fluid.viscosity = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Diffusion");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.fluid.diffusion.to-fixed(4);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.fluid.diffusion = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        function index-to-str(index: int) -> string {
+            if index == 0 {
+                return "Random";
+            } else if index == 1 {
+                return "Circular";
+            } else {
+                return "Vortices";
+            }
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Force Source");
+        }
+
+        Select {
+            values: [Logic.tr("Random"), Logic.tr("Circular"), Logic.tr("Vortices")];
+            current-value: Logic.tr(Store.video-editor-bg-animation-config.fluid.force-source);
+            gain-focus-when-clicked: false;
+
+            selected(index, value) => {
+                Store.video-editor-bg-animation-config.fluid.force-source = index-to-str(index);
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Num Sources");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.fluid.num-sources;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 3 : input-value;
+                Store.video-editor-bg-animation-config.fluid.num-sources = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Steps Per Frame");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.fluid.steps-per-frame;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 4 : input-value;
+                Store.video-editor-bg-animation-config.fluid.steps-per-frame = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.fluid.bg-color-r = c.red;
+            Store.video-editor-bg-animation-config.fluid.bg-color-g = c.green;
+            Store.video-editor-bg-animation-config.fluid.bg-color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Background Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.fluid.bg-color-r,
+                Store.video-editor-bg-animation-config.fluid.bg-color-g,
+                Store.video-editor-bg-animation-config.fluid.bg-color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    SettingDetailSwitch {
+        icon: Icons.injection-light;
+        text: Logic.tr("Color Injection");
+        checked: Store.video-editor-bg-animation-config.fluid.color-injection;
+        gain-focus-when-clicked: false;
+
+        toggled => {
+            Store.video-editor-bg-animation-config.fluid.color-injection = !Store.video-editor-bg-animation-config.fluid.color-injection;
+        }
+    }
+}
+

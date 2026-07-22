@@ -14,6 +14,7 @@ import {
 } from "../../base/widgets.slint";
 
 export component RealtimeImageEffectDialog inherits Rectangle {
+    private property <bool> show-body: true;
     private property <RealtimeImageEffect> selected-effect;
     private property <[RealtimeImageEffect]> effects: [
         RealtimeImageEffect.None,
@@ -48,6 +49,16 @@ export component RealtimeImageEffectDialog inherits Rectangle {
         title: Logic.tr("Image Effect");
         container-width: root.width;
         container-height: root.height;
+        hide-maximal-ctrl-btns: root.show-body;
+        hide-minimal-ctrl-btns: !root.show-body;
+
+        maximal => {
+            root.show-body = !root.show-body;
+        }
+
+        minimal => {
+            root.show-body = !root.show-body;
+        }
 
         close => {
             Logic.show-realtime-image-effect-dialog(false);
@@ -55,6 +66,7 @@ export component RealtimeImageEffectDialog inherits Rectangle {
     }
 
     body := SettingDetailInner {
+        visible: root.show-body;
         x: sb.x;
         y: sb.y + sb.height;
         width: sb.width;

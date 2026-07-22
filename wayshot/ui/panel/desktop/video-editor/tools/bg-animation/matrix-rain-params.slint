@@ -1,0 +1,197 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+} from "../../../../def.slint";
+import {
+    Label,
+    LineInput,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../base/widgets.slint";
+
+export component MatrixRainParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Columns");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.matrix-rain.columns;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 80 : input-value;
+                Store.video-editor-bg-animation-config.matrix-rain.columns = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Cell Size");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.matrix-rain.cell-size;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 16 : input-value;
+                Store.video-editor-bg-animation-config.matrix-rain.cell-size = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Speed Range");
+        }
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 2;
+
+            LineInput {
+                input-type: InputType.decimal;
+                text: Store.video-editor-bg-animation-config.matrix-rain.min-speed.to-fixed(1);
+
+                accepted => {
+                    Store.video-editor-bg-animation-config.matrix-rain.min-speed = self.text.to-float();
+                }
+            }
+
+            Label {
+                text: "-";
+            }
+
+            LineInput {
+                input-type: InputType.decimal;
+                text: Store.video-editor-bg-animation-config.matrix-rain.max-speed.to-fixed(1);
+
+                accepted => {
+                    Store.video-editor-bg-animation-config.matrix-rain.max-speed = self.text.to-float();
+                }
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Trail Length");
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: Store.video-editor-bg-animation-config.matrix-rain.trail-length;
+
+            accepted => {
+                let input-value = round(self.text.to-float());
+                let value = input-value <= 0 ? 20 : input-value;
+                Store.video-editor-bg-animation-config.matrix-rain.trail-length = value;
+                self.text = value;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Glow Intensity");
+        }
+
+        LineInput {
+            input-type: InputType.decimal;
+            text: Store.video-editor-bg-animation-config.matrix-rain.glow-intensity.to-fixed(1);
+
+            accepted => {
+                Store.video-editor-bg-animation-config.matrix-rain.glow-intensity = self.text.to-float();
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.matrix-rain.color-r = c.red;
+            Store.video-editor-bg-animation-config.matrix-rain.color-g = c.green;
+            Store.video-editor-bg-animation-config.matrix-rain.color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Matrix Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.matrix-rain.color-r,
+                Store.video-editor-bg-animation-config.matrix-rain.color-g,
+                Store.video-editor-bg-animation-config.matrix-rain.color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    SettingDetailInnerVbox {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            Store.video-editor-bg-animation-config.matrix-rain.bg-color-r = c.red;
+            Store.video-editor-bg-animation-config.matrix-rain.bg-color-g = c.green;
+            Store.video-editor-bg-animation-config.matrix-rain.bg-color-b = c.blue;
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Background Color");
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(
+                Store.video-editor-bg-animation-config.matrix-rain.bg-color-r,
+                Store.video-editor-bg-animation-config.matrix-rain.bg-color-g,
+                Store.video-editor-bg-animation-config.matrix-rain.bg-color-b,
+                255);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+}
+

@@ -1,0 +1,205 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    SceneDetectorAlgorithm,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    IconBtn,
+    LineInput,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ProgressBar,
+    TextBtnWithoutIcon,
+    CancelAndConfirmIconsBtn,
+    Select,
+    ConfirmBtn,
+    CancelBtn,
+} from "../../../../base/widgets.slint";
+
+export component SceneDetectDialog inherits MovingDialog {
+    title: Logic.tr("Intelligent Scene Segmentation");
+    icon: Icons.scenes-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.15;
+
+    private property <bool> is-progressing: Store.video-editor-scene-detect-is-progressing;
+
+    // 0=Content(27), 1=Adaptive(3), 2=Histogram(0.5), 3=Threshold(12)
+    pure function default-threshold(detector: int) -> float {
+        if (detector == 1) {
+            3.0
+        } else if (detector == 2) {
+            0.5
+        } else if (detector == 3) {
+            12.0
+        } else {
+            27.0
+        }
+    }
+
+    pure function algorithm-to-string(alg: SceneDetectorAlgorithm) -> string {
+        if alg == SceneDetectorAlgorithm.Content {
+            return "Content";
+        } else if alg == SceneDetectorAlgorithm.Adaptive {
+            return "Adaptive";
+        } else if alg == SceneDetectorAlgorithm.Histogram {
+            return "Histogram";
+        } else {
+            return "Threshold";
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 4;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                enabled: !is-progressing;
+                text: Logic.tr("Algorithm");
+            }
+
+            sl := Select {
+                enabled: !is-progressing;
+                gain-focus-when-clicked: false;
+                values: [
+                    Logic.tr("Content"),
+                    Logic.tr("Adaptive"),
+                    Logic.tr("Histogram"),
+                    Logic.tr("Threshold")
+                ];
+                current-value: Logic.tr(algorithm-to-string(Store.video-editor-scene-detect-config.algorithm));
+
+                selected(index) => {
+                    Store.video-editor-scene-detect-config.algorithm = index == 0 ? SceneDetectorAlgorithm.Content : index == 1 ? SceneDetectorAlgorithm.Adaptive : index == 2 ? SceneDetectorAlgorithm.Histogram : index == 3 ? SceneDetectorAlgorithm.Threshold : SceneDetectorAlgorithm.Threshold;
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                enabled: !is-progressing;
+                text: Logic.tr("Threshold");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                pure public function current-threshold(alg: SceneDetectorAlgorithm) -> float {
+                    alg == SceneDetectorAlgorithm.Content ? Store.video-editor-scene-detect-config.content-threshold : alg == SceneDetectorAlgorithm.Adaptive ? Store.video-editor-scene-detect-config.adaptive-threshold : alg == SceneDetectorAlgorithm.Histogram ? Store.video-editor-scene-detect-config.histogram-threshold : alg == SceneDetectorAlgorithm.Threshold ? Store.video-editor-scene-detect-config.threshold-threshold : 0.0;
+                }
+
+                public function update-threshold(v: float) {
+                    if Store.video-editor-scene-detect-config.algorithm == SceneDetectorAlgorithm.Content {
+                        Store.video-editor-scene-detect-config.content-threshold = v;
+                    } else if Store.video-editor-scene-detect-config.algorithm == SceneDetectorAlgorithm.Adaptive {
+                        Store.video-editor-scene-detect-config.adaptive-threshold = v;
+                    } else if Store.video-editor-scene-detect-config.algorithm == SceneDetectorAlgorithm.Histogram {
+                        Store.video-editor-scene-detect-config.histogram-threshold = v;
+                    } else {
+                        Store.video-editor-scene-detect-config.threshold-threshold = v;
+                    }
+                }
+
+                threshold-li := LineInput {
+                    enabled: !is-progressing;
+                    text: current-threshold(Store.video-editor-scene-detect-config.algorithm);
+                    input-type: decimal;
+                    is-show-icon: true;
+                    icon: Icons.refresh-small-light;
+                    border-color: self.text != current-threshold(Store.video-editor-scene-detect-config.algorithm) ? Theme.danger-color : self.default-border-color;
+
+                    accepted => {
+                        let v = threshold-li.text.to-float();
+                        update-threshold(v);
+                    }
+
+                    clicked => {
+                        let v = default-threshold(sl.current-index);
+                        threshold-li.text = v;
+                        update-threshold(v);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                enabled: !is-progressing;
+                text: Logic.tr("Minimal Duration(second)");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                min-duration-li := LineInput {
+                    enabled: !is-progressing;
+                    text: Store.video-editor-scene-detect-config.min-duration;
+                    input-type: number;
+                    border-color: self.text != Store.video-editor-scene-detect-config.min-duration ? Theme.danger-color : self.default-border-color;
+
+                    accepted => {
+                        let v = min-duration-li.text.to-float().max(1);
+                        min-duration-li.text = v;
+                        Store.video-editor-scene-detect-config.min-duration = v;
+                    }
+                }
+            }
+        }
+
+        if is-progressing: HorizontalLayout {
+            spacing: Theme.spacing * 8;
+
+            VerticalLayout {
+                alignment: center;
+
+                ProgressBar {
+                    height: Theme.icon-size;
+                    progress: Store.video-editor-scene-detect-progress;
+                }
+            }
+
+            ElevatedBtn {
+                icon: Icons.stop-light;
+                colorize: Theme.danger-color;
+                gain-focus-when-clicked: false;
+
+                clicked => {
+                    Logic.video-editor-scene-detect-cancel();
+                }
+            }
+        }
+
+        if !is-progressing: HorizontalLayout {
+            alignment: end;
+            spacing: Theme.spacing * 4;
+            padding: Theme.padding * 2;
+
+            CancelBtn {
+                gain-focus-when-clicked: false;
+
+                clicked => {
+                    root.close();
+                }
+            }
+
+            ConfirmBtn {
+                gain-focus-when-clicked: false;
+
+                clicked => {
+                    Logic.video-editor-scene-detect-apply(
+                            Store.video-editor-scene-detect-track-index,
+                            Store.video-editor-scene-detect-segment-index,
+                            Store.video-editor-scene-detect-config,
+                        );
+                }
+            }
+        }
+    }
+}

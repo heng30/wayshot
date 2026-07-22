@@ -29,8 +29,8 @@ use wrtc::{
 struct Cache {
     exit_notify: Option<Arc<Notify>>,
     player_stop_sig: Option<Arc<AtomicBool>>,
-    audio_sink: Option<Arc<rodio::Sink>>,
-    audio_stream: Option<Arc<rodio::OutputStream>>,
+    audio_sink: Option<Arc<rodio::Player>>,
+    audio_stream: Option<Arc<rodio::MixerDeviceSink>>,
 }
 
 static CACHE: Lazy<Mutex<Cache>> = Lazy::new(|| Mutex::new(Cache::default()));
@@ -63,15 +63,15 @@ pub fn init(ui: &AppWindow) {
 }
 
 fn inner_init(ui: &AppWindow) {
-    match rodio::OutputStreamBuilder::open_default_stream() {
-        Ok(stream) => {
-            let sink = rodio::Sink::connect_new(stream.mixer());
-            sink.set_volume(0.5);
-            CACHE.lock().unwrap().audio_sink = Some(Arc::new(sink));
-            CACHE.lock().unwrap().audio_stream = Some(Arc::new(stream));
+    match rodio::DeviceSinkBuilder::open_default_sink() {
+        Ok(device_sink) => {
+            let player = rodio::Player::connect_new(&device_sink.mixer());
+            player.set_volume(0.5);
+            CACHE.lock().unwrap().audio_sink = Some(Arc::new(player));
+            CACHE.lock().unwrap().audio_stream = Some(Arc::new(device_sink));
             log::info!("Audio playback stream initialized");
         }
-        Err(e) => toast_warn!(ui, format!("Failed to create audio output stream: {e}")),
+        Err(e) => toast_warn!(ui, format!("{}: {e}", tr("Failed to create audio output stream"))),
     }
 }
 
@@ -182,7 +182,7 @@ fn share_screen_client_connect(ui: &AppWindow, setting: UISettingShareScreenClie
     {
         toast_warn!(
             ui,
-            "server address should start with `http://` or `https://`".to_string()
+            tr("Server address should start with `http://` or `https://`").to_string()
         );
         return;
     }
@@ -230,7 +230,7 @@ fn share_screen_client_connect(ui: &AppWindow, setting: UISettingShareScreenClie
             Err(e) => {
                 if let Some(sender) = error_sender
                     && let Err(e) =
-                        sender.try_send(format!("Create share screen client failed: {e}"))
+                        sender.try_send(format!("{}: {e}", tr("Create share screen client failed")))
                 {
                     log::warn!("try send async error failed: {e}");
                 }
@@ -275,8 +275,8 @@ fn share_screen_client_connect(ui: &AppWindow, setting: UISettingShareScreenClie
                                     if let Some(ref sink) = audio_sink {
                                         if let Some(samples) = handle_auddio_lagging(sink, audio_info, samples) {
                                             sink.append(rodio::buffer::SamplesBuffer::new(
-                                                    audio_info.channels,
-                                                    audio_info.sample_rate,
+                                                    rodio::ChannelCount::new(audio_info.channels).unwrap(),
+                                                    rodio::SampleRate::new(audio_info.sample_rate).unwrap(),
                                                     samples,
                                             ));
 
@@ -346,7 +346,7 @@ fn share_screen_client_connect(ui: &AppWindow, setting: UISettingShareScreenClie
         match client.connect().await {
             Ok(_) => log::info!("WHEP client connection completed successfully"),
             Err(e) => {
-                let err = format!("Failed to connect to WHEP server: {e}");
+                let err = format!("{}: {e}", tr("Failed to connect to WHEP server"));
                 log::warn!("{err}");
 
                 if let Some(sender) = error_sender
@@ -455,7 +455,7 @@ fn resample_linear(samples: &[f32], channels: u16, speed: f32) -> Vec<f32> {
 }
 
 fn handle_auddio_lagging(
-    sink: &rodio::Sink,
+    sink: &rodio::Player,
     audio_info: &AudioInfo,
     mut samples: Vec<f32>,
 ) -> Option<Vec<f32>> {

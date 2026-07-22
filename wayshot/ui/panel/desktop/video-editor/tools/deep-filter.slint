@@ -1,0 +1,394 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    DownloaderState,
+    VideoEditorDeepFilterConfig,
+    AudioPlayerStatus,
+    Util,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    LineInput,
+    IconBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ProgressBar,
+    NoDataImg,
+    Select,
+    Skeleton,
+    SkeletonType,
+    SimpleAudioControl,
+} from "../../../../base/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+
+component LeftHeader inherits HorizontalLayout {
+    private property <bool> is-progressing: Store.video-editor-deep-filter-is-progressing;
+    private property <bool> has-audio: Store.video-editor-deep-filter-audio-player-status.length > 0;
+    private property <bool> has-denoised: Store.video-editor-deep-filter-audio-player-status.length > 1;
+    private property <float> progress: Store.video-editor-deep-filter-progress;
+
+    spacing: Theme.spacing * 8;
+    alignment: is-progressing ? space-between : end;
+
+    if is-progressing: HorizontalLayout {
+        width: root.width - rec.width - parent.spacing;
+        spacing: Theme.spacing * 4;
+
+        VerticalLayout {
+            width: parent.width - parent.spacing - process-btn.width;
+            alignment: center;
+
+            ProgressBar {
+                width: parent.width;
+                height: Theme.icon-size;
+                progress: progress;
+            }
+        }
+
+        process-btn := ElevatedBtn {
+            icon: Icons.stop-light;
+            colorize: Theme.danger-color;
+            gain-focus-when-clicked: false;
+            is-show-tip: true;
+            tip-position: Bottom;
+            tip: Logic.tr("cancel");
+
+            clicked => {
+                Logic.video-editor-deep-filter-cancel-process-audio();
+            }
+        }
+    }
+
+    rec := Rectangle {
+        width: hbox.preferred-width;
+        height: hbox.preferred-height;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("import");
+                    icon: Icons.import2-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-deep-filter-import-audio();
+                    }
+                }
+
+                IconBtn {
+                    enabled: !is-progressing && has-audio;
+                    is-show-tip: true;
+                    tip: Logic.tr("process");
+                    icon: Icons.image-processing-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-deep-filter-process-audio();
+                    }
+                }
+
+                IconBtn {
+                    enabled: has-denoised;
+                    is-show-tip: true;
+                    tip: Logic.tr("export");
+                    icon: Icons.export-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-deep-filter-export-audio();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("remove all");
+                    icon: Icons.clear-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-deep-filter-remove-all();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("setting");
+                    icon: Icons.setting-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Store.video-editor-is-show-deep-filter-setting-dialog = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+component AudioPlayerRow inherits Rectangle {
+    private property <AudioPlayerStatus> status: Store.video-editor-deep-filter-audio-player-status[idx];
+    in property <int> idx;
+
+    border-radius: Theme.border-radius;
+    border-width: Theme.default-border-width;
+    border-color: status.is-playing ? Theme.thirdly-brand-color : Theme.base-border-color;
+    background: Theme.thirdly-background;
+
+    VerticalLayout {
+        spacing: Theme.spacing;
+        padding: Theme.padding * 4;
+
+        HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding-left: Theme.padding * 2;
+            padding-right: Theme.padding * 2;
+
+            Label {
+                text: status.name;
+                font-size: Theme.default-font-size;
+                color: Theme.primary-text-color;
+                horizontal-stretch: 1;
+            }
+        }
+
+        su := SimpleAudioControl {
+            is-playing: status.is-playing;
+            progress: status.progress;
+            current-sound: status.sound * 100;
+            current-time: Util.seconds-to-media-timestamp(self.progress * status.duration-ms / 1000.0);
+            end-time: Util.seconds-to-media-timestamp(status.duration-ms / 1000.0);
+
+            private property <bool> inner-is-playing <=> status.is-playing;
+            changed inner-is-playing => {
+                self.is-playing = inner-is-playing;
+            }
+
+            play => {
+                Logic.video-editor-deep-filter-play-audio(idx);
+            }
+
+            stop => {
+                Logic.video-editor-deep-filter-stop-audio(idx);
+            }
+
+            sound-changed(s) => {
+                Logic.video-editor-deep-filter-audio-player-sound-changed(idx, s / 100);
+            }
+
+            sound-released(s) => {
+                Logic.video-editor-deep-filter-audio-player-sound-released(idx, s / 100);
+            }
+
+            progress-pressed => {
+                Logic.video-editor-deep-filter-stop-audio(idx);
+            }
+
+            progress-released(v) => {
+                Logic.video-editor-deep-filter-audio-player-progress-released(idx, v);
+            }
+        }
+    }
+}
+
+export component DeepFilterDialog inherits MovingDialog {
+    title: Logic.tr("Deep Filter");
+    icon: Icons.denoise-light;
+    header-width: Theme.moving-dialog-width;
+    head-y: self.height * 0.1;
+
+    init => {
+        if (!Logic.video-editor-deep-filter-setting-is-valid()) {
+            Store.video-editor-is-show-deep-filter-setting-dialog = true;
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        private property <bool> has-audio: Store.video-editor-deep-filter-audio-player-status.length > 0;
+        private property <bool> is-progressing: Store.video-editor-deep-filter-is-progressing;
+
+        LeftHeader { }
+
+        if !has-audio && !is-progressing: Rectangle {
+            height: root.header-width * 0.3;
+            border-radius: Theme.border-radius;
+            border-width: Theme.default-border-width;
+            border-color: Theme.base-border-color;
+            background: Theme.secondary-background;
+
+            HorizontalLayout {
+                alignment: center;
+
+                VerticalLayout {
+                    alignment: center;
+                    padding: Theme.padding * 8;
+
+                    NoDataImg {
+                        text: Logic.tr("Click Import");
+                        image: Icons.audio-light;
+                        font-size: Theme.title3-font-size;
+                        colorize: Theme.primary-text-color;
+
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                Logic.video-editor-deep-filter-import-audio();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if is-progressing: VerticalLayout {
+            alignment: start;
+            padding: Theme.padding * 2;
+
+            Skeleton {
+                width: parent.width - Theme.padding * 4;
+                height: Theme.icon-size * 6;
+                type: SkeletonType.List;
+            }
+        }
+
+        if has-audio && !is-progressing: VerticalLayout {
+            spacing: Theme.spacing * 2;
+            alignment: start;
+
+            if Store.video-editor-deep-filter-audio-player-status.length >= 1: AudioPlayerRow {
+                idx: 0;
+            }
+
+            if Store.video-editor-deep-filter-audio-player-status.length >= 2: AudioPlayerRow {
+                idx: 1;
+            }
+        }
+    }
+}
+
+export component DeepFilterSettingDialog inherits MovingDialog {
+    title: Logic.tr("Deep Filter Setting");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    private property <VideoEditorDeepFilterConfig> config: Store.video-editor-deep-filter-config;
+    private property <[string]> model-dirs: [
+        config.dfn2-model-dir,
+        config.dfn2-ll-model-dir,
+        config.dfn2-h0-model-dir,
+        config.dfn3-model-dir,
+        config.dfn3-ll-model-dir,
+        config.dfn3-h0-model-dir,
+    ];
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Export directory");
+            }
+
+            LineInput {
+                read-only: true;
+                is-show-icon: true;
+                icon: Icons.file-open-light;
+                placeholder-text: Logic.tr("Export directory");
+                text: Store.video-editor-deep-filter-config.export-dir;
+                border-color: Logic.dir-exist(self.text) ? self.default-border-color : Theme.danger-color;
+
+                clicked => {
+                    Logic.video-editor-deep-filter-choose-export-dir();
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Select model");
+            }
+
+            model-sl := Select {
+                values: [
+                    "DeepFilterNet2",
+                    "DeepFilterNet2-LL",
+                    "DeepFilterNet2-H0",
+                    "DeepFilterNet3",
+                    "DeepFilterNet3-LL",
+                    "DeepFilterNet3-H0",
+                ];
+                current-value: self.values[Store.video-editor-deep-filter-config.selected-model-index];
+                current-index: Store.video-editor-deep-filter-config.selected-model-index;
+                gain-focus-when-clicked: false;
+
+                selected(index, value) => {
+                    Store.video-editor-deep-filter-config.selected-model-index = index;
+                    Logic.video-editor-deep-filter-update-config(config);
+                }
+            }
+        }
+
+        VerticalLayout {
+            for downloader[index] in Store.video-editor-deep-filter-models-downloader: HorizontalLayout {
+                private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+                private property <[string]> model-names: model-sl.values;
+
+                if index == model-sl.current-index: SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Model directory");
+                    }
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+
+                        LineInput {
+                            read-only: true;
+                            is-show-icon: true;
+                            icon: Icons.file-open-light;
+                            placeholder-text: model-names[index] + " " + "model directory";
+                            text: root.model-dirs[index];
+
+                            clicked => {
+                                Logic.video-editor-deep-filter-choose-model-dir(index);
+                            }
+                        }
+
+                        HorizontalLayout {
+                            alignment: end;
+                            spacing: Theme.spacing * 4;
+                            IconBtn {
+                                icon: Icons.browser-light;
+                                is-show-tip: true;
+                                tip: Logic.tr("open url");
+
+                                clicked => {
+                                    Util.open-url("Default", downloader.url);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

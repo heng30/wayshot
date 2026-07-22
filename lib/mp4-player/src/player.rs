@@ -7,7 +7,7 @@ use crossbeam::channel::{Receiver, Sender, bounded};
 use derive_setters::Setters;
 use fdk_aac::dec::{Decoder, Transport};
 use image::{ImageBuffer, Rgb};
-use rodio::{OutputStreamBuilder, Sink, buffer::SamplesBuffer};
+use rodio::{ChannelCount, DeviceSinkBuilder, Player, SampleRate, buffer::SamplesBuffer};
 use std::{
     collections::VecDeque,
     fs::File,
@@ -487,10 +487,10 @@ impl Mp4Player {
             )))?;
 
         let decoder = Decoder::new(Transport::Adts);
-        let stream = OutputStreamBuilder::open_default_stream().map_err(|e| {
-            MP4PlayerError::TrackError(format!("Failed to create audio output stream: {e}"))
+        let device_sink = DeviceSinkBuilder::open_default_sink().map_err(|e| {
+            MP4PlayerError::TrackError(format!("Failed to open default audio sink: {e}"))
         })?;
-        let sink = Sink::connect_new(stream.mixer());
+        let player = Player::connect_new(&device_sink.mixer());
 
         Self::process_audio_samples(
             &config,
@@ -498,10 +498,10 @@ impl Mp4Player {
             &metadata,
             start_sample,
             decoder,
-            &sink,
+            &player,
         );
 
-        while !sink.empty() && !config.stop_sig.load(Ordering::Relaxed) {
+        while !player.empty() && !config.stop_sig.load(Ordering::Relaxed) {
             std::thread::sleep(Duration::from_millis(100));
         }
 
@@ -552,7 +552,7 @@ impl Mp4Player {
         metadata: &AudioMetadata,
         start_sample: u32,
         mut decoder: Decoder,
-        sink: &Sink,
+        player: &Player,
     ) {
         log::info!(
             "Starting audio processing loop: frames {} to {} (total: {})",
@@ -566,8 +566,8 @@ impl Mp4Player {
                 break;
             }
 
-            sink.play();
-            sink.set_volume(config.sound.load(Ordering::Relaxed) as f32 / 100.0);
+            player.play();
+            player.set_volume(config.sound.load(Ordering::Relaxed) as f32 / 100.0);
 
             match mp4_reader.read_sample(metadata.track_id, id) {
                 Ok(Some(sample)) => {
@@ -589,13 +589,13 @@ impl Mp4Player {
                                 .map(|&sample| sample as f32 / i16::MAX as f32)
                                 .collect::<Vec<_>>();
 
-                            sink.append(SamplesBuffer::new(
-                                metadata.channels,
-                                metadata.sample_rate,
+                            player.append(SamplesBuffer::new(
+                                ChannelCount::new(metadata.channels).unwrap(),
+                                SampleRate::new(metadata.sample_rate).unwrap(),
                                 f32_samples,
                             ));
 
-                            while sink.len() > 10 && !config.stop_sig.load(Ordering::Relaxed) {
+                            while player.len() > 10 && !config.stop_sig.load(Ordering::Relaxed) {
                                 std::thread::sleep(Duration::from_millis(10));
                             }
                         }
@@ -612,7 +612,7 @@ impl Mp4Player {
             }
         }
 
-        sink.stop();
+        player.stop();
     }
 }
 

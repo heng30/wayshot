@@ -1,0 +1,55 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Store,
+} from "../../../../../def.slint";
+import {
+    Label,
+    SettingDetailLabel,
+    SettingDetailInnerVbox,
+    LineInput,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    OutlineWidthDetail,
+} from "../../../filter.slint";
+
+export component OutlineWidth inherits Rectangle {
+    in-out property <OutlineWidthDetail> config;
+    callback apply(config: OutlineWidthDetail);
+
+    SettingDetailInnerVbox {
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Outline width");
+            }
+        }
+
+        LineInput {
+            private property <bool> unsaved;
+            input-type: number;
+            text: config.width;
+            border-color: self.unsaved ? Theme.danger-color : (self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%));
+
+            changed has-focus => {
+                if (!self.has-focus) {
+                    Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                }
+            }
+
+            edited => {
+                unsaved = true;
+            }
+
+            accepted => {
+                unsaved = false;
+                config.width = round(self.text.to-float());
+                apply(config);
+            }
+        }
+    }
+}
+

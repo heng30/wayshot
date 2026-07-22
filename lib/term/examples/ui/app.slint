@@ -1,0 +1,351 @@
+import "NotoSansMonoCJKsc-Regular.otf";
+import { TabModel, TermSpan } from "tab-model.slint";
+
+export component TerminalApp inherits Window {
+    in-out property <[TermSpan]> spans;
+    in-out property <int> cursor-row: -1;
+    in-out property <int> cursor-col: -1;
+    in-out property <int> scroll-position: 0;
+    in-out property <int> scroll-max: 1;
+    property <string> window-title: "Slint Terminal";
+
+    // Font properties
+    in-out property <string> term-font-family: "Noto Sans Mono CJK SC";
+    in-out property <length> term-font-size: 18px;
+
+    // Theme colors
+    in-out property <color> term-bg: #1e1e1e;
+    in-out property <color> term-fg: #e6e6e6;
+    in-out property <color> cursor-color: #ffffff;
+
+    // Tab management
+    in-out property <[TabModel]> tabs;
+    in-out property <int> active-tab-index: 0;
+
+    // Callbacks for tab management
+    callback tab-changed(int);
+    callback new-tab();
+    callback close-tab(int);
+
+    // Input callbacks
+    callback key-pressed-event(string, bool, bool, bool);  // text, shift, alt, ctrl
+    callback key-released-event(string, bool, bool, bool);
+
+    // IME input callback — receives text committed from input method (e.g. Chinese IME)
+    callback ime-commit(string);
+
+    // Mouse callbacks
+    // button: 0=left, 1=middle, 2=right
+    callback mouse-pressed(int, int, int);  // button, x, y (in pixels)
+    callback mouse-released(int, int, int);
+    callback mouse-moved(int, int);  // x, y (in pixels)
+    callback mouse-wheel(float);  // delta (positive=up, negative=down)
+    callback mouse-enter();
+    callback mouse-leave();
+
+    // Clipboard callbacks
+    callback copy-request();
+    callback paste-request();
+
+    // Font zoom callbacks
+    callback font-zoom-in();
+    callback font-zoom-out();
+    callback font-zoom-reset();
+
+    // Scroll callback from scrollbar drag
+    callback scroll-to(int);
+
+    // Terminal resize callback — fires when the grid dimensions change
+    callback terminal-resize(float, float);  // cols, rows
+
+    // Set window properties
+    title: window-title;
+    width: 1200px;
+    height: 800px;
+    background: term-bg;
+
+    // Focus the TextInput on startup
+    Timer {
+        interval: 100ms;
+        running: true;
+        triggered => {
+            ime-input.focus();
+            self.running = false;
+        }
+    }
+
+    // --- Cell-size measurement probe ---
+    cell-probe := Text {
+        text: "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM";
+        font-family: root.term-font-family;
+        font-size: root.term-font-size;
+        opacity: 0;
+        y: -200px;
+        width: 0px;
+        height: 0px;
+    }
+
+    in-out property <length> cell-w: max(1px, cell-probe.preferred-width / 50);
+    in-out property <length> cell-h: max(1px, cell-probe.preferred-height);
+    in-out property <float> term-cols: max(10, floor(term-area.width / cell-w));
+    in-out property <float> term-rows: max(5, floor(term-area.height / cell-h));
+
+    // Blinking cursor timer
+    property <bool> cursor-blink: true;
+    Timer {
+        running: ime-input.has-focus;
+        interval: 530ms;
+        triggered => { root.cursor-blink = !root.cursor-blink; }
+    }
+
+    // Main container
+    Rectangle {
+        background: root.term-bg;
+
+        VerticalLayout {
+
+            // Tab bar
+            Rectangle {
+                height: 32px;
+                background: #2d2d2d;
+
+                HorizontalLayout {
+                    padding: 4px;
+                    spacing: 4px;
+
+                    for tab[i] in root.tabs: Rectangle {
+                        width: 120px;
+                        height: 24px;
+                        background: root.active-tab-index == i ? #505050 : #404040;
+                        border-radius: 4px;
+
+                        Text {
+                            text: tab.title;
+                            color: #ffffff;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            x: 4px;
+                            width: parent.width - 24px;
+                        }
+
+                        TouchArea {
+                            width: parent.width - 24px;
+                            height: 100%;
+                            clicked => {
+                                root.tab-changed(i);
+                            }
+                        }
+
+                        Rectangle {
+                            x: parent.width - 20px;
+                            y: 4px;
+                            width: 16px;
+                            height: 16px;
+                            border-radius: 2px;
+                            background: root.active-tab-index == i ? #606060 : #505050;
+
+                            TouchArea {
+                                width: 100%;
+                                height: 100%;
+                                clicked => {
+                                    root.close-tab(i);
+                                }
+                            }
+
+                            Text {
+                                text: "×";
+                                color: #ffffff;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                                font-size: 12px;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: 24px;
+                        height: 24px;
+                        background: #333333;
+                        border-radius: 4px;
+
+                        TouchArea {
+                            width: 100%;
+                            height: 100%;
+                            clicked => {
+                                root.new-tab();
+                            }
+                        }
+
+                        Text {
+                            text: "+";
+                            color: #ffffff;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            // Terminal display area (with scrollbar)
+            Rectangle {
+                height: parent.height - 32px;
+                width: 100%;
+                background: root.term-bg;
+
+                HorizontalLayout {
+                    spacing: 0px;
+
+                    term-area := Rectangle {
+                        width: parent.width - 12px;
+                        background: root.term-bg;
+                        clip: true;
+
+                        for span in root.spans: Rectangle {
+                            x: span.col * root.cell-w;
+                            y: span.row * root.cell-h;
+                            width: span.cells * root.cell-w;
+                            height: root.cell-h;
+                            background: span.bg;
+                            clip: span.cjk;
+                            Text {
+                                x: 0px;
+                                height: root.cell-h;
+                                text: span.text;
+                                color: span.fg;
+                                font-family: root.term-font-family;
+                                font-size: root.term-font-size;
+                                font-weight: span.bold ? 700 : 400;
+                                font-italic: span.italic;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        for span in root.spans: Rectangle {
+                            x: span.col * root.cell-w;
+                            y: (span.row + 1) * root.cell-h - 2px;
+                            width: span.cells * root.cell-w;
+                            height: 1px;
+                            background: span.fg;
+                            visible: span.underline;
+                        }
+
+                        Rectangle {
+                            x: root.cursor-col * root.cell-w;
+                            y: root.cursor-row * root.cell-h;
+                            width: root.cell-w;
+                            height: root.cell-h;
+                            background: root.cursor-color;
+                            visible: root.cursor-row >= 0
+                                && (root.cursor-blink || !ime-input.has-focus);
+                        }
+
+                        TouchArea {
+                            mouse-cursor: text;
+
+                            clicked => {
+                                ime-input.focus();
+                            }
+
+                            pointer-event(event) => {
+                                if event.kind == PointerEventKind.down {
+                                    root.mouse-pressed(
+                                        event.button == PointerEventButton.left ? 0 : event.button == PointerEventButton.middle ? 1 : 2,
+                                        self.mouse-x / 1px,
+                                        self.mouse-y / 1px);
+                                } else if event.kind == PointerEventKind.up {
+                                    root.mouse-released(
+                                        event.button == PointerEventButton.left ? 0 : event.button == PointerEventButton.middle ? 1 : 2,
+                                        self.mouse-x / 1px,
+                                        self.mouse-y / 1px);
+                                }
+                            }
+
+                            moved => {
+                                root.mouse-moved(self.mouse-x / 1px, self.mouse-y / 1px);
+                            }
+
+                            scroll-event(event) => {
+                                root.mouse-wheel(event.delta-y / 1px);
+                                EventResult.accept
+                            }
+                        }
+
+                        ime-input := TextInput {
+                            x: 0;
+                            y: parent.height - 16px;
+                            width: parent.width;
+                            height: 1px;
+                            opacity: 0;
+                            single-line: true;
+
+                            key-pressed(event) => {
+                                root.key-pressed-event(
+                                    event.text,
+                                    event.modifiers.shift,
+                                    event.modifiers.alt,
+                                    event.modifiers.control);
+                                accept
+                            }
+
+                            key-released(event) => {
+                                root.key-released-event(
+                                    event.text,
+                                    event.modifiers.shift,
+                                    event.modifiers.alt,
+                                    event.modifiers.control);
+                                accept
+                            }
+
+                            edited => {
+                                let text = self.text;
+                                if text != "" {
+                                    root.ime-commit(text);
+                                    self.text = "";
+                                }
+                            }
+                        }
+                    }
+
+                    // Scrollbar
+                    Rectangle {
+                        width: 12px;
+                        background: #2a2a2a;
+
+                        Rectangle {
+                            x: 2px;
+                            width: 8px;
+                            height: parent.height;
+                            background: transparent;
+
+                            property <int> visible-lines: (root.height - 32px) / 1px;
+                            property <int> total-lines: root.scroll-max + visible-lines;
+                            property <length> thumb-height: root.scroll-max > 0 ?
+                                (parent.height * visible-lines / total-lines).max(30px) : 30px;
+
+                            Rectangle {
+                                y: root.scroll-max > 0 ? (parent.height - thumb-height) * (1 - root.scroll-position / root.scroll-max) : parent.height;
+                                width: 8px;
+                                height: thumb-height;
+                                background: #606060;
+                                border-radius: 4px;
+                            }
+
+                            TouchArea {
+
+                                pointer-event(event) => {
+                                    if event.kind == PointerEventKind.down || event.kind == PointerEventKind.move {
+                                        if root.scroll-max > 0 {
+                                            let ratio = self.mouse-y / self.height;
+                                            let pos = (1 - ratio) * root.scroll-max;
+                                            root.scroll-to(pos);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

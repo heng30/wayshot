@@ -1,9 +1,12 @@
 {
   "mcpServers": {
-    "rust-docs": {
-      "type": "stdio",
-      "command": "rust-docs-mcp",
-      "args": []
+    "wayshot": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://localhost:9527/mcp"
+      ]
     }
   }
 }

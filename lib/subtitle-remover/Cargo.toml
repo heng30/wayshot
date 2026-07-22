@@ -1,0 +1,14 @@
+[package]
+name = "subtitle-remover"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ort.workspace = true
+image.workspace = true
+rayon.workspace = true
+ndarray.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

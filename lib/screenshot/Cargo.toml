@@ -1,0 +1,11 @@
+[package]
+name = "screenshot"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+log.workspace = true
+image.workspace = true
+
+[dev-dependencies]
+env_logger.workspace = true

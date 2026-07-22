@@ -11,17 +11,11 @@ repository.workspace = true
 description.workspace = true
 
 [dependencies]
-log.workspace = true
 rand.workspace = true
 image.workspace = true
 rayon.workspace = true
 num_enum.workspace = true
 imageproc.workspace = true
 photon-rs.workspace = true
-thiserror.workspace = true
 derivative.workspace = true
 derive_setters.workspace = true
-
-[dev-dependencies]
-anyhow.workspace = true
-env_logger.workspace = true

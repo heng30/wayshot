@@ -1,0 +1,219 @@
+import {
+    Theme,
+    Logic,
+    KeyframeValueType,
+    KeyframeValue,
+    Store,
+} from "../../../../../def.slint";
+import {
+    Label,
+    RadioBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    LineInput,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    CropDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component Crop inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <CropDetail> config: VEFilter.from-crop-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: CropDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "crop") {
+            config = VEFilter.from-crop-json(selected-filter.detail);
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Position");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.padding;
+
+                LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.decimal;
+                    text: config.left.to-fixed(2);
+                    read-only: true;
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    accepted => {
+                        config.left = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+
+                Label {
+                    enabled: selected-filter.enabled;
+                    text: "X";
+                }
+
+                LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.decimal;
+                    text: config.top.to-fixed(2);
+                    read-only: true;
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    accepted => {
+                        config.top = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "region", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "region", VEFilter.make-float2-value(config.left, config.top));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Size");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing;
+
+                LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.decimal;
+                    text: config.width.to-fixed(2);
+                    read-only: true;
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    accepted => {
+                        config.width = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+
+                Label {
+                    enabled: selected-filter.enabled;
+                    text: "X";
+                }
+
+                LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.decimal;
+                    text: config.height.to-fixed(2);
+                    read-only: true;
+
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                        }
+                    }
+
+                    accepted => {
+                        config.height = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "size", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "size", VEFilter.make-float2-value(config.width, config.height));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Shape");
+                enabled: selected-filter.enabled;
+            }
+
+            VerticalLayout {
+                spacing: Theme.spacing * 4;
+                padding-left: Theme.padding * 2;
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: Logic.tr("Rectangle");
+                    checked: config.shape == 0;
+
+                    check => {
+                        config.shape = 0;
+                        apply(index, config);
+                    }
+                }
+
+                RadioBtn {
+                    enabled: selected-filter.enabled;
+                    text: Logic.tr("Circle");
+                    checked: config.shape == 1;
+
+                    check => {
+                        // let size = min(config.width, config.height);
+
+                        // let center-x = config.left + config.width / 2.0;
+                        // let center-y = config.top + config.height / 2.0;
+                        //
+                        // let new-left = center-x - size / 2.0;
+                        // let new-top = center-y - size / 2.0;
+
+                        config.shape = 1;
+                        // config.width = size;
+                        // config.height = size;
+                        // config.left = max(0, min(1.0 - size, new-left));
+                        // config.top = max(0, min(1.0 - size, new-top));
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

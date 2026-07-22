@@ -34,7 +34,7 @@ export component Playlist inherits Rectangle {
             height: root.item-height;
 
             private property <bool> is-hovered: false;
-            background: index == root.current-index ? Theme.focus-color : self.is-hovered ? Theme.thirdly-background : (Math.mod(index, 2) == 0) ? Theme.table-item-first : Theme.table-item-second;
+            background: Theme.table-item-background(index, index == root.current-index, self.is-hovered);
 
             animate background {
                 duration: Theme.default-animate-duration / 2;

@@ -1,0 +1,512 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+} from "../../../def.slint";
+import {
+    Divider,
+    IconBtn,
+    PopupActionEntry,
+    PopupActionSetting,
+    ClickAndEditLabel,
+    Slider,
+    ToolTipSetting,
+} from "../../../../base/widgets.slint";
+import { Label } from "../../../../base/label.slint";
+import { ElevatedBtn } from "../../../../base/elevated-btn.slint";
+
+export component Tool inherits Rectangle {
+    private property <bool> enabled-link-all-tracks: Store.video-editor-ui-state.enabled-link-all-tracks;
+    private property <bool> enabled-link-edited-track: Store.video-editor-ui-state.enabled-link-track;
+    changed enabled-link-edited-track => {
+        enabled-link-btn.checked = enabled-link-edited-track;
+    }
+
+    callback locate-to();
+    callback jump-to-track-start();
+    callback jump-to-track-end();
+    callback jump-to-segment-start();
+    callback jump-to-segment-end();
+    callback fit-to-view();
+
+    height: flick.height;
+
+    flick := Flickable {
+        width: root.width;
+        height: hbox.preferred-height;
+        viewport-width: hbox.preferred-width;
+
+        TouchArea {
+            scroll-event(event) => {
+                if (event.delta-y > 0) {
+                    flick.viewport-x = min(0, flick.viewport-x + root.width / 4);
+                } else {
+                    flick.viewport-x = max(flick.viewport-x - root.width / 4, -(flick.viewport-width - root.width));
+                }
+
+                accept
+            }
+        }
+
+        hbox := HorizontalLayout {
+            alignment: start;
+            spacing: Theme.spacing * 4;
+            padding: Theme.padding;
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.add2-light;
+                tip: Logic.tr("add track");
+
+                private property <[PopupActionEntry]> track-action-entries: [
+                    {
+                        icon: Icons.subtitle-light,
+                        text: Logic.tr("Subtitle Track"),
+                        action: "video-editor-add-empty-subtitle-track",
+                    },
+                    {
+                        icon: Icons.text-light,
+                        text: Logic.tr("Text Track"),
+                        action: "video-editor-add-empty-text-track",
+                    },
+                    {
+                        icon: Icons.video-light,
+                        text: Logic.tr("Video Track"),
+                        action: "video-editor-add-empty-video-track",
+                    },
+                    {
+                        icon: Icons.image-light,
+                        text: Logic.tr("Image Track"),
+                        action: "video-editor-add-empty-image-track",
+                    },
+                    {
+                        icon: Icons.audio-light,
+                        text: Logic.tr("Audio Track"),
+                        action: "video-editor-add-empty-audio-track",
+                    },
+                ];
+
+                clicked => {
+                    PopupActionSetting.show(self.absolute-position.x, self.absolute-position.y + self.preferred-height, track-action-entries);
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.delete-light;
+                tip: Logic.tr("remove track");
+
+                clicked => {
+                    Logic.video-editor-remove-tracks();
+                }
+            }
+
+            enabled-link-btn := IconBtn {
+                is-show-tip: true;
+                checked-color: Theme.checked-background;
+                checked: root.enabled-link-edited-track;
+                hover-background-padding: Theme.padding;
+                icon: Icons.link-light;
+                tip: root.enabled-link-edited-track ? Logic.tr("link track enabled (L or X)") : Logic.tr("link track disabled (L or X)");
+
+                clicked => {
+                    Store.video-editor-ui-state.enabled-link-track = !Store.video-editor-ui-state.enabled-link-track;
+                    Logic.video-editor-update-ui-state();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                checked-color: Theme.checked-background;
+                checked: root.enabled-link-all-tracks;
+                hover-background-padding: Theme.padding;
+                icon: Icons.jump-rope-light;
+                tip: root.enabled-link-all-tracks ? Logic.tr("link all tracks enabled") : Logic.tr("link all tracks disabled");
+
+                clicked => {
+                    Store.video-editor-ui-state.enabled-link-all-tracks = !Store.video-editor-ui-state.enabled-link-all-tracks;
+                    Logic.video-editor-update-ui-state();
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+
+                Divider {
+                    width: 2px;
+                    height: Theme.icon-size * 0.8;
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.undo-light;
+                icon-size: Theme.icon-size * 0.9;
+                tip: Logic.tr("undo") + "  " + "Ctrl+Z";
+
+                clicked => {
+                    Logic.video-editor-undo();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.redo-light;
+                icon-size: Theme.icon-size * 0.9;
+                tip: Logic.tr("redo") + "  " + "Ctrl+Shift+Z";
+
+                clicked => {
+                    Logic.video-editor-redo();
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+
+                Divider {
+                    width: 2px;
+                    height: Theme.icon-size * 0.8;
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.copy-light;
+                tip: Logic.tr("copy") + "  " + "Ctrl+C";
+
+                clicked => {
+                    Logic.video-editor-copy();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.cut-light;
+                tip: Logic.tr("cut") + "  " + "Ctrl+X";
+
+                clicked => {
+                    Logic.video-editor-cut();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.content-paste-light;
+                tip: Logic.tr("paste") + "  " + "Ctrl+V";
+
+                clicked => {
+                    Logic.video-editor-paste();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.appendix-light;
+                tip: Logic.tr("append") + "  " + "Ctrl+Shift+A";
+
+                clicked => {
+                    Logic.video-editor-append();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.clear-light;
+                tip: Logic.tr("remove") + "  " + "(Delete)";
+
+                clicked => {
+                    Logic.video-editor-remove-segments();
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+
+                Divider {
+                    width: 2px;
+                    height: Theme.icon-size * 0.8;
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.link-remove-light;
+                icon-size: Theme.icon-size * 0.9;
+                tip: Logic.tr("linked remove") + "  " + "(X)";
+
+                clicked => {
+                    Logic.video-editor-linked-remove-segments();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.snap-to-light;
+                icon-size: Theme.icon-size * 0.9;
+                tip: Logic.tr("snap to previous") + " " + "(N)";
+
+                clicked => {
+                    Logic.video-editor-segment-snap-to-previous();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.left-alignment-light;
+                icon-size: Theme.icon-size * 0.9;
+                tip: Logic.tr("snap to playhead") + " " + "(P)";
+
+                clicked => {
+                    Logic.video-editor-segment-snap-to-playhead();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.merge-above-light;
+                icon-size: Theme.icon-size * 0.9;
+                tip: Logic.tr("merge") + " " + "(M)";
+
+                clicked => {
+                    Logic.video-editor-segment-merge();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.split-light;
+                tip: Logic.tr("split") + "  " + "(S)";
+
+                clicked => {
+                    Logic.video-editor-split-segment();
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+
+                Divider {
+                    width: 2px;
+                    height: Theme.icon-size * 0.8;
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.jump-left-light;
+                tip: Logic.tr("jump to start (Home)");
+
+                clicked => {
+                    root.jump-to-track-start();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.jump-right-light;
+                tip: Logic.tr("jump to end (End)");
+
+                clicked => {
+                    root.jump-to-track-end();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.segment-start-light;
+                tip: Logic.tr("jump to segment start");
+
+                clicked => {
+                    root.jump-to-segment-start();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.segment-start-light;
+                icon-transform-rotation: 180deg;
+                tip: Logic.tr("jump to segment end");
+
+                clicked => {
+                    root.jump-to-segment-end();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.locate-to-light;
+                icon-size: Theme.icon-size * 0.9;
+                tip: Logic.tr("locate");
+
+                clicked => {
+                    root.locate-to();
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+
+                Divider {
+                    width: 2px;
+                    height: Theme.icon-size * 0.8;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing;
+
+                IconBtn {
+                    is-show-tip: true;
+                    icon: Icons.zoom-out-light;
+                    tip: Logic.tr("zoom out");
+
+                    clicked => {
+                        if (Store.video-editor-ui-state.tracks-zoom-level <= 0.2) {
+                            slider.value = clamp(Store.video-editor-ui-state.tracks-zoom-level.to-float() - 0.02, slider.minimum, slider.maximum);
+                        } else {
+                            slider.value = clamp(Store.video-editor-ui-state.tracks-zoom-level.to-float() - 0.1, slider.minimum, slider.maximum);
+                        }
+                        Store.video-editor-ui-state.tracks-zoom-level = slider.value;
+                        Logic.video-editor-update-ui-state();
+                    }
+                }
+
+                HorizontalLayout {
+                    padding-left: Theme.padding * 2;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        private property <string> zoom-level: Store.video-editor-ui-state.tracks-zoom-level;
+                        changed zoom-level => {
+                            slider.value = zoom-level.to-float();
+                        }
+
+                        slider := Slider {
+                            width: 150px;
+                            minimum: 0.01;
+                            maximum: Store.video-editor-max-zoom-level;
+                            finished-progress-color: Theme.thirdly-brand-color;
+                            height: Theme.default-font-size / 3;
+                            indicator-size: self.has-hover ? self.height * 3 : 0;
+                            value: zoom-level.to-float();
+                            released(value) => {
+                                Store.video-editor-ui-state.tracks-zoom-level = value;
+                                Logic.video-editor-update-ui-state();
+                            }
+                        }
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    icon: Icons.zoom-in-light;
+                    tip: Logic.tr("zoom in");
+
+                    clicked => {
+                        if (Store.video-editor-ui-state.tracks-zoom-level <= 0.2) {
+                            slider.value = clamp(Store.video-editor-ui-state.tracks-zoom-level.to-float() + 0.02, slider.minimum, slider.maximum);
+                        } else {
+                            slider.value = clamp(Store.video-editor-ui-state.tracks-zoom-level.to-float() + 0.1, slider.minimum, slider.maximum);
+                        }
+
+                        Store.video-editor-ui-state.tracks-zoom-level = slider.value;
+                        Logic.video-editor-update-ui-state();
+                    }
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.fit-width-light;
+                icon-size: Theme.icon-size * 1.3;
+                tip: Logic.tr("fit to view");
+
+                clicked => {
+                    root.fit-to-view();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.camera-light;
+                tip: Logic.tr("extract frame to playlist");
+
+                clicked => {
+                    Logic.video-editor-extract-frame-to-playlist();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.text-light;
+                tip: Logic.tr("add text");
+
+                clicked => {
+                    Logic.video-editor-add-text-segment();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.audio-light;
+                tip: Logic.tr("record audio");
+
+                clicked => {
+                    Store.video-editor-is-show-record-audio-dialog = true;
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.transcribe-light;
+                tip: Logic.tr("transcribe audio to subtitle");
+
+                clicked => {
+                    ToolTipSetting.hide();
+                    Logic.video-editor-transcribe-audio();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.smart-mix-light;
+                tip: Logic.tr("Smart Mix");
+
+                clicked => {
+                    ToolTipSetting.hide();
+                    Store.video-editor-smart-mix-is-show-dialog = true;
+                }
+            }
+        }
+    }
+
+    if root.width > flick.viewport-width: TouchArea {
+        x: flick.viewport-width;
+        width: root.width - flick.viewport-width;
+
+        clicked => {
+            Logic.video-editor-clear-all-selected-state();
+        }
+    }
+
+    if abs(flick.viewport-x) > Theme.icon-size / 2: ElevatedBtn {
+        x: 0;
+        icon: Icons.arrow-left-light;
+
+        clicked => {
+            flick.viewport-x = min(0, flick.viewport-x + root.width / 4);
+        }
+    }
+
+    if abs(flick.viewport-x) + root.width < flick.viewport-width: ElevatedBtn {
+        x: root.width - self.width;
+        icon: Icons.arrow-right-light;
+
+        clicked => {
+            flick.viewport-x = max(flick.viewport-x - root.width / 4, -(flick.viewport-width - root.width));
+        }
+    }
+}

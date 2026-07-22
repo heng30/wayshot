@@ -1,0 +1,284 @@
+import {
+    Theme,
+    Logic,
+    Store,
+} from "../../../../../def.slint";
+import {
+    ClickAndEditLabel,
+    LineInput,
+    Slider,
+    Select,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    SplitDetail,
+} from "../../../filter.slint";
+
+export component Split inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <SplitDetail> config: VEFilter.from-split-json(selected-filter.detail);
+
+    callback apply(index: int, config: SplitDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "split") {
+            self.config = VEFilter.from-split-json(selected-filter.detail);
+            duration-li.text = self.config.duration.to-fixed(0);
+            split-position-sl.value = self.config.split-position;
+            shadow-sl.value = self.config.shadow;
+            shadow-width-sl.value = self.config.shadow-width;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            // Position: Start / End
+            SettingDetailLabel {
+                text: Logic.tr("Position");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                position-select := Select {
+                    enabled: selected-filter.enabled;
+                    gain-focus-when-clicked: false;
+                    background: Theme.thirdly-background;
+
+                    values: [Logic.tr("Start"), Logic.tr("End")];
+                    current-index: config.position;
+                    current-value: config.position == 0 ? Logic.tr("Start") : Logic.tr("End");
+
+                    selected(idx, value) => {
+                        config.position = idx;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Easing");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                easing-select := Select {
+                    enabled: selected-filter.enabled;
+                    gain-focus-when-clicked: false;
+                    background: Theme.thirdly-background;
+
+                    values: [
+                        Logic.tr("Linear"),
+                        Logic.tr("Ease In"),
+                        Logic.tr("Ease Out"),
+                        Logic.tr("Ease In Out")
+                    ];
+                    current-index: config.easing;
+                    current-value: config.easing == 0 ? Logic.tr("Linear") : (config.easing == 1 ? Logic.tr("Ease In") : (config.easing == 2 ? Logic.tr("Ease Out") : Logic.tr("Ease In Out")));
+
+                    selected(idx, value) => {
+                        config.easing = idx;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Direction");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                direction-select := Select {
+                    enabled: selected-filter.enabled;
+                    gain-focus-when-clicked: false;
+                    background: Theme.thirdly-background;
+
+                    values: [Logic.tr("Horizontal"), Logic.tr("Vertical")];
+                    current-index: config.direction;
+                    current-value: config.direction == 0 ? Logic.tr("Horizontal") : Logic.tr("Vertical");
+
+                    selected(idx, value) => {
+                        config.direction = idx;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Duration (ms)");
+                enabled: selected-filter.enabled;
+            }
+
+            duration-li := LineInput {
+                enabled: selected-filter.enabled;
+                text: config.duration;
+                border-color: self.text.to-float() == config.duration ? self.default-border-color : Theme.danger-color;
+
+                accepted => {
+                    config.duration = self.text.to-float();
+                    apply(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Split Position");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    split-position-sl := Slider {
+                        minimum: 0.0;
+                        maximum: 1.0;
+                        value: config.split-position;
+                        indicator-size: Theme.default-font-size;
+                        height: self.indicator-size * 0.3;
+                        unfinished-progress-color: Theme.thirdly-background;
+                        enabled: selected-filter.enabled;
+
+                        changed(value) => {
+                            config.split-position = value;
+                        }
+
+                        released(value) => {
+                            config.split-position = value;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                ClickAndEditLabel {
+                    enabled: selected-filter.enabled;
+                    use-fixed-width: true;
+                    width: Theme.default-font-size * 3;
+                    text: config.split-position.to-fixed(2);
+                    text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                    accepted(text) => {
+                        config.split-position = text.to-float().clamp(0.0, 1.0);
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Shadow");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    shadow-sl := Slider {
+                        minimum: 0.0;
+                        maximum: 1.0;
+                        value: config.shadow;
+                        indicator-size: Theme.default-font-size;
+                        height: self.indicator-size * 0.3;
+                        unfinished-progress-color: Theme.thirdly-background;
+                        enabled: selected-filter.enabled;
+
+                        changed(value) => {
+                            config.shadow = value;
+                        }
+
+                        released(value) => {
+                            config.shadow = value;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                ClickAndEditLabel {
+                    enabled: selected-filter.enabled;
+                    use-fixed-width: true;
+                    width: Theme.default-font-size * 3;
+                    text: config.shadow.to-fixed(2);
+                    text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                    accepted(text) => {
+                        config.shadow = text.to-float().clamp(0.0, 1.0);
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Shadow Width");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    shadow-width-sl := Slider {
+                        minimum: 0.0;
+                        maximum: 100.0;
+                        value: config.shadow-width;
+                        indicator-size: Theme.default-font-size;
+                        height: self.indicator-size * 0.3;
+                        unfinished-progress-color: Theme.thirdly-background;
+                        enabled: selected-filter.enabled;
+
+                        changed(value) => {
+                            config.shadow-width = value;
+                        }
+
+                        released(value) => {
+                            config.shadow-width = value;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                ClickAndEditLabel {
+                    enabled: selected-filter.enabled;
+                    use-fixed-width: true;
+                    width: Theme.default-font-size * 3;
+                    text: config.shadow-width.to-fixed(1);
+                    text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                    accepted(text) => {
+                        config.shadow-width = text.to-float().clamp(0.0, 100.0);
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+    }
+}

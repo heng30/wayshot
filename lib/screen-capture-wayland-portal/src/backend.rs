@@ -1,7 +1,12 @@
 use crate::error::{Error, Result};
-use ashpd::desktop::{
-    PersistMode,
-    screencast::{CursorMode, Screencast, SourceType, Stream as ScreencastStream},
+use ashpd::{
+    desktop::{
+        PersistMode,
+        screencast::{
+            CursorMode, Screencast, SelectSourcesOptions, SourceType, Stream as ScreencastStream,
+        },
+    },
+    enumflags2::BitFlags,
 };
 use crossbeam::channel::Sender;
 use derive_setters::Setters;
@@ -51,23 +56,26 @@ impl PortalCapturer {
 
     pub async fn open_portal(&self) -> Result<(ScreencastStream, OwnedFd)> {
         let proxy = Screencast::new().await?;
-        let session = proxy.create_session().await?;
+        let session = proxy.create_session(Default::default()).await?;
         proxy
             .select_sources(
                 &session,
-                if self.include_cursor {
-                    CursorMode::Embedded
-                } else {
-                    CursorMode::Hidden
-                },
-                SourceType::Monitor.into(),
-                false,
-                None,
-                PersistMode::DoNot,
+                SelectSourcesOptions::default()
+                    .set_cursor_mode(if self.include_cursor {
+                        CursorMode::Embedded
+                    } else {
+                        CursorMode::Hidden
+                    })
+                    .set_sources(BitFlags::from(SourceType::Monitor))
+                    .set_multiple(false)
+                    .set_persist_mode(PersistMode::DoNot),
             )
             .await?;
 
-        let response = proxy.start(&session, None).await?.response()?;
+        let response = proxy
+            .start(&session, None, Default::default())
+            .await?
+            .response()?;
         let stream = response
             .streams()
             .first()
@@ -76,7 +84,9 @@ impl PortalCapturer {
             ))?
             .to_owned();
 
-        let fd = proxy.open_pipe_wire_remote(&session).await?;
+        let fd = proxy
+            .open_pipe_wire_remote(&session, Default::default())
+            .await?;
 
         Ok((stream, fd))
     }

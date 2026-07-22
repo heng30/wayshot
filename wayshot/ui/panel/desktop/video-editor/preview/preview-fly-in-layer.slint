@@ -1,0 +1,154 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    FlyInDetail,
+    VideoEditorLayerImage,
+} from "../../../def.slint";
+import { VEFilter, FilterType } from "../filter.slint";
+import { IconBtn, Divider, Label } from "../../../../base/widgets.slint";
+import { MoveHandle } from "move-handle.slint";
+
+export component PreviewFlyInLayer inherits Rectangle {
+    in-out property <[VideoEditorLayerImage]> layers;
+    private property <float> width-hight-rate: self.width / self.height;
+    private property <FilterType> selected-filter-type <=> VEFilter.selected-filter.ty;
+
+    for index in layers.length: rec := Rectangle {
+        private property <VideoEditorLayerImage> layer: layers[layers.length - 1 - index];
+        private property <FlyInDetail> fly-in: layer.fly-in;
+        private property <bool> is-edited-track: Store.video-editor-current-edited-track-index == layer.track-index;
+
+        x: 0;
+        y: 0;
+
+        if layer.track-index > Store.video-editor-current-edited-track-index: container-rec := Rectangle {
+            width: img.width;
+            height: img.height;
+
+            img := Image {
+                private property <length> parent-width: rec.width;
+                private property <length> parent-height: rec.height;
+                private property <float> width-hight-rate: self.source.width / self.source.height;
+
+                changed parent-width => {
+                    self.update-size();
+                }
+
+                changed parent-height => {
+                    self.update-size();
+                }
+
+                function update-size() {
+                    if (root.width-hight-rate > self.width-hight-rate) {
+                        self.height = root.height;
+                        self.width = self.height * self.width-hight-rate;
+                    } else {
+                        self.width = root.width;
+                        self.height = self.width / self.width-hight-rate;
+                    }
+                }
+
+                init => {
+                    self.update-size();
+                }
+
+                source: layer.original-image;
+                image-fit: ImageFit.contain;
+            }
+        }
+
+        if is-edited-track: Rectangle {
+            Rectangle {
+                visible: fly-in.direction == 0;
+                x: 0px;
+                y: root.height * fly-in.move-to-y.clamp(0, 1) - Theme.icon-size / 2;
+                width: Theme.icon-size;
+                height: Theme.icon-size;
+                background: Theme.success-color.with-alpha(0.5);
+
+                Text {
+                    text: "→";
+                    color: white;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            Rectangle {
+                visible: fly-in.direction == 1;
+                x: root.width - Theme.icon-size;
+                y: root.height * fly-in.move-to-y.clamp(0, 1) - Theme.icon-size / 2;
+                width: Theme.icon-size;
+                height: Theme.icon-size;
+                background: Theme.success-color.with-alpha(0.5);
+
+                Text {
+                    text: "←";
+                    color: white;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            Rectangle {
+                visible: fly-in.direction == 2;
+                x: root.width * fly-in.move-to-x.clamp(0, 1) - Theme.icon-size / 2;
+                y: 0px;
+                width: Theme.icon-size;
+                height: Theme.icon-size;
+                background: Theme.success-color.with-alpha(0.5);
+
+                Text {
+                    text: "↓";
+                    color: white;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            Rectangle {
+                visible: fly-in.direction == 3;
+                x: root.width * fly-in.move-to-x.clamp(0, 1) - Theme.icon-size / 2;
+                y: root.height - Theme.icon-size;
+                width: Theme.icon-size;
+                height: Theme.icon-size;
+                background: Theme.success-color.with-alpha(0.5);
+
+                Text {
+                    text: "↑";
+                    color: white;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            MoveHandle {
+                private property <length> display-x: root.width * fly-in.move-to-x.clamp(0, 1);
+                private property <length> display-y: root.height * fly-in.move-to-y.clamp(0, 1);
+
+                x: display-x - self.width / 2;
+                y: display-y - self.height / 2;
+                background: Theme.success-color;
+                width: Theme.icon-size;
+                hide-center-point: true;
+                text: "F";
+
+                moved => {
+                    let delta-x = self.mouse-x - self.pressed-x;
+                    let delta-y = self.mouse-y - self.pressed-y;
+                    self.x = (self.x + delta-x).clamp(-self.width / 2, root.width - self.width / 2);
+                    self.y = (self.y + delta-y).clamp(-self.height / 2, root.height - self.height / 2);
+                }
+
+                released => {
+                    fly-in.move-to-x = (self.x + self.width / 2) / root.width;
+                    fly-in.move-to-y = (self.y + self.height / 2) / root.height;
+                    VEFilter.modify-fly-in-filter(VEFilter.selected-filter-index, fly-in, selected-filter-type);
+                }
+            }
+        }
+    }
+}

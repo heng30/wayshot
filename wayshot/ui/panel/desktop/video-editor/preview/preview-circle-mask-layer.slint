@@ -1,0 +1,152 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoPreviewSize,
+    VideoEditorLayerImage,
+    CircleMaskDetail,
+} from "../../../def.slint";
+import { VEFilter, FilterType } from "../filter.slint";
+import { IconBtn, Divider, Label } from "../../../../base/widgets.slint";
+import { MoveHandle } from "move-handle.slint";
+
+export component PreviewCircleMaskLayer inherits Rectangle {
+    in-out property <[VideoEditorLayerImage]> layers;
+    private property <float> width-hight-rate: self.width / self.height;
+    private property <FilterType> selected-filter-type <=> VEFilter.selected-filter.ty;
+
+    for index in layers.length: rec := Rectangle {
+        x: 0;
+        y: 0;
+
+        private property <VideoEditorLayerImage> layer: layers[layers.length - 1 - index];
+        private property <bool> is-edited-track: Store.video-editor-current-edited-track-index == layer.track-index;
+        private property <bool> has-keyframes: Logic.video-editor-segment-has-keyframes(layer.track-index, layer.segment-index);
+        private property <CircleMaskDetail> config: is-edited-track && has-keyframes ? VEFilter.from-circle-mask-json(VEFilter.selected-filter.detail) : layer.circle-mask;
+        private property <bool> is-previewing: Store.video-editor-is-previewing;
+
+        changed is-previewing => {
+            if (is-edited-track && !is-previewing && has-keyframes) {
+                VEFilter.modify-circle-mask-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+            }
+        }
+
+        container-rec := Rectangle {
+            width: img.width;
+            height: img.height;
+
+            img := Image {
+                private property <length> parent-width: rec.width;
+                private property <length> parent-height: rec.height;
+                private property <float> width-hight-rate: self.source.width / self.source.height;
+
+                changed parent-width => {
+                    self.update-size();
+                }
+
+                changed parent-height => {
+                    self.update-size();
+                }
+
+                function update-size() {
+                    if (root.width-hight-rate > self.width-hight-rate) {
+                        self.height = root.height;
+                        self.width = self.height * self.width-hight-rate;
+                    } else {
+                        self.width = root.width;
+                        self.height = self.width / self.width-hight-rate;
+                    }
+                }
+
+                init => {
+                    self.update-size();
+                }
+
+                source: layer.original-image;
+                image-fit: ImageFit.contain;
+            }
+
+            if is-edited-track: Rectangle {
+                width: img.width;
+                height: img.height;
+
+                // private property <length> radius-preview: config.radius * 1px * img.height / 1080px;
+
+                private property <length> radius-preview: VEFilter.scale-pixel-for-resolution(config.radius, img.height / 1px) * 1px;
+
+                circle-rec := Rectangle {
+                    x: config.center-x * parent.width - parent.radius-preview;
+                    y: config.center-y * parent.height - parent.radius-preview;
+                    width: parent.radius-preview * 2;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    border-width: 2px;
+                    border-color: white;
+                    background: transparent;
+
+                    TouchArea {
+                        private property <bool> can-move;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left) {
+                                if (event.kind == PointerEventKind.down) {
+                                    can-move = true
+                                } else if (event.kind == PointerEventKind.up) {
+                                    can-move = false;
+                                    VEFilter.modify-circle-mask-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                                }
+                            }
+                        }
+
+                        moved => {
+                            if (!can-move) {
+                                return;
+                            }
+                            let cx = circle-rec.x + circle-rec.width / 2 + self.mouse-x - self.pressed-x;
+                            let cy = circle-rec.y + circle-rec.height / 2 + self.mouse-y - self.pressed-y;
+                            config.center-x = clamp(cx / img.width, 0, 1);
+                            config.center-y = clamp(cy / img.height, 0, 1);
+                        }
+                    }
+
+                    radius-handle := Rectangle {
+                        x: parent.width - self.width / 2;
+                        y: parent.height / 2 - self.height / 2;
+                        width: Theme.icon-size * 0.7;
+                        height: self.width;
+                        border-radius: self.width / 2;
+                        background: Theme.thirdly-brand-color;
+                        border-width: 2px;
+                        border-color: white;
+
+                        TouchArea {
+                            mouse-cursor: MouseCursor.ew-resize;
+                            private property <bool> can-resize;
+
+                            pointer-event(event) => {
+                                if (event.button == PointerEventButton.left) {
+                                    if (event.kind == PointerEventKind.down) {
+                                        can-resize = true;
+                                    } else if (event.kind == PointerEventKind.up) {
+                                        can-resize = false;
+                                        VEFilter.modify-circle-mask-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                                    }
+                                }
+                            }
+
+                            moved => {
+                                if (!can-resize) {
+                                    return;
+                                }
+                                let delta = (self.mouse-x - self.pressed-x) / 1px * 1080 / (img.height / 1px);
+                                config.radius = clamp(config.radius + delta, 0, 5000);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

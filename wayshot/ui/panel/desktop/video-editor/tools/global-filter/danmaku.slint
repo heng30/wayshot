@@ -1,0 +1,890 @@
+import { ListView, ScrollView } from "std-widgets.slint";
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+    FontEntry,
+} from "../../../../def.slint";
+import {
+    LineInput,
+    IconBtn,
+    Label,
+    NoMessageImg,
+    CancelAndConfirmIconsBtn,
+    ToolTipSetting,
+    ConfirmDialogSetting,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    CheckBtn,
+    Select,
+    SettingDetailSwitch,
+    MovingDialog,
+    TxtEdit,
+    ConfirmBtn,
+    CancelBtn,
+    Skeleton,
+    SkeletonType,
+} from "../../../../../base/widgets.slint";
+import {
+    DanmakuItem,
+    DanmakuStyle,
+    DanmakuSegment,
+    DanmakuDistributionMode,
+    GlobalFilterType,
+} from "export.slint";
+
+component DanmakuStyleParams inherits VerticalLayout {
+    spacing: Theme.spacing * 4;
+
+    in property <int> index;
+    private property <length> lb-width: Theme.default-font-size * 9;
+    private property <DanmakuStyle> style: Store.video-editor-global-filter-config.danmaku.items[index].style;
+
+    private property <bool> invalid-font-color: style.color-a == 0 && style.outline-color-a == 0;
+
+    function update-style(style: DanmakuStyle) {
+        Logic.video-editor-global-filter-danmaku-update-style(index, style);
+    }
+
+    HorizontalLayout {
+        private property <FontEntry> selected-font <=> Store.selected-font-entry;
+        private property <bool> font-exist: Logic.file-exist(style.font-path);
+
+        changed selected-font => {
+            font-li.text = selected-font.family;
+            style.font-path = selected-font.path;
+            style.font-family = selected-font.family;
+            style.font-style = selected-font.style;
+            update-style(style);
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Font");
+            width: root.lb-width;
+        }
+
+        font-li := LineInput {
+            border-color: font-exist ? Theme.regular-text-color : Theme.danger-color;
+            read-only: true;
+            icon: Icons.font-light;
+            is-show-icon: true;
+            icon-size: Theme.icon-size * Theme.golden-ratio;
+            text: style.font-family;
+
+            clicked => {
+                Store.is-show-font-dialog = true;
+            }
+        }
+    }
+
+    HorizontalLayout {
+        SettingDetailLabel {
+            text: Logic.tr("Font Size");
+            width: root.lb-width;
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: style.font-size;
+            border-color: self.text.is-empty ? Theme.danger-color : self.has-focus ? Theme.thirdly-brand-color : Theme.regular-text-color;
+
+            accepted => {
+                style.font-size = self.text.to-float().max(1);
+                self.text = style.font-size;
+                update-style(style);
+            }
+        }
+    }
+
+    HorizontalLayout {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            style.color-r = c.red;
+            style.color-g = c.green;
+            style.color-b = c.blue;
+            style.color-a = c.alpha;
+            update-style(style);
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Color");
+            width: root.lb-width;
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(style.color-r, style.color-g, style.color-b, style.color-a);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+            border-color: root.invalid-font-color ? Theme.danger-color : Theme.regular-text-color;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    HorizontalLayout {
+        SettingDetailLabel {
+            text: Logic.tr("Outline Width");
+            width: root.lb-width;
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: style.outline-width;
+            border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.regular-text-color;
+
+            accepted => {
+                style.outline-width = self.text.to-float().max(0);
+                self.text = style.outline-width;
+                update-style(style);
+            }
+        }
+    }
+
+    HorizontalLayout {
+        private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+        private property <int> color-picker-id;
+
+        changed color-picker-confirmed-flag => {
+            if (color-picker-id != Store.video-editor-color-picker-id) {
+                return;
+            }
+            let c = Store.video-editor-color-picker-color;
+            style.outline-color-r = c.red;
+            style.outline-color-g = c.green;
+            style.outline-color-b = c.blue;
+            style.outline-color-a = c.alpha;
+            update-style(style);
+        }
+
+        SettingDetailLabel {
+            text: Logic.tr("Outline Color");
+            width: root.lb-width;
+        }
+
+        LineInput {
+            read-only: true;
+            is-show-icon: true;
+            text: Util.color-picker-str(style.outline-color-r, style.outline-color-g, style.outline-color-b, style.outline-color-a);
+            is-show-color-block: true;
+            color-block-color: Util.color-picker-hex-color(self.text);
+            icon: Icons.color-picker-light;
+            border-color: root.invalid-font-color ? Theme.danger-color : Theme.regular-text-color;
+
+            clicked => {
+                Store.video-editor-color-picker-id += 1;
+                color-picker-id = Store.video-editor-color-picker-id;
+                Store.video-editor-color-picker-color = Util.color-picker-hex-color(self.text);
+                Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+            }
+        }
+    }
+
+    HorizontalLayout {
+        SettingDetailLabel {
+            text: Logic.tr("Line Spacing");
+            width: root.lb-width;
+        }
+
+        LineInput {
+            input-type: InputType.number;
+            text: style.line-spacing;
+            border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.regular-text-color;
+
+            accepted => {
+                style.line-spacing = self.text.to-float().max(0);
+                self.text = style.line-spacing;
+                update-style(style);
+            }
+        }
+    }
+}
+
+component ItemsHeader inherits HorizontalLayout {
+    alignment: space-between;
+
+    callback add();
+
+    HorizontalLayout {
+        SettingDetailSwitch {
+            text: Logic.tr("Enable Filter");
+            background: transparent;
+            icon: Icons.filter-light;
+            spacing: Theme.spacing * 6;
+            checked: Store.video-editor-global-filter-config.danmaku.enabled;
+            gain-focus-when-clicked: false;
+
+            toggled => {
+                Store.video-editor-global-filter-config.danmaku.enabled = self.checked;
+                Logic.video-editor-global-filter-danmaku-toggle-enable();
+            }
+        }
+    }
+
+    rec := Rectangle {
+        width: hbox.preferred-width;
+        height: hbox.preferred-height;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("add");
+                    icon: Icons.add-light;
+                    icon-size: Theme.icon-size * 0.8;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-global-filter-danmaku-add-segment();
+                        root.add();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("remove all");
+                    icon: Icons.delete-all-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Remove all items or not?"), "video-editor-global-filter-danmaku-remove-all-segments", "");
+                    }
+                }
+            }
+        }
+    }
+}
+
+component DanmakuItemCard inherits Rectangle {
+    in property <int> segment-index;
+    in property <int> item-index;
+    in property <DanmakuItem> item: Store.video-editor-global-filter-config.danmaku.items[segment-index].items[item-index];
+
+    background: Theme.thirdly-background;
+    border-radius: Theme.border-radius;
+    border-width: Theme.default-border-width;
+    border-color: Theme.base-border-color;
+    height: hbox.preferred-height + self.border-width * 2;
+
+    hbox := HorizontalLayout {
+        spacing: Theme.spacing * 4;
+        padding: Theme.padding * 2;
+
+        te := LineInput {
+            text: item.text;
+            border-color: self.has-focus ? Theme.thirdly-brand-color : transparent;
+
+            accepted => {
+                Logic.video-editor-global-filter-danmaku-update-item-text(segment-index, item-index, te.text);
+            }
+        }
+
+        IconBtn {
+            is-show-tip: true;
+            tip: Logic.tr("Delete");
+            icon: Icons.delete-light;
+            icon-size: Theme.icon-size * 0.9;
+
+            clicked => {
+                Logic.video-editor-global-filter-danmaku-remove-item(segment-index, item-index);
+            }
+        }
+    }
+}
+
+component SegmentCard inherits Rectangle {
+    in property <int> index;
+    in property <DanmakuSegment> segment: Store.video-editor-global-filter-config.danmaku.items[index];
+    private property <bool> flag;
+    private property <bool> show-items: true;
+    private property <bool> show-style;
+    private property <bool> is-valid: Logic.video-editor-global-filter-danmaku-is-valid(index, self.flag);
+
+    background: Theme.secondary-background;
+    border-radius: Theme.border-radius;
+    border-width: Theme.default-border-width;
+    border-color: Theme.base-border-color;
+
+    init => {
+        show-style = !Logic.file-exist(segment.style.font-path) || segment.style.font-family.is-empty || segment.style.font-size == 0 || (segment.style.color-a == 0 && segment.style.outline-color-a == 0);
+    }
+
+    entry-card := VerticalLayout {
+        alignment: start;
+        spacing: Theme.padding * 4;
+        padding: Theme.padding * 2;
+
+        // Time range + actions
+        HorizontalLayout {
+            spacing: Theme.spacing * 4;
+            alignment: space-between;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing;
+
+                        Label {
+                            text: Logic.tr("Start") + ":";
+                        }
+
+                        Label {
+                            text: Logic.ms-to-srt-timestamp-ui(segment.start-offset);
+                            color: is-valid ? Theme.primary-text-color : Theme.danger-color;
+                        }
+                    }
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("set start from timeline");
+                        icon: Icons.locate-to-light;
+                        icon-size: Theme.icon-size * 0.8;
+                        colorize: is-valid ? Theme.icon-color : Theme.danger-color;
+
+                        clicked => {
+                            Logic.video-editor-global-filter-danmaku-update-offsets(index, Store.video-editor-timeline-offset, segment.end-offset);
+                            root.flag = !root.flag;
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing;
+
+                        Label {
+                            text: Logic.tr("End") + ":";
+                        }
+
+                        Label {
+                            text: Logic.ms-to-srt-timestamp-ui(segment.end-offset);
+                            color: is-valid ? Theme.primary-text-color : Theme.danger-color;
+                        }
+                    }
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("set end from timeline");
+                        icon: Icons.locate-to-light;
+                        icon-size: Theme.icon-size * 0.8;
+                        colorize: is-valid ? Theme.icon-color : Theme.danger-color;
+
+                        clicked => {
+                            Logic.video-editor-global-filter-danmaku-update-offsets(index, segment.start-offset, Store.video-editor-timeline-offset);
+                            root.flag = !root.flag;
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("Insert Below");
+                    icon: Icons.cell-insert-below-light;
+
+                    clicked => {
+                        Logic.video-editor-global-filter-danmaku-insert-segment(index);
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("Delete");
+                    icon: Icons.delete-light;
+
+                    clicked => {
+                        Logic.video-editor-global-filter-danmaku-remove-segment(index);
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("Move Up");
+                    icon: Icons.move-up-light;
+                    enabled: index > 0;
+
+                    clicked => {
+                        Logic.video-editor-global-filter-danmaku-move-segment(index, index - 1);
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("Move Down");
+                    icon: Icons.move-down-light;
+                    enabled: index < Store.video-editor-global-filter-config.danmaku.items.length - 1;
+
+                    clicked => {
+                        Logic.video-editor-global-filter-danmaku-move-segment(index, index + 1);
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: root.show-style ? Logic.tr("close style") : Logic.tr("edit style");
+                    icon: Icons.font-light;
+                    icon-size: Theme.icon-size * Theme.golden-ratio;
+
+                    clicked => {
+                        root.show-style = !root.show-style;
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: root.show-items ? Logic.tr("close danmaku") : Logic.tr("edit danmaku");
+                    icon: root.show-items ? Icons.arrow-down-light : Icons.arrow-up-light;
+
+                    clicked => {
+                        root.show-items = !root.show-items;
+                    }
+                }
+            }
+        }
+
+        // Distribution + Track settings
+        VerticalLayout {
+            spacing: Theme.spacing * 2;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                Label {
+                    text: Logic.tr("Position") + ":";
+                    width: dt.width;
+                }
+
+                LineInput {
+                    placeholder: "0~1";
+                    input-type: decimal;
+                    text: segment.position.to-fixed(2);
+                    border-color: (self.text.to-float() < 0 || self.text.to-float() > 1.0 || self.text.to-float() != segment.position) ? Theme.danger-color : Theme.regular-text-color;
+
+                    accepted => {
+                        Logic.video-editor-global-filter-danmaku-update-position(index, self.text.to-float());
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 8;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+                    width: 66%;
+
+                    Label {
+                        text: Logic.tr("Track Distribution") + ":";
+                        width: dt.width;
+                    }
+
+                    track-dist-select := Select {
+                        values: [Logic.tr("StartDense"), Logic.tr("Uniform"), Logic.tr("EndDense")];
+                        current-index: segment.track-distribution == DanmakuDistributionMode.StartDense ? 0 : (segment.track-distribution == DanmakuDistributionMode.Uniform ? 1 : 2);
+                        current-value: self.values[self.current-index];
+                        gain-focus-when-clicked: false;
+                        background: Theme.thirdly-background;
+
+                        selected(idx, value) => {
+                            Logic.video-editor-global-filter-danmaku-update-track-distribution(index, idx == 0 ? DanmakuDistributionMode.StartDense : (idx == 1 ? DanmakuDistributionMode.Uniform : DanmakuDistributionMode.EndDense));
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+                    width: 34%;
+
+                    Label {
+                        text: Logic.tr("Track Count") + ":";
+                        width: ds.width;
+                    }
+
+                    LineInput {
+                        input-type: InputType.number;
+                        text: segment.track-count;
+                        placeholder: "0";
+                        border-color: Theme.regular-text-color;
+
+                        accepted => {
+                            Logic.video-editor-global-filter-danmaku-update-track-count(index, round(self.text.to-float()));
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 8;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+                    width: 66%;
+
+                    dt := Label {
+                        text: Logic.tr("Danmakus Distribution") + ":";
+                        width: self.preferred-width;
+                    }
+
+                    dist-select := Select {
+                        values: [Logic.tr("StartDense"), Logic.tr("Uniform"), Logic.tr("EndDense")];
+                        current-index: segment.distribution == DanmakuDistributionMode.StartDense ? 0 : (segment.distribution == DanmakuDistributionMode.Uniform ? 1 : 2);
+                        current-value: self.values[self.current-index];
+                        gain-focus-when-clicked: false;
+                        background: Theme.thirdly-background;
+
+                        selected(idx, value) => {
+                            Logic.video-editor-global-filter-danmaku-update-distribution(index, idx == 0 ? DanmakuDistributionMode.StartDense : (idx == 1 ? DanmakuDistributionMode.Uniform : DanmakuDistributionMode.EndDense));
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 2;
+                    width: 34%;
+
+                    ds := Label {
+                        text: Logic.tr("Danmakus Speed") + ":";
+                        width: self.preferred-width;
+                    }
+
+                    LineInput {
+                        input-type: InputType.decimal;
+                        text: segment.scroll-speed;
+                        border-color: Theme.regular-text-color;
+
+                        accepted => {
+                            Logic.video-editor-global-filter-danmaku-update-scroll-speed(index, self.text.to-float());
+                        }
+                    }
+                }
+            }
+        }
+
+        if show-style: HorizontalLayout {
+            spacing: Theme.spacing * 2;
+
+            DanmakuStyleParams {
+                index: index;
+            }
+        }
+
+        if show-items: VerticalLayout {
+            spacing: Theme.spacing * 2;
+
+            private property <bool> show-items-lv: true;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+                alignment: space-between;
+
+                Label {
+                    text: Logic.tr("Danmakus") + " (" + segment.items.length + ")";
+                    font-size: Theme.title3-font-size;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("add");
+                        icon: Icons.add-light;
+                        icon-size: Theme.icon-size * 0.9;
+
+                        clicked => {
+                            Store.video-editor-global-filter-danmaku-add-items-text = "";
+                            Store.video-editor-global-filter-danmaku-add-items-segment-index = index;
+                            Store.video-editor-global-filter-danmaku-is-show-fetch-items-dialog = false;
+                            Store.video-editor-global-filter-danmaku-is-show-add-items-dialog = true;
+                        }
+                    }
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("fetch danmaku from BiliBili");
+                        icon: Icons.bilibili-light;
+                        icon-size: Theme.icon-size * 0.9;
+
+                        clicked => {
+                            Store.video-editor-global-filter-danmaku-fetch-items-text = "";
+                            Store.video-editor-global-filter-danmaku-fetch-items-segment-index = index;
+                            Store.video-editor-global-filter-danmaku-is-show-add-items-dialog = false;
+                            Store.video-editor-global-filter-danmaku-is-show-fetch-items-dialog = true;
+                        }
+                    }
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("copy all danmakus");
+                        icon: Icons.copy-light;
+                        icon-size: Theme.icon-size * 0.9;
+
+                        clicked => {
+                            Logic.video-editor-global-filter-danmaku-copy-all-items(index);
+                        }
+                    }
+
+                    IconBtn {
+                        is-show-tip: true;
+                        tip: Logic.tr("remove all danmakus");
+                        icon: Icons.clear-light;
+                        icon-size: Theme.icon-size * 0.9;
+
+                        clicked => {
+                            ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Remove all items or not?"), "video-editor-global-filter-danmaku-remove-all-items", index);
+                        }
+                    }
+
+                    IconBtn {
+                        icon: show-items-lv ? Icons.arrow-down-light : Icons.arrow-up-light;
+
+                        clicked => {
+                            show-items-lv = !show-items-lv;
+                        }
+                    }
+                }
+            }
+
+            if show-items-lv: ListView {
+                private property <length> item-height: 30px;
+                height: segment.items.length.min(10) * item-height;
+
+                for item[idx] in segment.items: DanmakuItemCard {
+                    init => {
+                        if idx == 0 {
+                            parent.item-height = self.height;
+                        }
+                    }
+
+                    segment-index: index;
+                    item-index: idx;
+                }
+            }
+        }
+    }
+}
+
+export component DanmakuAddItemsDialog inherits MovingDialog {
+    title: Logic.tr("Add Danmakus");
+    icon: Icons.add-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+    body-height: root.header-width * Theme.golden-ratio;
+
+    VerticalLayout {
+        spacing: Theme.spacing * 2;
+        padding: Theme.padding * 2;
+
+        Timer {
+            interval: 100ms;
+            running: true;
+
+            triggered() => {
+                input-te.focus();
+                self.running = false;
+            }
+        }
+
+        input-te := TxtEdit {
+            placeholder: Logic.tr("One danmaku per line");
+            text: Store.video-editor-global-filter-danmaku-add-items-text;
+        }
+
+        ConfirmBtn {
+            text: Logic.tr("Add");
+            icon: Icons.add-light;
+            icon-size: Theme.icon-size * 0.8;
+            height: self.font-size + Theme.padding * 4;
+
+            clicked => {
+                if !input-te.text.is-empty {
+                    Logic.video-editor-global-filter-danmaku-add-items(Store.video-editor-global-filter-danmaku-add-items-segment-index, input-te.text);
+                    input-te.clear();
+                    Store.video-editor-global-filter-danmaku-is-show-add-items-dialog = false;
+                }
+            }
+        }
+    }
+}
+
+export component DanmakuFetchItemsDialog inherits MovingDialog {
+    title: Logic.tr("Fetch Danmakus");
+    icon: Icons.bilibili-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    VerticalLayout {
+        spacing: Theme.spacing * 2;
+        padding: Theme.padding * 2;
+
+        Timer {
+            interval: 100ms;
+            running: true;
+
+            triggered() => {
+                url-te.focus();
+                self.running = false;
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Danmaku Counts");
+            }
+
+            counts-te := LineInput {
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.regular-text-color;
+                input-type: number;
+                text: 100;
+                placeholder: 100;
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Bilibili BV URL or BV");
+            }
+
+            url-te := LineInput {
+                is-show-icon: true;
+                icon: Icons.search-light;
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.regular-text-color;
+                placeholder: "https://www.bilibili.com/video/BV1nUVt6nEQU";
+
+                accepted => {
+                    Logic.video-editor-global-filter-danmaku-fetch-from-bilibili(self.text, counts-te.text.to-float());
+                }
+
+                clicked => {
+                    self.accepted();
+                }
+            }
+        }
+
+        if Store.video-editor-global-filter-danmaku-is-fetching: VerticalLayout {
+            alignment: start;
+            padding: Theme.padding * 2;
+
+            Skeleton {
+                width: parent.width - Theme.padding * 4;
+                height: Theme.icon-size * 8;
+                type: SkeletonType.List;
+            }
+        }
+
+        if !Store.video-editor-global-filter-danmaku-is-fetching && !Store.video-editor-global-filter-danmaku-fetch-items-text.is-empty: VerticalLayout {
+            spacing: Theme.spacing * 2;
+            height: root.header-width * Theme.golden-ratio;
+
+            input-te := TxtEdit {
+                placeholder: Logic.tr("One danmaku per line");
+                text: Store.video-editor-global-filter-danmaku-fetch-items-text;
+                border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.regular-text-color;
+            }
+
+            ConfirmBtn {
+                text: Logic.tr("Add");
+                icon: Icons.add-light;
+                icon-size: Theme.icon-size * 0.8;
+                height: self.font-size + Theme.padding * 4;
+
+                clicked => {
+                    if !input-te.text.is-empty {
+                        Logic.video-editor-global-filter-danmaku-add-items(Store.video-editor-global-filter-danmaku-fetch-items-segment-index, input-te.text);
+                        input-te.clear();
+                        Store.video-editor-global-filter-danmaku-is-show-fetch-items-dialog = false;
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component DanmakuPanel inherits HorizontalLayout {
+    spacing: Theme.spacing * 2;
+
+    private property <bool> add-flag;
+
+    VerticalLayout {
+        spacing: Theme.spacing * 2;
+
+        ItemsHeader {
+            add => {
+                add-flag = !add-flag;
+            }
+        }
+
+        rec := Rectangle {
+            border-width: Theme.default-border-width;
+            border-color: Theme.base-border-color;
+            border-radius: Theme.border-radius;
+
+            if Store.video-editor-global-filter-config.danmaku.items.length == 0: Rectangle {
+                NoMessageImg {
+                    text: Logic.tr("Click to Add");
+                }
+
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        Logic.video-editor-global-filter-danmaku-add-segment();
+                    }
+                }
+            }
+
+            if Store.video-editor-global-filter-config.danmaku.items.length > 0:  ScrollView {
+                private property <bool> inner-add-flag <=> root.add-flag;
+                changed inner-add-flag => {
+                    self.viewport-y = (-(self.viewport-height - self.visible-height)).min(0);
+                }
+
+                viewport-height: vbox.preferred-height;
+
+                vbox := VerticalLayout {
+                    spacing: Theme.spacing * 2;
+                    padding: Theme.padding * 2;
+
+                    for item[idx] in Store.video-editor-global-filter-config.danmaku.items: SegmentCard {
+                        index: idx;
+                    }
+                }
+            }
+        }
+    }
+}

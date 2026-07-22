@@ -26,7 +26,7 @@ x264 = { workspace = true, optional = true }
 env_logger.workspace = true
 
 [features]
-default = []
+default = ["ffmpeg"]
 x264 = ["dep:x264"]
 openh264 = ["dep:openh264"]
 ffmpeg = ["dep:ffmpeg-next"]

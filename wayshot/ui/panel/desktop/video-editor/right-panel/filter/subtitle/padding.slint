@@ -1,0 +1,55 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Store,
+} from "../../../../../def.slint";
+import {
+    Label,
+    CheckBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SettingDetailSwitch,
+    LineInput,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    PaddingDetail,
+} from "../../../filter.slint";
+
+export component Padding inherits Rectangle {
+    in-out property <PaddingDetail> config;
+
+    callback apply(config: PaddingDetail);
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Padding");
+        }
+
+        LineInput {
+            private property <bool> unsaved;
+            input-type: number;
+            text: config.padding;
+            border-color: self.unsaved ? Theme.danger-color : (self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%));
+
+            changed has-focus => {
+                if (!self.has-focus) {
+                    Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                }
+            }
+
+            edited => {
+                unsaved = true;
+            }
+
+            accepted => {
+                unsaved = false;
+                config.padding = round(self.text.to-float());
+                apply(config);
+            }
+        }
+    }
+}

@@ -160,6 +160,54 @@ pub fn detect_speech_segments(audio_data: &[f32], config: &VadConfig) -> Vec<Aud
     }
 }
 
+/// Trim leading silence from a voice segment using energy-based detection.
+/// Returns the new start_ms after trimming.
+/// `keep_silence_ms` specifies how many milliseconds of leading silence to retain
+/// (prevents the audio from starting too abruptly with no natural pause).
+pub fn trim_leading_silence(
+    audio_data: &[f32],
+    original_start_ms: u64,
+    config: &VadConfig,
+    keep_silence_ms: u64,
+) -> u64 {
+    let window_size = (config.sample_rate as usize * config.window_size_ms as usize) / 1000;
+    let hop_size = window_size / 2;
+
+    if audio_data.len() < window_size {
+        return original_start_ms;
+    }
+
+    // Calculate max energy for normalization
+    let max_energy: f32 = audio_data
+        .windows(window_size)
+        .step_by(hop_size)
+        .map(|w| w.iter().map(|&x| x * x).sum::<f32>() / window_size as f32)
+        .fold(0.0f32, |a, b| a.max(b));
+
+    if max_energy < 1e-6 {
+        return original_start_ms;
+    }
+
+    // Find first window exceeding threshold
+    for (i, window) in audio_data
+        .windows(window_size)
+        .step_by(hop_size)
+        .enumerate()
+    {
+        let energy: f32 = window.iter().map(|&x| x * x).sum::<f32>() / window_size as f32;
+        if energy / (max_energy + 1e-6) > config.speech_threshold {
+            let trim_samples = i * hop_size;
+            let trim_ms = (trim_samples as f64 * 1000.0 / config.sample_rate as f64).round() as u64;
+
+            // Retain keep_silence_ms of silence before the speech starts
+            let kept_ms = trim_ms.saturating_sub(keep_silence_ms);
+            return original_start_ms + kept_ms;
+        }
+    }
+
+    original_start_ms
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

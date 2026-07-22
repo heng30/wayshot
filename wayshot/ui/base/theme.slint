@@ -3,12 +3,11 @@ import { Store } from "../store.slint";
 import { Icons } from "icon.slint";
 
 export { Icons }
-
 export global Theme {
     out property <bool> is-dark: Store.setting-preference.is-dark;
     out property <length> padding: Math.max(4px, Math.round(default-font-size / 4px) * 1px);
     out property <length> spacing: padding;
-    out property <length> scrollbar-size: padding * 2;
+    out property <length> scrollbar-size: Theme.padding * 3;
     out property <length> border-radius: padding;
     out property <length> sidebar-width: header-height * 1.5;
     out property <length> header-height: Math.max(32px, icon-size + padding * 2);
@@ -59,6 +58,7 @@ export global Theme {
 
     out property <color> light-text-color: is-dark ? #EEEEEE : #FFFFFF;
     out property <color> dark-text-color: is-dark ? #000000 : #000000;
+    out property <color> invert-text-color: is-dark ? light-text-color : dark-text-color;
     out property <color> dark-bg-color: #16161A;
     out property <color> primary-text-color: is-dark ? #969696 : #222222;
     out property <color> secondary-text-color: is-dark ? #555555 : #333333;
@@ -75,6 +75,11 @@ export global Theme {
     out property <color> table-header-color: is-dark ? thirdly-background.darker(50%) : thirdly-background.brighter(2%);
     out property <color> table-item-first: is-dark ? #161616 : #FFFFFF;
     out property <color> table-item-second: is-dark ? #262626 : #EFEFEF.brighter(2%);
+    out property <color> table-item-checked: thirdly-brand-color.with-alpha(0.3);
+    out property <color> table-item-hover: thirdly-brand-color.with-alpha(0.1);
+
+    out property <color> scrollbar-background: Theme.is-dark ? Theme.hover-background : Theme.hover-background.darker(10%);
+    out property <color> scrollbar-color: Theme.is-dark ? Theme.hover-background.brighter(50%) : Theme.hover-background.darker(50%);
 
     out property <color> divider-color: is-dark ? #3B3B3B : #DCDCDC;
 
@@ -85,6 +90,9 @@ export global Theme {
 
     out property <length> dialog-max-width: 1300px;
     out property <length> dialog-normal-width: 600px;
+    out property <length> moving-dialog-width: Theme.default-font-size * 56;
+    out property <length> moving-dialog-min-width: Theme.default-font-size * 40;
+    out property <length> moving-dialog-min-height: Theme.default-font-size * 10;
     out property <length> dialog-inner-height: Math.min((Theme.default-height - Theme.title1-font-size - Theme.icon-size * 2) * 0.8, 650px);
 
     public function set-dark(flag: bool) {
@@ -111,5 +119,9 @@ export global Theme {
         } else {
             return title6-font-size;
         }
+    }
+
+    pure public function table-item-background(index: int, checked: bool, has-hover: bool) -> color {
+        return checked ? Theme.table-item-checked : (has-hover ? Theme.checked-background : mod(index, 2) == 0 ? Theme.table-item-first : Theme.table-item-second);
     }
 }

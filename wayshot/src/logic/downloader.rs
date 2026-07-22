@@ -30,8 +30,7 @@ pub fn downloader_start(
     let ui_weak = ui.as_weak();
 
     tokio::spawn(async move {
-        let Some(save_dir) = picker_directory(ui_weak.clone(), &tr("Choose model"), &filename)
-        else {
+        let Some(save_dir) = picker_directory(ui_weak.clone(), &tr("Choose model")) else {
             return;
         };
 
@@ -63,26 +62,26 @@ pub fn downloader_start(
             Ok(DownloadState::Cancelled) => {
                 toast::async_toast_info(
                     ui_weak.clone(),
-                    format!("Download `{}` was cancelled!", save_path.display()),
+                    format!("{} `{}`", tr("Download cancelled"), save_path.display()),
                 );
             }
             Ok(DownloadState::Incompleted) => {
                 toast::async_toast_warn(
                     ui_weak.clone(),
-                    format!("Download `{}` was incompleted!", save_path.display()),
+                    format!("{} `{}`", tr("Download incompleted"), save_path.display()),
                 );
             }
             Ok(DownloadState::Finsished) => {
                 toast::async_toast_success(
                     ui_weak.clone(),
-                    format!("Download `{}` completed successfully!", save_path.display()),
+                    format!("{} `{}` {}", tr("Download"), save_path.display(), tr("completed successfully")),
                 );
             }
             Err(ref e) => {
                 let err_msg = e.to_string();
                 toast::async_toast_warn(
                     ui_weak.clone(),
-                    format!("Download `{}` failed! {err_msg}", save_path.display()),
+                    format!("{} `{}`! {err_msg}", tr("Download failed"), save_path.display()),
                 );
             }
         }

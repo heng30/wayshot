@@ -1,0 +1,483 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    DownloaderState,
+    VideoEditorStemSplitterConfig,
+    AudioPlayerStatus,
+    Util,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    LineInput,
+    IconBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ProgressBar,
+    NoDataImg,
+    Skeleton,
+    SkeletonType,
+    SimpleAudioControl,
+} from "../../../../base/widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+
+component LeftHeader inherits HorizontalLayout {
+    private property <bool> is-progressing: Store.video-editor-stem-splitter-is-progressing;
+    private property <bool> has-audio: Store.video-editor-stem-splitter-audio-player-status.length > 0;
+    private property <bool> has-stems: Store.video-editor-stem-splitter-audio-player-status.length > 1;
+    private property <float> progress: Store.video-editor-stem-splitter-progress;
+
+    spacing: Theme.spacing * 8;
+    alignment: is-progressing ? space-between : end;
+
+    if is-progressing: HorizontalLayout {
+        width: root.width - rec.width - parent.spacing;
+        spacing: Theme.spacing * 4;
+
+        VerticalLayout {
+            width: parent.width - parent.spacing - process-btn.width;
+            alignment: center;
+
+            ProgressBar {
+                width: parent.width;
+                height: Theme.icon-size;
+                progress: progress;
+            }
+        }
+
+        process-btn := ElevatedBtn {
+            icon: Icons.stop-light;
+            colorize: Theme.danger-color;
+            gain-focus-when-clicked: false;
+            is-show-tip: true;
+            tip-position: Bottom;
+            tip: Logic.tr("cancel");
+
+            clicked => {
+                Logic.video-editor-stem-splitter-cancel-process-audio();
+            }
+        }
+    }
+
+    rec := Rectangle {
+        width: hbox.preferred-width;
+        height: hbox.preferred-height;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("import");
+                    icon: Icons.import2-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-stem-splitter-import-audio();
+                    }
+                }
+
+                IconBtn {
+                    enabled: !is-progressing && has-audio;
+                    is-show-tip: true;
+                    tip: Logic.tr("process");
+                    icon: Icons.image-processing-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-stem-splitter-process-audio();
+                    }
+                }
+
+                IconBtn {
+                    enabled: has-stems;
+                    is-show-tip: true;
+                    tip: Logic.tr("export");
+                    icon: Icons.export-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-stem-splitter-export-all-stems();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("remove all");
+                    icon: Icons.clear-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-stem-splitter-remove-all();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("setting");
+                    icon: Icons.setting-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Store.video-editor-is-show-stem-splitter-setting-dialog = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+component SourcePlayer inherits VerticalLayout {
+    private property <AudioPlayerStatus> status: Store.video-editor-stem-splitter-audio-player-status[0];
+
+    su := SimpleAudioControl {
+        is-playing: status.is-playing;
+        progress: status.progress;
+        current-sound: status.sound * 100;
+        current-time: Util.seconds-to-media-timestamp(self.progress * status.duration-ms / 1000.0);
+        end-time: Util.seconds-to-media-timestamp(status.duration-ms / 1000.0);
+        background: Theme.thirdly-background;
+        border-radius: Theme.border-radius;
+        border-width: Theme.default-border-width;
+        border-color: status.is-playing ? Theme.thirdly-brand-color : Theme.base-border-color;
+
+        private property <bool> inner-is-playing <=> status.is-playing;
+        changed inner-is-playing => {
+            self.is-playing = inner-is-playing;
+        }
+
+        play => {
+            Logic.video-editor-stem-splitter-play-audio(0);
+        }
+
+        stop => {
+            Logic.video-editor-stem-splitter-stop-audio(0);
+        }
+
+        sound-changed(s) => {
+            Logic.video-editor-stem-splitter-audio-player-sound-changed(0, s / 100);
+        }
+
+        sound-released(s) => {
+            Logic.video-editor-stem-splitter-audio-player-sound-released(0, s / 100);
+        }
+
+        progress-pressed => {
+            Logic.video-editor-stem-splitter-stop-audio(0);
+        }
+
+        progress-released(v) => {
+            Logic.video-editor-stem-splitter-audio-player-progress-released(0, v);
+        }
+    }
+}
+
+component StemList inherits Rectangle {
+    private property <bool> is-progressing: Store.video-editor-stem-splitter-is-progressing;
+
+    if !is-progressing && Store.video-editor-stem-splitter-audio-player-status.length == 1: Rectangle {
+        border-radius: Theme.border-radius;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+        background: Theme.secondary-background;
+
+        NoDataImg {
+            image: Icons.no-message-fill;
+            text: Logic.tr("Click Process");
+            font-size: Theme.title3-font-size;
+            colorize: Theme.primary-text-color;
+
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    Logic.video-editor-stem-splitter-process-audio();
+                }
+            }
+        }
+    }
+
+    if is-progressing: VerticalLayout {
+        x: 0;
+        y: 0;
+        alignment: start;
+        padding: Theme.padding * 2;
+
+        Skeleton {
+            width: parent.width - Theme.padding * 4;
+            height: Theme.icon-size * 6;
+            type: SkeletonType.List;
+        }
+    }
+
+    if !is-progressing && Store.video-editor-stem-splitter-audio-player-status.length > 1: Flickable {
+        height: parent.height;
+        width: parent.width;
+        viewport-height: vbox.preferred-height;
+        viewport-width: parent.width;
+
+        vbox := VerticalLayout {
+            spacing: Theme.spacing * 2;
+            alignment: start;
+
+            for index in Store.video-editor-stem-splitter-audio-player-status.length - 1: Rectangle {
+                private property <int> idx: index + 1;
+                private property <AudioPlayerStatus> status: Store.video-editor-stem-splitter-audio-player-status[idx];
+
+                border-radius: Theme.border-radius;
+                border-width: Theme.default-border-width;
+                border-color: status.is-playing ? Theme.thirdly-brand-color : Theme.base-border-color;
+                background: Theme.thirdly-background;
+
+                VerticalLayout {
+                    spacing: Theme.spacing;
+                    padding: Theme.padding * 4;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 2;
+                        padding-left: Theme.padding * 2;
+                        padding-right: Theme.padding * 2;
+
+                        Label {
+                            text: status.name;
+                            font-size: Theme.default-font-size;
+                            color: Theme.primary-text-color;
+                            horizontal-stretch: 1;
+                        }
+
+                        IconBtn {
+                            is-show-tip: true;
+                            tip: Logic.tr("export");
+                            icon: Icons.export-light;
+                            icon-size: Theme.icon-size * 0.8;
+
+                            clicked => {
+                                Logic.video-editor-stem-splitter-export-stem(status.name);
+                            }
+                        }
+                    }
+
+                    SimpleAudioControl {
+                        is-playing: status.is-playing;
+                        progress: status.progress;
+                        current-sound: status.sound * 100;
+                        current-time: Util.seconds-to-media-timestamp(self.progress * status.duration-ms / 1000.0);
+                        end-time: Util.seconds-to-media-timestamp(status.duration-ms / 1000.0);
+                        is-hide-speed-btn: true;
+                        icon-size: Theme.icon-size * 0.8;
+                        inner-padding: Theme.padding;
+                        spacing: Theme.spacing * 2;
+
+                        private property <bool> inner-is-playing <=> status.is-playing;
+                        changed inner-is-playing => {
+                            self.is-playing = inner-is-playing;
+                        }
+
+                        play => {
+                            Logic.video-editor-stem-splitter-play-audio(idx);
+                        }
+
+                        stop => {
+                            Logic.video-editor-stem-splitter-stop-audio(idx);
+                        }
+
+                        sound-changed(s) => {
+                            Logic.video-editor-stem-splitter-audio-player-sound-changed(idx, s / 100);
+                        }
+
+                        sound-released(s) => {
+                            Logic.video-editor-stem-splitter-audio-player-sound-released(idx, s / 100);
+                        }
+
+                        progress-pressed => {
+                            Logic.video-editor-stem-splitter-stop-audio(idx);
+                        }
+
+                        progress-released(v) => {
+                            Logic.video-editor-stem-splitter-audio-player-progress-released(idx, v);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component StemSplitterDialog inherits MovingDialog {
+    title: Logic.tr("Stem Splitter");
+    icon: Icons.segmentation-light;
+    header-width: Theme.moving-dialog-width;
+    body-height: root.header-width * Theme.golden-ratio;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+
+    init => {
+        if (!Logic.video-editor-stem-splitter-setting-is-valid()) {
+            Store.video-editor-is-show-stem-splitter-setting-dialog = true;
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        private property <bool> has-audio: Store.video-editor-stem-splitter-audio-player-status.length > 0;
+
+        LeftHeader { }
+
+        if has-audio: VerticalLayout {
+            spacing: Theme.spacing * 2;
+
+            SourcePlayer { }
+
+            if Store.video-editor-stem-splitter-audio-player-status.length >= 1: StemList { }
+        }
+
+        if !has-audio: Rectangle {
+            border-radius: Theme.border-radius;
+            border-width: Theme.default-border-width;
+            border-color: Theme.base-border-color;
+            background: Theme.secondary-background;
+
+            NoDataImg {
+                text: Logic.tr("Click Import");
+                image: Icons.media-light;
+                font-size: Theme.title3-font-size;
+                colorize: Theme.primary-text-color;
+
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        Logic.video-editor-stem-splitter-import-audio();
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component StemSplitterSettingDialog inherits MovingDialog {
+    title: Logic.tr("Stem Splitter Setting");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    private property <VideoEditorStemSplitterConfig> config: Store.video-editor-stem-splitter-config;
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Export directory");
+            }
+
+            LineInput {
+                read-only: true;
+                text: config.export-dir;
+                icon: Icons.file-open-light;
+                is-show-icon: true;
+
+                clicked => {
+                    Logic.video-editor-stem-splitter-choose-export-dir();
+                }
+            }
+        }
+
+        for downloader[index] in Store.video-editor-stem-splitter-models-downloader: VerticalLayout {
+            alignment: start;
+
+            SettingDetailInnerVbox {
+                SettingDetailLabel {
+                    text: Logic.tr("Model");
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    pure function get-border-color(status: DownloaderState, path: string) -> color {
+                        if status == DownloaderState.Finished {
+                            return Theme.base-border-color;
+                        } else {
+                            return Logic.file-exist(path) ? Theme.base-border-color : Theme.danger-color;
+                        }
+                    }
+
+                    model-path-li := LineInput {
+                        horizontal-stretch: 2;
+                        read-only: true;
+                        is-show-icon: true;
+                        icon: Icons.file-open-light;
+                        placeholder-text: "htdemucs.onnx";
+                        text: config.model-path;
+                        border-color: get-border-color(downloader.state, config.model-path);
+
+                        clicked => {
+                            Logic.video-editor-stem-splitter-choose-model-path(index);
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 4;
+
+                        if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                            alignment: center;
+
+                            ProgressBar {
+                                height: model-path-li.preferred-height * 2 / 3;
+                                font-size: Theme.default-font-size * 2 / 3;
+                                finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                                progress: downloader.progress;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            alignment: end;
+                            spacing: Theme.spacing * 4;
+
+                            private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+
+                            IconBtn {
+                                is-show-tip: true;
+                                icon: downloading ? Icons.stop-light : Icons.download-light;
+                                colorize: downloading ? Theme.danger-color : Theme.icon-color;
+                                tip: downloading ? Logic.tr("cancel") : Logic.tr("download");
+
+                                clicked => {
+                                    if (downloading) {
+                                        Logic.video-editor-stem-splitter-model-cancel-download(index, downloader.url);
+                                    } else {
+                                        Logic.video-editor-stem-splitter-model-start-download(index, downloader.url);
+                                    }
+                                }
+                            }
+
+                            IconBtn {
+                                icon: Icons.browser-light;
+                                is-show-tip: true;
+                                tip: Logic.tr("open url");
+
+                                clicked => {
+                                    Util.open-url("Default", downloader.url);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

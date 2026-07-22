@@ -19,6 +19,7 @@ rml_rtmp.workspace = true
 thiserror.workspace = true
 crossbeam.workspace = true
 derivative.workspace = true
+video-encoder.workspace = true
 derive_setters.workspace = true
 
 [dev-dependencies]
@@ -26,9 +27,3 @@ image.workspace = true
 anyhow.workspace = true
 env_logger.workspace = true
 spin_sleep.workspace = true
-
-[target.'cfg(target_os = "linux")'.dev-dependencies]
-video-encoder = { workspace = true, features = ["x264"] }
-
-[target.'cfg(target_os = "windows")'.dev-dependencies]
-video-encoder = { workspace = true, features = ["ffmpeg"] }

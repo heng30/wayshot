@@ -1,0 +1,31 @@
+[package]
+name = "paddle-ocr-rs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+readme.workspace = true
+description = "A Rust library for PaddleOCR-VL1.5 inference"
+
+[dependencies]
+num.workspace = true
+rand.workspace = true
+half.workspace = true
+image.workspace = true
+regex.workspace = true
+rayon.workspace = true
+thiserror.workspace = true
+candle-nn.workspace = true
+tokenizers.workspace = true
+serde_json.workspace = true
+candle-core.workspace = true
+candle-transformers.workspace = true
+serde = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+anyhow.workspace = true
+clap = { workspace = true, features = ["derive"] }
+
+[features]
+default = []
+cuda = ["candle-nn/cuda", "candle-core/cuda", "candle-transformers/cuda"]
+metal = ["candle-nn/metal", "candle-core/metal", "candle-transformers/metal"]

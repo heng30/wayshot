@@ -15,7 +15,7 @@ use candle_core::{DType, Device, Tensor, pickle::read_all_with_key};
 use candle_nn::VarBuilder;
 use derivative::Derivative;
 use derive_setters::Setters;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use std::{collections::HashMap, path::Path};
 
 const ASR_CONFIG_YAML: &str = include_str!("../../../asset/config.yaml");
@@ -321,26 +321,30 @@ impl SimpleLogitProcessor {
     }
 
     fn sample(&mut self, logits: &Tensor) -> Result<u32> {
-        let logits = logits.to_vec1::<f32>()?;
-        let logits: Vec<f32> = logits.iter().map(|x| x / self.temperature).collect();
+        use candle_core::D;
 
-        // Compute softmax
-        let max_logit = logits.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
-        let exp_logits: Vec<f32> = logits.iter().map(|x| (x - max_logit).exp()).collect();
-        let sum: f32 = exp_logits.iter().sum();
-        let probs: Vec<f32> = exp_logits.iter().map(|x| x / sum).collect();
+        // Greedy decoding when temperature is very low
+        if self.temperature < 0.01 {
+            let argmax = logits.argmax(D::Minus1)?.to_scalar::<u32>()?;
+            return Ok(argmax);
+        }
 
-        // Sample using custom weighted sampling
+        // Apply temperature scaling and softmax using candle ops (much faster than Vec conversion)
+        let scaled_logits = (logits / (self.temperature as f64))?;
+        let probs = candle_nn::ops::softmax_last_dim(&scaled_logits)?;
+        let probs_vec = probs.to_vec1::<f32>()?;
+
+        // Sample using cumulative distribution
         let rand_val: f32 = self.rng.random();
         let mut cumulative = 0.0f32;
-        for (idx, &prob) in probs.iter().enumerate() {
+        for (idx, &prob) in probs_vec.iter().enumerate() {
             cumulative += prob;
             if rand_val < cumulative {
                 return Ok(idx as u32);
             }
         }
 
-        Ok((probs.len() - 1) as u32)
+        Ok((probs_vec.len() - 1) as u32)
     }
 }
 

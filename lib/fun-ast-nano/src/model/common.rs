@@ -229,7 +229,7 @@ impl NaiveAttention {
             }
         };
 
-        self.kv_cache = Some((key_states.clone(), value_states.clone()));
+        self.kv_cache = Some((key_states.detach(), value_states.detach()));
         let scale = 1f64 / f64::sqrt(self.head_dim as f64);
         let attn_output = eager_attention_forward(
             &query_states,
@@ -348,9 +348,6 @@ pub fn eager_attention_forward(
         Some(g) => repeat_kv(value_states.clone(), g)?.contiguous()?,
         None => value_states.clone(),
     };
-    let query_states = query_states.contiguous()?;
-    let key_states = key_states.contiguous()?;
-    let value_states = value_states.contiguous()?;
 
     let attn_weights = query_states.matmul(&key_states.transpose(D::Minus2, D::Minus1)?)?;
     let attn_weights = (attn_weights * scaling)?;

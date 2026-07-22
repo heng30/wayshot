@@ -19,35 +19,44 @@ impl X264VideoEncoder {
             height,
             fps,
             annexb,
+            preset: config_preset,
+            tune: config_tune,
             ..
         } = config;
 
         assert!(width > 0 && height > 0);
         let is_real_time = annexb;
 
-        let encoder = Setup::preset(
-            if is_real_time {
-                Preset::Faster
+        let preset = config_preset
+            .as_ref()
+            .map(|p| p.as_x264_preset())
+            .unwrap_or_else(|| {
+                if is_real_time {
+                    Preset::Faster
+                } else {
+                    Preset::Superfast
+                }
+            });
+
+        let tune = config_tune
+            .as_ref()
+            .map(|t| t.as_x264_tune())
+            .unwrap_or(Tune::None);
+
+        let encoder = Setup::preset(preset, tune, true, true)
+            .max_keyframe_interval(if is_real_time {
+                fps as i32 * 3
             } else {
-                Preset::Superfast
-            },
-            Tune::None,
-            true,
-            true,
-        )
-        .max_keyframe_interval(if is_real_time {
-            fps as i32 * 3
-        } else {
-            fps as i32
-        })
-        .fps(fps, 1)
-        .scenecut_threshold(0)
-        .annexb(annexb)
-        .baseline()
-        .build(Colorspace::I420, width as i32, height as i32)
-        .map_err(|e| {
-            EncoderError::VideoEncodingFailed(format!("Failed to create x264 encoder: {e:?}"))
-        })?;
+                fps as i32
+            })
+            .fps(fps, 1)
+            .scenecut_threshold(0)
+            .annexb(annexb)
+            .baseline()
+            .build(Colorspace::I420, width as i32, height as i32)
+            .map_err(|e| {
+                EncoderError::VideoEncodingFailed(format!("Failed to create x264 encoder: {e:?}"))
+            })?;
 
         Ok(Self {
             encoder,
@@ -103,12 +112,17 @@ impl VideoEncoder for X264VideoEncoder {
         // Calculate timestamp in x264 timebase units (frame_index * timebase / fps)
         // x264 uses a timebase of 1/90000 by default, so we need to convert frame number to this timescale
         let timestamp = (self.frame_index * VIDEO_TIMESCALE as u64) / self.fps as u64;
-        let (data, _) = self.encoder.encode(timestamp as i64, image).map_err(|e| {
+        let (data, picture) = self.encoder.encode(timestamp as i64, image).map_err(|e| {
             EncoderError::VideoEncodingFailed(format!("x264 encoding failed: {:?}", e))
         })?;
 
         let encoded_data = data.entirety().to_vec();
-        let encoded_frame = EncodedFrame::Frame((self.frame_index, encoded_data));
+        let is_keyframe = picture.keyframe();
+        let encoded_frame = EncodedFrame::Frame {
+            timestamp: self.frame_index,
+            data: encoded_data,
+            is_keyframe,
+        };
         self.frame_index += 1;
 
         Ok(encoded_frame)
@@ -125,11 +139,11 @@ impl VideoEncoder for X264VideoEncoder {
             .to_vec())
     }
 
-    fn flush(self: Box<Self>, mut cb: Box<dyn FnMut(Vec<u8>) + 'static>) -> Result<()> {
+    fn flush(self: Box<Self>, mut cb: Box<dyn FnMut(Vec<u8>, bool) + 'static>) -> Result<()> {
         let mut items = self.encoder.flush();
         while let Some(result) = items.next() {
             match result {
-                Ok((data, _)) => cb(data.entirety().to_vec()),
+                Ok((data, picture)) => cb(data.entirety().to_vec(), picture.keyframe()),
                 Err(e) => {
                     return Err(EncoderError::VideoEncodingFailed(format!(
                         "Failed to flush encoder frame: {e:?}"

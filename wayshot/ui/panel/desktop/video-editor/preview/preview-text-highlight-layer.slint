@@ -1,0 +1,243 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoPreviewSize,
+    VideoEditorLayerImage,
+    TextHighlightDetail,
+    HighlightRegionDetail,
+} from "../../../def.slint";
+import { VEFilter, FilterType } from "../filter.slint";
+import { IconBtn, Divider, Label } from "../../../../base/widgets.slint";
+import { MoveHandle } from "move-handle.slint";
+
+export component PreviewTextHighlightLayer inherits Rectangle {
+    in-out property <[VideoEditorLayerImage]> layers;
+    private property <float> width-hight-rate: self.width / self.height;
+    private property <FilterType> selected-filter-type <=> VEFilter.selected-filter.ty;
+
+    for index in layers.length: rec := Rectangle {
+        x: 0;
+        y: 0;
+
+        private property <VideoEditorLayerImage> layer: layers[layers.length - 1 - index];
+        private property <bool> is-edited-track: Store.video-editor-current-edited-track-index == layer.track-index;
+        private property <TextHighlightDetail> config: layer.text-highlight;
+        private property <bool> pick-color-mode: VEFilter.text-highlight-pick-color-mode && is-edited-track;
+
+        // State for drawing new region
+        private property <bool> is-drawing;
+        private property <length> draw-start-x;
+        private property <length> draw-start-y;
+        private property <length> draw-current-x;
+        private property <length> draw-current-y;
+
+        container-rec := Rectangle {
+            width: img.width;
+            height: img.height;
+
+            img := Image {
+                private property <length> parent-width: rec.width;
+                private property <length> parent-height: rec.height;
+                private property <float> width-hight-rate: self.source.width / self.source.height;
+
+                changed parent-width => {
+                    self.update-size();
+                }
+
+                changed parent-height => {
+                    self.update-size();
+                }
+
+                function update-size() {
+                    if (root.width-hight-rate > self.width-hight-rate) {
+                        self.height = root.height;
+                        self.width = self.height * self.width-hight-rate;
+                    } else {
+                        self.width = root.width;
+                        self.height = self.width / self.width-hight-rate;
+                    }
+                }
+
+                init => {
+                    self.update-size();
+                }
+
+                source: layer.original-image;
+                image-fit: ImageFit.contain;
+            }
+
+            if is-edited-track: Rectangle {
+                width: img.width;
+                height: img.height;
+
+                private property <length> min-rect-size: Theme.icon-size;
+
+                // Pick color mode overlay - cross cursor
+                if pick-color-mode: Rectangle {
+                    width: img.width;
+                    height: img.height;
+                    background: transparent;
+
+                    pick-ta := TouchArea {
+                        mouse-cursor: MouseCursor.crosshair;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {
+                                let img-x = self.mouse-x;
+                                let img-y = self.mouse-y;
+                                let picked-color = VEFilter.text-highlight-pick-color(VEFilter.selected-filter-index, img.source, img-x / img.width, img-y / img.height);
+
+                                config.background-color-r = picked-color.red;
+                                config.background-color-g = picked-color.green;
+                                config.background-color-b = picked-color.blue;
+                                VEFilter.text-highlight-pick-color-mode = false;
+                                VEFilter.modify-text-highlight-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                            }
+                        }
+                    }
+
+                    // Crosshair indicator at cursor position
+                    Rectangle {
+                        x: pick-ta.mouse-x - self.width / 2;
+                        y: pick-ta.mouse-y - self.height / 2;
+                        width: Theme.icon-size;
+                        height: self.width;
+                        background: transparent;
+
+                        Rectangle {
+                            y: (parent.height - self.height) / 2;
+                            width: parent.width;
+                            height: Theme.default-border-width * 4;
+                            background: white;
+                        }
+
+                        Rectangle {
+                            x: (parent.width - self.width) / 2;
+                            width: Theme.default-border-width * 4;
+                            height: parent.height;
+                            background: white;
+                        }
+                    }
+                }
+
+                // Drawing mode overlay (not in pick-color-mode)
+                if !pick-color-mode: draw-overlay := Rectangle {
+                    width: img.width;
+                    height: img.height;
+                    background: transparent;
+
+                    draw-ta := TouchArea {
+                        mouse-cursor: is-drawing ? MouseCursor.crosshair : MouseCursor.default;
+
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left) {
+                                if (event.kind == PointerEventKind.down) {
+                                    // Start drawing a new region
+                                    is-drawing = true;
+                                    draw-start-x = self.mouse-x;
+                                    draw-start-y = self.mouse-y;
+                                    draw-current-x = self.mouse-x;
+                                    draw-current-y = self.mouse-y;
+                                } else if (event.kind == PointerEventKind.up && is-drawing) {
+                                    // Finish drawing and add region
+                                    is-drawing = false;
+
+                                    // Calculate normalized region coordinates
+                                    // Convert length to float by dividing by 1px
+                                    let start-x-f = draw-start-x / 1px;
+                                    let start-y-f = draw-start-y / 1px;
+                                    let current-x-f = draw-current-x / 1px;
+                                    let current-y-f = draw-current-y / 1px;
+                                    let img-width-f = img.width / 1px;
+                                    let img-height-f = img.height / 1px;
+
+                                    let norm-x = min(start-x-f, current-x-f) / img-width-f;
+                                    let norm-y = min(start-y-f, current-y-f) / img-height-f;
+                                    let norm-width = abs(current-x-f - start-x-f) / img-width-f;
+                                    let norm-height = abs(current-y-f - start-y-f) / img-height-f;
+
+                                    // Only add if region has meaningful size
+                                    if (norm-width > 0.01 && norm-height > 0.01) {
+                                        let new-region: HighlightRegionDetail = {
+                                            x: norm-x,
+                                            y: norm-y,
+                                            width: norm-width,
+                                            height: norm-height,
+                                        };
+                                        VEFilter.text-highlight-add-region(VEFilter.selected-filter-index, new-region);
+                                    }
+                                }
+                            }
+                        }
+
+                        moved => {
+                            if (is-drawing) {
+                                draw-current-x = self.mouse-x;
+                                draw-current-y = self.mouse-y;
+                            }
+                        }
+                    }
+
+                    // Draw preview rectangle while drawing
+                    if is-drawing: Rectangle {
+                        x: min(draw-start-x, draw-current-x);
+                        y: min(draw-start-y, draw-current-y);
+                        width: abs(draw-current-x - draw-start-x);
+                        height: abs(draw-current-y - draw-start-y);
+                        border-width: 2px;
+                        border-color: Theme.brand-color;
+                        background: rgba(config.highlight-color-r, config.highlight-color-g, config.highlight-color-b, config.highlight-color-a / 255.0 * 0.3);
+                    }
+                }
+
+                // Display existing regions (when not drawing or picking color)
+                if !pick-color-mode && !is-drawing: Rectangle {
+                    background: transparent;
+
+                    for region-index in config.regions.length: region-rec := Rectangle {
+                        private property <HighlightRegionDetail> region: config.regions[region-index];
+                        private property <length> display-x: region.x * img.width;
+                        private property <length> display-y: region.y * img.height;
+                        private property <length> display-width: max(min-rect-size, region.width * img.width);
+                        private property <length> display-height: max(min-rect-size, region.height * img.height);
+
+                        x: display-x;
+                        y: display-y;
+                        width: display-width;
+                        height: display-height;
+                        border-width: 2px;
+                        border-color: black;
+                        background: rgba(config.highlight-color-r, config.highlight-color-g, config.highlight-color-b, config.highlight-color-a / 255.0 * 0.3);
+
+                        delete-btn := Rectangle {
+                            x: (parent.width - self.width) / 2;
+                            y: -self.height / 2;
+                            width: Theme.icon-size * 0.8;
+                            height: self.width;
+                            border-radius: self.width / 2;
+                            background: Theme.danger-color;
+
+                            Image {
+                                source: Icons.close-light;
+                                colorize: Theme.light-text-color;
+                                width: parent.width * 0.6;
+                                height: self.width;
+                            }
+
+                            TouchArea {
+                                mouse-cursor: MouseCursor.pointer;
+
+                                clicked => {
+                                    VEFilter.text-highlight-remove-region(VEFilter.selected-filter-index, region-index);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

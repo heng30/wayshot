@@ -2,7 +2,7 @@ use crate::{
     config,
     db::{HISTORY_TABLE as DB_TABLE, HistoryEntry},
     db_select_all,
-    logic::tr::tr,
+    logic::{tr::tr, video_editor::playlist::import_file_to_playlist},
     logic_cb,
     slint_generatedAppWindow::{AppWindow, HistoryEntry as UIHistoryEntry},
     toast_success,
@@ -36,6 +36,7 @@ pub fn init(ui: &AppWindow) {
     logic_cb!(remove_history, ui, index);
     logic_cb!(remove_no_found_histories, ui);
     logic_cb!(remove_all_histories, ui);
+    logic_cb!(add_to_video_editor_playlist, ui, index);
 }
 
 fn inner_init(ui: &AppWindow) {
@@ -177,4 +178,19 @@ fn remove_all_histories(ui: &AppWindow) {
 
     store_history_entries!(ui).set_vec(vec![]);
     db_remove_all(ui.as_weak());
+}
+
+fn add_to_video_editor_playlist(ui: &AppWindow, index: i32) {
+    let ui_weak = ui.as_weak();
+    let rows = store_history_entries!(ui).row_count();
+    if index < 0 || index as usize >= rows {
+        return;
+    }
+
+    let entry = store_history_entries!(ui).row_data(index as usize).unwrap();
+    let file_path = PathBuf::from(&config::all().recorder.save_dir).join(&entry.file);
+
+    tokio::spawn(async move {
+        import_file_to_playlist(ui_weak, file_path, None).await;
+    });
 }

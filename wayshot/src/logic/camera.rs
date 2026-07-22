@@ -120,7 +120,7 @@ fn camera_setting_dialog_start_playing(ui: &AppWindow, camera: SharedString) {
     let camera_id = match query_camera_id(&camera) {
         Ok(id) => id,
         Err(e) => {
-            toast_warn!(ui, format!("No found {camera} failed. {e}"));
+            toast_warn!(ui, format!("{} `{}`: {e}", tr("No found"), camera));
             return;
         }
     };
@@ -128,13 +128,13 @@ fn camera_setting_dialog_start_playing(ui: &AppWindow, camera: SharedString) {
     let mut client = match CameraClient::new(camera_id, config) {
         Ok(c) => c,
         Err(e) => {
-            toast_warn!(ui, format!("New camera client failed. {e}"));
+            toast_warn!(ui, format!("{}. {e}", tr("New camera client failed")));
             return;
         }
     };
 
     if let Err(e) = client.start() {
-        toast_warn!(ui, format!("Start camera client failed. {e}"));
+        toast_warn!(ui, format!("{}. {e}", tr("Start camera client failed")));
         return;
     }
 

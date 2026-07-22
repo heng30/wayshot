@@ -1,0 +1,225 @@
+import {
+    Theme,
+    Logic,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+} from "../../../../../def.slint";
+import {
+    ClickAndEditLabel,
+    LineInput,
+    Slider,
+    Select,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    SwitchBtn,
+    SettingDetailSwitch,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    PageFlipDetail,
+} from "../../../filter.slint";
+import { Icons } from "../../../../../../base/theme.slint";
+
+export component PageFlip inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <PageFlipDetail> config: VEFilter.from-page-flip-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: PageFlipDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "page flip") {
+            self.config = VEFilter.from-page-flip-json(selected-filter.detail);
+            duration-li.text = self.config.duration.to-fixed(0);
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Position");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                position-select := Select {
+                    enabled: selected-filter.enabled;
+                    gain-focus-when-clicked: false;
+                    background: Theme.thirdly-background;
+
+                    values: [Logic.tr("Start"), Logic.tr("End")];
+                    current-index: config.position;
+                    current-value: self.values[config.position];
+
+                    selected(idx, value) => {
+                        config.position = idx;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Corner");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                corner-select := Select {
+                    enabled: selected-filter.enabled;
+                    gain-focus-when-clicked: false;
+                    background: Theme.thirdly-background;
+
+                    values: [
+                        Logic.tr("Bottom Right"),
+                        Logic.tr("Bottom Left"),
+                        Logic.tr("Top Right"),
+                        Logic.tr("Top Left")
+                    ];
+                    current-index: config.corner;
+                    current-value: self.values[config.corner];
+
+                    selected(idx, value) => {
+                        config.corner = idx;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Direction");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                direction-select := Select {
+                    enabled: selected-filter.enabled;
+                    gain-focus-when-clicked: false;
+                    background: Theme.thirdly-background;
+
+                    values: [Logic.tr("Forward"), Logic.tr("Backward"), Logic.tr("Round Trip")];
+                    current-index: config.direction;
+                    current-value: config.direction == 0 ? Logic.tr("Forward") : (config.direction == 1 ? Logic.tr("Backward") : Logic.tr("Round Trip"));
+
+                    selected(idx, value) => {
+                        config.direction = idx;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Axis");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                axis-select := Select {
+                    enabled: selected-filter.enabled;
+                    gain-focus-when-clicked: false;
+                    background: Theme.thirdly-background;
+
+                    values: [Logic.tr("Horizontal"), Logic.tr("Vertical")];
+                    current-index: config.axis;
+                    current-value: config.axis == 0 ? Logic.tr("Horizontal") : Logic.tr("Vertical");
+
+                    selected(idx, value) => {
+                        config.axis = idx;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Duration (ms)");
+                enabled: selected-filter.enabled;
+            }
+
+            duration-li := LineInput {
+                enabled: selected-filter.enabled;
+                text: config.duration;
+                border-color: self.text.to-float() == config.duration ? self.default-border-color : Theme.danger-color;
+
+                accepted => {
+                    config.duration = self.text.to-float();
+                    apply(index, config);
+                }
+            }
+        }
+
+        SettingDetailSwitch {
+            enabled: selected-filter.enabled;
+            icon: Icons.shadow-bottom-light;
+            text: self.checked ? Logic.tr("Shadow On") : Logic.tr("Shadow Off");
+            checked: config.shadow;
+            background: Theme.thirdly-background;
+
+            toggled => {
+                config.shadow = self.checked;
+                apply(index, config);
+            }
+        }
+
+        SettingDetailSwitch {
+            enabled: selected-filter.enabled;
+            icon: Icons.underline-light;
+            text: self.checked ? Logic.tr("Keep Base On") : Logic.tr("Keep Base Off");
+            checked: config.keep-base;
+            background: Theme.thirdly-background;
+
+            toggled => {
+                config.keep-base = self.checked;
+                apply(index, config);
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Flip Extent");
+                enabled: selected-filter.enabled;
+            }
+
+            flip-extent-slider := Slider {
+                enabled: selected-filter.enabled;
+                value: config.flip-extent;
+                minimum: 0.0;
+                maximum: 1.0;
+                indicator-size: Theme.default-font-size;
+                height: self.indicator-size * 0.3;
+                unfinished-progress-color: Theme.thirdly-background;
+
+                changed(val) => {
+                    config.flip-extent = val;
+                }
+
+                released(val) => {
+                    config.flip-extent = val;
+                    apply(index, config);
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

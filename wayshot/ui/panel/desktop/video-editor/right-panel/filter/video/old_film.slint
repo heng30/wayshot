@@ -1,0 +1,658 @@
+import {
+    Theme,
+    Logic,
+    Icons,
+    Util,
+    Store,
+    KeyframeValueType,
+    KeyframeValue,
+} from "../../../../../def.slint";
+import {
+    ClickAndEditLabel,
+    LineInput,
+    Slider,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    OldFilmDetail,
+} from "../../../filter.slint";
+import { KeyframeButton } from "../keyframe-btn.slint";
+
+export component OldFilm inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <OldFilmDetail> config: VEFilter.from-old-film-json(selected-filter.detail);
+    in-out property toggle-keyframe-flag <=> VEFilter.toggle-keyframe-flag;
+
+    callback apply(index: int, config: OldFilmDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "old film") {
+            self.config = VEFilter.from-old-film-json(selected-filter.detail);
+            scratch-intensity-sl.value = self.config.scratch-intensity;
+            dust-intensity-sl.value = self.config.dust-intensity;
+            flicker-intensity-sl.value = self.config.flicker-intensity;
+            flicker-speed-sl.value = self.config.flicker-speed;
+            vertical-lines-intensity-sl.value = self.config.vertical-lines-intensity;
+            jitter-intensity-sl.value = self.config.jitter-intensity;
+            sepia-intensity-sl.value = self.config.sepia-intensity;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        // Scratch Intensity (keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Scratch Intensity");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        scratch-intensity-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.scratch-intensity;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.scratch-intensity = value;
+                            }
+
+                            released(value) => {
+                                config.scratch-intensity = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.scratch-intensity.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.scratch-intensity = text.to-float().clamp(0, 1);
+                            scratch-intensity-sl.value = config.scratch-intensity;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "scratch_intensity", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "scratch_intensity", VEFilter.make-float-value(config.scratch-intensity));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Scratch Count (non-keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Scratch Count");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                scratch-count-input := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.number;
+                    text: config.scratch-count;
+
+                    accepted => {
+                        config.scratch-count = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        // Scratch Width (non-keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Scratch Width");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                scratch-width-input := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.number;
+                    text: config.scratch-width;
+
+                    accepted => {
+                        config.scratch-width = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        // Dust Intensity (keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Dust Intensity");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        dust-intensity-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.dust-intensity;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.dust-intensity = value;
+                            }
+
+                            released(value) => {
+                                config.dust-intensity = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.dust-intensity.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.dust-intensity = text.to-float().clamp(0, 1);
+                            dust-intensity-sl.value = config.dust-intensity;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "dust_intensity", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "dust_intensity", VEFilter.make-float-value(config.dust-intensity));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Dust Count (non-keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Dust Count");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                dust-count-input := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.number;
+                    text: config.dust-count;
+
+                    accepted => {
+                        config.dust-count = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        // Dust Size Max (non-keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Dust Size Max");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                dust-size-max-input := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.number;
+                    text: config.dust-size-max;
+
+                    accepted => {
+                        config.dust-size-max = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        // Flicker Intensity (keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Flicker Intensity");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        flicker-intensity-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 0.3;
+                            value: config.flicker-intensity;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.flicker-intensity = value;
+                            }
+
+                            released(value) => {
+                                config.flicker-intensity = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.flicker-intensity.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.flicker-intensity = text.to-float().clamp(0, 1);
+                            flicker-intensity-sl.value = config.flicker-intensity;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "flicker_intensity", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "flicker_intensity", VEFilter.make-float-value(config.flicker-intensity));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Flicker Speed (keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Flicker Speed");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        flicker-speed-sl := Slider {
+                            minimum: 1.0;
+                            maximum: 10.0;
+                            value: config.flicker-speed;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.flicker-speed = value;
+                            }
+
+                            released(value) => {
+                                config.flicker-speed = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.flicker-speed.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.flicker-speed = text.to-float().clamp(0, 10);
+                            flicker-speed-sl.value = config.flicker-speed;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "flicker_speed", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "flicker_speed", VEFilter.make-float-value(config.flicker-speed));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Vertical Lines Intensity (keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Vertical Lines Intensity");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        vertical-lines-intensity-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.vertical-lines-intensity;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.vertical-lines-intensity = value;
+                            }
+
+                            released(value) => {
+                                config.vertical-lines-intensity = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.vertical-lines-intensity.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.vertical-lines-intensity = text.to-float().clamp(0, 1);
+                            vertical-lines-intensity-sl.value = config.vertical-lines-intensity;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "vertical_lines_intensity", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "vertical_lines_intensity", VEFilter.make-float-value(config.vertical-lines-intensity));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Vertical Lines Count (non-keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Vertical Lines Count");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                vertical-lines-count-input := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.number;
+                    text: config.vertical-lines-count;
+
+                    accepted => {
+                        config.vertical-lines-count = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        // Jitter Intensity (keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Jitter Intensity");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        jitter-intensity-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 10.0;
+                            value: config.jitter-intensity;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.jitter-intensity = value;
+                            }
+
+                            released(value) => {
+                                config.jitter-intensity = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.jitter-intensity.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.jitter-intensity = text.to-float().clamp(0, 10);
+                            jitter-intensity-sl.value = config.jitter-intensity;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "jitter_intensity", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "jitter_intensity", VEFilter.make-float-value(config.jitter-intensity));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Sepia Intensity (keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Sepia Intensity");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        sepia-intensity-sl := Slider {
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value: config.sepia-intensity;
+                            indicator-size: Theme.default-font-size;
+                            height: self.indicator-size * 0.3;
+                            unfinished-progress-color: Theme.thirdly-background;
+                            enabled: selected-filter.enabled;
+
+                            changed(value) => {
+                                config.sepia-intensity = value;
+                            }
+
+                            released(value) => {
+                                config.sepia-intensity = value;
+                                apply(index, config);
+                            }
+                        }
+                    }
+
+                    ClickAndEditLabel {
+                        enabled: selected-filter.enabled;
+                        use-fixed-width: true;
+                        width: Theme.default-font-size * 3;
+                        text: config.sepia-intensity.to-fixed(2);
+                        text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                        accepted(text) => {
+                            config.sepia-intensity = text.to-float().clamp(0, 1);
+                            sepia-intensity-sl.value = config.sepia-intensity;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+
+                    KeyframeButton {
+                        enabled: selected-filter.enabled;
+                        has-keyframe: VEFilter.property-has-keyframe-at-playhead(index, "sepia_intensity", toggle-keyframe-flag);
+
+                        clicked => {
+                            VEFilter.toggle-keyframe-at-playhead(index, "sepia_intensity", VEFilter.make-float-value(config.sepia-intensity));
+                            toggle-keyframe-flag = !toggle-keyframe-flag;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Seed (non-keyframeable)
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Seed");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                seed-input := LineInput {
+                    enabled: selected-filter.enabled;
+                    input-type: InputType.number;
+                    text: config.seed;
+
+                    accepted => {
+                        config.seed = round(self.text.to-float());
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

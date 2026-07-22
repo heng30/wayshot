@@ -71,7 +71,15 @@ impl Chat {
         let headers = self.headers();
         let client = reqwest::Client::new();
 
-        let url = format!("{}{}", self.config.api_base_url, "/chat/completions");
+        // Handle base_url that may or may not already include /chat/completions
+        let url = if self.config.api_base_url.ends_with("/chat/completions") {
+            self.config.api_base_url.clone()
+        } else {
+            // Remove trailing slash if present, then append endpoint
+            let base = self.config.api_base_url.trim_end_matches('/');
+            format!("{}{}", base, "/chat/completions")
+        };
+
         let request_body = request::ChatCompletion {
             messages: self.messages,
             model: self.config.api_model,
@@ -79,50 +87,75 @@ impl Chat {
             stream: true,
         };
 
-        let mut stream = client
-            .post(url)
+        let response = client
+            .post(&url)
             .headers(headers)
             .json(&request_body)
             .timeout(Duration::from_secs(15))
             .send()
-            .await?
-            .bytes_stream();
+            .await?;
+
+        let status = response.status();
+
+        if !status.is_success() {
+            let error_body = response.text().await?;
+            log::error!("API error: status={}, body={}", status, error_body);
+            let item = response::StreamTextItem {
+                etext: Some(format!("API error: {}", error_body)),
+                ..Default::default()
+            };
+            if self.chat_tx.send(item).await.is_err() {
+                log::info!("receiver dropped");
+            }
+            return Ok(());
+        }
+
+        let mut buffer = String::new();
+        let mut stream = response.bytes_stream();
 
         loop {
             match stream.next().await {
                 Some(Ok(chunk)) => {
-                    let body = String::from_utf8_lossy(&chunk);
+                    buffer.push_str(&String::from_utf8_lossy(&chunk));
 
-                    // log::debug!("{body:?}");
+                    while let Some(event_end) = buffer.find("\n\n") {
+                        let event = buffer[..event_end].to_string();
+                        buffer = buffer[event_end + 2..].to_string();
 
-                    if let Ok(err) = serde_json::from_str::<response::Error>(&body) {
-                        if let Some(estr) = err.error.get("message") {
-                            let item = response::StreamTextItem {
-                                etext: Some(estr.clone()),
-                                ..Default::default()
-                            };
-                            if self.chat_tx.send(item).await.is_err() {
-                                log::info!("receiver dropped");
-                                break;
-                            }
-                            log::info!("{}", estr);
-                        }
-                        break;
-                    }
-
-                    if body.starts_with("data: [DONE]") {
-                        break;
-                    }
-
-                    let lines: Vec<_> = body.split("\n\n").collect();
-
-                    for line in lines.into_iter() {
-                        if !line.starts_with("data:") {
+                        if event.is_empty() {
                             continue;
                         }
 
-                        match serde_json::from_str::<response::ChatCompletionChunk>(&line[5..]) {
+                        if event == "data: [DONE]" {
+                            break;
+                        }
+
+                        if !event.starts_with("data:") {
+                            continue;
+                        }
+
+                        let json_str = &event[5..];
+
+                        if let Ok(err) = serde_json::from_str::<response::Error>(json_str) {
+                            if let Some(estr) = err.error.get("message") {
+                                let item = response::StreamTextItem {
+                                    etext: Some(estr.clone()),
+                                    ..Default::default()
+                                };
+                                if self.chat_tx.send(item).await.is_err() {
+                                    log::info!("receiver dropped");
+                                    return Ok(());
+                                }
+                                log::error!("API error: {}", estr);
+                            }
+                            return Ok(());
+                        }
+
+                        match serde_json::from_str::<response::ChatCompletionChunk>(json_str) {
                             Ok(chunk) => {
+                                if chunk.choices.is_empty() {
+                                    continue;
+                                }
                                 let choice = &chunk.choices[0];
                                 if choice.finish_reason.is_some() {
                                     let item = response::StreamTextItem {
@@ -131,14 +164,9 @@ impl Chat {
                                     };
                                     if self.chat_tx.send(item).await.is_err() {
                                         log::info!("receiver dropped");
-                                        break;
+                                        return Ok(());
                                     }
-
-                                    log::info!(
-                                        "finish_reason: {}",
-                                        choice.finish_reason.as_ref().unwrap()
-                                    );
-                                    break;
+                                    return Ok(());
                                 }
 
                                 let item = if choice.delta.contains_key("content")
@@ -156,7 +184,6 @@ impl Chat {
                                         ..Default::default()
                                     })
                                 } else if choice.delta.contains_key("role") {
-                                    log::info!("role: {:?}", choice.delta["role"]);
                                     None
                                 } else {
                                     None
@@ -166,17 +193,15 @@ impl Chat {
                                     && self.chat_tx.send(item).await.is_err()
                                 {
                                     log::info!("receiver dropped");
-                                    break;
+                                    return Ok(());
                                 }
                             }
-                            Err(e) => {
-                                log::info!("{e:?} {}", &line);
-                                break;
-                            }
+                            // Continue processing other events instead of breaking
+                            Err(e) => log::error!("Parse error: {:?} event={}", e, &event),
                         }
                     }
                 }
-                Some(Err(_)) => (),
+                Some(Err(e)) => log::error!("Stream error: {:?}", e),
                 None => break,
             }
         }

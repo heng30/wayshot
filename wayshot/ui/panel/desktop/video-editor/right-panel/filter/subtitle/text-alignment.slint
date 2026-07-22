@@ -1,0 +1,47 @@
+import {
+    Theme,
+    Logic,
+    Store,
+} from "../../../../../def.slint";
+import {
+    Select,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    TextAlignmentDetail,
+} from "../../../filter.slint";
+
+export component TextAlignment inherits Rectangle {
+    in-out property <TextAlignmentDetail> config;
+    private property <[string]> options: [Logic.tr("Left"), Logic.tr("Center"), Logic.tr("Right")];
+
+    callback apply(config: TextAlignmentDetail);
+
+    SettingDetailInnerVbox {
+        SettingDetailLabel {
+            text: Logic.tr("Text Alignment");
+        }
+
+        Select {
+            values: root.options;
+            current-index: root.config.alignment;
+            current-value: root.options[root.config.alignment];
+            vpadding: Theme.padding;
+            gain-focus-when-clicked: false;
+
+            changed has-focus => {
+                if (!self.has-focus) {
+                    Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                }
+            }
+
+            selected(index, value) => {
+                root.config.alignment = index;
+                root.apply(root.config);
+            }
+        }
+    }
+}
+

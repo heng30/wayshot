@@ -1,0 +1,7 @@
+.vscode
+/target
+vendor/VoxCPM/
+vendor/burn/
+vendor/cubecl/
+vendor/mesa/
+vendor/nanovllm-voxcpm/
