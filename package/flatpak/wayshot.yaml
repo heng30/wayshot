@@ -6,16 +6,49 @@ command: wayshot
 finish-args:
   - --share=ipc
   - --socket=wayland
+  - --socket=fallback-x11
   - --socket=pulseaudio
   - --device=dri
   - --filesystem=xdg-videos
   - --filesystem=xdg-pictures
+  - --filesystem=xdg-config/gtk-3.0
+  - --filesystem=~/.themes:ro
+  - --filesystem=~/.icons:ro
+  - --env=LD_LIBRARY_PATH=/app/lib
+  - --env=QT_PLUGIN_PATH=/app/qt6/plugins
+  - --env=QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+  - --env=GTK_THEME=Adwaita
 modules:
+  - name: extra-libs
+    buildsystem: simple
+    build-commands:
+      - mkdir -p ${FLATPAK_DEST}/lib
+      - cp *.so* ${FLATPAK_DEST}/lib/
+      - chmod 755 ${FLATPAK_DEST}/lib/*.so*
+    sources:
+      - type: dir
+        path: extra-libs
+  - name: qt-plugins
+    buildsystem: simple
+    build-commands:
+      - mkdir -p ${FLATPAK_DEST}/qt6/plugins
+      - cp -r platforms ${FLATPAK_DEST}/qt6/plugins/
+      - cp -r wayland-shell-integration ${FLATPAK_DEST}/qt6/plugins/
+      - cp -r xcbglintegrations ${FLATPAK_DEST}/qt6/plugins/
+      - cp -r imageformats ${FLATPAK_DEST}/qt6/plugins/
+      - cp -r platforminputcontexts ${FLATPAK_DEST}/qt6/plugins/
+      - cp -r platformthemes ${FLATPAK_DEST}/qt6/plugins/
+      - cp -r wayland-graphics-integration-client ${FLATPAK_DEST}/qt6/plugins/
+      - cp -r wayland-decoration-client ${FLATPAK_DEST}/qt6/plugins/
+    sources:
+      - type: dir
+        path: qt6-plugins
   - name: wayshot
     buildsystem: simple
     build-commands:
       - install -Dm755 wayshot ${FLATPAK_DEST}/bin/wayshot
       - install -Dm644 xyz.heng30.wayshot.desktop ${FLATPAK_DEST}/share/applications/xyz.heng30.wayshot.desktop
+      - install -Dm644 qt.conf ${FLATPAK_DEST}/bin/qt.conf
       - |
         for size in 16 22 24 32 36 48 64 72 96 128 192 256 512; do
           install -Dm644 ${size}x${size}/apps/xyz.heng30.wayshot.png ${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/xyz.heng30.wayshot.png
@@ -25,5 +58,7 @@ modules:
         path: ../../target/release/wayshot
       - type: file
         path: package/share/applications/xyz.heng30.wayshot.desktop
+      - type: file
+        path: qt.conf
       - type: dir
         path: package/share/icons/hicolor

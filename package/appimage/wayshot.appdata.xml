@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>xyz.heng30.wayshot</id>
+  <name>wayshot</name>
+  <summary>Video creation tool: Video editing, screen recording, streaming, and screen sharing</summary>
+  <summary xml:lang="zh_CN">视频创作工具：视频编辑、录屏、推流、屏幕共享</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0</project_license>
+  <description>
+    <p>wayshot is a video creation tool for Wayland. It supports video editing, screen recording, streaming, and screen sharing.</p>
+    <p xml:lang="zh_CN">wayshot 是一个面向 Wayland 的视频创作工具，支持视频编辑、录屏、推流和屏幕共享。</p>
+  </description>
+  <launchable type="desktop-id">wayshot.desktop</launchable>
+  <screenshots>
+    <screenshot type="default">
+      <image type="source" width="512" height="512">https://github.com/Heng30/wayshot/raw/master/wayshot/ui/images/png/brand.png</image>
+      <caption>Main window</caption>
+    </screenshot>
+  </screenshots>
+  <url type="homepage">https://github.com/Heng30/wayshot</url>
+  <developer id="io.github.heng30">
+    <name>Heng30</name>
+  </developer>
+  <content_rating type="oars-1.1" />
+  <provides>
+    <id>xyz.heng30.wayshot.desktop</id>
+  </provides>
+</component>

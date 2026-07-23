@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=wayshot
-Exec=/usr/local/bin/wayshot
+Exec=/usr/bin/wayshot
 Icon=xyz.heng30.wayshot
 Terminal=false
 Type=Application

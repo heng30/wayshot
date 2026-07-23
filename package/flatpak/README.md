@@ -1,6 +1,6 @@
-- Build release binary first: `cargo build --release`
+- Build release binary first: `make`
 
-- Install dependencies: `flatpak`, `flatpak-builder`, `ImageMagick` (for icon resize)
+- Install dependencies: `flatpak`, `flatpak-builder`, `ImageMagick` (for icon resize) : `sudo apt install flatpak flatpak-builder imagemagick`
 
 - Run: `./pkg-flatpak.sh`
 
@@ -8,6 +8,6 @@
 
 - Install Flatpak: `flatpak install wayshot.flatpak`
 
-- Run: `flatpak run wayshot`
+- Run: `flatpak run xyz.heng30.wayshot`
 
 - Uninstall: `flatpak uninstall wayshot`

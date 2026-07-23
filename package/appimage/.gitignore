@@ -1,1 +1,3 @@
 *.AppImage
+/wayshot.AppDir
+/runtime-x86_64

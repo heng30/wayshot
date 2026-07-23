@@ -28,13 +28,13 @@ jobs:
       - run: echo "The ${{ github.workspace }} is now ready to test your code on the runner."
       - run: ls ${{ github.workspace }}
 
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.8.3'
-          host: 'windows'
-          target: 'desktop'
-          arch: 'win64_msvc2022_64'
+      # - name: Install Qt
+      #   uses: jurplel/install-qt-action@v4
+      #   with:
+      #     version: '6.8.3'
+      #     host: 'windows'
+      #     target: 'desktop'
+      #     arch: 'win64_msvc2022_64'
 
       - name: Install dependencies
         run: |
@@ -52,73 +52,8 @@ jobs:
         uses: actions-rs/toolchain@v1
       - run: echo "end install Rust..."
 
-      - run: echo "start build..."
-      - run: make build-release features=windows
-      - run: echo "end build..."
-
-      - name: Get the release version from the tag
-        shell: bash
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-
-      - run: echo "start packing..."
-      - run: make app-name
-
-      - name: Extract Qt dependencies only
-        shell: bash
-        run: |
-          cd target
-          binary_name=`cat app-name`
-          mkdir qt_dependencies
-          cp -rf release/$binary_name.exe qt_dependencies/
-          cd qt_dependencies
-          "${{ env.QT_ROOT_DIR }}/bin/windeployqt6.exe" --release --compiler-runtime --no-system-d3d-compiler --no-opengl-sw $binary_name.exe
-          rm $binary_name.exe
-
-      # - name: Test packing package
-      #   shell: bash
-      #   run: |
-      #     cd target
-      #     binary_name=`cat app-name`
-      #     mkdir $binary_name
-      #     output="$binary_name-${{ env.VERSION }}-x86_64-windows.tar.gz"
-      #     cp -rf release/$binary_name.exe $binary_name/
-      #     cp -rf qt_dependencies/* $binary_name/
-      #     cp -rf ../wayshot/windows/dll/x264.dll $binary_name/
-      #
-      #     ffmpeg_dir=$(echo "${{ env.FFMPEG_DIR }}" | sed 's/\\/\//g')
-      #     cp -rf "${ffmpeg_dir}/bin/"*.dll $binary_name/
-      #
-      #     ls -al $binary_name
-      #     tar -zcf $output $binary_name
-      #     cp $output ..
-      # - run: echo "end packing..."
-
-      - name: Export package
-        shell: bash
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          cd target
-          binary_name=`cat app-name`
-          mkdir $binary_name
-          output="$binary_name-${{ env.VERSION }}-x86_64-windows.tar.gz"
-          cp -rf release/$binary_name.exe $binary_name/
-          cp -rf qt_dependencies/* $binary_name/
-          cp -rf ../wayshot/windows/dll/x264.dll $binary_name/
-
-          ffmpeg_dir=$(echo "${{ env.FFMPEG_DIR }}" | sed 's/\\/\//g')
-          cp -rf "${ffmpeg_dir}/bin/"*.dll $binary_name/
-
-          ls -al $binary_name
-          tar -zcf $output $binary_name
-          cp $output ..
-          echo "ASSET=$output" >> $GITHUB_ENV
-      - run: echo "end packing..."
-
-      - name: Upload the package
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            ${{ env.ASSET }}
+      - run: echo "start cargo check..."
+      - run: make check features=windows
+      - run: echo "end cargo check..."
 
       - run: echo "🍏 This job's status is ${{ job.status }}."

@@ -6,6 +6,7 @@ version = `git describe --tags --abbrev=0`
 
 # windows, wayland-portal, wayland-wlr
 features ?= wayland-wlr
+linux-app-postfix = $(if $(filter wayland-portal,$(features)), portal, wlr)
 run-env = RUST_LOG=debug
 build-env = SLINT_STYLE=fluent CMAKE_POLICY_VERSION_MINIMUM=3.5
 proj-features = --features=${features},database,qrcode,center-window
@@ -45,18 +46,6 @@ icon:
 icon-strip:
 	cargo run -p icon-helper --bin icon-helper -- -i ${app-name}/ui/images -o ${app-name}/ui/base --strip
 
-packing-linux:
-	cp -f target/release/${app-name} target/${app-name}-${version}-x86_64-linux
-	echo "${app-name}-${version}-x86_64-linux" > target/output-name
-
-packing-windows:
-	cp -f target/release/${app-name}.exe target/${app-name}-${version}-x86_64-windows.exe
-	echo "${app-name}-${version}-x86_64-windows.exe" > target/output-name
-
-packing-darwin:
-	cp -f target/release/${app-name} target/${app-name}-${version}-x86_64-darwin
-	echo "${app-name}-${version}-x86_64-darwin" > target/output-name
-
 slint-viewer:
 	$(build-env) slint-viewer --auto-reload -I $(app-name)/ui ${app-name}/ui/desktop-window.slint
 
@@ -69,17 +58,29 @@ check:
 clean:
 	cargo clean
 
+packing-windows:
+	cp -f target/release/${app-name}.exe target/${app-name}-${version}-x86_64-windows.exe
+
+packing-linux: linux-bin deb appimage flatpak
+
+linux-bin:
+	- rm -f target/${app-name}-${version}-x86_64-linux-*.tar.gz
+	tar -zcf target/${app-name}-${version}-x86_64-linux-${linux-app-postfix}.tar.gz -C target/release ${app-name}
+
 deb:
+	- rm -f target/${app-name}-${version}-x86_64-linux-*.deb
 	cd package/deb && bash -e "./pkg-deb.sh"
-	mv package/deb/$(app-name).deb ./target
+	mv package/deb/$(app-name).deb target/${app-name}-${version}-x86_64-linux-${linux-app-postfix}.deb
 
 appimage:
+	- rm -f target/${app-name}-${version}-x86_64-linux-*.AppImage
 	cd package/appimage && bash -e "./pkg-appimage.sh"
-	mv package/appimage/$(app-name).AppImage ./target
+	mv package/appimage/$(app-name).AppImage target/${app-name}-${version}-x86_64-linux-${linux-app-postfix}.AppImage
 
 flatpak:
+	- rm -f target/${app-name}-${version}-x86_64-linux-*.flatpak
 	cd package/flatpak && bash -e "./pkg-flatpak.sh"
-	mv package/flatpak/$(app-name).flatpak ./target
+	mv package/flatpak/$(app-name).flatpak target/${app-name}-${version}-x86_64-linux-${linux-app-postfix}.flatpak
 
 app-name:
 	echo "$(app-name)" > target/app-name

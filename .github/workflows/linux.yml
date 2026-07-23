@@ -1,0 +1,33 @@
+name: linux-portal
+on: [push]
+
+permissions:
+  contents: write
+
+jobs:
+  action-run:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - name: Check out repository code
+        uses: actions/checkout@v3
+      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
+      - run: echo "The ${{ github.workspace }} is now ready to test your code on the runner."
+      - run: ls ${{ github.workspace }}
+
+      - run: sudo apt update
+      - run: sudo apt install libxcb-composite0-dev imagemagick libasound2-dev libpipewire-0.3-dev libx264-dev libx11-dev libxi-dev libxtst-dev libevdev-dev libfontconfig-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libavfilter-dev libavdevice-dev libssl-dev clang libclang-dev libx264-dev libx265-dev libfdk-aac-dev libmp3lame-dev libopus-dev libvpx-dev libvorbis-dev qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
+
+      - run: echo "start install Rust..."
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+      - run: echo "end install Rust..."
+
+      - run: echo "start cargo check..."
+      - run: make check features=wayland-wlr
+      - run: make check features=wayland-portal
+      - run: echo "end cargo check..."
+
+      - run: echo "🍏 This job's status is ${{ job.status }}."

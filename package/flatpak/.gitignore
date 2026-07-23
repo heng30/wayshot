@@ -1,5 +1,7 @@
 /package/bin/
 /package/share/icons/
+/extra-libs/
+/qt6-plugins
 *.flatpak
 build-dir/
 .flatpak-builder/
