@@ -17,7 +17,7 @@ jobs:
       - run: echo "The ${{ github.workspace }} is now ready to test your code on the runner."
       - run: ls ${{ github.workspace }}
       - run: sudo apt update
-      - run: sudo apt install libxcb-composite0-dev upx imagemagick libasound2-dev libpipewire-0.3-dev libx264-dev libfontconfig-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libavfilter-dev libavdevice-dev libssl-dev clang libclang-dev
+      - run: sudo apt install libxcb-composite0-dev imagemagick libasound2-dev libpipewire-0.3-dev libx264-dev libfontconfig-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libavfilter-dev libavdevice-dev libssl-dev clang libclang-dev
       - run: sudo apt install libx264-dev libx265-dev libfdk-aac-dev libmp3lame-dev libopus-dev libvpx-dev libvorbis-dev
       - run: sudo apt install qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
 

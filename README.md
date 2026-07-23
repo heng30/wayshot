@@ -171,9 +171,10 @@ This is a **video editing**, **screen recording**, **streaming**, and **screen s
 - Install build dependencies on `Ubuntu`:
     ```bash
     sudo apt install \
-        libxcb-composite0-dev libasound2-dev libpipewire-0.3-dev \
-        libx264-dev libx11-dev libxi-dev libxtst-dev libevdev-dev \
-        qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
+      libxcb-composite0-dev upx imagemagick libasound2-dev libpipewire-0.3-dev libx264-dev libx11-dev \
+      libxi-dev libxtst-dev libevdev-dev libfontconfig-dev libavcodec-dev libavformat-dev libavutil-dev \
+      libswscale-dev libavfilter-dev libavdevice-dev libssl-dev clang libclang-dev libx264-dev libx265-dev \
+      libfdk-aac-dev libmp3lame-dev libopus-dev libvpx-dev libvorbis-dev qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
     ```
 
 - `Windows` build dependencies:
