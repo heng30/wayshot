@@ -17,5 +17,5 @@ serde = { workspace = true, features = ["derive"] }
 arboard = { workspace = true, features = ["wayland-data-control"] }
 
 [dev-dependencies]
-slint.workspace = true
 env_logger.workspace = true
+slint = { workspace = true, features = ["std", "backend-qt"] }

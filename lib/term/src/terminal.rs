@@ -280,7 +280,11 @@ impl Terminal {
 
         #[cfg(windows)]
         {
-            "cmd.exe".to_string()
+            let shell = std::env::var("COMSPEC")
+                .ok()
+                .unwrap_or_else(|| "cmd.exe".to_string());
+            log::info!("Detected shell from %COMSPEC%: {}", shell);
+            shell
         }
     }
 
@@ -356,6 +360,8 @@ impl Terminal {
         {
             // Set console code page to UTF-8
             cmd.env("LANG", "en_US.UTF-8");
+            // ConPTY on Windows 10+ may need explicit UTF-8 code page
+            cmd.env("CHCP", "65001");
         }
 
         // Spawn the shell
@@ -376,6 +382,26 @@ impl Terminal {
             writer: Arc::new(Mutex::new(writer)),
         };
 
+        // Windows ConPTY with PSEUDOCONSOLE_INHERIT_CURSOR (used by portable-pty 0.9+)
+        // sends ESC[6n (DSR — Device Status Report / cursor position query) during
+        // initialization and blocks ALL child process I/O until the host replies
+        // with a Cursor Position Report (ESC[row;colR) on stdin.
+        //
+        // Without this proactive response, ConPTY deadlocks: the child shell
+        // never starts, no output is ever produced, and the terminal appears
+        // blank with only a blinking cursor.
+        //
+        // We write the CPR immediately after PTY creation so ConPTY unblocks
+        // before the reader thread even starts.
+        #[cfg(windows)]
+        {
+            log::info!("Sending proactive CPR to ConPTY to unblock DSR deadlock");
+            if let Err(e) = pty_writer.write(b"\x1b[1;1R") {
+                log::warn!("Failed to send proactive CPR to ConPTY: {}", e);
+            }
+        }
+
+        log::info!("PTY created successfully");
         Ok((pty_writer, master, child))
     }
 
@@ -444,6 +470,17 @@ impl Terminal {
                             // Primary DA: respond as VT100 with AVO
                             let _ = pty_writer.write(b"\x1b[?1;2c");
                         }
+                    }
+
+                    // Detect and respond to DSR (Device Status Report) cursor
+                    // position queries.  Windows ConPTY (with
+                    // PSEUDOCONSOLE_INHERIT_CURSOR) sends `\x1b[6n` during
+                    // initialization and blocks until the host replies with a
+                    // Cursor Position Report (`\x1b[row;colR`).  We also handle
+                    // the explicit `\x1b[?6n` variant that some terminals emit.
+                    if Self::find_dsr_query(data) {
+                        log::debug!("DSR cursor position query detected, replying with CPR");
+                        let _ = pty_writer.write(b"\x1b[1;1R");
                     }
 
                     // Scan for OSC sequences (shell integration)
@@ -520,6 +557,26 @@ impl Terminal {
             i += 1;
         }
         None
+    }
+
+    /// Find a DSR (Device Status Report) cursor position query in PTY output data.
+    ///
+    /// Windows ConPTY (when created with `PSEUDOCONSOLE_INHERIT_CURSOR`, which
+    /// portable-pty 0.9.0 uses) emits `\x1b[6n` during initialization and
+    /// blocks all child process I/O until the host replies with a Cursor
+    /// Position Report (`\x1b[row;colR`).  This function detects both the
+    /// standard form `\x1b[6n` and the `?`-prefixed variant `\x1b[?6n`.
+    ///
+    /// Returns `true` if a DSR query was found.
+    fn find_dsr_query(data: &[u8]) -> bool {
+        // Search for ESC[6n or ESC[?6n
+        let patterns: &[&[u8]] = &[b"\x1b[6n", b"\x1b[?6n"];
+        for pattern in patterns {
+            if data.windows(pattern.len()).any(|w| w == *pattern) {
+                return true;
+            }
+        }
+        false
     }
 
     /// Write data to the PTY

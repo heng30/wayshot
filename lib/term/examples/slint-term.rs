@@ -79,7 +79,7 @@ impl SlintBridge {
         let mut span_builder = SpanBuilder::new();
 
         // Load and apply theme
-        let config = term::config::Config::default();
+        let _config = term::config::Config::default();
         let theme = theme::Theme::from_name(theme_name);
         let color_palette = theme.colors.clone();
 
