@@ -443,11 +443,11 @@ pub struct TTSConfigData {
     pub model_dir: String,
     #[derivative(Default(value = "200"))]
     pub max_char_count: i32,
-    #[derivative(Default(value = "300"))]
+    #[derivative(Default(value = "400"))]
     pub max_token_count: i32,
     #[derivative(Default(value = "2.0"))]
     pub cfg_value: f32,
-    #[derivative(Default(value = "3"))]
+    #[derivative(Default(value = "4"))]
     pub context_reset_interval: i32,
     #[derivative(Default(value = "\"飞流直下三千尺 疑是银河落九天\".to_string()"))]
     pub preamble: String,

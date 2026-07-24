@@ -6,7 +6,7 @@ version = `git describe --tags --abbrev=0`
 
 # windows, wayland-portal, wayland-wlr
 features ?= wayland-wlr
-linux-app-postfix = $(if $(filter wayland-portal,$(features)), portal, wlr)
+linux-app-postfix = $(if $(filter wayland-portal,$(features)),portal,wlr)
 run-env = RUST_LOG=debug
 build-env = SLINT_STYLE=fluent CMAKE_POLICY_VERSION_MINIMUM=3.5
 proj-features = --features=${features},database,qrcode,center-window
@@ -59,26 +59,32 @@ clean:
 	cargo clean
 
 packing-windows:
-	cp -f target/release/${app-name}.exe target/${app-name}-${version}-x86_64-windows.exe
+	- rm -rf target/${app-name}-*-x86_64-windows
+	- rm -rf target/${app-name}-*-x86_64-windows.tar.gz
+	cp -rf package/windows target/${app-name}-${version}-x86_64-windows
+	cp -f target/release/${app-name}.exe target/${app-name}-${version}-x86_64-windows
+	cd target && tar -zcf ${app-name}-${version}-x86_64-windows.tar.gz ${app-name}-${version}-x86_64-windows
+	- rm -rf target/${app-name}-${version}-x86_64-windows
 
-packing-linux: linux-bin deb appimage flatpak
+# appimage flatpak
+packing-linux: linux-bin deb
 
 linux-bin:
-	- rm -f target/${app-name}-${version}-x86_64-linux-*.tar.gz
+	- rm -f target/${app-name}-*-x86_64-linux-${linux-app-postfix}.tar.gz
 	tar -zcf target/${app-name}-${version}-x86_64-linux-${linux-app-postfix}.tar.gz -C target/release ${app-name}
 
 deb:
-	- rm -f target/${app-name}-${version}-x86_64-linux-*.deb
+	- rm -f target/${app-name}-*-x86_64-linux-${linux-app-postfix}.deb
 	cd package/deb && bash -e "./pkg-deb.sh"
 	mv package/deb/$(app-name).deb target/${app-name}-${version}-x86_64-linux-${linux-app-postfix}.deb
 
 appimage:
-	- rm -f target/${app-name}-${version}-x86_64-linux-*.AppImage
+	- rm -f target/${app-name}-*-x86_64-linux-${linux-app-postfix}.AppImage
 	cd package/appimage && bash -e "./pkg-appimage.sh"
 	mv package/appimage/$(app-name).AppImage target/${app-name}-${version}-x86_64-linux-${linux-app-postfix}.AppImage
 
 flatpak:
-	- rm -f target/${app-name}-${version}-x86_64-linux-*.flatpak
+	- rm -f target/${app-name}-*-x86_64-linux-${linux-app-postfix}.flatpak
 	cd package/flatpak && bash -e "./pkg-flatpak.sh"
 	mv package/flatpak/$(app-name).flatpak target/${app-name}-${version}-x86_64-linux-${linux-app-postfix}.flatpak
 

@@ -45,6 +45,7 @@ export component RecordAudioDialog inherits MovingDialog {
             vpadding: Theme.padding;
             placeholder-text: Logic.tr("Please select a save directory");
             enabled: !Store.video-editor-is-recording-audio;
+            border-color: Logic.dir-exist(self.text) ? self.default-border-color : Theme.danger-color;
 
             clicked => {
                 Logic.video-editor-record-audio-select-dir();

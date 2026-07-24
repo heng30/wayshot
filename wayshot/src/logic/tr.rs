@@ -1300,7 +1300,7 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Apply", "应用"),
             ("Smart Mix Settings", "智能混剪设置"),
             ("VL Model Directory", "VL 模型目录"),
-            ("Path to LFM2.5-VL model directory", "LFM2.5-VL 模型目录路径"),
+            ("Path to LFM2.5-VL-450M-ONNX model directory", "LFM2.5-VL-450M-ONNX 模型目录路径"),
             ("Model Precision", "模型精度"),
             ("Max Output Tokens", "最大输出 Token 数"),
             ("VL Prompt", "VL 提示词"),

@@ -2,7 +2,7 @@ Package: wayshot
 Version: 0.1.0
 Architecture: amd64
 Maintainer: heng30
-Depends:
+Depends: libasound2, libavcodec60, libavdevice60, libavformat60, libavutil58, libfontconfig1, libgcc-s1, libopus0, libpipewire-0.3-0, libqt6core6, libqt6gui6, libqt6widgets6, libstdc++6, libswscale7, libxcb1
 Section: utils
 Priority: optional
 Homepage: https://github.com/heng30/wayshot
