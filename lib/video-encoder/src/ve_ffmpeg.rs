@@ -9,6 +9,7 @@ pub struct FfmpegVideoEncoder {
     height: u32,
     frame_index: u64,
     encoder: encoder::Video,
+    config: VideoEncoderConfig,
 }
 
 impl FfmpegVideoEncoder {
@@ -84,6 +85,7 @@ impl FfmpegVideoEncoder {
             height: config.height,
             encoder,
             frame_index: 0,
+            config,
         })
     }
 
@@ -171,9 +173,9 @@ impl VideoEncoder for FfmpegVideoEncoder {
     }
 
     fn headers(&mut self) -> Result<Vec<u8>> {
-        log::debug!("Encoding test frame to extract headers from FFmpeg");
+        log::debug!("Extracting headers from FFmpeg encoder");
 
-        // Create a test frame (black frame)
+        // Create a test frame (black frame) to force the encoder to emit SPS/PPS
         let test_frame_data = vec![0u8; (self.width * self.height * 3) as usize];
         let test_img = image::RgbImage::from_raw(self.width, self.height, test_frame_data)
             .ok_or_else(|| {
@@ -186,35 +188,46 @@ impl VideoEncoder for FfmpegVideoEncoder {
         let mut output_frame = self.create_yuv_frame_from_i420(&i420_data)?;
         output_frame.set_pts(Some(0));
 
-        // Send test frame to encoder
         self.encoder.send_frame(&output_frame).map_err(|e| {
             EncoderError::VideoEncodingFailed(format!("FFmpeg test frame encoding failed: {e}"))
         })?;
 
-        // Try to receive packet (should contain SPS/PPS headers)
         let mut packet = packet::Packet::empty();
-        match self.encoder.receive_packet(&mut packet) {
+        let headers = match self.encoder.receive_packet(&mut packet) {
             Ok(_) => {
                 if let Some(data) = packet.data() {
                     log::debug!(
                         "Successfully extracted headers from FFmpeg test frame: {} bytes",
                         data.len()
                     );
-                    return Ok(data.to_vec());
+                    Some(data.to_vec())
+                } else {
+                    None
                 }
             }
             Err(ffmpeg_next::Error::Other { errno }) if errno == 11 => {
                 log::warn!("FFmpeg encoder needs more frames to generate headers");
+                None
             }
             Err(e) => {
                 return Err(EncoderError::VideoEncodingFailed(format!(
                     "Failed to receive headers packet: {e}",
                 )));
             }
-        }
+        };
 
-        log::warn!("Could not extract headers from FFmpeg test frame, using empty headers");
-        Ok(vec![])
+        // Re-create the encoder to reset its state after the test frame
+        log::debug!("Re-creating FFmpeg encoder after header extraction");
+        let new_self = Self::new(self.config.clone())?;
+        self.encoder = new_self.encoder;
+        self.frame_index = 0;
+
+        if let Some(headers_data) = headers {
+            Ok(headers_data)
+        } else {
+            log::warn!("Could not extract headers from FFmpeg test frame, using empty headers");
+            Ok(vec![])
+        }
     }
 
     fn flush(mut self: Box<Self>, mut cb: Box<dyn FnMut(Vec<u8>, bool) + 'static>) -> Result<()> {

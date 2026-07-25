@@ -10,7 +10,23 @@ dst_icon_name="xyz.heng30.wayshot.png"
 icon_dir="$ROOT_DIR/wayshot/ui/images/png"
 pkg_dir="$DIR/package"
 lib_dir="$DIR/extra-libs"
-qt_plugins_src="/usr/lib/x86_64-linux-gnu/qt6/plugins"
+# Auto-detect Qt6 plugins path
+qt_plugins_src=""
+_qt_plugins_candidate=$(qmake6 -query QT_INSTALL_PLUGINS 2>/dev/null || true)
+for candidate in \
+    "$_qt_plugins_candidate" \
+    /usr/lib/x86_64-linux-gnu/qt6/plugins \
+    /usr/lib/qt6/plugins; do
+    if [ -d "$candidate/wayland-decoration-client" ]; then
+        qt_plugins_src="$candidate"
+        break
+    fi
+done
+if [ -z "$qt_plugins_src" ]; then
+    echo "Error: Qt6 plugins directory not found. Install Qt6 Wayland dev packages."
+    exit 1
+fi
+echo "Using Qt6 plugins from: $qt_plugins_src"
 qt_plugins_dir="$DIR/qt6-plugins"
 magick_tool="magick"
 sizes=(16x16 22x22 24x24 32x32 36x36 48x48 64x64 72x72 96x96 128x128 192x192 256x256 512x512)
@@ -54,7 +70,7 @@ done
 rm -rf "$lib_dir"
 mkdir -p "$lib_dir"
 
-skip_libs="libc.so.6 libcrypt.so.1 libdl.so.2 libm.so.6 libmvec.so.1 libpthread.so.0 libresolv.so.2 librt.so.1 libthread_db.so.1 libutil.so.1 ld-linux-x86_64-so.2 ld-linux.so.2"
+skip_libs="libc.so.6 libcrypt.so.1 libdl.so.2 libm.so.6 libmvec.so.1 libpthread.so.0 libresolv.so.2 librt.so.1 libthread_db.so.1 libutil.so.1 ld-linux-x86_64-so.2 ld-linux.so.2 libasound.so.2 libpipewire-0.3.so.0 libwayland-client.so.0 libwayland-cursor.so.0 libwayland-egl.so.1"
 
 echo "Collecting shared libraries from binary..."
 ldd "$ROOT_DIR/target/release/${app_name}" | grep "=> /" | awk '{print $3}' | sort -u | while read lib; do

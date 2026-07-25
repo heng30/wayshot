@@ -315,7 +315,7 @@ impl Mp4Exporter {
             .as_ref()
             .map(|lf| lf.composited_image.clone())
             .or_else(|| {
-                if !unified_frame.text.is_empty() {
+                if !unified_frame.text.is_empty() || !unified_frame.subtitle.is_empty() {
                     Some(RgbaImage::new(state.output_width, state.output_height))
                 } else {
                     None

@@ -1,1 +1,3 @@
 *.deb
+/package/usr/bin/
+/package/usr/share/icons/

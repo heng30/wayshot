@@ -331,8 +331,8 @@ impl PreviewRenderer {
                 } = frame;
 
                 let mut video_frame = layer_frames.or_else(|| {
-                    // 没有视频帧，就创建透明帧，用于绘制文字
-                    if !text.is_empty() {
+                    // 没有视频帧，就创建透明帧，用于绘制文字或字幕
+                    if !text.is_empty() || !subtitle.is_empty() {
                         let width = self.config.mixer.output_width.unwrap_or(1920);
                         let height = self.config.mixer.output_height.unwrap_or(1080);
                         Some(Self::create_transparent_layer_frames(
@@ -581,7 +581,7 @@ impl PreviewRenderer {
             } = frame;
 
             let mut video_frame = layer_frames.or_else(|| {
-                if !text.is_empty() {
+                if !text.is_empty() || !subtitle.is_empty() {
                     let width = self.config.mixer.output_width.unwrap_or(1920);
                     let height = self.config.mixer.output_height.unwrap_or(1080);
                     Some(Self::create_transparent_layer_frames(
@@ -688,7 +688,7 @@ impl PreviewRenderer {
                 } = frame;
 
                 let mut video_frame = layer_frames.or_else(|| {
-                    if !text.is_empty() {
+                    if !text.is_empty() || !subtitle.is_empty() {
                         let width = self.config.mixer.output_width.unwrap_or(1920);
                         let height = self.config.mixer.output_height.unwrap_or(1080);
                         Some(Self::create_transparent_layer_frames(

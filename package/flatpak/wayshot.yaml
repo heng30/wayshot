@@ -16,7 +16,9 @@ finish-args:
   - --filesystem=~/.icons:ro
   - --env=LD_LIBRARY_PATH=/app/lib
   - --env=QT_PLUGIN_PATH=/app/qt6/plugins
-  - --env=GTK_THEME=Adwaita
+  - --env=GTK_THEME=Default
+  - --env=QT_WAYLAND_DECORATION=bradient
+  - --env=QT_QPA_PLATFORMTHEME=gnome
 modules:
   - name: extra-libs
     buildsystem: simple

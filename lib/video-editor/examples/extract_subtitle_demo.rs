@@ -181,7 +181,7 @@ fn main() {
                 ];
 
                 for timestamp in test_timestamps {
-                    if let Some(subtitle) = iterator.get_subtitle_at(timestamp) {
+                    if let Some(subtitle) = iterator.get_subtitle_at(timestamp, Duration::from_secs_f64(1.0 / 30.0)) {
                         log::info!(
                             "At {:.1}s: {:.1}s - {:.1}s: {}",
                             timestamp.as_secs_f64(),

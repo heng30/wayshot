@@ -66,8 +66,7 @@ packing-windows:
 	cd target && tar -zcf ${app-name}-${version}-x86_64-windows.tar.gz ${app-name}-${version}-x86_64-windows
 	- rm -rf target/${app-name}-${version}-x86_64-windows
 
-# appimage flatpak
-packing-linux: linux-bin deb
+packing-linux: linux-bin deb appimage flatpak
 
 linux-bin:
 	- rm -f target/${app-name}-*-x86_64-linux-${linux-app-postfix}.tar.gz

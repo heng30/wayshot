@@ -63,6 +63,9 @@ for size in "${sizes[@]}"; do
     $magick_tool "${icon_dir}/${icon_name}" -resize "$size" -background none -gravity center -extent "$size" "$DIR/package/usr/share/icons/hicolor/${size}/apps/${dst_icon_name}"
 done
 
+chmod 0755 $DIR/package/DEBIAN
+chmod 0644 $DIR/package/DEBIAN/control $DIR/package/DEBIAN/copyright
+chmod 0755 $DIR/package/DEBIAN/preinst $DIR/package/DEBIAN/postinst
 dpkg-deb --root-owner-group --build package ${app_name}.deb
 
 rm -f ${bin_dir}/${app_name}

@@ -492,7 +492,7 @@ impl AVPlayerApp {
 
         // 使用 subtitle_iter 的 get_subtitle_at 方法
         if let Some(iter) = &self.subtitle_iter {
-            if let Some(subtitle) = iter.get_subtitle_at(current_time) {
+            if let Some(subtitle) = iter.get_subtitle_at(current_time, Duration::from_secs_f64(1.0 / 30.0)) {
                 log::info!(
                     "Rendering subtitle at {:.2}s: '{}'",
                     current_time.as_secs_f64(),
