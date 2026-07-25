@@ -497,6 +497,17 @@ component LeftPanel inherits VerticalLayout {
                                     }
                                 }
 
+                                if idx == 0 && entry.samples.length > 0 && entry.text == config.preamble: IconBtn {
+                                    is-show-tip: true;
+                                    tip: Logic.tr("Cache Preamble");
+                                    icon-size: Theme.icon-size * 0.7;
+                                    icon: Icons.save-light;
+
+                                    clicked => {
+                                        Logic.video-editor-tts-cache-preamble-samples(idx);
+                                    }
+                                }
+
                                 IconBtn {
                                     is-show-tip: true;
                                     tip: Logic.tr("Insert Below");

@@ -20,7 +20,8 @@ use hound::{WavSpec, WavWriter};
 use rodio::{ChannelCount, MixerDeviceSink, Player, SampleRate, buffer::SamplesBuffer};
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel, Weak};
 use std::{
-    collections::HashSet,
+    collections::{HashSet, hash_map::DefaultHasher},
+    hash::{Hash, Hasher},
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex, OnceLock,
@@ -200,6 +201,7 @@ pub fn init(ui: &AppWindow) {
     logic_cb!(video_editor_tts_remove_voice, ui, index);
     logic_cb!(video_editor_tts_release_resource, ui);
     logic_cb!(video_editor_tts_add_preamble_entry, ui);
+    logic_cb!(video_editor_tts_cache_preamble_samples, ui, index);
 }
 
 fn inner_init(ui: &AppWindow) {
@@ -660,11 +662,26 @@ fn video_editor_tts_add_preamble_entry(ui: &AppWindow) {
         return;
     }
 
+    let reference_audio_path = config.reference_audio_path.to_string();
+    let cache_path = preamble_cache_path(&preamble, &reference_audio_path);
+
+    let (samples, duration) = if cache_path.exists() {
+        match read_wav_samples(&cache_path) {
+            Some(s) => {
+                let dur = (s.len() / VOXCPM_SAMPLE_RATE as usize) as i32;
+                (ModelRc::new(VecModel::from_slice(&s)), dur)
+            }
+            None => (ModelRc::default(), 0),
+        }
+    } else {
+        (ModelRc::default(), 0)
+    };
+
     let entry = UITTSEntry {
         text: preamble.into(),
-        samples: ModelRc::default(),
+        samples,
         is_generating: false,
-        duration: 0,
+        duration,
     };
     store_video_editor_tts_entries!(ui).insert(0, entry);
 }
@@ -1326,6 +1343,94 @@ fn get_built_in_voice_cache_path(idx: usize) -> Option<PathBuf> {
     }
 
     Some(cache_path)
+}
+
+fn preamble_cache_key(preamble: &str, reference_audio_path: &str) -> String {
+    let ref_name = if reference_audio_path.starts_with("built_in://") {
+        reference_audio_path.to_string()
+    } else {
+        Path::new(reference_audio_path)
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| reference_audio_path.to_string())
+    };
+    let mut hasher = DefaultHasher::new();
+    preamble.hash(&mut hasher);
+    ref_name.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}
+
+fn preamble_cache_dir() -> PathBuf {
+    crate::config::all().cache_dir.join("tts_preamble")
+}
+
+fn preamble_cache_path(preamble: &str, reference_audio_path: &str) -> PathBuf {
+    let key = preamble_cache_key(preamble, reference_audio_path);
+    preamble_cache_dir().join(format!("{}.wav", key))
+}
+
+fn read_wav_samples(path: &Path) -> Option<Vec<f32>> {
+    let reader = hound::WavReader::open(path).ok()?;
+    let spec = reader.spec();
+    let samples: Vec<f32> = match spec.sample_format {
+        hound::SampleFormat::Float => reader
+            .into_samples()
+            .filter_map(|s: hound::Result<f32>| s.ok())
+            .collect(),
+        hound::SampleFormat::Int => reader
+            .into_samples()
+            .filter_map(|s: hound::Result<i16>| s.ok())
+            .map(|s| s as f32 / 32768.0)
+            .collect(),
+    };
+    if samples.is_empty() {
+        return None;
+    }
+    if spec.sample_rate != VOXCPM_SAMPLE_RATE {
+        voxcpm_rs::audio::resample(&samples, spec.sample_rate, VOXCPM_SAMPLE_RATE).ok()
+    } else {
+        Some(samples)
+    }
+}
+
+fn video_editor_tts_cache_preamble_samples(ui: &AppWindow, index: i32) {
+    let index = index as usize;
+    let Some(entry) = store_video_editor_tts_entries!(ui).row_data(index) else {
+        crate::toast_warn!(ui, tr("No entry at index"));
+        return;
+    };
+
+    let samples: Vec<f32> = entry.samples.iter().collect();
+    if samples.is_empty() {
+        crate::toast_warn!(ui, tr("No audio samples to cache"));
+        return;
+    }
+
+    let config = global_store!(ui).get_video_editor_tts_config();
+    let preamble = config.preamble.to_string();
+    let reference_audio_path = config.reference_audio_path.to_string();
+
+    if preamble.is_empty() {
+        crate::toast_warn!(ui, tr("preamble text is empty"));
+        return;
+    }
+
+    let cache_dir = preamble_cache_dir();
+    if !cache_dir.exists() && std::fs::create_dir_all(&cache_dir).is_err() {
+        crate::toast_warn!(ui, tr("Failed to create cache directory"));
+        return;
+    }
+
+    let cache_path = preamble_cache_path(&preamble, &reference_audio_path);
+    if let Err(e) = write_wav(&cache_path, &samples) {
+        crate::toast_warn!(
+            ui,
+            format!("{}: {e}", tr("Failed to cache preamble samples"))
+        );
+        return;
+    }
+
+    crate::toast_success!(ui, tr("Preamble samples cached"));
 }
 
 fn build_generate_options_with_context(
