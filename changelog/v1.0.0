@@ -1,0 +1,233 @@
+# v1.0.0
+
+## English
+
+### Highlights
+
+- **Video Editing** — Full-featured video editor with multi-track timeline, 46 video filters, 12 audio filters, keyframe animation, subtitle editing, and rich AI-powered tools.
+
+### Features
+
+#### Timeline & Tracks
+- Multi-track timeline with 5 track types: Video, Audio, Subtitle, Image, Text
+- Automatic track priority ordering: Subtitle > Text > Video/Image > Audio
+- Segment operations: Add, insert, move, copy, delete, split, merge
+- Segment trimming: Drag left/right edges to trim, stretch to extend
+- Track operations: Add, delete, move, copy, lock, hide, mute
+- Smart snapping: Auto-snap to segment edges and playhead position
+- Link mode: Single-track link, all-tracks link
+- One-click gap removal: Remove gaps between segments (left/right/all)
+- Detach audio/subtitle: Extract audio or subtitle from video segment to a separate track
+
+#### Undo & Redo
+- Full undo/redo system based on the Command Pattern
+- Batch operations (atomic multi-command composition)
+- Configurable history limit (default 1000 steps)
+
+#### Video Filters (46 types)
+- **Transform**: Transform (position/scale/rotation), Crop, Flip, Zoom, Speed, Frame Extract
+- **Transition**: Fly In (8 directions), Fade In/Out, Slide (4 directions), Wipe (4 directions), Genie, Page Flip, Split
+- **Mask**: Linear Mask, Circle Mask, Rectangle Mask, Mirror Mask
+- **Effect**: Chroma Key (green screen), Vignette, Fisheye, Wave, Grain, Old Film, Sketch, Grayscale, Edge Detect, Sharpen, Directional Blur, Gaussian Blur, Breathing
+- **Overlay**: Mosaic, Draw Circle, Draw Rectangle, Local Magnify, Magnifier, Text Highlight, Border, Background, Shadow, Grid, Device Frame, Opacity
+- **AI/Advanced**: Focus, Live2D Animation Overlay, HSL Adjust
+
+#### Audio Filters (12 types)
+- Gain, Fade In, Fade Out, Normalize, Mute (left/right/both channels), Copy Channel, Limiter, Noise Gate, Compressor, Voice Changer, Speed
+- AI Denoising (DeepFilter)
+
+#### Global Filters (5 types)
+- Progress Bar, Global Rotation, Timer/Clock, Global Speed, Danmaku (bullet comments) Overlay
+
+#### Keyframe Animation
+- Add keyframe animations to filter properties
+- Value types: Float, Float2 (position/scale), Color (RGBA), Bool
+- Keyframe operations: Add, delete, move, update
+- Visual keyframe markers on the timeline, drag to adjust timing
+
+#### Subtitle Editing
+- Manually add/modify/delete subtitle entries
+- Subtitle style system: Font, size, color, border, border radius, alignment, margins, padding, etc.
+- Export subtitles: SRT, VTT, ASS formats
+- AI subtitle translation
+- AI subtitle removal (based on LaMa inpainting model)
+
+#### Text Overlay
+- Text overlay editor: Content, position, rotation, opacity
+- Font selection, size, color, outline, background, border, alignment
+- Keyframe animation for position/rotation/opacity
+- Preset text style save and load
+
+#### Export
+- **Video Export**: MP4 (H.264 encoding), supports x264/openh264/ffmpeg backends
+  - Resolution: Original, 480P-4K, Portrait, Square, Instagram Portrait
+  - Frame rate: 24/25/30/60 FPS
+  - Quality presets: Low/Medium/High/Ultra (CRF 28/23/18/15)
+  - Audio: Configurable channels and sample rate
+  - Low memory mode
+  - Subtitle burning
+- **Audio Export**: AAC, FLAC, MP3, OGG, WAV
+- **Subtitle Export**: SRT, VTT, ASS
+- Export queue: Multiple export tasks in parallel, progress display, cancellable
+
+#### Project Management
+- Project file save/load (JSON format)
+- Auto-save and crash recovery
+- Recent projects list
+- Project notes (Memo)
+- Chapter markers
+
+#### AI Tools
+- Smart Clip — AI identifies highlights and auto-clips
+- Smart Mix — Three-phase AI pipeline: Speech transcription → Visual recognition → Semantic matching
+- Scene Detection — Auto-detect video scene boundaries
+- Transcription — FunASR speech-to-text
+- Subtitle Translation — AI subtitle translation
+- Subtitle Remover — AI removal of hardcoded subtitles/watermarks
+- Background Remover — AI background removal
+- Cutout — AI object cutout/segmentation
+- Dewatermark — AI watermark removal
+- Clear Vision — AI super-resolution enhancement (SwinIR)
+- Deep Filter — DeepFilter audio denoising
+- Stem Splitter — AI music stem separation (vocals/drums/bass etc.)
+- Speakers — AI speaker diarization
+- OCR — Optical character recognition
+- TTS — VoxCPM text-to-speech synthesis
+- Music Generation — MusicGen music generation
+- Similar Video Segment — Embedding-based similar video segment detection
+- Chapter Summary — AI-generated video chapter summary generation
+
+#### Other Tools
+- Background animations (18 types): Black Hole, Bokeh, Flow Field, Fluid, Galaxy, Glitch, Grid, Ink, Kaleidoscope, Light Effects, Matrix Rain, Noise Flow, Particle Life, Particle Network, Shape, Triangle, Wave, etc.
+- Image animations: Arrow, Grade Mark, Rectangle Draw, Scroll
+- Code to Image: Syntax-highlighted code screenshots
+- Pure Color Image generation
+- Long Screenshot stitching
+- Online search for images and audio
+- In-editor audio recording
+- Metadata viewer
+- MCP Server: Exposes 50+ editor operations via Model Context Protocol
+
+#### Keyboard Shortcuts
+- Project: Ctrl+N/O/S/W/Q (New/Open/Save/Close/Quit)
+- Edit: Ctrl+Z/Shift+Z (Undo/Redo), Ctrl+C/X/V (Copy/Cut/Paste)
+- Timeline: Space (Play/Pause), S (Split), M (Merge), Delete (Remove), Home/End (Jump)
+- Tools: 30+ shortcuts covering all AI tools
+- Panels: Alt+1/2/3/4 to switch left panel tabs
+
+---
+
+## 简体中文
+
+### 亮点
+
+- **视频编辑** — 全功能视频编辑器，支持多轨道时间轴、46种视频滤镜、12种音频滤镜、关键帧动画、字幕编辑及丰富的AI辅助工具。
+
+### 功能
+
+#### 时间轴与轨道
+- 多轨道时间轴，支持5种轨道类型：视频、音频、字幕、图片、文本
+- 轨道优先级自动排序：字幕 > 文本 > 视频/图片 > 音频
+- 片段操作：添加、插入、移动、复制、删除、分割、合并
+- 片段裁剪：左/右边缘拖拽裁剪，拉伸延伸
+- 轨道操作：添加、删除、移动、复制、锁定、隐藏、静音
+- 智能对齐：片段边缘和播放头位置自动吸附
+- 联动模式：单轨道联动、全轨道联动
+- 一键移除间隙：移除片段间空隙，支持移除左侧/右侧/全部间隙
+- 分离音频/字幕：从视频片段中提取音频或字幕到独立轨道
+
+#### 撤销与重做
+- 基于命令模式（Command Pattern）的完整撤销/重做系统
+- 支持批量操作（原子性多命令组合）
+- 历史记录上限可配置（默认1000步）
+
+#### 视频滤镜（46种）
+- **变换**：变换（位置/缩放/旋转）、裁剪、翻转、缩放、速度、帧提取
+- **转场**：飞入（8方向）、淡入/淡出、滑动（4方向）、擦除（4方向）、精灵、翻页、分割
+- **遮罩**：线性遮罩、圆形遮罩、矩形遮罩、镜像遮罩
+- **特效**：色度键（绿幕）、暗角、鱼眼、波浪、颗粒噪点、老电影、素描、灰度、边缘检测、锐化、方向模糊、高斯模糊、呼吸动画
+- **叠加**：马赛克、画圆、画矩形、局部放大、放大镜、文本高亮、边框、背景、阴影、网格、设备边框、透明度
+- **AI/高级**：聚焦、Live2D动画叠加、HSL调色
+
+#### 音频滤镜（12种）
+- 增益、淡入、淡出、标准化、静音（左/右/双声道）、声道复制、限幅器、噪声门、压缩器、变声、速度
+- AI降噪（DeepFilter）
+
+#### 全局滤镜（5种）
+- 进度条、全局旋转、计时器/时钟、全局速度、弹幕叠加
+
+#### 关键帧动画
+- 支持对滤镜属性添加关键帧动画
+- 数值类型：浮点数、二维坐标、颜色（RGBA）、布尔值
+- 关键帧操作：添加、删除、移动、更新
+- 时间轴上可视化关键帧标记，支持拖拽调整时间位置
+
+#### 字幕编辑
+- 手动添加/修改/删除字幕条目
+- 字幕样式系统：字体、大小、颜色、边框、圆角、对齐方式、内外边距等
+- 导出字幕：SRT、VTT、ASS 格式
+- AI字幕翻译
+- AI字幕去除（基于LaMa修复模型）
+
+#### 文本叠加
+- 文本叠加编辑器：内容、位置、旋转、透明度
+- 字体选择、大小、颜色、轮廓、背景、边框、对齐
+- 位置/旋转/透明度支持关键帧动画
+- 预设文本样式保存与加载
+
+#### 导出
+- **视频导出**：MP4（H.264编码），支持x264/openh264/ffmpeg后端
+  - 分辨率：原始、480P-4K、竖屏、方形、Instagram竖屏
+  - 帧率：24/25/30/60 FPS
+  - 质量预设：低/中/高/极高（CRF 28/23/18/15）
+  - 音频：可配置声道数和采样率
+  - 低内存模式
+  - 字幕烧录
+- **音频导出**：AAC、FLAC、MP3、OGG、WAV
+- **字幕导出**：SRT、VTT、ASS
+- 导出队列：支持多个导出任务并行，进度显示，可取消
+
+#### 项目管理
+- 项目文件保存/加载（JSON格式）
+- 自动保存与崩溃恢复
+- 最近项目列表
+- 项目备注（Memo）
+- 章节标记
+
+#### AI工具
+- 智能口播剪辑 — AI识别精彩片段，自动剪辑
+- 智能混剪 — 三阶段AI流水线：语音转录→视觉识别→语义匹配
+- 场景检测 — 自动检测视频场景边界
+- 语音转录 — FunASR语音转文字
+- 字幕翻译 — AI字幕翻译
+- 字幕去除 — AI去除视频中的硬字幕/水印
+- 背景移除 — AI抠图去背景
+- 抠图 — AI目标抠图分割
+- 去水印 — AI水印去除
+- 画质增强 — AI超分辨率增强（SwinIR）
+- AI降噪 — DeepFilter音频降噪
+- 音轨分离 — AI音乐分轨（人声/鼓/贝斯等）
+- 说话人分离 — AI说话人识别与分段
+- OCR — 光学字符识别
+- 文字转语音 — VoxCPM TTS语音合成
+- AI音乐生成 — MusicGen音乐生成
+- 相似视频检测 — 基于嵌入的相似视频片段检测
+- 章节摘要 — AI生成视频章节摘要
+
+#### 其他工具
+- 背景动画（18种）：黑洞、散景、流场、流体、银河、故障、网格、墨水、万花筒、光线、矩阵雨、噪声流、粒子生命、粒子网络、形状、三角、波浪等
+- 图片动画：箭头、评分标记、矩形绘制、滚动动画
+- 代码转图片：代码语法高亮截图
+- 纯色图片生成
+- 长截图拼接
+- 在线搜索图片和音频
+- 编辑器内录音
+- 元数据查看
+- MCP服务器：通过Model Context Protocol暴露50+编辑器操作
+
+#### 快捷键
+- 项目：Ctrl+N/O/S/W/Q（新建/打开/保存/关闭/退出）
+- 编辑：Ctrl+Z/Shift+Z（撤销/重做）、Ctrl+C/X/V（复制/剪切/粘贴）
+- 时间轴：Space（播放/暂停）、S（分割）、M（合并）、Delete（删除）、Home/End（跳转）
+- 工具：30+快捷键覆盖所有AI工具
+- 面板：Alt+1/2/3/4切换左侧面板标签
