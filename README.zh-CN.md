@@ -241,4 +241,14 @@
 
 ----
 
-[![Star History Chart](https://api.star-history.com/svg?repos=heng30/wayshot&type=date&legend=top-left)](https://www.star-history.com/#heng30/wayshot&type=date&legend=top-left)
+## 捐赠
+<div style="display: flex; gap: 40px; justify-content: center; align-items: center; padding: 20px;">
+  <div style="text-align: center;">
+    <img src="wayshot/ui/images/png/wechat-pay.png" alt="wechat-pay" width="200">
+    <p>微信支付</p>
+  </div>
+  <div style="text-align: center;">
+    <img src="wayshot/ui/images/png/metamask-pay.png" alt="metamask-pay" width="200">
+    <p>MetaMask（加密货币）</p>
+  </div>
+</div>
