@@ -1,0 +1,7 @@
+# 64 bit MSVC
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=/STACK:33554432"]
+
+# 64 bit Mingw
+[target.x86_64-pc-windows-gnu]
+rustflags = ["-C", "link-arg=/STACK:33554432"]
