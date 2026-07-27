@@ -242,13 +242,17 @@
 ----
 
 ## 捐赠
-<div style="display: flex; gap: 40px; justify-content: center; align-items: center; padding: 20px;">
-  <div style="text-align: center;">
-    <img src="wayshot/ui/images/png/wechat-pay.png" alt="wechat-pay" width="200">
-    <p>微信支付</p>
-  </div>
-  <div style="text-align: center;">
-    <img src="wayshot/ui/images/png/metamask-pay.png" alt="metamask-pay" width="200">
-    <p>MetaMask（加密货币）</p>
-  </div>
+<div align="center">
+  <table style="border-spacing: 40px 0;">
+    <tr>
+      <td align="center">
+        <img src="wayshot/ui/images/png/wechat-pay.png" alt="wechat-pay" width="200"><br>
+        <p>微信支付</p>
+      </td>
+      <td align="center">
+        <img src="wayshot/ui/images/png/metamask-pay.png" alt="metamask-pay" width="200"><br>
+        <p>MetaMask（加密货币）</p>
+      </td>
+    </tr>
+  </table>
 </div>
