@@ -47,7 +47,7 @@ for size in "${sizes[@]}"; do
 done
 
 mkdir -p "$appdir/usr/share/metainfo"
-cp "$DIR/package/usr/share/metainfo/wayshot.appdata.xml" "$appdir/usr/share/metainfo/"
+cp "$DIR/wayshot.appdata.xml" "$appdir/usr/share/metainfo/"
 
 cp "$DIR/package/usr/share/applications/${app_name}.desktop" "$appdir/"
 cp "$DIR/package/usr/share/applications/${app_name}.desktop" "$appdir/usr/share/applications/"
