@@ -5,10 +5,9 @@
 
 <p align="center">
     <a href="https://github.com/heng30/wayshot/releases"><img src="https://img.shields.io/github/v/release/heng30/wayshot" alt="Release"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-APACHE2.0-blue.svg" alt="License: APACHE2.0"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPLv3"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-APACHE2.0%20%7C%20GPLv3-blue.svg" alt="License"></a>
+    <a href="Platform"><img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-blue.svg" alt="Platform"></a>
     <a href="https://doc.rust-lang.org/edition-guide/rust-2024/"><img src="https://img.shields.io/badge/Rust-2024_edition-orange" alt="Rust 2024"></a>
-    <a href="Platform"><img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-blue.svg" alt="Platforms"></a>
     <a href="Stars"><img src="https://img.shields.io/github/stars/heng30/wayshot?style=social" alt="Stars"></a>
 </p>
 
