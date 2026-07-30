@@ -50,6 +50,7 @@ import { Shadow } from "video/shadow.slint";
 import { DeviceFrame } from "video/device-frame.slint";
 import { Genie } from "video/genie.slint";
 import { PageFlip } from "video/page-flip.slint";
+import { Lighting } from "video/lighting.slint";
 import { Grid } from "video/grid.slint";
 import { Split } from "video/split.slint";
 import { Live2d } from "video/live-2d.slint";
@@ -487,6 +488,16 @@ export component FilterImageDetail inherits Rectangle {
 
         apply(idx, config) => {
             VEFilter.modify-page-flip-filter(idx, config, FilterType.Image);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "lighting": Lighting {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-lighting-filter(idx, config, FilterType.Image);
         }
     }
 

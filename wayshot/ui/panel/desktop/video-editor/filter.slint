@@ -507,6 +507,26 @@ export struct PageFlipDetail {
     keep-base: bool,        // Whether to keep original image as base layer (peel/tear effect)
 }
 
+export struct LightingDetail {
+    color-r: int,           // Light color R (0-255)
+    color-g: int,           // Light color G (0-255)
+    color-b: int,           // Light color B (0-255)
+    brightness: float,      // Light brightness (default 1450.0)
+    angle-deg: float,       // Cone angle in degrees (1.0-180.0)
+    penumbra: float,        // Edge softness (0.0-1.0)
+    decay: float,           // Distance decay exponent (0.0-10.0)
+    max-distance: float,    // Maximum light distance (1.0-100.0)
+    direction: int,         // LightingDirection enum as int (0=Down, 1=Up, 2=Left, 3=Right)
+    pos-x: float,           // Light position X (-1.0-2.0)
+    pos-y: float,           // Light position Y (-1.0-2.0)
+    rope-length: float,     // Rope length for pendulum (0.0-1.0)
+    gravity: float,         // Gravity strength
+    swing: float,           // Swing amplitude (0.0-1.0)
+    damping: float,         // Pendulum damping (0.0-1.0)
+    ambient: float,         // Ambient light level (0.0-1.0)
+    scene: int,             // LightingScene enum as int (0=Vertical, 1=Horizontal)
+}
+
 export struct SplitDetail {
     position: int,       // EffectPosition enum as int (0=Start, 1=End)
     duration: int,       // milliseconds
@@ -832,6 +852,9 @@ export global VEFilter {
 
     pure callback from-page-flip-json(json: string) -> PageFlipDetail;
     callback modify-page-flip-filter(index: int, config: PageFlipDetail, filter-type: FilterType);
+
+    pure callback from-lighting-json(json: string) -> LightingDetail;
+    callback modify-lighting-filter(index: int, config: LightingDetail, filter-type: FilterType);
 
     pure callback from-split-json(json: string) -> SplitDetail;
     callback modify-split-filter(index: int, config: SplitDetail, filter-type: FilterType);

@@ -646,7 +646,7 @@ export component TTSSettingDialog inherits MovingDialog {
                 text: setting.save-dir;
                 icon: Icons.file-open-light;
                 is-show-icon: true;
-                border-color: Logic.dir-exist(setting.model-dir) ? self.default-border-color : Theme.danger-color;
+                border-color: Logic.dir-exist(setting.save-dir) ? self.default-border-color : Theme.danger-color;
 
                 clicked => {
                     Logic.video-editor-tts-open-choose-save-dir();

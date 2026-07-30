@@ -16,10 +16,10 @@ use crate::slint_generatedAppWindow::{
     GrayscaleDetail as UIGrayscaleDetail, GridDetail as UIGridDetail,
     HighlightRegionDetail as UIHighlightRegionDetail, HslAdjustDetail as UIHslAdjustDetail,
     Keyframe as UIKeyframe, KeyframeValue as UIKeyframeValue,
-    KeyframeValueType as UIKeyframeValueType, LimiterDetail as UILimiterDetail,
-    LinearMaskDetail as UILinearMaskDetail, Live2dDetail as UILive2dDetail,
-    LocalMagnifyDetail as UILocalMagnifyDetail, MagnifierDetail as UIMagnifierDetail,
-    MarginHorizontalDetail as UIMarginHorizontalDetail,
+    KeyframeValueType as UIKeyframeValueType, LightingDetail as UILightingDetail,
+    LimiterDetail as UILimiterDetail, LinearMaskDetail as UILinearMaskDetail,
+    Live2dDetail as UILive2dDetail, LocalMagnifyDetail as UILocalMagnifyDetail,
+    MagnifierDetail as UIMagnifierDetail, MarginHorizontalDetail as UIMarginHorizontalDetail,
     MarginVerticalDetail as UIMarginVerticalDetail, MirrorMaskDetail as UIMirrorMaskDetail,
     MosaicDetail as UIMosaicDetail, MuteDetail as UIMuteDetail,
     NoiseGateDetail as UINoiseGateDetail, NormalizeDetail as UINormalizeDetail,
@@ -61,13 +61,14 @@ use video_editor::filters::{
         FadeOutFilter as VideoFadeOutFilter, FisheyeFilter, FlipDirection, FlipFilter,
         FlyInDirection, FlyInFilter, FocusFilter, FrameExtractFilter, GaussianBlurFilter,
         GenieAnchor, GenieFilter, GrainFilter, GrayscaleFilter, GridFilter, HSLAdjustFilter,
-        HighlightRegion, LinearMaskFilter, Live2dFilter, LocalMagnifyFilter, LuminanceStandard,
-        MagnifierFilter, MirrorMaskFilter, MosaicFilter, OldFilmFilter, OpacityFilter,
-        PageFlipAxis, PageFlipCorner, PageFlipDirection, PageFlipFilter, PageFlipPosition,
-        RectangleMaskFilter, ShadowFilter, SharpenFilter, SketchFilter, SlideDirection,
-        SlideFilter, SpeedFilter, SplitDirection, SplitFilter, TextHighlightFilter,
-        TransformFilter, VignetteFilter, WaveFilter, WaveType, WipeDirection, WipeFilter,
-        ZoomFilter,
+        HighlightRegion, LightingDirection as VELightingDirection,
+        LightingFilter as VELightingFilter, LightingScene as VELightingScene, LinearMaskFilter,
+        Live2dFilter, LocalMagnifyFilter, LuminanceStandard, MagnifierFilter, MirrorMaskFilter,
+        MosaicFilter, OldFilmFilter, OpacityFilter, PageFlipAxis, PageFlipCorner,
+        PageFlipDirection, PageFlipFilter, PageFlipPosition, RectangleMaskFilter, ShadowFilter,
+        SharpenFilter, SketchFilter, SlideDirection, SlideFilter, SpeedFilter, SplitDirection,
+        SplitFilter, TextHighlightFilter, TransformFilter, VignetteFilter, WaveFilter, WaveType,
+        WipeDirection, WipeFilter, ZoomFilter,
     },
 };
 
@@ -1855,6 +1856,56 @@ impl From<UIPageFlipDetail> for PageFlipFilter {
             .with_shadow(d.shadow)
             .with_flip_extent(d.flip_extent as f64)
             .with_keep_base(d.keep_base)
+    }
+}
+
+impl From<VELightingFilter> for UILightingDetail {
+    fn from(f: VELightingFilter) -> Self {
+        Self {
+            color_r: (f.color[0] * 255.0).round() as i32,
+            color_g: (f.color[1] * 255.0).round() as i32,
+            color_b: (f.color[2] * 255.0).round() as i32,
+            brightness: f.brightness,
+            angle_deg: f.angle_deg,
+            penumbra: f.penumbra,
+            decay: f.decay,
+            max_distance: f.max_distance,
+            direction: u8::from(f.direction) as i32,
+            pos_x: f.pos.0,
+            pos_y: f.pos.1,
+            rope_length: f.rope_length,
+            gravity: f.gravity,
+            swing: f.swing,
+            damping: f.damping,
+            ambient: f.ambient,
+            scene: u8::from(f.scene) as i32,
+        }
+    }
+}
+
+impl From<UILightingDetail> for VELightingFilter {
+    fn from(d: UILightingDetail) -> Self {
+        let direction: VELightingDirection = (d.direction as u8).try_into().unwrap_or_default();
+        let scene: VELightingScene = (d.scene as u8).try_into().unwrap_or_default();
+        VELightingFilter::default()
+            .with_color([
+                d.color_r as f32 / 255.0,
+                d.color_g as f32 / 255.0,
+                d.color_b as f32 / 255.0,
+            ])
+            .with_brightness(d.brightness)
+            .with_angle_deg(d.angle_deg)
+            .with_penumbra(d.penumbra)
+            .with_decay(d.decay)
+            .with_max_distance(d.max_distance)
+            .with_direction(direction)
+            .with_pos((d.pos_x, d.pos_y))
+            .with_rope_length(d.rope_length)
+            .with_gravity(d.gravity)
+            .with_swing(d.swing)
+            .with_damping(d.damping)
+            .with_ambient(d.ambient)
+            .with_scene(scene)
     }
 }
 

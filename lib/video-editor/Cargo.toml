@@ -13,6 +13,7 @@ description.workspace = true
 [dependencies]
 log.workspace = true
 lru.workspace = true
+glam.workspace = true
 mp4m.workspace = true
 usvg.workspace = true
 resvg.workspace = true
@@ -25,6 +26,7 @@ realfft.workspace = true
 denoise.workspace = true
 fdk-aac.workspace = true
 turn-rs.workspace = true
+lighting.workspace = true
 num_enum.workspace = true
 vorbis_rs.workspace = true
 stacksafe.workspace = true

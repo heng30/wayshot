@@ -1,0 +1,11 @@
+[package]
+name = "lighting"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+glam.workspace = true
+image.workspace = true
+
+[dev-dependencies]
+clap = { workspace = true, features = ["derive"] }

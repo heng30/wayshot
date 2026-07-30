@@ -31,6 +31,12 @@
     - 如果是视频滤镜，同时需要在 `wayshot/ui/panel/desktop/video-editor/right-panel/filter/image.slint` 中添加滤镜调用实现
     - 如果滤镜参数是有固定范围的，如：0~1。实现自定义的Slider组件。参考 `./wayshot/ui/panel/desktop/video-editor/right-panel/filter/video/vignette.slint` 的实现。
     - 运行`make tr`获取需要翻译的为文本，并且翻译到 `./wayshot/src/logic/tr.rs`。将滤镜名称也翻译到 `./wayshot/src/logic/tr.rs`
+    - **需要注意**：
+        - 如果是有范围的参数，使用 @wayshot/ui/base/slider.slint + ClickAndEditLabel 主键。参考 @wayshot/ui/panel/desktop/video-editor/right-panel/filter/video/hls-adjust.slint 中的实现。
+        - 如果是参数是颜色，参考 @wayshot/ui/panel/desktop/video-editor/right-panel/filter/video/shadow.slint 中的模式。
+        - 如果是没有范围的数值，使用 @wayshot/ui/base/line-input.slint 组件。参考 @wayshot/ui/panel/desktop/video-editor/right-panel/filter/video/mosaic.slint 中的 `Block Size` 参数设置方法
+        - 关键帧的实现参考 @wayshot/ui/panel/desktop/video-editor/right-panel/filter/video/transform.slint
+        - 其他参数，可以参考其他的滤镜参数实现。尽量不要重新实现参数组件。
 
 - 添加一个全局滤镜流程：
     - 在 `lib/video-editor/src/filters/global/` 中添加对应类型的滤镜代码。

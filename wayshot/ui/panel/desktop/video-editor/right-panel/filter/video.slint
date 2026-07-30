@@ -49,6 +49,7 @@ import { RectangleMask } from "video/rectangle-mask.slint";
 import { Shadow } from "video/shadow.slint";
 import { DeviceFrame } from "video/device-frame.slint";
 import { PageFlip } from "video/page-flip.slint";
+import { Lighting } from "video/lighting.slint";
 import { Genie } from "video/genie.slint";
 import { Grid } from "video/grid.slint";
 import { Split } from "video/split.slint";
@@ -487,6 +488,16 @@ export component FilterVideoDetail inherits Rectangle {
 
         apply(idx, config) => {
             VEFilter.modify-page-flip-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "lighting": Lighting {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-lighting-filter(idx, config, FilterType.Video);
         }
     }
 

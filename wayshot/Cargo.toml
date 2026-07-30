@@ -36,6 +36,7 @@ reqwest.workspace = true
 speakrs.workspace = true
 tempfile.workspace = true
 recorder.workspace = true
+lighting.workspace = true
 crossbeam.workspace = true
 once_cell.workspace = true
 screenshot.workspace = true

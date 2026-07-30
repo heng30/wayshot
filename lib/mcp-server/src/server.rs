@@ -3,7 +3,7 @@ use rmcp::{
     RoleServer,
     handler::server::{ServerHandler, router::tool::ToolRouter, tool::ToolCallContext},
     model::{
-        CallToolRequestParams, CallToolResult, ListToolsResult, PaginatedRequestParams, ServerInfo,
+        CallToolRequestParams, CallToolResponse, ListToolsResult, PaginatedRequestParams, ServerInfo,
     },
     service::RequestContext,
 };
@@ -62,7 +62,7 @@ impl ServerHandler for VideoEditorServer {
         &self,
         request: CallToolRequestParams,
         context: RequestContext<RoleServer>,
-    ) -> impl Future<Output = Result<CallToolResult, rmcp::ErrorData>> + Send + '_ {
+    ) -> impl Future<Output = Result<CallToolResponse, rmcp::ErrorData>> + Send + '_ {
         let mut params = CallToolRequestParams::new(request.name.clone());
         if let Some(arguments) = request.arguments.clone() {
             params = params.with_arguments(arguments);

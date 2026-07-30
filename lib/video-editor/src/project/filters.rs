@@ -29,11 +29,12 @@ use crate::{
             DrawRectangleFilter, EdgeDetectFilter, FadeInFilter as VideoFadeInFilter,
             FadeOutFilter as VideoFadeOutFilter, FisheyeFilter, FlipFilter, FlyInFilter,
             FocusFilter, FrameExtractFilter, GaussianBlurFilter, GenieFilter, GrainFilter,
-            GrayscaleFilter, GridFilter, HSLAdjustFilter, LinearMaskFilter, Live2dFilter,
-            LocalMagnifyFilter, MagnifierFilter, MirrorMaskFilter, MosaicFilter, OldFilmFilter,
-            OpacityFilter, PageFlipFilter, RectangleMaskFilter, ShadowFilter, SharpenFilter,
-            SketchFilter, SlideFilter, SpeedFilter, SplitFilter, TextHighlightFilter,
-            TransformFilter, VignetteFilter, WaveFilter, WipeFilter, ZoomFilter,
+            GrayscaleFilter, GridFilter, HSLAdjustFilter, LightingFilter, LinearMaskFilter,
+            Live2dFilter, LocalMagnifyFilter, MagnifierFilter, MirrorMaskFilter, MosaicFilter,
+            OldFilmFilter, OpacityFilter, PageFlipFilter, RectangleMaskFilter, ShadowFilter,
+            SharpenFilter, SketchFilter, SlideFilter, SpeedFilter, SplitFilter,
+            TextHighlightFilter, TransformFilter, VignetteFilter, WaveFilter, WipeFilter,
+            ZoomFilter,
         },
     },
 };
@@ -204,6 +205,9 @@ pub enum VideoFilterDataInner {
 
     #[serde(rename = "page_flip")]
     PageFlip(PageFlipFilter),
+
+    #[serde(rename = "lighting")]
+    Lighting(LightingFilter),
 
     #[serde(rename = "split")]
     Split(SplitFilter),
@@ -464,6 +468,8 @@ pub fn video_filter_to_data(filter: &Box<dyn VideoFilter>) -> VideoFilterDataInn
         Genie,
         PageFlipFilter,
         PageFlip,
+        LightingFilter,
+        Lighting,
         SplitFilter,
         Split,
         FrameExtractFilter,
@@ -608,6 +614,7 @@ pub fn data_to_video_filter_inner(data: &VideoFilterDataInner) -> Result<Box<dyn
         VideoFilterDataInner::Focus,
         VideoFilterDataInner::Genie,
         VideoFilterDataInner::PageFlip,
+        VideoFilterDataInner::Lighting,
         VideoFilterDataInner::Split,
         VideoFilterDataInner::FrameExtract,
         VideoFilterDataInner::Live2d

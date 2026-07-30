@@ -22,6 +22,7 @@ pub mod grain;
 pub mod grayscale;
 pub mod grid;
 pub mod hsl_adjust;
+pub mod lighting;
 pub mod linear_mask;
 pub mod live2d;
 pub mod local_magnify;
@@ -69,6 +70,7 @@ pub use grain::GrainFilter;
 pub use grayscale::GrayscaleFilter;
 pub use grid::GridFilter;
 pub use hsl_adjust::{HSLAdjustFilter, LuminanceStandard};
+pub use lighting::{LightingDirection, LightingFilter, LightingScene};
 pub use linear_mask::LinearMaskFilter;
 pub use live2d::{Live2dFilter, model_expression_names, model_motion_names, resolve_model_dir};
 pub use local_magnify::LocalMagnifyFilter;
@@ -110,6 +112,7 @@ pub fn all_filter_names() -> &'static [&'static str] {
         SlideFilter::NAME,
         GenieFilter::NAME,
         PageFlipFilter::NAME,
+        LightingFilter::NAME,
         SplitFilter::NAME,
         CropFilter::NAME,
         FlipFilter::NAME,

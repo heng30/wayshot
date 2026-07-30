@@ -20,18 +20,18 @@ use crate::{
         GaussianBlurDetail as UIGaussianBlurDetail, GenieDetail as UIGenieDetail,
         GrainDetail as UIGrainDetail, GrayscaleDetail as UIGrayscaleDetail,
         GridDetail as UIGridDetail, HighlightRegionDetail as UIHighlightRegionDetail,
-        HslAdjustDetail as UIHslAdjustDetail, LinearMaskDetail as UILinearMaskDetail,
-        Live2dDetail as UILive2dDetail, LocalMagnifyDetail as UILocalMagnifyDetail,
-        MagnifierDetail as UIMagnifierDetail, MirrorMaskDetail as UIMirrorMaskDetail,
-        MosaicDetail as UIMosaicDetail, OldFilmDetail as UIOldFilmDetail,
-        OpacityDetail as UIOpacityDetail, PageFlipDetail as UIPageFlipDetail,
-        RectangleMaskDetail as UIRectangleMaskDetail, ShadowDetail as UIShadowDetail,
-        SharpenDetail as UISharpenDetail, SketchDetail as UISketchDetail,
-        SlideDetail as UISlideDetail, SpeedDetail as UISpeedDetail, SplitDetail as UISplitDetail,
-        TextHighlightDetail as UITextHighlightDetail, TransformDetail as UITransformDetail,
-        VideoFadeInDetail as UIVideoFadeInDetail, VideoFadeOutDetail as UIVideoFadeOutDetail,
-        VignetteDetail as UIVignetteDetail, WaveDetail as UIWaveDetail, WipeDetail as UIWipeDetail,
-        ZoomDetail as UIZoomDetail,
+        HslAdjustDetail as UIHslAdjustDetail, LightingDetail as UILightingDetail,
+        LinearMaskDetail as UILinearMaskDetail, Live2dDetail as UILive2dDetail,
+        LocalMagnifyDetail as UILocalMagnifyDetail, MagnifierDetail as UIMagnifierDetail,
+        MirrorMaskDetail as UIMirrorMaskDetail, MosaicDetail as UIMosaicDetail,
+        OldFilmDetail as UIOldFilmDetail, OpacityDetail as UIOpacityDetail,
+        PageFlipDetail as UIPageFlipDetail, RectangleMaskDetail as UIRectangleMaskDetail,
+        ShadowDetail as UIShadowDetail, SharpenDetail as UISharpenDetail,
+        SketchDetail as UISketchDetail, SlideDetail as UISlideDetail, SpeedDetail as UISpeedDetail,
+        SplitDetail as UISplitDetail, TextHighlightDetail as UITextHighlightDetail,
+        TransformDetail as UITransformDetail, VideoFadeInDetail as UIVideoFadeInDetail,
+        VideoFadeOutDetail as UIVideoFadeOutDetail, VignetteDetail as UIVignetteDetail,
+        WaveDetail as UIWaveDetail, WipeDetail as UIWipeDetail, ZoomDetail as UIZoomDetail,
     },
     ve_filter_cb,
 };
@@ -54,11 +54,12 @@ use video_editor::{
             DrawRectangleFilter, EdgeDetectFilter, FadeInFilter as VideoFadeInFilter,
             FadeOutFilter as VideoFadeOutFilter, FisheyeFilter, FlipFilter, FlyInFilter,
             FocusFilter, FrameExtractFilter, GaussianBlurFilter, GenieFilter, GrainFilter,
-            GrayscaleFilter, GridFilter, HSLAdjustFilter, LinearMaskFilter, Live2dFilter,
-            LocalMagnifyFilter, MagnifierFilter, MirrorMaskFilter, MosaicFilter, OldFilmFilter,
-            OpacityFilter, PageFlipFilter, RectangleMaskFilter, ShadowFilter, SharpenFilter,
-            SketchFilter, SlideFilter, SpeedFilter, SplitFilter, TextHighlightFilter,
-            TransformFilter, VignetteFilter, WaveFilter, WipeFilter, ZoomFilter,
+            GrayscaleFilter, GridFilter, HSLAdjustFilter, LightingFilter as VELightingFilter,
+            LinearMaskFilter, Live2dFilter, LocalMagnifyFilter, MagnifierFilter, MirrorMaskFilter,
+            MosaicFilter, OldFilmFilter, OpacityFilter, PageFlipFilter, RectangleMaskFilter,
+            ShadowFilter, SharpenFilter, SketchFilter, SlideFilter, SpeedFilter, SplitFilter,
+            TextHighlightFilter, TransformFilter, VignetteFilter, WaveFilter, WipeFilter,
+            ZoomFilter,
             device_frame::available_device_names,
             live2d::{model_expression_names, model_motion_names},
         },
@@ -110,6 +111,7 @@ pub fn init(ui: &AppWindow) {
     ve_filter_cb!(from_device_frame_json, ui, json);
     ve_filter_cb!(from_genie_json, ui, json);
     ve_filter_cb!(from_page_flip_json, ui, json);
+    ve_filter_cb!(from_lighting_json, ui, json);
     ve_filter_cb!(from_split_json, ui, json);
     ve_filter_cb!(from_live_2d_json, ui, json);
 
@@ -163,6 +165,7 @@ pub fn init(ui: &AppWindow) {
     ve_filter_cb!(modify_device_frame_filter, ui, index, config, filter_type);
     ve_filter_cb!(modify_genie_filter, ui, index, config, filter_type);
     ve_filter_cb!(modify_page_flip_filter, ui, index, config, filter_type);
+    ve_filter_cb!(modify_lighting_filter, ui, index, config, filter_type);
     ve_filter_cb!(modify_split_filter, ui, index, config, filter_type);
     ve_filter_cb!(modify_live_2d_filter, ui, index, config, filter_type);
     ve_filter_cb!(text_highlight_remove_region, ui, filter_index, region_index);
@@ -485,6 +488,7 @@ impl_modify_video_filter!(
 );
 impl_modify_video_filter!(modify_genie_filter, GenieFilter, UIGenieDetail);
 impl_modify_video_filter!(modify_page_flip_filter, PageFlipFilter, UIPageFlipDetail);
+impl_modify_video_filter!(modify_lighting_filter, VELightingFilter, UILightingDetail);
 impl_modify_video_filter!(modify_split_filter, SplitFilter, UISplitDetail);
 impl_modify_video_filter!(modify_grid_filter, GridFilter, UIGridDetail);
 impl_modify_video_filter!(modify_live_2d_filter, Live2dFilter, UILive2dDetail);
@@ -571,6 +575,7 @@ from_filter_json!(
 );
 from_filter_json!(from_genie_json, GenieFilter, UIGenieDetail);
 from_filter_json!(from_page_flip_json, PageFlipFilter, UIPageFlipDetail);
+from_filter_json!(from_lighting_json, VELightingFilter, UILightingDetail);
 from_filter_json!(from_split_json, SplitFilter, UISplitDetail);
 from_filter_json!(from_grid_json, GridFilter, UIGridDetail);
 from_filter_json!(from_live_2d_json, Live2dFilter, UILive2dDetail);

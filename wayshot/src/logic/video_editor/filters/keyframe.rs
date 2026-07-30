@@ -29,9 +29,9 @@ use video_editor::{
             BorderFilter, ChromaKeyFilter, CircleMaskFilter, CropFilter, DirectionalBlurFilter,
             DrawCircleFilter, DrawRectangleFilter, EdgeDetectFilter, FisheyeFilter, FocusFilter,
             GaussianBlurFilter, GrainFilter, GrayscaleFilter, GridFilter, HSLAdjustFilter,
-            LinearMaskFilter, Live2dFilter, LocalMagnifyFilter, MagnifierFilter, MirrorMaskFilter,
-            MosaicFilter, OldFilmFilter, OpacityFilter, RectangleMaskFilter, ShadowFilter,
-            SharpenFilter, SketchFilter, TransformFilter, VignetteFilter, WaveFilter,
+            LightingFilter, LinearMaskFilter, Live2dFilter, LocalMagnifyFilter, MagnifierFilter,
+            MirrorMaskFilter, MosaicFilter, OldFilmFilter, OpacityFilter, RectangleMaskFilter,
+            ShadowFilter, SharpenFilter, SketchFilter, TransformFilter, VignetteFilter, WaveFilter,
         },
     },
 };
@@ -231,6 +231,7 @@ fn get_animatable_properties(
         WaveFilter,
         BorderFilter,
         ShadowFilter,
+        LightingFilter,
         Live2dFilter,
         // audio filters
         GainFilter,
@@ -2107,6 +2108,8 @@ fn get_filter_detail_at_time(ui: &AppWindow, filter_index: i32, time_ms: i32) ->
                         get_border_filter_detail_at_time,
                         ShadowFilter,
                         get_shadow_filter_detail_at_time,
+                        LightingFilter,
+                        get_lighting_filter_detail_at_time,
                         Live2dFilter,
                         get_live_2d_filter_detail_at_time
                     )
@@ -2212,6 +2215,77 @@ pub fn refresh_selected_filter_detail_at_playhead(ui: &AppWindow) {
         global_ve_filter!(ui)
             .set_toggle_keyframe_flag(!global_ve_filter!(ui).get_toggle_keyframe_flag());
     }
+}
+
+fn get_lighting_filter_detail_at_time(f: &LightingFilter, time_ms: i32) -> SharedString {
+    let tracks = &f.keyframe_tracks;
+    let time_ms_i64 = time_ms as i64;
+
+    let brightness = tracks
+        .get_track("brightness")
+        .map(|t| get_float_at_time(t, time_ms_i64, f.brightness))
+        .unwrap_or(f.brightness);
+
+    let angle_deg = tracks
+        .get_track("angle_deg")
+        .map(|t| get_float_at_time(t, time_ms_i64, f.angle_deg))
+        .unwrap_or(f.angle_deg);
+
+    let penumbra = tracks
+        .get_track("penumbra")
+        .map(|t| get_float_at_time(t, time_ms_i64, f.penumbra))
+        .unwrap_or(f.penumbra);
+
+    let decay = tracks
+        .get_track("decay")
+        .map(|t| get_float_at_time(t, time_ms_i64, f.decay))
+        .unwrap_or(f.decay);
+
+    let max_distance = tracks
+        .get_track("max_distance")
+        .map(|t| get_float_at_time(t, time_ms_i64, f.max_distance))
+        .unwrap_or(f.max_distance);
+
+    let (pos_x, pos_y) = tracks
+        .get_track("pos")
+        .map(|t| get_float2_at_time(t, time_ms_i64, f.pos.0, f.pos.1))
+        .unwrap_or(f.pos);
+
+    let ambient = tracks
+        .get_track("ambient")
+        .map(|t| get_float_at_time(t, time_ms_i64, f.ambient))
+        .unwrap_or(f.ambient);
+
+    let swing = tracks
+        .get_track("swing")
+        .map(|t| get_float_at_time(t, time_ms_i64, f.swing))
+        .unwrap_or(f.swing);
+
+    let rope_length = tracks
+        .get_track("rope_length")
+        .map(|t| get_float_at_time(t, time_ms_i64, f.rope_length))
+        .unwrap_or(f.rope_length);
+
+    let interpolated = LightingFilter::default()
+        .with_color(f.color)
+        .with_brightness(brightness.max(0.0))
+        .with_angle_deg(angle_deg.clamp(1.0, 180.0))
+        .with_penumbra(penumbra.clamp(0.0, 1.0))
+        .with_decay(decay.max(0.0))
+        .with_max_distance(max_distance.max(1.0))
+        .with_direction(f.direction)
+        .with_pos((pos_x.clamp(-1.0, 2.0), pos_y.clamp(-1.0, 2.0)))
+        .with_rope_length(rope_length.clamp(0.0, 1.0))
+        .with_gravity(f.gravity)
+        .with_swing(swing.clamp(0.0, 1.0))
+        .with_damping(f.damping)
+        .with_ambient(ambient.clamp(0.0, 1.0))
+        .with_scene(f.scene)
+        .with_keyframe_tracks(KeyframeTracks::default());
+
+    serde_json::to_string(&interpolated)
+        .unwrap_or_default()
+        .into()
 }
 
 fn get_live_2d_filter_detail_at_time(f: &Live2dFilter, time_ms: i32) -> SharedString {
