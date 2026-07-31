@@ -1034,7 +1034,8 @@ export component TrackSegments inherits Rectangle {
     private property <bool> is-cross-track-drag-target:
         Store.video-editor-segment-cross-track-dragging && Store.video-editor-segment-cross-track-target-index == track-index;
 
-    width: track.duration / 1000 * length-pre-second;
+    // 轨道背景统一从 0 开始绘制，长度以最长的轨道为准（manager.duration = 所有轨道内容结束位置的最大值）
+    width: Store.video-editor-tracks-manager.duration / 1000 * length-pre-second;
     background: mod(track-index, 2) == 0 ? Theme.table-item-first : Theme.table-item-second;
 
     TouchArea {

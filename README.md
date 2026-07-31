@@ -56,7 +56,7 @@ This is a **video editing**, **screen recording**, **streaming**, and **screen s
 | Transform | Transform (position/scale/rotation), Crop, Flip, Zoom, Speed, Frame Extract |
 | Transition | Fly In (8 directions), Fade In/Out, Slide (4 directions), Wipe (4 directions), Genie, Page Flip, Split |
 | Mask | Linear Mask, Circle Mask, Rectangle Mask, Mirror Mask |
-| Effect | Chroma Key (green screen), Vignette, Fisheye, Wave, Grain, Old Film, Sketch, Grayscale, Edge Detect, Sharpen, Directional Blur, Gaussian Blur, Breathing |
+| Effect | Chroma Key (green screen), Vignette, Fisheye, Wave, Grain, Old Film, Sketch, Grayscale, Edge Detect, Sharpen, Directional Blur, Gaussian Blur, Breathing, Lighting |
 | Overlay | Mosaic, Draw Circle, Draw Rectangle, Local Magnify, Magnifier, Text Highlight, Border, Background, Shadow, Grid, Device Frame, Opacity |
 | AI/Advanced | Focus, Live2D Animation Overlay, HSL Adjust |
 
