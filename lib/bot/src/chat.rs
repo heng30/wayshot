@@ -158,7 +158,9 @@ impl Chat {
 /// Parse and forward a single SSE event. Returns `Ok(true)` when the
 /// stream should stop after this event.
 async fn handle_event(tx: &mpsc::Sender<response::StreamTextItem>, event: &str) -> Result<bool> {
-    let event = event.trim_end_matches('\r');
+    // A trailing newline can survive on the no-blank-line flush path; strip
+    // both `\r` and `\n` so LF/CRLF framings behave identically (e.g. [DONE]).
+    let event = event.trim_end_matches(['\r', '\n']);
 
     if event.is_empty() {
         return Ok(false);
