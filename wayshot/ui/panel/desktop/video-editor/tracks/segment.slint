@@ -322,6 +322,10 @@ component Segment inherits Rectangle {
     private property <bool> is-active-drag: Store.video-editor-segment-is-dragging && Store.video-editor-drag-segment-uuid == segment.uuid;
     private property <bool> is-active-resize-drag;
 
+    // snap 节流阈值：鼠标相对按下点位移（mouse-x - pressed-x）超过该值才查找 snap。
+    // 默认取 snap 阈值（snap-threshold-ms，按时间轴比例换算为像素。
+    private property <length> snap-throttle-px: Store.video-editor-preference-config.track.snap-threshold-ms * length-pre-second / 1000;
+
     // 是否是正在跨轨道拖拽的segment（源segment）
     private property <bool> is-active-cross-track-drag: Store.video-editor-segment-cross-track-dragging && Store.video-editor-drag-segment-uuid == segment.uuid;
 
@@ -638,9 +642,12 @@ component Segment inherits Rectangle {
                         let clamped-timeline-offset = timeline-offset-ms < 0 ? 0 : timeline-offset-ms;
 
                         // 应用 snap 逻辑（跨轨道模式：只检查目标轨道）
+                        // 节流：鼠标相对按下点的位移超过阈值才查找 snap
                         let snap-threshold-ms = Store.video-editor-preference-config.track.snap-threshold-ms;
-                        let snap-result = Logic.video-editor-find-snap-position(clamped-timeline-offset, snap-threshold-ms, root.track-index, root.index, target-track-index);
-                        Store.video-editor-segment-cross-track-timeline-offset-ms = snap-result.position;
+                        if (abs(self.mouse-x - self.pressed-x) > root.snap-throttle-px) {
+                            let snap-result = Logic.video-editor-find-snap-position(clamped-timeline-offset, snap-threshold-ms, root.track-index, root.index, target-track-index);
+                            Store.video-editor-segment-cross-track-timeline-offset-ms = snap-result.position;
+                        }
 
                         // 检测是否需要分割目标轨道中的 segment
                         // 同轨道时需要排除正在拖拽的 segment
@@ -688,9 +695,12 @@ component Segment inherits Rectangle {
                         let clamped-timeline-offset = timeline-offset-ms < 0 ? 0 : timeline-offset-ms;
 
                         // 应用 snap 逻辑（跨轨道继续模式：只检查目标轨道）
+                        // 节流：鼠标相对按下点的位移超过阈值才查找 snap
                         let snap-threshold-ms = Store.video-editor-preference-config.track.snap-threshold-ms;
-                        let snap-result = Logic.video-editor-find-snap-position(clamped-timeline-offset, snap-threshold-ms, root.track-index, root.index, target-track-index);
-                        Store.video-editor-segment-cross-track-timeline-offset-ms = snap-result.position;
+                        if (abs(self.mouse-x - self.pressed-x) > root.snap-throttle-px) {
+                            let snap-result = Logic.video-editor-find-snap-position(clamped-timeline-offset, snap-threshold-ms, root.track-index, root.index, target-track-index);
+                            Store.video-editor-segment-cross-track-timeline-offset-ms = snap-result.position;
+                        }
 
                         // 检测是否需要分割目标轨道中的 segment
                         let split-segment-index = Logic.video-editor-find-segment-at-time-excluding(
@@ -719,48 +729,51 @@ component Segment inherits Rectangle {
                 Store.video-editor-segment-is-dragging = true;
                 Store.video-editor-drag-is-move = true; // 标记为移动操作（非resize）
 
-                // 减去阈值
-                let effective-delta = delta-x - (delta-x > 0 ? drag-threshold : -drag-threshold);
-                // 使用初始宽度计算 ms 变化量
-                let diff-ms = root.drag-start-duration-ms * effective-delta / root.drag-start-x;
-                let raw-offset = root.drag-start-offset-ms + round(diff-ms);
+                // 节流：鼠标相对按下点的位移超过阈值才查找 snap（结果写入 Store 预览值，未触发时沿用上次结果）
+                if (abs(self.mouse-x - self.pressed-x) > root.snap-throttle-px) {
+                    // 减去阈值
+                    let effective-delta = delta-x - (delta-x > 0 ? drag-threshold : -drag-threshold);
+                    // 使用初始宽度计算 ms 变化量
+                    let diff-ms = root.drag-start-duration-ms * effective-delta / root.drag-start-x;
+                    let raw-offset = root.drag-start-offset-ms + round(diff-ms);
 
-                // 最后一个segment向右移动不受限制（允许超出track duration）
-                // 启用 link-all-tracks 时也不受下一个 segment 限制（后续 segment 会跟随移动）
-                let clamped-offset = raw-offset < root.min-offset-ms ? root.min-offset-ms : (root.link-enabled || Store.video-editor-ui-state.enabled-link-all-tracks || root.is-last-segment ? raw-offset : (raw-offset + root.segment.duration > root.max-end-ms ? root.max-end-ms - root.segment.duration : raw-offset));
+                    // 最后一个segment向右移动不受限制（允许超出track duration）
+                    // 启用 link-all-tracks 时也不受下一个 segment 限制（后续 segment 会跟随移动）
+                    let clamped-offset = raw-offset < root.min-offset-ms ? root.min-offset-ms : (root.link-enabled || Store.video-editor-ui-state.enabled-link-all-tracks || root.is-last-segment ? raw-offset : (raw-offset + root.segment.duration > root.max-end-ms ? root.max-end-ms - root.segment.duration : raw-offset));
 
-                // 当 link-all-tracks 启用时，额外限制向左移动的距离
-                // max-negative-delta = 所有segment的最小offset值
-                // 因为所有segment可以向左移动的最大距离就是让最小segment到达位置0
-                let max-negative-delta = Store.video-editor-drag-min-all-tracks-offset;
-                let constrained-offset = Store.video-editor-ui-state.enabled-link-all-tracks && (clamped-offset - root.segment.timeline-offset) < -max-negative-delta ? root.segment.timeline-offset - max-negative-delta : clamped-offset;
+                    // 当 link-all-tracks 启用时，额外限制向左移动的距离
+                    // max-negative-delta = 所有segment的最小offset值
+                    // 因为所有segment可以向左移动的最大距离就是让最小segment到达位置0
+                    let max-negative-delta = Store.video-editor-drag-min-all-tracks-offset;
+                    let constrained-offset = Store.video-editor-ui-state.enabled-link-all-tracks && (clamped-offset - root.segment.timeline-offset) < -max-negative-delta ? root.segment.timeline-offset - max-negative-delta : clamped-offset;
 
-                // 应用 snap 逻辑（检查 segment 的起始位置和结束位置）
-                let snap-threshold-ms = Store.video-editor-preference-config.track.snap-threshold-ms;
+                    // 应用 snap 逻辑（检查 segment 的起始位置和结束位置）
+                    let snap-threshold-ms = Store.video-editor-preference-config.track.snap-threshold-ms;
 
-                // 检查起始位置的 snap
-                let snap-start-result = Logic.video-editor-find-snap-position(constrained-offset, snap-threshold-ms, root.track-index, root.index, -1);
-                let snapped-start = snap-start-result.position;
-                let is-start-snapped = snap-start-result.snapped;
+                    // 检查起始位置的 snap
+                    let snap-start-result = Logic.video-editor-find-snap-position(constrained-offset, snap-threshold-ms, root.track-index, root.index, -1);
+                    let snapped-start = snap-start-result.position;
+                    let is-start-snapped = snap-start-result.snapped;
 
-                // 检查结束位置的 snap
-                let end-position = constrained-offset + root.segment.duration;
-                let snap-end-result = Logic.video-editor-find-snap-position(end-position, snap-threshold-ms, root.track-index, root.index, -1);
-                let snapped-end = snap-end-result.position;
-                let is-end-snapped = snap-end-result.snapped;
+                    // 检查结束位置的 snap
+                    let end-position = constrained-offset + root.segment.duration;
+                    let snap-end-result = Logic.video-editor-find-snap-position(end-position, snap-threshold-ms, root.track-index, root.index, -1);
+                    let snapped-end = snap-end-result.position;
+                    let is-end-snapped = snap-end-result.snapped;
 
-                // 计算基于 snapped-end 的 offset
-                let offset-from-end-snap = snapped-end - root.segment.duration;
+                    // 计算基于 snapped-end 的 offset
+                    let offset-from-end-snap = snapped-end - root.segment.duration;
 
-                // 选择有效的 snap：使用三元表达式选择最终 offset
-                let distance-start = abs(snapped-start - constrained-offset);
-                let distance-end = abs(offset-from-end-snap - constrained-offset);
+                    // 选择有效的 snap：使用三元表达式选择最终 offset
+                    let distance-start = abs(snapped-start - constrained-offset);
+                    let distance-end = abs(offset-from-end-snap - constrained-offset);
 
-                // 优先级：两个都有效时选择更近的，否则选择有效的那个，都没效则用原始值
-                let final-offset = is-start-snapped && is-end-snapped ? (distance-start <= distance-end ? snapped-start : offset-from-end-snap) : (is-start-snapped ? snapped-start : (is-end-snapped ? offset-from-end-snap : constrained-offset));
+                    // 优先级：两个都有效时选择更近的，否则选择有效的那个，都没效则用原始值
+                    let final-offset = is-start-snapped && is-end-snapped ? (distance-start <= distance-end ? snapped-start : offset-from-end-snap) : (is-start-snapped ? snapped-start : (is-end-snapped ? offset-from-end-snap : constrained-offset));
 
-                Store.video-editor-drag-preview-offset = final-offset;
-                Store.video-editor-drag-delta-ms = final-offset - root.segment.timeline-offset;
+                    Store.video-editor-drag-preview-offset = final-offset;
+                    Store.video-editor-drag-delta-ms = final-offset - root.segment.timeline-offset;
+                }
             }
         }
     }
@@ -835,51 +848,54 @@ component Segment inherits Rectangle {
                 }
                 Store.video-editor-segment-is-dragging = true;
 
-                let min-duration-ms = 100;
-                let effective-delta = delta-x - (delta-x > 0 ? drag-threshold : -drag-threshold);
-                let diff-ms = root.drag-start-duration-ms * effective-delta / root.drag-start-x;
-                let raw-offset = root.drag-start-offset-ms + round(diff-ms);
-                let raw-duration = root.drag-start-duration-ms - round(diff-ms);
+                // 节流：鼠标相对按下点的位移超过阈值才查找 snap（结果写入 Store 预览值，未触发时沿用上次结果）
+                if (abs(self.mouse-x - self.pressed-x) > root.snap-throttle-px) {
+                    let min-duration-ms = 100;
+                    let effective-delta = delta-x - (delta-x > 0 ? drag-threshold : -drag-threshold);
+                    let diff-ms = root.drag-start-duration-ms * effective-delta / root.drag-start-x;
+                    let raw-offset = root.drag-start-offset-ms + round(diff-ms);
+                    let raw-duration = root.drag-start-duration-ms - round(diff-ms);
 
-                // 联动模式：offset不变，只改变duration
-                if (root.link-enabled) {
-                    let max-timeline-increase = is-time-independent-track ? 100000000 : round(root.drag-start-source-offset-ms / root.segment.playback-speed);
-                    let max-duration = root.drag-start-duration-ms + max-timeline-increase;
-                    let constrained-duration = raw-duration < min-duration-ms ? min-duration-ms : (raw-duration > max-duration ? max-duration : raw-duration);
+                    // 联动模式：offset不变，只改变duration
+                    if (root.link-enabled) {
+                        let max-timeline-increase = is-time-independent-track ? 100000000 : round(root.drag-start-source-offset-ms / root.segment.playback-speed);
+                        let max-duration = root.drag-start-duration-ms + max-timeline-increase;
+                        let constrained-duration = raw-duration < min-duration-ms ? min-duration-ms : (raw-duration > max-duration ? max-duration : raw-duration);
 
-                    Store.video-editor-drag-preview-offset = root.drag-start-offset-ms;
-                    Store.video-editor-drag-preview-duration = constrained-duration;
-                    // duration 变化导致后续 segment 需要移动
-                    Store.video-editor-drag-delta-ms = constrained-duration - root.drag-start-duration-ms;
-                } else {
-                    let max-offset-for-min-duration = root.drag-start-offset-ms + root.drag-start-duration-ms - min-duration-ms;
+                        Store.video-editor-drag-preview-offset = root.drag-start-offset-ms;
+                        Store.video-editor-drag-preview-duration = constrained-duration;
+                        // duration 变化导致后续 segment 需要移动
+                        Store.video-editor-drag-delta-ms = constrained-duration - root.drag-start-duration-ms;
+                    } else {
+                        let max-offset-for-min-duration = root.drag-start-offset-ms + root.drag-start-duration-ms - min-duration-ms;
 
-                    let constrained-offset = raw-duration < min-duration-ms ? max-offset-for-min-duration : raw-offset;
-                    let constrained-duration = raw-duration < min-duration-ms ? min-duration-ms : raw-duration;
+                        let constrained-offset = raw-duration < min-duration-ms ? max-offset-for-min-duration : raw-offset;
+                        let constrained-duration = raw-duration < min-duration-ms ? min-duration-ms : raw-duration;
 
-                    // 计算基于源文件的最小offset（source-offset >= 0）
-                    // 新 source-offset = drag-start-source-offset-ms - (新 timeline-offset - drag-start-offset-ms) * playback_speed
-                    // 限制: 新 source-offset >= 0 => 新 timeline-offset >= drag-start-offset-ms - drag-start-source-offset-ms / playback_speed
-                    let min-source-offset-ms = round(root.drag-start-source-offset-ms / root.segment.playback-speed);
-                    let min-source-timeline-offset = root.drag-start-offset-ms - min-source-offset-ms;
-                    let min-allowed-offset = is-time-independent-track ? root.min-offset-ms : (min-source-timeline-offset > root.min-offset-ms ? min-source-timeline-offset : root.min-offset-ms);
+                        // 计算基于源文件的最小offset（source-offset >= 0）
+                        // 新 source-offset = drag-start-source-offset-ms - (新 timeline-offset - drag-start-offset-ms) * playback_speed
+                        // 限制: 新 source-offset >= 0 => 新 timeline-offset >= drag-start-offset-ms - drag-start-source-offset-ms / playback_speed
+                        let min-source-offset-ms = round(root.drag-start-source-offset-ms / root.segment.playback-speed);
+                        let min-source-timeline-offset = root.drag-start-offset-ms - min-source-offset-ms;
+                        let min-allowed-offset = is-time-independent-track ? root.min-offset-ms : (min-source-timeline-offset > root.min-offset-ms ? min-source-timeline-offset : root.min-offset-ms);
 
-                    let base-offset = constrained-offset < min-allowed-offset ? min-allowed-offset : constrained-offset;
-                    let base-duration = constrained-offset < min-allowed-offset ? root.drag-start-offset-ms + root.drag-start-duration-ms - min-allowed-offset : constrained-duration;
+                        let base-offset = constrained-offset < min-allowed-offset ? min-allowed-offset : constrained-offset;
+                        let base-duration = constrained-offset < min-allowed-offset ? root.drag-start-offset-ms + root.drag-start-duration-ms - min-allowed-offset : constrained-duration;
 
-                    // 应用 snap 逻辑（左边缘调整：snap 到相邻轨道边缘或 playhead）
-                    let snap-threshold-ms = Store.video-editor-preference-config.track.snap-threshold-ms;
-                    let snap-result = Logic.video-editor-find-snap-position(base-offset, snap-threshold-ms, root.track-index, root.index, -1);
-                    let snapped-offset = snap-result.position;
-                    // 调整 duration 以保持结束位置不变，但要确保 duration 不小于最小值
-                    let snapped-duration = root.drag-start-offset-ms + root.drag-start-duration-ms - snapped-offset;
-                    // 如果没有找到 snap 或 snap 后的 duration 小于最小值，使用原始值
-                    let final-offset = snap-result.snapped && snapped-duration >= min-duration-ms ? snapped-offset : base-offset;
-                    let final-duration = snap-result.snapped && snapped-duration >= min-duration-ms ? snapped-duration : base-duration;
+                        // 应用 snap 逻辑（左边缘调整：snap 到相邻轨道边缘或 playhead）
+                        let snap-threshold-ms = Store.video-editor-preference-config.track.snap-threshold-ms;
+                        let snap-result = Logic.video-editor-find-snap-position(base-offset, snap-threshold-ms, root.track-index, root.index, -1);
+                        let snapped-offset = snap-result.position;
+                        // 调整 duration 以保持结束位置不变，但要确保 duration 不小于最小值
+                        let snapped-duration = root.drag-start-offset-ms + root.drag-start-duration-ms - snapped-offset;
+                        // 如果没有找到 snap 或 snap 后的 duration 小于最小值，使用原始值
+                        let final-offset = snap-result.snapped && snapped-duration >= min-duration-ms ? snapped-offset : base-offset;
+                        let final-duration = snap-result.snapped && snapped-duration >= min-duration-ms ? snapped-duration : base-duration;
 
-                    Store.video-editor-drag-preview-offset = final-offset;
-                    Store.video-editor-drag-preview-duration = final-duration;
-                    Store.video-editor-drag-delta-ms = final-offset - root.segment.timeline-offset;
+                        Store.video-editor-drag-preview-offset = final-offset;
+                        Store.video-editor-drag-preview-duration = final-duration;
+                        Store.video-editor-drag-delta-ms = final-offset - root.segment.timeline-offset;
+                    }
                 }
             }
         }
@@ -937,44 +953,47 @@ component Segment inherits Rectangle {
                 }
                 Store.video-editor-segment-is-dragging = true;
 
-                let min-duration-ms = 100;
-                let effective-delta = delta-x - (delta-x > 0 ? drag-threshold : -drag-threshold);
-                let diff-ms = root.drag-start-duration-ms * effective-delta / root.drag-start-x;
-                let raw-duration = root.drag-start-duration-ms + round(diff-ms);
+                // 节流：鼠标相对按下点的位移超过阈值才查找 snap（结果写入 Store 预览值，未触发时沿用上次结果）
+                if (abs(self.mouse-x - self.pressed-x) > root.snap-throttle-px) {
+                    let min-duration-ms = 100;
+                    let effective-delta = delta-x - (delta-x > 0 ? drag-threshold : -drag-threshold);
+                    let diff-ms = root.drag-start-duration-ms * effective-delta / root.drag-start-x;
+                    let raw-duration = root.drag-start-duration-ms + round(diff-ms);
 
-                // 计算基于源文件的最大 duration
-                // 源内容结束位置 = source_offset + original_duration
-                // 剩余可用源内容 = source_duration - source_offset - original_duration
-                // 最大 timeline duration = duration + 剩余源内容 / playback_speed
-                let remaining-source-content = is-time-independent-track ? 100000000 : (root.segment.source-duration - root.segment.source-offset - root.segment.original-duration);
-                let max-timeline-increase = round(remaining-source-content / root.segment.playback-speed);
-                let max-source-duration = root.segment.duration + max-timeline-increase;
+                    // 计算基于源文件的最大 duration
+                    // 源内容结束位置 = source_offset + original_duration
+                    // 剩余可用源内容 = source_duration - source_offset - original_duration
+                    // 最大 timeline duration = duration + 剩余源内容 / playback_speed
+                    let remaining-source-content = is-time-independent-track ? 100000000 : (root.segment.source-duration - root.segment.source-offset - root.segment.original-duration);
+                    let max-timeline-increase = round(remaining-source-content / root.segment.playback-speed);
+                    let max-source-duration = root.segment.duration + max-timeline-increase;
 
-                // 非联动模式下，受下一个 segment 位置限制
-                let max-next-segment-duration = root.max-end-ms - root.drag-start-offset-ms;
+                    // 非联动模式下，受下一个 segment 位置限制
+                    let max-next-segment-duration = root.max-end-ms - root.drag-start-offset-ms;
 
-                // 最终的最大 duration 取两者的最小值
-                let max-duration = root.is-last-segment ? max-source-duration : min(max-source-duration, max-next-segment-duration);
+                    // 最终的最大 duration 取两者的最小值
+                    let max-duration = root.is-last-segment ? max-source-duration : min(max-source-duration, max-next-segment-duration);
 
-                // 联动模式或联动所有轨道模式下不受下一个 segment 限制，只受源文件限制
-                let final-max-duration = root.link-enabled || Store.video-editor-ui-state.enabled-link-all-tracks ? max-source-duration : max-duration;
+                    // 联动模式或联动所有轨道模式下不受下一个 segment 限制，只受源文件限制
+                    let final-max-duration = root.link-enabled || Store.video-editor-ui-state.enabled-link-all-tracks ? max-source-duration : max-duration;
 
-                let base-duration = raw-duration < min-duration-ms ? min-duration-ms : (raw-duration > final-max-duration ? final-max-duration : raw-duration);
+                    let base-duration = raw-duration < min-duration-ms ? min-duration-ms : (raw-duration > final-max-duration ? final-max-duration : raw-duration);
 
-                // 应用 snap 逻辑（右边缘调整：snap 结束位置到相邻轨道边缘或 playhead）
-                let snap-threshold-ms = Store.video-editor-preference-config.track.snap-threshold-ms;
-                let end-position-ms = root.drag-start-offset-ms + base-duration;
-                let snap-result = Logic.video-editor-find-snap-position(end-position-ms, snap-threshold-ms, root.track-index, root.index, -1);
-                let snapped-end = snap-result.position;
-                let snapped-duration = snapped-end - root.drag-start-offset-ms;
-                // 如果没有找到 snap 或 snap 后的 duration 小于最小值，使用原始值
-                let final-duration = snap-result.snapped && snapped-duration >= min-duration-ms ? snapped-duration : base-duration;
+                    // 应用 snap 逻辑（右边缘调整：snap 结束位置到相邻轨道边缘或 playhead）
+                    let snap-threshold-ms = Store.video-editor-preference-config.track.snap-threshold-ms;
+                    let end-position-ms = root.drag-start-offset-ms + base-duration;
+                    let snap-result = Logic.video-editor-find-snap-position(end-position-ms, snap-threshold-ms, root.track-index, root.index, -1);
+                    let snapped-end = snap-result.position;
+                    let snapped-duration = snapped-end - root.drag-start-offset-ms;
+                    // 如果没有找到 snap 或 snap 后的 duration 小于最小值，使用原始值
+                    let final-duration = snap-result.snapped && snapped-duration >= min-duration-ms ? snapped-duration : base-duration;
 
-                Store.video-editor-drag-preview-duration = final-duration;
+                    Store.video-editor-drag-preview-duration = final-duration;
 
-                // 联动模式下，更新 delta 以便后续 segment 实时移动
-                if (root.link-enabled) {
-                    Store.video-editor-drag-delta-ms = final-duration - root.drag-start-duration-ms;
+                    // 联动模式下，更新 delta 以便后续 segment 实时移动
+                    if (root.link-enabled) {
+                        Store.video-editor-drag-delta-ms = final-duration - root.drag-start-duration-ms;
+                    }
                 }
             }
         }
