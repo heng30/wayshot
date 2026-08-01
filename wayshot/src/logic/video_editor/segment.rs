@@ -1,4 +1,3 @@
-use crate::logic_cb_pure;
 use super::{
     command::{
         sync_and_refresh, sync_and_refresh_simple, sync_and_refresh_tracks_only,
@@ -17,7 +16,7 @@ use super::{
 use crate::{
     global_logic, global_store, global_ve_filter,
     logic::{recorder::picker_directory, toast, tr::tr},
-    logic_cb,
+    logic_cb, logic_cb_pure,
     slint_generatedAppWindow::{
         AppWindow, FilterEntry as UIFilterEntry, FilterType as UIFilterType,
         MediaType as UIMediaType, PresetFilter as UIPresetFilter,
@@ -58,6 +57,10 @@ use video_editor::{
 use video_utils::{convert::resize_rgba_image, subtitle::ms_to_srt_timestamp};
 
 const THUMBNAIL_HEIGHT: u32 = 90;
+
+/// 显示用波形采样率（每声道每秒采样数），供 UI 波形渲染使用。
+/// 缓存层（lib）仍为 60Hz，此处只是请求的目标显示采样率。
+const DISPLAY_AUDIO_SAMPLES_PER_SECOND: u32 = 15;
 const GIF_MAX_WIDTH: u32 = 854;
 const GIF_MAX_HEIGHT: u32 = 480;
 const GIF_FPS: f64 = 10.0;
@@ -160,7 +163,14 @@ pub fn init(ui: &AppWindow) {
     logic_cb!(video_editor_selected_segment_metadata, ui, _flag);
     logic_cb!(video_editor_selected_segment_relative_start, ui);
     logic_cb!(video_editor_get_min_all_tracks_offset, ui);
-    logic_cb_pure!(video_editor_is_link_all_movable, ui, track_index, segment_index, drag_original_offset, drag_original_duration);
+    logic_cb_pure!(
+        video_editor_is_link_all_movable,
+        ui,
+        track_index,
+        segment_index,
+        drag_original_offset,
+        drag_original_duration
+    );
     logic_cb!(
         video_editor_update_edited_subtitle_from_segment,
         ui,
@@ -624,8 +634,9 @@ pub fn async_load_segment_audio(
             return;
         };
 
-        let (channels, audio_samples) =
-            seg.audio_resampling_for_display((seg.duration.as_secs_f64() * 30.0).ceil() as u32);
+        let (channels, audio_samples) = seg.audio_resampling_for_display(
+            (seg.duration.as_secs_f64() * DISPLAY_AUDIO_SAMPLES_PER_SECOND as f64).ceil() as u32,
+        );
 
         log::debug!(
             "segment[{uuid}]: load {} audio samples",
@@ -1157,6 +1168,70 @@ fn video_editor_commit_segment_cross_track_move(
     }
 }
 
+/// 二分：返回第一个 timeline_offset >= target_ms 的索引（0..=len）。
+/// 前提：轨道内 segment 按 timeline_offset 升序。
+fn partition_point_segment_start_lt(
+    segments: &ModelRc<UIVideoEditorTrackSegment>,
+    target_ms: i32,
+) -> usize {
+    let n = segments.row_count();
+    let mut lo = 0usize;
+    let mut hi = n;
+    while lo < hi {
+        let mid = (lo + hi) / 2;
+        let start = segments
+            .row_data(mid)
+            .map(|s| s.timeline_offset)
+            .unwrap_or(i32::MAX);
+        if start < target_ms {
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+    lo
+}
+
+/// 在按 timeline_offset 升序的段列表中二分查找包含 timeline_ms 的段。
+/// 排序不变量被破坏时（罕见），在插入点附近做小窗口线性兜底。
+fn binary_search_segment_containing(
+    segments: &ModelRc<UIVideoEditorTrackSegment>,
+    timeline_ms: i32,
+) -> i32 {
+    const TOLERANCE: usize = 8;
+
+    // 第一个 start > timeline_ms 的位置 ⇒ start <= t 的段都在 [0, p)
+    let p = partition_point_segment_start_lt(segments, timeline_ms.saturating_add(1));
+
+    // 向前（索引更小）容错窗口
+    let mut i = p;
+    let mut checked = 0usize;
+    while i > 0 && checked < TOLERANCE {
+        i -= 1;
+        checked += 1;
+        let Some(s) = segments.row_data(i) else { break };
+        if s.timeline_offset > timeline_ms {
+            break;
+        }
+        if s.timeline_offset <= timeline_ms && timeline_ms < s.timeline_offset + s.duration {
+            return i as i32;
+        }
+    }
+
+    // 向后容错窗口（乱序时 start <= t 的段可能出现在 p 之后）
+    for i in p..segments.row_count().min(p + TOLERANCE) {
+        let Some(s) = segments.row_data(i) else { break };
+        if s.timeline_offset > timeline_ms {
+            break;
+        }
+        if s.timeline_offset <= timeline_ms && timeline_ms < s.timeline_offset + s.duration {
+            return i as i32;
+        }
+    }
+
+    -1
+}
+
 // 查找指定时间点所在的 segment 索引
 fn video_editor_find_segment_at_time(
     ui: &AppWindow,
@@ -1172,18 +1247,7 @@ fn video_editor_find_segment_at_time(
         return -1;
     };
 
-    let timeline_offset = Duration::from_millis(timeline_offset_ms as u64);
-
-    for (i, segment) in track.segments.iter().enumerate() {
-        let segment_start = Duration::from_millis(segment.timeline_offset as u64);
-        let segment_end = segment_start + Duration::from_millis(segment.duration as u64);
-
-        if timeline_offset >= segment_start && timeline_offset < segment_end {
-            return i as i32;
-        }
-    }
-
-    -1
+    binary_search_segment_containing(&track.segments, timeline_offset_ms)
 }
 
 // 查找指定时间点所在的 segment 索引，可排除指定 segment
@@ -1202,20 +1266,26 @@ fn video_editor_find_segment_at_time_excluding(
         return -1;
     };
 
-    let timeline_offset = Duration::from_millis(timeline_offset_ms as u64);
-    let exclude_idx = exclude_segment_index as usize;
+    let found = binary_search_segment_containing(&track.segments, timeline_offset_ms);
+    if found >= 0 && found != exclude_segment_index {
+        return found;
+    }
 
-    for (i, segment) in track.segments.iter().enumerate() {
-        if exclude_segment_index >= 0 && i == exclude_idx {
-            continue;
-        }
-
-        let segment_start = Duration::from_millis(segment.timeline_offset as u64);
-        let segment_end = segment_start + Duration::from_millis(segment.duration as u64);
-
-        // 检查时间点是否在 segment 内部（不包括边界）
-        if timeline_offset >= segment_start && timeline_offset < segment_end {
-            return i as i32;
+    // 命中的恰好是被排除的段：在附近小窗口内找其他包含该时间点的段
+    if found >= 0 {
+        const WINDOW: usize = 8;
+        let start = (found as usize).saturating_sub(WINDOW);
+        let end = (found as usize + WINDOW).min(track.segments.row_count());
+        for i in start..end {
+            if i as i32 == exclude_segment_index {
+                continue;
+            }
+            if let Some(s) = track.segments.row_data(i)
+                && s.timeline_offset <= timeline_offset_ms
+                && timeline_offset_ms < s.timeline_offset + s.duration
+            {
+                return i as i32;
+            }
         }
     }
 
@@ -1273,27 +1343,32 @@ fn video_editor_find_snap_position(
             break;
         };
 
-        for (seg_idx, segment) in track.segments.iter().enumerate() {
+        let n = track.segments.row_count();
+        if n == 0 {
+            continue;
+        }
+
+        // 二分：第一个 start >= search_start 的索引 ⇒ 其 start 落入搜索窗口的段从 p 开始
+        let p = partition_point_segment_start_lt(&track.segments, search_start);
+
+        // 候选1：p-2、p-1（start < search_start，但 end 可能落在搜索窗口内）
+        for idx in p.saturating_sub(2)..p {
+            let Some(segment) = track.segments.row_data(idx) else {
+                continue;
+            };
             // 排除正在拖拽的 segment（同一轨道时）
-            if track_idx as i32 == exclude_track_index && seg_idx as i32 == exclude_segment_index {
+            if track_idx as i32 == exclude_track_index && idx as i32 == exclude_segment_index {
                 continue;
             }
 
             let seg_start = segment.timeline_offset;
             let seg_end = segment.timeline_offset + segment.duration;
 
-            // 如果 segment 结束时间在搜索范围之前，跳过（segment 完全在 snap 范围左边）
+            // 结束时间在搜索范围之前，两个边界点距离都 >= threshold，不会更新
             if seg_end < search_start {
                 continue;
             }
 
-            // 如果 segment 开始时间在搜索范围之后，可以停止遍历当前轨道
-            // 因为后续的 segment 都会更晚（按时间排序）
-            if seg_start > search_end {
-                break;
-            }
-
-            // segment 与搜索范围有交集，检查两个边界点
             let distance_to_start = (offset_ms - seg_start).abs();
             if distance_to_start < min_distance {
                 min_distance = distance_to_start;
@@ -1307,6 +1382,42 @@ fn video_editor_find_snap_position(
                 closest_snap = seg_end;
                 found_snap = true;
             }
+        }
+
+        // 候选2：从 p 向后走 while start <= search_end（按时间排序，可提前退出）
+        let mut idx = p;
+        while idx < n {
+            let Some(segment) = track.segments.row_data(idx) else {
+                break;
+            };
+            // 排除正在拖拽的 segment（同一轨道时）
+            if track_idx as i32 == exclude_track_index && idx as i32 == exclude_segment_index {
+                idx += 1;
+                continue;
+            }
+
+            let seg_start = segment.timeline_offset;
+            // 后续 segment 都更晚（按时间排序），可以停止遍历当前轨道
+            if seg_start > search_end {
+                break;
+            }
+
+            let seg_end = segment.timeline_offset + segment.duration;
+            let distance_to_start = (offset_ms - seg_start).abs();
+            if distance_to_start < min_distance {
+                min_distance = distance_to_start;
+                closest_snap = seg_start;
+                found_snap = true;
+            }
+
+            let distance_to_end = (offset_ms - seg_end).abs();
+            if distance_to_end < min_distance {
+                min_distance = distance_to_end;
+                closest_snap = seg_end;
+                found_snap = true;
+            }
+
+            idx += 1;
         }
     }
 
@@ -2462,22 +2573,22 @@ fn video_editor_get_min_all_tracks_offset(ui: &AppWindow) -> i32 {
     let drag_seg_index = global_store!(ui).get_video_editor_drag_segment_index();
 
     // 获取拖拽 segment 的原始时间范围
-    let (drag_start_ms, drag_end_ms) =
-        if drag_track_index >= 0 && drag_track_index < tracks_manager.tracks.row_count() as i32
-            && drag_seg_index >= 0
-        {
-            let Some(drag_track) = tracks_manager.tracks.row_data(drag_track_index as usize) else {
-                return 0;
-            };
-            if let Some(seg) = drag_track.segments.row_data(drag_seg_index as usize) {
-                let start = seg.timeline_offset;
-                (start, start + seg.duration)
-            } else {
-                return 0;
-            }
-        } else {
+    let (drag_start_ms, drag_end_ms) = if drag_track_index >= 0
+        && drag_track_index < tracks_manager.tracks.row_count() as i32
+        && drag_seg_index >= 0
+    {
+        let Some(drag_track) = tracks_manager.tracks.row_data(drag_track_index as usize) else {
             return 0;
         };
+        if let Some(seg) = drag_track.segments.row_data(drag_seg_index as usize) {
+            let start = seg.timeline_offset;
+            (start, start + seg.duration)
+        } else {
+            return 0;
+        }
+    } else {
+        return 0;
+    };
 
     // 计算所有受影响轨道中，第一个可移动 segment 与其前一个 segment 之间的最小间隙
     // 这个间隙限制了向左移动的最大距离
@@ -2538,11 +2649,7 @@ fn video_editor_get_min_all_tracks_offset(ui: &AppWindow) -> i32 {
         }
     }
 
-    if min_gap == i32::MAX {
-        0
-    } else {
-        min_gap
-    }
+    if min_gap == i32::MAX { 0 } else { min_gap }
 }
 
 fn video_editor_segment_has_keyframes(
