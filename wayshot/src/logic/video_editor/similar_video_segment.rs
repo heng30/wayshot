@@ -11,7 +11,7 @@ use crate::{
             project::SIMILAR_VIDEO_SEGMENT_CONFIG_ID,
         },
     },
-    logic_cb,
+    logic_cb, logic_cb_pure,
     slint_generatedAppWindow::{
         AppWindow, VideoEditorSimilarVideoSegmentConfig as UISimilarVideoSegmentConfig,
         VideoEditorSimilarVideoSegmentItem as UISimilarVideoSegmentItem,
@@ -62,6 +62,7 @@ pub fn init(ui: &AppWindow) {
     logic_cb!(video_editor_similar_video_segment_remove_item, ui, index);
     logic_cb!(video_editor_similar_video_segment_choose_export_dir, ui);
     logic_cb!(video_editor_similar_video_segment_update_config, ui, config);
+    logic_cb_pure!(video_editor_similar_video_segment_setting_is_valid, ui);
 }
 
 fn inner_init(ui: &AppWindow) {
@@ -454,4 +455,10 @@ fn video_editor_similar_video_segment_update_config(
 ) {
     global_store!(ui).set_video_editor_similar_video_segment_config(config.clone());
     save_config(config.into());
+}
+
+fn video_editor_similar_video_segment_setting_is_valid(ui: &AppWindow) -> bool {
+    let config = global_store!(ui).get_video_editor_similar_video_segment_config();
+    let export_dir = config.export_dir.to_string();
+    !export_dir.is_empty() && PathBuf::from(&export_dir).exists()
 }

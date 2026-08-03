@@ -6,7 +6,10 @@ use crate::{
         recorder::picker_directory,
         toast,
         tr::tr,
-        video_editor::project::{MUSICGEN_CONFIG_ID, PROJECT_STATE},
+        video_editor::{
+            playlist::import_file_to_playlist,
+            project::{MUSICGEN_CONFIG_ID, PROJECT_STATE},
+        },
     },
     logic_cb, logic_cb_pure,
     slint_generatedAppWindow::{
@@ -214,8 +217,10 @@ fn video_editor_musicgen_generate(ui: &AppWindow) {
         let english_prompt = match english_prompt {
             Some(p) => p,
             None => {
-                PROCESS_CANCEL.store(true, Ordering::Relaxed);
                 _ = ui_weak.upgrade_in_event_loop(move |ui| {
+                    if PROCESS_ID.load(Ordering::Relaxed) != process_id {
+                        return;
+                    }
                     global_store!(ui).set_video_editor_musicgen_is_generating(false);
                 });
                 return;
@@ -251,12 +256,17 @@ fn video_editor_musicgen_generate(ui: &AppWindow) {
             &english_prompt,
             duration,
             Box::new(move |current, total| {
-                if cancel_sig.load(Ordering::Relaxed) {
+                if cancel_sig.load(Ordering::Relaxed)
+                    || PROCESS_ID.load(Ordering::Relaxed) != process_id
+                {
                     return true;
                 }
 
                 let progress = current / total;
                 _ = ui_weak_progress.upgrade_in_event_loop(move |ui| {
+                    if PROCESS_ID.load(Ordering::Relaxed) != process_id {
+                        return;
+                    }
                     global_store!(ui).set_video_editor_musicgen_progress(progress);
                 });
 
@@ -270,13 +280,11 @@ fn video_editor_musicgen_generate(ui: &AppWindow) {
                     / MUSICGEN_SAMPLE_RATE as u64
                     / MUSICGEN_CHANNEL as u64) as i32;
 
-                // Store samples for playback
-                *GENERATED_SAMPLES.lock().unwrap() = Some(output.samples);
-
                 _ = ui_weak.upgrade_in_event_loop(move |ui| {
                     if PROCESS_ID.load(Ordering::Relaxed) != process_id {
                         return;
                     }
+                    *GENERATED_SAMPLES.lock().unwrap() = Some(output.samples);
                     global_store!(ui).set_video_editor_musicgen_is_generating(false);
                     global_store!(ui).set_video_editor_musicgen_progress(1.0);
                     global_store!(ui).set_video_editor_musicgen_audio_duration_ms(duration_ms);
@@ -287,6 +295,9 @@ fn video_editor_musicgen_generate(ui: &AppWindow) {
             }
             Err(musicgen_rs::Error::Aborted) => {
                 _ = ui_weak.upgrade_in_event_loop(move |ui| {
+                    if PROCESS_ID.load(Ordering::Relaxed) != process_id {
+                        return;
+                    }
                     global_store!(ui).set_video_editor_musicgen_is_generating(false);
                 });
             }
@@ -479,8 +490,12 @@ fn video_editor_musicgen_generate_prompt(ui: &AppWindow) {
 fn video_editor_musicgen_cancel(ui: &AppWindow) {
     PROCESS_CANCEL.store(true, Ordering::Relaxed);
     PROCESS_ID.fetch_add(1, Ordering::Relaxed);
+    *GENERATED_SAMPLES.lock().unwrap() = None;
     global_store!(ui).set_video_editor_musicgen_is_generating(false);
     global_store!(ui).set_video_editor_musicgen_progress(0.0);
+    global_store!(ui).set_video_editor_musicgen_audio_duration_ms(0);
+    global_store!(ui).set_video_editor_musicgen_audio_player_is_playing(false);
+    global_store!(ui).set_video_editor_musicgen_audio_player_progress(0.0);
 }
 
 fn video_editor_musicgen_setting_is_valid(ui: &AppWindow) -> bool {
@@ -888,9 +903,15 @@ fn save_wav_file(ui_weak: Weak<AppWindow>, samples: &[f32], output_path: &PathBu
             }
 
             toast::async_toast_success(
-                ui_weak,
+                ui_weak.clone(),
                 format!("{} {}", tr("Audio exported to"), output_path.display()),
             );
+
+            // Add the exported audio to the playlist
+            let output_path = output_path.clone();
+            tokio::spawn(async move {
+                import_file_to_playlist(ui_weak, output_path, None).await;
+            });
         }
         Err(e) => {
             toast::async_toast_warn(

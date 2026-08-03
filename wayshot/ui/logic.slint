@@ -814,6 +814,7 @@ export global Logic {
     callback video-editor-similar-video-segment-remove-item(index: int);
     callback video-editor-similar-video-segment-choose-export-dir();
     callback video-editor-similar-video-segment-update-config(config: VideoEditorSimilarVideoSegmentConfig);
+    pure callback video-editor-similar-video-segment-setting-is-valid() -> bool;
 
     callback video-editor-speakers-import-audio();
     callback video-editor-speakers-process-audio();

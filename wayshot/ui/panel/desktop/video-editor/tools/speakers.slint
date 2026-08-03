@@ -314,6 +314,12 @@ export component SpeakersDialog inherits MovingDialog {
     head-y: self.height * 0.1;
     enable-resize: true;
 
+    init => {
+        if (!Logic.video-editor-speakers-setting-is-valid()) {
+            Store.video-editor-is-show-speakers-setting-dialog = true;
+        }
+    }
+
     VerticalLayout {
         padding: Theme.padding * 2;
         spacing: Theme.spacing * 2;
@@ -371,6 +377,7 @@ export component SpeakersSettingDialog inherits MovingDialog {
                 read-only: true;
                 text: config.export-dir;
                 icon: Icons.file-open-light;
+                border-color: Logic.dir-exist(self.text) ? self.default-border-color : Theme.danger-color;
                 is-show-icon: true;
 
                 clicked => {
@@ -393,6 +400,7 @@ export component SpeakersSettingDialog inherits MovingDialog {
                     icon: Icons.file-open-light;
                     is-show-icon: true;
                     placeholder-text: "speakrs-models";
+                    border-color: Logic.dir-exist(self.text) ? self.default-border-color : Theme.danger-color;
 
                     clicked => {
                         Logic.video-editor-speakers-choose-models-dir();
@@ -457,6 +465,7 @@ export component SpeakersSettingDialog inherits MovingDialog {
             LineInput {
                 text: config.merge-gap > 0 ? config.merge-gap.to-fixed(1) : "0.5";
                 input-type: decimal;
+                border-color: self.text == config.merge-gap ? self.default-border-color : Theme.danger-color;
 
                 accepted => {
                     config.merge-gap = self.text.to-float();

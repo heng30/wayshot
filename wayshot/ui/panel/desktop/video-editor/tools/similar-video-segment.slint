@@ -272,6 +272,12 @@ export component SimilarVideoSegmentDialog inherits MovingDialog {
     head-y: self.height * 0.1;
     enable-resize: true;
 
+    init => {
+        if (!Logic.video-editor-similar-video-segment-setting-is-valid()) {
+            Store.video-editor-is-show-similar-video-segment-setting-dialog = true;
+        }
+    }
+
     VerticalLayout {
         private property <bool> has-query-image: !Store.video-editor-similar-video-segment-query-image-path.is-empty;
 
@@ -302,6 +308,7 @@ export component SimilarVideoSegmentSettingDialog inherits MovingDialog {
                 read-only: true;
                 text: Store.video-editor-similar-video-segment-config.export-dir;
                 icon: Icons.file-open-light;
+                border-color: Logic.dir-exist(self.text) ? self.default-border-color : Theme.danger-color;
                 is-show-icon: true;
 
                 clicked => {
@@ -313,21 +320,18 @@ export component SimilarVideoSegmentSettingDialog inherits MovingDialog {
         SettingDetailInnerVbox {
             SettingDetailLabel {
                 text: Logic.tr("Similarity Threshold");
+                tip: "0-1";
             }
 
             threshold-li := LineInput {
                 text: Store.video-editor-similar-video-segment-config.similarity-threshold;
+                border-color: self.text == Store.video-editor-similar-video-segment-config.similarity-threshold ? self.default-border-color : Theme.danger-color;
                 input-type: decimal;
 
                 accepted => {
-                    let v = threshold-li.text.to-float();
-                    if (v < 0.0) {
-                        Store.video-editor-similar-video-segment-config.similarity-threshold = 0.0;
-                    } else if (v > 1.0) {
-                        Store.video-editor-similar-video-segment-config.similarity-threshold = 1.0;
-                    } else {
-                        Store.video-editor-similar-video-segment-config.similarity-threshold = v;
-                    }
+                    let v = threshold-li.text.to-float().clamp(0.0, 1.0);
+                    self.text = v;
+                    Store.video-editor-similar-video-segment-config.similarity-threshold = v;
                     Logic.video-editor-similar-video-segment-update-config(Store.video-editor-similar-video-segment-config);
                 }
             }
@@ -340,6 +344,7 @@ export component SimilarVideoSegmentSettingDialog inherits MovingDialog {
 
             sample-li := LineInput {
                 text: Store.video-editor-similar-video-segment-config.sample-interval;
+                border-color: self.text == Store.video-editor-similar-video-segment-config.sample-interval ? self.default-border-color : Theme.danger-color;
                 input-type: number;
 
                 accepted => {
@@ -358,6 +363,7 @@ export component SimilarVideoSegmentSettingDialog inherits MovingDialog {
             before-li := LineInput {
                 text: Store.video-editor-similar-video-segment-config.before-duration-secs;
                 input-type: decimal;
+                border-color: self.text == Store.video-editor-similar-video-segment-config.before-duration-secs ? self.default-border-color : Theme.danger-color;
 
                 accepted => {
                     let v = before-li.text.to-float();
@@ -375,6 +381,7 @@ export component SimilarVideoSegmentSettingDialog inherits MovingDialog {
             after-li := LineInput {
                 text: Store.video-editor-similar-video-segment-config.after-duration-secs;
                 input-type: decimal;
+                border-color: self.text == Store.video-editor-similar-video-segment-config.after-duration-secs ? self.default-border-color : Theme.danger-color;
 
                 accepted => {
                     let v = after-li.text.to-float();

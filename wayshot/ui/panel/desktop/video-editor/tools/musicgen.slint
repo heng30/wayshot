@@ -310,6 +310,7 @@ export component MusicGenSettingDialog inherits MovingDialog {
                             icon: Icons.file-open-light;
                             placeholder-text: model-names[index] + " " + "model directory";
                             text: root.model-dirs[index];
+                            border-color: Logic.dir-exist(self.text) ? self.default-border-color : Theme.danger-color;
 
                             clicked => {
                                 Logic.video-editor-musicgen-choose-model-dir();

@@ -351,6 +351,7 @@ export component DewatermarkSettingDialog inherits MovingDialog {
                 text: config.export-dir;
                 icon: Icons.file-open-light;
                 is-show-icon: true;
+                border-color: Logic.dir-exist(self.text) ? self.default-border-color : Theme.danger-color;
 
                 clicked => {
                     Logic.video-editor-dewatermark-choose-export-dir();

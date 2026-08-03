@@ -654,70 +654,76 @@ export component TTSSettingDialog inherits MovingDialog {
             }
         }
 
-        for downloader[index] in Store.video-editor-tts-models-dowloader: VerticalLayout {
-            alignment: start;
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Model");
+            }
 
-            HorizontalLayout {
-                spacing: Theme.spacing * 4;
-
-                pure function get-border-color(status: DownloaderState, exist-color: color, no-exist-color: color) -> color {
-                    if status == DownloaderState.Finished {
-                        return exist-color;
-                    } else {
-                        return Logic.dir-exist(setting.model-dir) ? exist-color : no-exist-color;
-                    }
-                }
-
-                model-path-li := LineInput {
-                    horizontal-stretch: 2;
-                    read-only: true;
-                    is-show-icon: true;
-                    icon: Icons.file-open-light;
-                    placeholder-text: "VoxCPM2";
-                    text: setting.model-dir;
-                    border-color: get-border-color(downloader.state, self.default-border-color, Theme.danger-color);
-
-                    clicked => {
-                        Logic.video-editor-tts-choose-model-dir();
-                    }
-                }
+            for downloader[index] in Store.video-editor-tts-models-dowloader: VerticalLayout {
+                alignment: start;
 
                 HorizontalLayout {
                     spacing: Theme.spacing * 4;
 
-                    if downloader.state != DownloaderState.UnStart: VerticalLayout {
-                        alignment: center;
+                    pure function get-border-color(status: DownloaderState, exist-color: color, no-exist-color: color) -> color {
+                        if status == DownloaderState.Finished {
+                            return exist-color;
+                        } else {
+                            return Logic.dir-exist(setting.model-dir) ? exist-color : no-exist-color;
+                        }
+                    }
 
-                        ProgressBar {
-                            height: Theme.default-font-size * 2 / 3;
-                            font-size: Theme.default-font-size * 2 / 3;
-                            finished-progress-color: Logic.downloader-progress-color(downloader.state);
-                            progress: downloader.progress;
+                    model-path-li := LineInput {
+                        horizontal-stretch: 2;
+                        read-only: true;
+                        is-show-icon: true;
+                        icon: Icons.file-open-light;
+                        placeholder-text: "VoxCPM2";
+                        text: setting.model-dir;
+                        border-color: get-border-color(downloader.state, self.default-border-color, Theme.danger-color);
+
+                        clicked => {
+                            Logic.video-editor-tts-choose-model-dir();
                         }
                     }
 
                     HorizontalLayout {
-                        alignment: end;
                         spacing: Theme.spacing * 4;
 
-                        IconBtn {
-                            enabled: downloader.state != DownloaderState.Downloading;
-                            is-show-tip: true;
-                            icon: Icons.download-light;
-                            tip: Logic.tr("download");
+                        if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                            alignment: center;
 
-                            clicked => {
-                                Logic.video-editor-tts-model-start-download(downloader.url);
+                            ProgressBar {
+                                height: Theme.default-font-size * 2 / 3;
+                                font-size: Theme.default-font-size * 2 / 3;
+                                finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                                progress: downloader.progress;
                             }
                         }
 
-                        IconBtn {
-                            icon: Icons.browser-light;
-                            is-show-tip: true;
-                            tip: Logic.tr("open url");
+                        HorizontalLayout {
+                            alignment: end;
+                            spacing: Theme.spacing * 4;
 
-                            clicked => {
-                                Util.open-url("Default", downloader.url);
+                            IconBtn {
+                                enabled: downloader.state != DownloaderState.Downloading;
+                                is-show-tip: true;
+                                icon: Icons.download-light;
+                                tip: Logic.tr("download");
+
+                                clicked => {
+                                    Logic.video-editor-tts-model-start-download(downloader.url);
+                                }
+                            }
+
+                            IconBtn {
+                                icon: Icons.browser-light;
+                                is-show-tip: true;
+                                tip: Logic.tr("open url");
+
+                                clicked => {
+                                    Util.open-url("Default", downloader.url);
+                                }
                             }
                         }
                     }

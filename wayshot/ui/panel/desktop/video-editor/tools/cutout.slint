@@ -411,6 +411,7 @@ export component CutoutSettingDialog inherits MovingDialog {
                 read-only: true;
                 text: config.export-dir;
                 icon: Icons.file-open-light;
+                border-color: Logic.dir-exist(self.text) ? self.default-border-color : Theme.danger-color;
                 is-show-icon: true;
 
                 clicked => {
@@ -609,8 +610,6 @@ export component CutoutSettingDialog inherits MovingDialog {
                     is-show-color-block: true;
                     color-block-color: Util.color-picker-hex-color(self.text);
                     icon: Icons.color-picker-light;
-                    border-color: Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
-                    border-width: 1px;
 
                     clicked => {
                         Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
