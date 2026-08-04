@@ -99,21 +99,49 @@ impl FfmpegVideoEncoder {
             output_frame.alloc(format::Pixel::YUV420P, self.width, self.height);
         }
 
-        // Copy I420 data to YUV420P frame planes
+        // Copy I420 data to YUV420P frame planes.
+        // IMPORTANT: av_frame_get_buffer aligns every plane's linesize (stride)
+        // to 32 bytes, so stride can be larger than the plane's logical width.
+        // Copy row-by-row using the frame's actual stride, otherwise each row
+        // after the first is shifted and the picture comes out skewed/garbled
+        // for dimensions that are not multiples of 32 (e.g. 854x480, 720x720).
         let frame_size = (self.width * self.height) as usize;
+        let u_size = frame_size / 4;
+        let luma_w = self.width as usize;
+        let chroma_w = (self.width as usize).div_ceil(2);
+        let chroma_h = (self.height as usize).div_ceil(2);
+
+        let y_stride = output_frame.stride(0);
+        let c_stride = output_frame.stride(1);
 
         // Y plane
-        let y_plane = output_frame.data_mut(0);
-        y_plane[..frame_size].copy_from_slice(&i420_data[0..frame_size]);
+        {
+            let y_plane = output_frame.data_mut(0);
+            for row in 0..self.height as usize {
+                let src = &i420_data[row * luma_w..(row + 1) * luma_w];
+                y_plane[row * y_stride..row * y_stride + luma_w].copy_from_slice(src);
+            }
+        }
 
         // U plane
-        let u_plane = output_frame.data_mut(1);
-        let u_size = frame_size / 4;
-        u_plane[..u_size].copy_from_slice(&i420_data[frame_size..frame_size + u_size]);
+        {
+            let u_plane = output_frame.data_mut(1);
+            for row in 0..chroma_h {
+                let src =
+                    &i420_data[frame_size + row * chroma_w..frame_size + (row + 1) * chroma_w];
+                u_plane[row * c_stride..row * c_stride + chroma_w].copy_from_slice(src);
+            }
+        }
 
         // V plane
-        let v_plane = output_frame.data_mut(2);
-        v_plane[..u_size].copy_from_slice(&i420_data[frame_size + u_size..]);
+        {
+            let v_plane = output_frame.data_mut(2);
+            for row in 0..chroma_h {
+                let src = &i420_data[frame_size + u_size + row * chroma_w
+                    ..frame_size + u_size + (row + 1) * chroma_w];
+                v_plane[row * c_stride..row * c_stride + chroma_w].copy_from_slice(src);
+            }
+        }
 
         Ok(output_frame)
     }

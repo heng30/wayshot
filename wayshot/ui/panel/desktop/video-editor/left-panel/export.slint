@@ -268,25 +268,18 @@ component ExportDetailVideo inherits SettingDetail {
             }
         }
 
-        HorizontalLayout {
-            alignment: end;
-            padding-top: Theme.padding * 2;
-            padding-right: Theme.padding * 2;
-            padding-bottom: Theme.padding * 2;
+        ConfirmBtn {
+            icon-size: Theme.icon-size * 0.8;
+            icon: Icons.export-light;
+            text: Logic.tr("Export");
 
-            ConfirmBtn {
-                icon-size: Theme.icon-size * 0.8;
-                icon: Icons.export-light;
-                text: Logic.tr("Export");
-
-                clicked => {
-                    cache-config.resolution = Logic.resolution-from-string(resolution-select.current-value);
-                    cache-config.fps = Logic.fps-from-int(fps-select.current-value.to-float());
-                    cache-config.channels = Logic.audio-channels-from-int(channels-select.current-value.to-float());
-                    cache-config.sample-rate = Logic.audio-sample-rate-from-int( audio-sample-select.current-value.to-float());
-                    cache-config.low-memory-mode = low-memory-mode-check.checked;
-                    Logic.video-editor-export-video(cache-config);
-                }
+            clicked => {
+                cache-config.resolution = Logic.resolution-from-string(resolution-select.current-value);
+                cache-config.fps = Logic.fps-from-int(fps-select.current-value.to-float());
+                cache-config.channels = Logic.audio-channels-from-int(channels-select.current-value.to-float());
+                cache-config.sample-rate = Logic.audio-sample-rate-from-int( audio-sample-select.current-value.to-float());
+                cache-config.low-memory-mode = low-memory-mode-check.checked;
+                Logic.video-editor-export-video(cache-config);
             }
         }
     }
@@ -334,22 +327,16 @@ component ExportDetailAudio inherits SettingDetail {
             }
         }
 
-        HorizontalLayout {
-            alignment: end;
-            padding-right: Theme.padding * 2;
-            padding-bottom: Theme.padding * 2;
+        ConfirmBtn {
+            icon-size: Theme.icon-size * 0.8;
+            icon: Icons.export-light;
+            text: Logic.tr("Export");
 
-            ConfirmBtn {
-                icon-size: Theme.icon-size * 0.8;
-                icon: Icons.export-light;
-                text: Logic.tr("Export");
-
-                clicked => {
-                    cache-config.format = Logic.audio-format-from-str(format-select.current-value);
-                    cache-config.channels = Logic.audio-channels-from-int(channels-select.current-value.to-float());
-                    cache-config.sample-rate = Logic.audio-sample-rate-from-int( audio-sample-select.current-value.to-float());
-                    Logic.video-editor-export-audio(cache-config);
-                }
+            clicked => {
+                cache-config.format = Logic.audio-format-from-str(format-select.current-value);
+                cache-config.channels = Logic.audio-channels-from-int(channels-select.current-value.to-float());
+                cache-config.sample-rate = Logic.audio-sample-rate-from-int( audio-sample-select.current-value.to-float());
+                Logic.video-editor-export-audio(cache-config);
             }
         }
     }
@@ -391,19 +378,13 @@ component ExportDetailSubtitle inherits SettingDetail {
             }
         }
 
-        HorizontalLayout {
-            alignment: end;
-            padding-right: Theme.padding * 2;
-            padding-bottom: Theme.padding * 2;
+        ConfirmBtn {
+            icon-size: Theme.icon-size * 0.8;
+            icon: Icons.export-light;
+            text: Logic.tr("Export");
 
-            ConfirmBtn {
-                icon-size: Theme.icon-size * 0.8;
-                icon: Icons.export-light;
-                text: Logic.tr("Export");
-
-                clicked => {
-                    Logic.video-editor-export-subtitle(subtitle-type);
-                }
+            clicked => {
+                Logic.video-editor-export-subtitle(subtitle-type);
             }
         }
     }
