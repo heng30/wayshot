@@ -1,0 +1,85 @@
+# v1.0.1
+
+## English
+
+### Highlights
+
+- **New Lighting Filter** — Physically-based spot light effect for both video and image filters, with adjustable light color, cone angle, soft edge (penumbra), distance decay, pendulum swing animation, and full keyframe support.
+
+### New Features
+
+#### Lighting Filter
+- Spot light simulation with realistic intensity falloff and soft shadow edges
+- Parameters: Light color, brightness, cone angle, penumbra (edge softness), decay, max distance, ambient light
+- Light direction: Down / Up / Left / Right; light position freely adjustable (can extend beyond image edges)
+- Two scenes: Vertical (wall) and Horizontal (floor)
+- Pendulum swing animation: rope length, gravity, swing amplitude, damping
+- Full keyframe animation support for all lighting parameters
+- Available in both **Video** and **Image** filters (backed by the new `lib/lighting` rendering engine)
+
+#### MusicGen
+- Exported audio is now automatically added to the playlist
+- Cancel now properly clears generated samples, duration and player state
+
+### Improvements
+
+- **Settings validation for AI tool dialogs** (Background Remover, Clear Vision, Deep Filter, Dewatermark, MusicGen, Stem Splitter): export directory input highlights in red when the path does not exist
+- **Similar Video Segment & Speakers dialogs**: settings dialog auto-opens when the configuration is invalid; invalid inputs are highlighted; similarity threshold is now clamped to 0-1
+- **TTS dialog**: reorganized model section layout; fixed save-dir validation (previously wrongly checked the model dir)
+- Font dialog closes automatically after picking a font
+- Track header insert-menu item order adjusted; export panel layout simplified
+- Performance: snap position search rewritten from linear scan to **binary search**; snap is now only searched after the mouse moves beyond the snap threshold (previously on every mouse move)
+- Audio waveform display sample rate reduced from 30 Hz to 15 Hz (lighter UI load)
+- Linux: main thread stack size raised to 32 MB via linker flags
+- Dependency upgrades: rmcp 2→3, base64 0.22→0.23, syn 2→3; new `glam` dependency
+
+### Bug Fixes
+
+- **FFmpeg encoder**: fixed garbled/corrupted video (花屏) when exporting with a width that is not 32-byte aligned (e.g. 854x480) — frames are now copied row-by-row using the real plane stride
+- **Bot (LLM chat)**: fixed garbled Chinese/UTF-8 text when a multi-byte character was split across network chunks — SSE stream is now parsed on raw bytes; also added CRLF framing support and handling for streams that close without a `[DONE]` marker
+- **Track background misalignment**: track background now spans the full timeline (longest track duration) instead of the individual track duration
+- **MusicGen**: fixed race conditions where stale callbacks could overwrite UI state of a newer generation run
+- **AppImage packaging**: fixed wrong path for the appdata.xml file
+
+---
+
+## 简体中文
+
+### 亮点
+
+- **新增灯光滤镜** — 基于物理模拟的聚光灯效果，支持视频与图片滤镜，可调节灯光颜色、锥角、边缘柔化（半影）、距离衰减、钟摆摆动动画，并支持完整关键帧动画。
+
+### 新功能
+
+#### 灯光滤镜
+- 聚光灯模拟，带真实的强度衰减与柔和阴影边缘
+- 参数：灯光颜色、亮度、锥角、半影（边缘柔化）、衰减、最大距离、环境光
+- 灯光方向：下 / 上 / 左 / 右；灯光位置自由调整（可延伸到画面之外）
+- 两种场景：垂直（墙壁）、水平（地面）
+- 钟摆摆动动画：绳长、重力、摆幅、阻尼
+- 全部灯光参数支持关键帧动画
+- 视频与图片滤镜均可用（基于新增的 `lib/lighting` 渲染引擎）
+
+#### MusicGen
+- 导出的音频自动添加到媒体库
+- 取消生成时正确清空已生成样本、时长与播放器状态
+
+### 优化
+
+- **AI 工具对话框设置校验**（背景移除、画质增强、AI降噪、去水印、MusicGen、音轨分离）：导出目录不存在时输入框红色高亮提示
+- **相似视频检测与说话人分离对话框**：配置无效时自动弹出设置对话框，无效输入高亮，相似度阈值限制在 0-1 范围
+- **TTS 对话框**：重构模型区域布局，修复保存目录校验错误（原误校验模型目录）
+- 字体对话框选择字体后自动关闭
+- 轨道头部插入轨道菜单顺序调整；导出面板布局简化
+- 性能优化：snap 位置查找由线性扫描改为**二分查找**；拖动时仅当鼠标位移超过 snap 阈值才执行查找（原来每次移动都查找）
+- 音频波形显示采样率由 30Hz 降低至 15Hz（减轻 UI 负担）
+- Linux 主线程堆栈提升至 32MB（通过链接器参数）
+- 依赖升级：rmcp 2→3、base64 0.22→0.23、syn 2→3；新增 `glam` 依赖
+
+### Bug 修复
+
+- **FFmpeg 编码器**：修复导出非 32 字节对齐宽度（如 854x480）视频出现花屏的问题 — 帧数据改为按实际 stride 逐行拷贝
+- **Bot（LLM 对话）**：修复多字节 UTF-8 字符被网络分块截断导致的中文乱码 — SSE 流改为按原始字节解析，同时支持 CRLF 帧格式及无 `[DONE]` 标记的流结束处理
+- **轨道背景错位**：轨道背景改为覆盖完整时间轴（以最长轨道为准），不再按各自轨道长度绘制
+- **MusicGen**：修复旧回调覆盖新生成任务 UI 状态的竞态问题
+- **AppImage 打包**：修复 appdata.xml 路径错误
