@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> | <a href="README.zh-CN.md">简体中文</a>
+  <a href="README.md">English</a> | <a href="README.zh-CN.md">简体中文</a> | <a href="https://www.bilibili.com/video/BV1wyMB6KEur">演示视频</a>
 </p>
 
 
