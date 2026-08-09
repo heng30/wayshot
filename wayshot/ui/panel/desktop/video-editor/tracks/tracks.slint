@@ -146,6 +146,12 @@ component TracksList inherits Rectangle {
             preferred-height: header-lv.preferred-height;
             viewport-y <=> header-lv.viewport-y;
 
+            function is-in-viewport(pos-x: length, pos-y: length, width: length, height: length) -> bool {
+                let in-vw = pos-x + width >= abs(self.viewport-x) && pos-x <= abs(self.viewport-x) + self.visible-width;
+                let in-vh = pos-y + height >= abs(self.viewport-y) && pos-y <= abs(self.viewport-y) + self.visible-height;
+                return in-vw && in-vh;
+            }
+
             Rectangle {
                 scroll-ta := TouchArea {
                     clicked => {
@@ -155,6 +161,11 @@ component TracksList inherits Rectangle {
 
                 vbox := VerticalLayout {
                     for track[index] in tracks: TrackSegments {
+                        visible: segments-lv.is-in-viewport(self.x, self.y, self.width, self.height);
+                        viewport-x: segments-lv.viewport-x;
+                        viewport-y: segments-lv.viewport-y;
+                        viewport-visible-width: segments-lv.visible-width;
+                        viewport-visible-height: segments-lv.visible-height;
                         track-index: index;
                         track: track;
                         height: Logic.video-editor-track-height(track.ty);

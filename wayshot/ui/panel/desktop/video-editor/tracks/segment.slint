@@ -1042,6 +1042,10 @@ component Segment inherits Rectangle {
 export component TrackSegments inherits Rectangle {
     in-out property <int> track-index;
     in-out property <VideoEditorTrack> track;
+    in property <length> viewport-x;
+    in property <length> viewport-y;
+    in property <length> viewport-visible-width;
+    in property <length> viewport-visible-height;
 
     private property <length> length-pre-second: Logic.fps-to-int(Store.video-editor-new-project-config.preview-config.fps) * Store.video-editor-ui-state.tracks-zoom-level.to-float() * 1px;
 
@@ -1052,6 +1056,12 @@ export component TrackSegments inherits Rectangle {
     // 是否是跨轨道拖拽的目标轨道
     private property <bool> is-cross-track-drag-target:
         Store.video-editor-segment-cross-track-dragging && Store.video-editor-segment-cross-track-target-index == track-index;
+
+    function is-in-viewport(pos-x: length, pos-y: length, width: length, height: length) -> bool {
+        let in-vw = pos-x + width >= abs(self.viewport-x) && pos-x <= abs(self.viewport-x) + self.viewport-visible-width;
+        let in-vh = pos-y + height >= abs(self.viewport-y) && pos-y <= abs(self.viewport-y) + self.viewport-visible-height;
+        return in-vw && in-vh;
+    }
 
     // 轨道背景统一从 0 开始绘制，长度以最长的轨道为准（manager.duration = 所有轨道内容结束位置的最大值）
     width: Store.video-editor-tracks-manager.duration / 1000 * length-pre-second;
@@ -1118,6 +1128,7 @@ export component TrackSegments inherits Rectangle {
     }
 
     for segment[idx] in track.segments: Segment {
+        visible: is-in-viewport(self.x, parent.y, self.width, self.height);
         index: idx;
         track-index: track-index;
         track-type: track.ty;

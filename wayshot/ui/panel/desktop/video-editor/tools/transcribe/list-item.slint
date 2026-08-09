@@ -226,8 +226,9 @@ export component SubtitleListItem inherits Rectangle {
             if !entry.correction-text.is-empty: Rectangle {
                 background: Theme.thirdly-background;
                 border-radius: Theme.border-radius;
+                height: correction-hbox.preferred-height;
 
-                HorizontalLayout {
+                correction-hbox := HorizontalLayout {
                     alignment: space-between;
                     spacing: Theme.spacing * 2;
                     padding: Theme.padding * 2;
@@ -247,6 +248,7 @@ export component SubtitleListItem inherits Rectangle {
                         }
 
                         Label {
+                            vertical-alignment: center;
                             text: entry.correction-text;
                             font-size: Theme.default-font-size + 2px;
                             wrap: word-wrap;
