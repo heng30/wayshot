@@ -1,0 +1,35 @@
+# v1.0.2
+
+## English
+
+### Highlights
+
+- **Viewport Culling** — Subtitle list items and timeline track segments are now culled when outside the visible viewport, significantly reducing rendering work when scrolling through long timelines or large subtitle lists.
+
+### Improvements
+
+- **Viewport culling for timeline segments**: segments outside the visible area are no longer rendered (previously all segments were rendered regardless of scroll position), improving performance on long timelines
+- **Viewport culling for subtitle list items**: same optimization applied to the subtitle/transcription list, only items in view are rendered
+- **Subtitle correction area**: fixed height calculation and text vertical alignment in the correction region
+
+### Bug Fixes
+
+- **Subtitle correction area layout**: corrected the height computation of the correction region and the vertical alignment of its text
+
+---
+
+## 简体中文
+
+### 亮点
+
+- **视口裁剪** — 字幕列表项与时间轴轨道片段在超出可视区域时不再渲染，滚动浏览长时间轴或大字幕列表时显著降低渲染负担。
+
+### 优化
+
+- **时间轴片段视口裁剪**：视口外的片段不再渲染（原来无论滚动位置都会渲染全部片段），长时间轴下性能提升明显
+- **字幕列表视口裁剪**：字幕/转录列表采用同样的优化，仅渲染可视范围内的条目
+- **字幕 correction 区域**：修正区域高度计算与文字垂直对齐
+
+### Bug 修复
+
+- **字幕 correction 区域布局**：修复 correction 区域高度计算错误与文字垂直对齐问题
