@@ -56,11 +56,10 @@ use video_editor::{
 };
 use video_utils::{convert::resize_rgba_image, subtitle::ms_to_srt_timestamp};
 
-const THUMBNAIL_HEIGHT: u32 = 90;
-
 /// 显示用波形采样率（每声道每秒采样数），供 UI 波形渲染使用。
 /// 缓存层（lib）仍为 60Hz，此处只是请求的目标显示采样率。
-const DISPLAY_AUDIO_SAMPLES_PER_SECOND: u32 = 15;
+const DISPLAY_AUDIO_SAMPLES_PER_SECOND: u32 = 30;
+const THUMBNAIL_HEIGHT: u32 = 90;
 const GIF_MAX_WIDTH: u32 = 854;
 const GIF_MAX_HEIGHT: u32 = 480;
 const GIF_FPS: f64 = 10.0;

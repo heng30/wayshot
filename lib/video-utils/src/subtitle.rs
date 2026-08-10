@@ -147,9 +147,10 @@ pub fn chinese_numbers_to_primitive_numbers(chinese_numbers: &str) -> String {
         '俩',
     ];
 
-    // 不应该转换的上下文：一后面跟这些字时，不转换为数字
-    let non_number_context_after_yi: &[char] =
-        &['些', '个', '样', '般', '直', '定', '经', '方', '下'];
+    // 0-9 基本数字：单独出现时不转换为阿拉伯数字（如"一个"、"一些"中的"一"）
+    let basic_digits = [
+        '零', '〇', '一', '二', '两', '三', '四', '五', '六', '七', '八', '九',
+    ];
 
     let chars: Vec<char> = chinese_numbers.chars().collect();
     let mut result = String::new();
@@ -159,64 +160,36 @@ pub fn chinese_numbers_to_primitive_numbers(chinese_numbers: &str) -> String {
     while i < chars.len() {
         let ch = chars[i];
 
-        if ch == '一' {
-            if after_decimal {
-                // 小数点后的"一"直接转换为"1"
-                result.push('1');
-                i += 1;
-                continue;
-            }
-
-            // 检查后面一个字符
-            let next_char = if i + 1 < chars.len() {
-                Some(chars[i + 1])
-            } else {
-                None
-            };
-
-            // 如果后面跟着非数字上下文的字，保持'一'不变
-            if let Some(next) = next_char
-                && non_number_context_after_yi.contains(&next)
-            {
-                result.push(ch);
-                i += 1;
-                continue;
-            }
-
-            // 否则按正常数字处理
-            let mut number_end = i + 1;
-            while number_end < chars.len() && chinese_digit_chars.contains(&chars[number_end]) {
-                number_end += 1;
-            }
-
-            let number_str: String = chars[i..number_end].iter().collect();
-            if let Ok(number) = <String as ChineseToNumber<u64>>::to_number(
-                &number_str,
-                ChineseCountMethod::TenThousand,
-            ) {
-                result.push_str(&number.to_string());
-            } else {
-                result.push_str(&number_str);
-            }
-            i = number_end;
-        } else if ch == '点' {
-            // 检查是否是真正的小数点（前面有数字，后面也有数字）
-            let has_number_before = !result.is_empty()
-                && result
-                    .chars()
-                    .last()
-                    .map(|c| c.is_ascii_digit())
-                    .unwrap_or(false);
-
+        if ch == '点' {
+            // 检查后面是否有中文数字（决定是否是小数点）
             let has_number_after = if i + 1 < chars.len() {
                 chinese_digit_chars.contains(&chars[i + 1])
             } else {
                 false
             };
 
-            if has_number_before && has_number_after {
-                result.push('.');
-                after_decimal = true; // 设置标志
+            if has_number_after {
+                // 前面有数字（阿拉伯数字或未转换的单个中文数字）才视为小数点
+                let mut is_decimal_point = false;
+                if let Some(last) = result.chars().last() {
+                    if last.is_ascii_digit() {
+                        is_decimal_point = true;
+                    } else if let Some(digit) = chinese_digit_to_arabic(last) {
+                        // 整数部分是单个 0-9 数字时，小数点场景下也要转为阿拉伯数字
+                        // （如"三点一四" -> "3.14"）
+                        result.pop();
+                        result.push(digit);
+                        is_decimal_point = true;
+                    }
+                }
+
+                if is_decimal_point {
+                    result.push('.');
+                    after_decimal = true; // 设置标志
+                } else {
+                    result.push(ch);
+                    after_decimal = false; // 不是小数点，重置标志
+                }
             } else {
                 result.push(ch);
                 after_decimal = false; // 不是小数点，重置标志
@@ -241,11 +214,15 @@ pub fn chinese_numbers_to_primitive_numbers(chinese_numbers: &str) -> String {
                 }
 
                 let number_str: String = chars[i..number_end].iter().collect();
-                if let Ok(number) = <String as ChineseToNumber<u64>>::to_number(
+
+                // 单个 0-9 基本数字不转换（如"一个"、"一些"中的"一"）
+                if number_end == i + 1 && basic_digits.contains(&ch) {
+                    result.push(ch);
+                } else if let Ok(number) = <String as ChineseToNumber<u64>>::to_number(
                     &number_str,
                     ChineseCountMethod::TenThousand,
                 ) {
-                    result.push_str(&number.to_string());
+                    result.push_str(&format_thousands(number));
                 } else {
                     // 标准解析失败，尝试智能分割转换（处理"八六"、"二十六十四"等非标准格式）
                     let converted = try_smart_convert(&number_str);
@@ -297,7 +274,7 @@ fn try_smart_convert(number_str: &str) -> String {
 
         if parsed {
             if let Some(value) = best_value {
-                result.push_str(&value.to_string());
+                result.push_str(&format_thousands(value));
             }
             i = best_end;
         } else {
@@ -313,6 +290,36 @@ fn try_smart_convert(number_str: &str) -> String {
         }
     }
 
+    result
+}
+
+/// 单个中文数字字符转阿拉伯数字字符（0-9），非数字字符返回 None
+fn chinese_digit_to_arabic(ch: char) -> Option<char> {
+    match ch {
+        '零' | '〇' => Some('0'),
+        '一' => Some('1'),
+        '二' | '两' | '俩' => Some('2'),
+        '三' => Some('3'),
+        '四' => Some('4'),
+        '五' => Some('5'),
+        '六' => Some('6'),
+        '七' => Some('7'),
+        '八' => Some('8'),
+        '九' => Some('9'),
+        _ => None,
+    }
+}
+
+/// 为超过三位的数字添加千分位分隔符（如 1000 -> "1,000"）
+fn format_thousands(number: u64) -> String {
+    let digits = number.to_string();
+    let mut result = String::with_capacity(digits.len() + digits.len() / 3);
+    for (i, ch) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i) % 3 == 0 {
+            result.push(',');
+        }
+        result.push(ch);
+    }
     result
 }
 

@@ -4,12 +4,12 @@ use video_utils::subtitle::chinese_numbers_to_primitive_numbers;
 
 #[test]
 fn test_chinese_numbers_simple() {
-    // 测试简单中文数字
-    assert_eq!(chinese_numbers_to_primitive_numbers("五"), "5");
+    // 单个 0-9 数字不转换；单位/多位数字照常转换
+    assert_eq!(chinese_numbers_to_primitive_numbers("五"), "五");
     assert_eq!(chinese_numbers_to_primitive_numbers("十"), "10");
     assert_eq!(chinese_numbers_to_primitive_numbers("一百"), "100");
-    assert_eq!(chinese_numbers_to_primitive_numbers("一千"), "1000");
-    assert_eq!(chinese_numbers_to_primitive_numbers("一万"), "10000");
+    assert_eq!(chinese_numbers_to_primitive_numbers("一千"), "1,000");
+    assert_eq!(chinese_numbers_to_primitive_numbers("一万"), "10,000");
 }
 
 #[test]
@@ -20,11 +20,11 @@ fn test_chinese_numbers_complex() {
     assert_eq!(chinese_numbers_to_primitive_numbers("一百二十三"), "123");
     assert_eq!(
         chinese_numbers_to_primitive_numbers("一千二百三十四"),
-        "1234"
+        "1,234"
     );
     assert_eq!(
         chinese_numbers_to_primitive_numbers("一万二千三百四十五"),
-        "12345"
+        "12,345"
     );
 }
 
@@ -33,7 +33,7 @@ fn test_mixed_text() {
     // 测试混合文本
     assert_eq!(
         chinese_numbers_to_primitive_numbers("我有五本书"),
-        "我有5本书"
+        "我有五本书"
     );
     assert_eq!(
         chinese_numbers_to_primitive_numbers("今天十五号"),
@@ -41,11 +41,11 @@ fn test_mixed_text() {
     );
     assert_eq!(
         chinese_numbers_to_primitive_numbers("价格是一千二百元"),
-        "价格是1200元"
+        "价格是1,200元"
     );
     assert_eq!(
         chinese_numbers_to_primitive_numbers("第三章：基础教程"),
-        "第3章：基础教程"
+        "第三章：基础教程"
     );
 }
 
@@ -59,6 +59,7 @@ fn test_yi_context() {
     assert_eq!(chinese_numbers_to_primitive_numbers("一定"), "一定");
     assert_eq!(chinese_numbers_to_primitive_numbers("已经"), "已经");
     assert_eq!(chinese_numbers_to_primitive_numbers("一个人"), "一个人");
+    assert_eq!(chinese_numbers_to_primitive_numbers("两个"), "两个");
     assert_eq!(
         chinese_numbers_to_primitive_numbers("这本书有一百页"),
         "这本书有100页"
@@ -70,7 +71,7 @@ fn test_multiple_numbers() {
     // 测试包含多个数字的文本
     assert_eq!(
         chinese_numbers_to_primitive_numbers("五加十等于十五"),
-        "5加10等于15"
+        "五加10等于15"
     );
     assert_eq!(
         chinese_numbers_to_primitive_numbers("一百减五十等于五十"),
@@ -81,11 +82,11 @@ fn test_multiple_numbers() {
 #[test]
 fn test_zero_and_special() {
     // 测试零和特殊情况
-    assert_eq!(chinese_numbers_to_primitive_numbers("零"), "0");
+    assert_eq!(chinese_numbers_to_primitive_numbers("零"), "零");
     assert_eq!(chinese_numbers_to_primitive_numbers("一百零五"), "105");
     assert_eq!(
         chinese_numbers_to_primitive_numbers("今天零下五度"),
-        "今天0下5度"
+        "今天零下五度"
     );
 }
 
@@ -109,7 +110,7 @@ fn test_traditional_chinese() {
 
 #[test]
 fn test_decimal_numbers() {
-    // 测试小数转换（只有数字中间的"点"才转换）
+    // 小数场景整体转换：整数部分单个数字也转，小数部分逐位转
     assert_eq!(chinese_numbers_to_primitive_numbers("三点一四"), "3.14");
     assert_eq!(chinese_numbers_to_primitive_numbers("零点五"), "0.5");
     assert_eq!(chinese_numbers_to_primitive_numbers("十点五"), "10.5");
@@ -122,14 +123,14 @@ fn test_decimal_numbers() {
 #[test]
 fn test_dian_not_decimal() {
     // 测试非小数点的情况
-    assert_eq!(chinese_numbers_to_primitive_numbers("三点钟"), "3点钟");
+    assert_eq!(chinese_numbers_to_primitive_numbers("三点钟"), "三点钟");
     assert_eq!(chinese_numbers_to_primitive_numbers("重点"), "重点");
     assert_eq!(chinese_numbers_to_primitive_numbers("点对点"), "点对点");
     assert_eq!(
         chinese_numbers_to_primitive_numbers("五点钟开会"),
-        "5点钟开会"
+        "五点钟开会"
     );
-    // 注意："一点八"会转换成"1.8"因为后面有数字
+    // 小数点场景下整数部分的单个数字也会转为阿拉伯数字
     assert_eq!(chinese_numbers_to_primitive_numbers("一点八"), "1.8");
     // "一点八点二"会转换成"1.8.2"
     assert_eq!(chinese_numbers_to_primitive_numbers("一点八点二"), "1.8.2");
@@ -157,7 +158,7 @@ fn test_complex_decimal() {
     // 测试复杂小数场景
     assert_eq!(
         chinese_numbers_to_primitive_numbers("一千点零零一"),
-        "1000.001"
+        "1,000.001"
     );
     assert_eq!(
         chinese_numbers_to_primitive_numbers("价格是一点五万元"),
@@ -175,7 +176,7 @@ fn test_non_standard_formats() {
         chinese_numbers_to_primitive_numbers("叉八六杠六十四"),
         "叉86杠64"
     );
-    // "二十六十四"会被智能分割为"二十六"和"十四"
+    // "二十六十四"会被智能分割为"二十六"和"十四"，各自不足千位，不添加分隔符
     assert_eq!(chinese_numbers_to_primitive_numbers("二十六十四"), "2614");
     // 完整的x86-64平台描述
     assert_eq!(
