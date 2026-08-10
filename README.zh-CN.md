@@ -260,4 +260,4 @@
 
 
 ## 关注历史
-[![Star History Chart](https://api.star-history.com/chart?repos=heng30/wayshot&type=date&legend=top-left&sealed_token=-jV0WAU9RHvSis4k4FtDiZn_Xu27zibsVoGsoCS28SLK4IKnjvGXQsPvWZ2RsYuY2O4bQ18oeegisF46C1xMwPzksAwDJQGcmYIVssy2cnxnBWMkoKyZiLE9SLimNG_feNeZr-EOuA91YZroAhE2RxoLrK2YOoVDC57RZ4b3z9k-rWEkEnIXcJ44TbC7)](https://www.star-history.com/?repos=heng30%2Fwayshot&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/chart?repos=heng30/wayshot&type=date&legend=top-left&sealed_token=sijQyj1xulDvPv7s0imv0b0HUILpAE_kMCYDX6Xo_1v-pwGJlc-klRjoUvYK7-rg7sPOgE2CuhcfK6obYX1mohZDMZdzmsIe4AWN0whqTF6Ssead2vvOlh7zUUdyt9UIeE0k8Q1txF2cam87nchefid5By38nBUWkOzNlKXUhC2nNbbG6pvMM4NIeL5y)](https://www.star-history.com/?repos=heng30%2Fwayshot&type=date&legend=top-left)

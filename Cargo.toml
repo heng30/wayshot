@@ -61,6 +61,7 @@ open = { version = "5.3", default-features = false }
 rmcp = { version = "3.0", default-features = false }
 half = { version = "2.7", default-features = false }
 duct = { version = "1.1", default-features = false }
+sha2 = { version = "0.11", default-features = false }
 md-5 = { version = "0.11", default-features = false }
 cpal = { version = "0.18", default-features = false }
 hound = { version = "3.5", default-features = false }
@@ -402,6 +403,7 @@ dewatermark = { path = "lib/dewatermark" }
 audio-utils = { path = "lib/audio-utils" }
 video-utils = { path = "lib/video-utils" }
 lfm-vl-onnx = { path = "lib/lfm-vl-onnx" }
+dedup-photos = { path = "lib/dedup-photos" }
 clear-vision = { path = "lib/clear-vision" }
 record-audio = { path = "lib/record-audio" }
 video-editor = { path = "lib/video-editor" }

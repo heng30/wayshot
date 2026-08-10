@@ -3973,6 +3973,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "dedup-photos"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "ctrlc",
+ "image 0.25.10",
+ "ort",
+ "rayon",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "tempfile",
+ "thiserror 2.0.19",
+ "walkdir",
+]
+
+[[package]]
 name = "deep_filter"
 version = "0.2.5"
 dependencies = [
