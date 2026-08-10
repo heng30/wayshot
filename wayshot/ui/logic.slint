@@ -191,6 +191,8 @@ export global Logic {
     callback get-setting-ai-model() -> SettingAiModel;
     callback set-setting-ai-model(setting: SettingAiModel);
 
+    callback update-dialog-dont-ask-again(last-version: string);
+
     callback init-font-dialog();
     callback refresh-font-entries();
     callback import-font-files();

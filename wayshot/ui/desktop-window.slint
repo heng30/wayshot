@@ -28,6 +28,7 @@ import {
     AboutSetting,
     ToastSetting,
     PopupActionSetting,
+    UpdateDialog,
 } from "base/widgets.slint";
 import { DesktopPanel } from "panel/desktop/desktop.slint";
 
@@ -51,11 +52,12 @@ export component AppWindow inherits Window {
         title: root.title;
     }
 
-    if IconsDialogSetting.show || ConfirmDialogSetting.show || MessageDialogSetting.show:  Blanket {
+    if IconsDialogSetting.show || ConfirmDialogSetting.show || MessageDialogSetting.show || Store.is-show-update-dialog:  Blanket {
         clicked => {
             IconsDialogSetting.show = false;
             ConfirmDialogSetting.show = false;
             MessageDialogSetting.show = false;
+            Store.is-show-update-dialog = false;
         }
     }
 
@@ -75,6 +77,34 @@ export component AppWindow inherits Window {
     if MessageDialogSetting.show: MessageDialog {
         is-prevent-event-forward: true;
         width: Math.min(root.width * 0.9, self.vbox-preferred-width * 2);
+    }
+
+    if Store.is-show-update-dialog: UpdateDialog {
+        app-name: AboutSetting.app-name;
+        current-version: AboutSetting.version;
+        latest-version: Store.latest-version;
+        update-content: Store.update-content;
+        confirm-icon: Icons.download-light;
+        confirm-text: Logic.tr("Download");
+
+        escape => {
+            Store.is-show-update-dialog = false;
+        }
+
+        canceled => {
+            Store.is-show-update-dialog = false;
+            if self.dont-ask-again {
+                Logic.update-dialog-dont-ask-again(Store.latest-version);
+            }
+        }
+
+        confirmed => {
+            Store.is-show-update-dialog = false;
+            if self.dont-ask-again {
+                Logic.update-dialog-dont-ask-again(Store.latest-version);
+            }
+            Util.open-url("Default", "https://github.com/heng30/wayshot/releases");
+        }
     }
 
     if !ToastSetting.is-timeout || ToastSetting.is-hover: Toast {

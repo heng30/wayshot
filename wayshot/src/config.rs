@@ -69,6 +69,9 @@ pub struct Config {
 
     #[serde(default)]
     pub ai_model: AiModel,
+
+    #[serde(default)]
+    pub skip_update_version: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative)]

@@ -15,6 +15,7 @@ mod push_stream;
 mod realtime_image_effect;
 mod recorder;
 mod share_screen;
+mod update_dialog;
 mod video_editor;
 
 pub use video_editor::project::{
@@ -31,6 +32,7 @@ pub fn init(ui: &crate::slint_generatedAppWindow::AppWindow) {
     confirm_dialog::init(ui);
     popup_action::init(ui);
     downloader::init(ui);
+    update_dialog::init(ui);
 
     recorder::init(ui);
     history::init(ui);
@@ -237,6 +239,7 @@ macro_rules! impl_c_like_enum_convert {
 
 #[cfg(test)]
 mod test {
+    #[allow(unused_imports)]
     use crate::impl_slint_enum_serde;
 
     #[derive(Debug, Clone)]

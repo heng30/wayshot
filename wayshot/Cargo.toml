@@ -92,7 +92,7 @@ serde = { workspace = true, features = ["serde_derive"] }
 scenesdetect = { workspace = true, features = ["serde"] }
 voxcpm-rs = { workspace = true, features = ["all-backends"] }
 arboard = { workspace = true, features = ["wayland-data-control"] }
-cutil = { workspace = true, features = ["str", "time", "number", "fs"] }
+cutil = { workspace = true, features = ["str", "time", "number", "fs", "http"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 duct.workspace = true
