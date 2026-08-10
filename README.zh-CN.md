@@ -257,3 +257,7 @@
     </tr>
   </table>
 </div>
+
+
+## 关注历史
+[![Star History Chart](https://api.star-history.com/chart?repos=heng30/wayshot&type=date&legend=top-left&sealed_token=-jV0WAU9RHvSis4k4FtDiZn_Xu27zibsVoGsoCS28SLK4IKnjvGXQsPvWZ2RsYuY2O4bQ18oeegisF46C1xMwPzksAwDJQGcmYIVssy2cnxnBWMkoKyZiLE9SLimNG_feNeZr-EOuA91YZroAhE2RxoLrK2YOoVDC57RZ4b3z9k-rWEkEnIXcJ44TbC7)](https://www.star-history.com/?repos=heng30%2Fwayshot&type=date&legend=top-left)
