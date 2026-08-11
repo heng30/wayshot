@@ -61,8 +61,8 @@ component SubtitleListView inherits ScrollView {
         return ceil(playing-index / 2);
     }
 
-    function is-in-viewport(pos: length, height: length) -> bool {
-        return pos + height > abs(self.viewport-y) && pos < abs(self.viewport-y) + self.visible-height;
+    function is-in-virtual-viewport(pos: length, height: length) -> bool {
+        return pos + height > abs(self.viewport-y) - self.visible-height && pos < abs(self.viewport-y) + self.visible-height + self.visible-height;
     }
 
     function need-scroll() -> bool {
@@ -109,7 +109,7 @@ component SubtitleListView inherits ScrollView {
 
         for entry[index] in subtitles: VerticalLayout {
             spacing: Theme.spacing * 2;
-            visible: is-in-viewport(self.y, self.preferred-height);
+            visible: is-in-virtual-viewport(self.y, self.preferred-height);
 
             private property inner-playing-index <=> Store.video-editor-transcribe.playing-index;
             private property <bool> show-playing-separator: Store.video-editor-transcribe-audio-player-is-playing && index * 2 + 1 == current-transcribe.playing-index;

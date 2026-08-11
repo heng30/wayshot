@@ -461,6 +461,17 @@ export component Tool inherits Rectangle {
 
             IconBtn {
                 is-show-tip: true;
+                icon: Icons.tts-light;
+                tip: Logic.tr("text to speak");
+
+                clicked => {
+                    ToolTipSetting.hide();
+                    Store.video-editor-is-show-tts-dialog = true;
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
                 icon: Icons.transcribe-light;
                 tip: Logic.tr("transcribe audio to subtitle");
 

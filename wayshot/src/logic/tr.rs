@@ -844,6 +844,7 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Remove all or not?", "是否移除全部？"),
             ("Remove all speech and regenerate or not?", "是否移除全部语音并重新生成？"),
             ("Text to Speak", "文本转语音"),
+            ("text to speak", "文本转语音"),
             ("add", "添加"),
             ("enter content", "输入内容"),
             ("export", "导出"),
