@@ -99,6 +99,7 @@ pub const STEM_SPLITTER_CONFIG_ID: &str = "stem_splitter_config_default";
 pub const DEEP_FILTER_CONFIG_ID: &str = "deep_filter_config_default";
 pub const SPEAKERS_CONFIG_ID: &str = "speakers_config_default";
 pub const SIMILAR_VIDEO_SEGMENT_CONFIG_ID: &str = "similar_video_segment_config_default";
+pub const DEDUP_PHOTOS_CONFIG_ID: &str = "dedup_photos_config_default";
 pub const OCR_CONFIG_ID: &str = "ocr_config_default";
 pub const TRANSCRIBE_CONFIG_ID: &str = "transcribe_config_default";
 pub const SMART_MIX_CONFIG_ID: &str = "smart_mix_config_default";

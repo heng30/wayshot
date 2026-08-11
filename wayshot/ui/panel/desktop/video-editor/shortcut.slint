@@ -420,6 +420,13 @@ export component Shortcut inherits FocusScope {
     }
 
     KeyBinding {
+        keys: @keys(Control + Alt + D);
+        activated => {
+            Store.video-editor-is-show-dedup-photos-dialog = true;
+        }
+    }
+
+    KeyBinding {
         keys: @keys(Control + Alt + E);
         activated => {
             Store.video-editor-is-show-memo-dialog = true;

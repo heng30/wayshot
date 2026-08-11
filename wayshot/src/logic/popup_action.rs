@@ -711,6 +711,9 @@ pub fn init(ui: &AppWindow) {
                 "video-editor-show-similar-video-segment-dialog" => {
                     global_store!(ui).set_video_editor_is_show_similar_video_segment_dialog(true);
                 }
+                "video-editor-show-dedup-photos-dialog" => {
+                    global_store!(ui).set_video_editor_is_show_dedup_photos_dialog(true);
+                }
                 "video-editor-show-speakers-dialog" => {
                     global_store!(ui).set_video_editor_is_show_speakers_dialog(true);
                 }

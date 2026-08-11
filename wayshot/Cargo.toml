@@ -64,6 +64,7 @@ image-effect.workspace = true
 video-editor.workspace = true
 tokio-stream.workspace = true
 bili-danmaku.workspace = true
+dedup-photos.workspace = true
 deconvolution.workspace = true
 stem-splitter.workspace = true
 deepfilter-rs.workspace = true

@@ -1,0 +1,441 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    DownloaderState,
+    Util,
+    VideoEditorDedupPhotosConfig,
+    Downloader,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    ElevatedBtn,
+    LineInput,
+    IconBtn,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    ProgressBar,
+    NoDataImg,
+    SettingDetailSwitch,
+    Select,
+    NoMessageImg,
+    ConfirmDialogSetting,
+} from "../../../../base/widgets.slint";
+import { ListView } from "std-widgets.slint";
+
+component LeftHeader inherits HorizontalLayout {
+    private property <bool> is-progressing: Store.video-editor-dedup-photos-is-progressing;
+    private property <bool> has-items: Store.video-editor-dedup-photos-items.length > 0;
+    private property <bool> has-scan-dir: !Store.video-editor-dedup-photos-config.scan-dir.is-empty;
+    private property <int> current-index: Store.video-editor-dedup-photos-current-index;
+    private property <int> total-items: Store.video-editor-dedup-photos-items.length;
+
+    spacing: Theme.spacing * 8;
+    alignment: is-progressing ? space-between : end;
+
+    if is-progressing: HorizontalLayout {
+        width: root.width - rec.width - parent.spacing;
+        spacing: Theme.spacing * 4;
+
+        VerticalLayout {
+            width: parent.width - parent.spacing - cancel-btn.width;
+            alignment: center;
+
+            ProgressBar {
+                width: parent.width;
+                height: Theme.icon-size;
+                progress: Store.video-editor-dedup-photos-progress;
+            }
+        }
+
+        cancel-btn := ElevatedBtn {
+            icon: Icons.stop-light;
+            colorize: Theme.danger-color;
+            gain-focus-when-clicked: false;
+            is-show-tip: true;
+            tip-position: Bottom;
+            tip: Logic.tr("cancel");
+
+            clicked => {
+                Logic.video-editor-dedup-photos-cancel();
+            }
+        }
+    }
+
+    rec := Rectangle {
+        width: hbox.preferred-width;
+        height: hbox.preferred-height;
+        border-radius: self.height / 2;
+        background: Theme.thirdly-background;
+        border-width: Theme.default-border-width;
+        border-color: Theme.base-border-color;
+
+        hbox := HorizontalLayout {
+            spacing: Theme.spacing * 2;
+            padding: Theme.padding * 2;
+            padding-left: Theme.padding * 4;
+            padding-right: Theme.padding * 4;
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                IconBtn {
+                    enabled: !is-progressing && has-items && has-scan-dir;
+                    is-show-tip: true;
+                    tip: Logic.tr("process");
+                    icon: Icons.image-processing-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Logic.video-editor-dedup-photos-process();
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("remove all");
+                    icon: Icons.clear-light;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Delete all or not?"), "video-editor-dedup-photos-remove-all", "");
+                    }
+                }
+
+                IconBtn {
+                    is-show-tip: true;
+                    tip: Logic.tr("setting");
+                    icon: Icons.setting-light;
+                    icon-size: Theme.icon-size * 0.9;
+                    hover-color: Store.setting-preference.is-dark ? Theme.secondary-background.darker(50%) : Theme.secondary-background.darker(5%);
+
+                    clicked => {
+                        Store.video-editor-is-show-dedup-photos-setting-dialog = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+component ScanDirSection inherits HorizontalLayout {
+    spacing: Theme.spacing * 4;
+
+    Label {
+        text: Logic.tr("Scan Directory") + ": ";
+    }
+
+    LineInput {
+        read-only: true;
+        is-show-icon: true;
+        text: Store.video-editor-dedup-photos-config.scan-dir;
+        icon: Icons.file-open-light;
+        placeholder: Logic.tr("Click to select directory");
+        border-color: Logic.dir-exist(self.text) ? self.default-border-color : Theme.danger-color;
+
+        clicked => {
+            Logic.video-editor-dedup-photos-choose-scan-dir();
+        }
+    }
+}
+
+component PhotoFileList inherits Rectangle {
+    private property <bool> is-progressing: Store.video-editor-dedup-photos-is-progressing;
+
+    border-color: Theme.base-border-color;
+    border-width: Theme.default-border-width;
+
+    if !is-progressing && Store.video-editor-dedup-photos-items.length == 0: VerticalLayout {
+        alignment: center;
+
+        HorizontalLayout {
+            alignment: center;
+
+            NoMessageImg {
+                width: root.width * Theme.golden-ratio;
+                text: Logic.tr("No Files");
+            }
+        }
+    }
+
+    if Store.video-editor-dedup-photos-items.length > 0: VerticalLayout {
+        padding: Theme.default-border-width;
+
+        ListView {
+            private property <length> max-status-label;
+
+            for item[index] in Store.video-editor-dedup-photos-items: Rectangle {
+                background: index.mod(2) == 0 ? Theme.table-item-first : Theme.table-item-second;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+                    padding: Theme.padding * 2;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing * 2;
+                        width: 50%;
+
+                        Label {
+                            text: index + 1;
+                            width: self.font-size * 2;
+                        }
+
+                        Label {
+                            text: item.filename;
+                            overflow: elide;
+                            horizontal-stretch: 1;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: space-between;
+                        spacing: Theme.spacing * 2;
+
+                        Label {
+                            text: item.status == 2 ? item.result-msg : "";
+                            font-size: Theme.default-font-size * 0.9;
+                            color: Theme.success-color;
+                            overflow: elide;
+                            horizontal-stretch: 1;
+                        }
+
+                        Label {
+                            width: max-status-label;
+                            text: item.status == 0 ? Logic.tr("Pending") : item.status == 1 ? Logic.tr("Processing") : item.status == 2 ? Logic.tr("Done") : Logic.tr("Error");
+                            font-size: Theme.default-font-size * 0.9;
+                            color: item.status == 0 ? Theme.secondary-text-color : item.status == 1 ? Theme.brand-color : item.status == 2 ? Theme.success-color : Theme.danger-color;
+
+                            init => {
+                                max-status-label = max(max-status-label, self.preferred-width);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component DedupPhotosDialog inherits MovingDialog {
+    title: Logic.tr("Photo Dedup");
+    icon: Icons.image-light;
+    header-width: Theme.moving-dialog-width;
+    body-height: root.header-width * Theme.golden-ratio;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+
+    init => {
+        if (!Logic.video-editor-dedup-photos-setting-is-valid()) {
+            Store.video-editor-is-show-dedup-photos-setting-dialog = true;
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        LeftHeader { }
+
+        ScanDirSection { }
+
+        PhotoFileList { }
+    }
+}
+
+export component DedupPhotosSettingDialog inherits MovingDialog {
+    title: Logic.tr("Photo Dedup Setting");
+    icon: Icons.setting-light;
+    header-width: Theme.moving-dialog-min-width;
+    head-y: self.height * 0.2;
+
+    private property <VideoEditorDedupPhotosConfig> config: Store.video-editor-dedup-photos-config;
+
+    SettingDetailInner {
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("dHash Threshold");
+                tip: Logic.tr("Hamming distance threshold, smaller means stricter");
+            }
+
+            threshold-li := LineInput {
+                text: config.threshold;
+                input-type: number;
+                border-color: self.text == config.threshold ? self.default-border-color : Theme.danger-color;
+
+                accepted => {
+                    let v = threshold-li.text.to-float();
+                    config.threshold = v < 1.0 ? 1 : v;
+                    self.text = config.threshold;
+                    Logic.video-editor-dedup-photos-update-config(config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Duplicate directory name");
+            }
+
+            dup-dir-li := LineInput {
+                text: config.duplicate-dir-name;
+                border-color: self.text == config.duplicate-dir-name ? self.default-border-color : Theme.danger-color;
+
+                accepted => {
+                    let v = dup-dir-li.text;
+                    config.duplicate-dir-name = v.is-empty ? "duplicate" : v;
+                    self.text = config.duplicate-dir-name;
+                    Logic.video-editor-dedup-photos-update-config(config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Keep strategy");
+            }
+
+            Select {
+                values: [Logic.tr("Largest"), Logic.tr("Newest"), Logic.tr("Oldest")];
+                current-value: self.values[config.keep-strategy];
+                current-index: config.keep-strategy;
+                gain-focus-when-clicked: false;
+
+                selected(index, value) => {
+                    config.keep-strategy = index;
+                    Logic.video-editor-dedup-photos-update-config(config);
+                }
+            }
+        }
+
+        SettingDetailSwitch {
+            icon: Icons.scan-light;
+            icon-size: Theme.icon-size * 0.8;
+            text: config.all-files ? Logic.tr("Scan All Files") : Logic.tr("Only Scan Image Files");
+            checked: config.all-files;
+            gain-focus-when-clicked: false;
+
+            toggled => {
+                config.all-files = !config.all-files;
+                Logic.video-editor-dedup-photos-update-config(config);
+            }
+        }
+
+        SettingDetailSwitch {
+            icon: Icons.detection-light;
+            icon-size: Theme.icon-size * 0.8;
+            text: Logic.tr("Semantic Detection");
+            checked: config.semantic-enabled;
+            gain-focus-when-clicked: false;
+
+            toggled => {
+                config.semantic-enabled = !config.semantic-enabled;
+                Logic.video-editor-dedup-photos-update-config(config);
+            }
+        }
+
+        if config.semantic-enabled: SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Semantic Threshold");
+                tip: "0-1";
+            }
+
+            sem-li := LineInput {
+                text: config.semantic-threshold;
+                input-type: decimal;
+                border-color: self.text == config.semantic-threshold ? self.default-border-color : Theme.danger-color;
+
+                accepted => {
+                    let v = sem-li.text.to-float().clamp(0.0, 1.0);
+                    config.semantic-threshold = v;
+                    Logic.video-editor-dedup-photos-update-config(config);
+                }
+            }
+        }
+
+        if config.semantic-enabled: VerticalLayout {
+            private property <Downloader> downloader: Store.video-editor-dedup-photos-models-downloader[0];
+
+            alignment: start;
+
+            SettingDetailLabel {
+                text: Logic.tr("CLIP model");
+            }
+
+            hbox := HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                pure function get-border-color(status: DownloaderState, path: string) -> color {
+                    if status == DownloaderState.Finished {
+                        return Theme.base-border-color;
+                    } else {
+                        return Logic.file-exist(path) ? Theme.base-border-color : Theme.danger-color;
+                    }
+                }
+
+                model-path-li := LineInput {
+                    horizontal-stretch: 2;
+                    read-only: true;
+                    is-show-icon: true;
+                    icon: Icons.file-open-light;
+                    placeholder-text: "vision_model_quantized.onnx";
+                    text: config.model-path;
+                    border-color: get-border-color(downloader.state, config.model-path);
+
+                    clicked => {
+                        Logic.video-editor-dedup-photos-choose-model-path();
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 4;
+
+                    if downloader.state != DownloaderState.UnStart: VerticalLayout {
+                        alignment: center;
+
+                        ProgressBar {
+                            height: model-path-li.preferred-height * 2 / 3;
+                            font-size: Theme.default-font-size * 2 / 3;
+                            finished-progress-color: Logic.downloader-progress-color(downloader.state);
+                            progress: downloader.progress;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: Theme.spacing * 4;
+
+                        private property <bool> downloading: downloader.state == DownloaderState.Downloading;
+
+                        IconBtn {
+                            is-show-tip: true;
+                            icon: downloading ? Icons.stop-light : Icons.download-light;
+                            colorize: downloading ? Theme.danger-color : Theme.icon-color;
+                            tip: downloading ? Logic.tr("cancel") : Logic.tr("download");
+
+                            clicked => {
+                                if (downloading) {
+                                    Logic.video-editor-dedup-photos-model-cancel-download(0, downloader.url);
+                                } else {
+                                    Logic.video-editor-dedup-photos-model-start-download(0, downloader.url);
+                                }
+                            }
+                        }
+
+                        IconBtn {
+                            icon: Icons.browser-light;
+                            is-show-tip: true;
+                            tip: Logic.tr("open url");
+
+                            clicked => {
+                                Util.open-url("Default", downloader.url);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

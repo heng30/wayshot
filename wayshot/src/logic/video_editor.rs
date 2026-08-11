@@ -7,6 +7,7 @@ mod command;
 mod common_type;
 mod conversion;
 mod cutout;
+mod dedup_photos;
 mod deep_filter;
 mod dewatermark;
 mod export;
@@ -76,6 +77,7 @@ pub fn init(ui: &crate::slint_generatedAppWindow::AppWindow) {
     stem_splitter::init(ui);
     deep_filter::init(ui);
     similar_video_segment::init(ui);
+    dedup_photos::init(ui);
     subtitle_remover::init(ui);
     subtitle_translate::init(ui);
     speakers::init(ui);

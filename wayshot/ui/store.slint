@@ -1049,6 +1049,26 @@ export struct VideoEditorSimilarVideoSegmentConfig {
     keep-audio: bool,
 }
 
+export struct VideoEditorDedupPhotosConfig {
+    id: string,
+    scan-dir: string,
+    threshold: int,
+    semantic-enabled: bool,
+    semantic-threshold: float,
+    model-path: string,
+    keep-strategy: int,
+    duplicate-dir-name: string,
+    all-files: bool,
+}
+
+export struct VideoEditorDedupPhotosItem {
+    path: string,
+    filename: string,
+    status: int,
+    error-msg: string,
+    result-msg: string,
+}
+
 export struct VideoEditorSimilarVideoSegmentItem {
     path: string,
     filename: string,
@@ -1599,6 +1619,15 @@ export global Store {
     in-out property <string> video-editor-similar-video-segment-query-image-path;
     in-out property <[VideoEditorSimilarVideoSegmentItem]> video-editor-similar-video-segment-items: [];
     in-out property <VideoEditorSimilarVideoSegmentConfig> video-editor-similar-video-segment-config;
+
+    in-out property <bool> video-editor-is-show-dedup-photos-dialog;
+    in-out property <bool> video-editor-is-show-dedup-photos-setting-dialog;
+    in-out property <bool> video-editor-dedup-photos-is-progressing;
+    in-out property <float> video-editor-dedup-photos-progress;
+    in-out property <int> video-editor-dedup-photos-current-index: -1;
+    in-out property <[VideoEditorDedupPhotosItem]> video-editor-dedup-photos-items: [];
+    in-out property <VideoEditorDedupPhotosConfig> video-editor-dedup-photos-config;
+    in-out property <[Downloader]> video-editor-dedup-photos-models-downloader: [{ }];
 
     in-out property <bool> video-editor-is-show-speakers-dialog;
     in-out property <bool> video-editor-speakers-is-progressing;

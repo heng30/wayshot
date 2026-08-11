@@ -38,6 +38,8 @@ use crate::slint_generatedAppWindow::{
     TimerItem as UITimerItem, TimerMode as UITimerMode, TimerStyle as UITimerStyle,
     TriangleAnimConfig as UITriangleAnimConfig, VideoEditorBgRemoverConfig as UIBgRemoverConfig,
     VideoEditorClearVisionConfig as UIClearVisionConfig, VideoEditorCutoutConfig as UICutoutConfig,
+    VideoEditorDedupPhotosConfig as UIDedupPhotosConfig,
+    VideoEditorDedupPhotosItem as UIDedupPhotosItem,
     VideoEditorDeepFilterConfig as UIDeepFilterConfig,
     VideoEditorDewatermarkConfig as UIDewatermarkConfig,
     VideoEditorMusicGenConfig as UIMusicGenConfig, VideoEditorOCRConfig as UIOcrConfig,
@@ -678,6 +680,36 @@ pub struct DeepFilterConfigData {
     pub dfn3_model_dir: String,
     pub dfn3_ll_model_dir: String,
     pub dfn3_h0_model_dir: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
+#[serde(default)]
+#[derivative(Default)]
+#[from("UIDedupPhotosConfig")]
+pub struct DedupPhotosConfigData {
+    pub id: String,
+    pub semantic_enabled: bool,
+    pub model_path: String,
+    pub keep_strategy: i32,
+    pub all_files: bool,
+
+    #[derivative(Default(value = "10"))]
+    pub threshold: i32,
+    #[derivative(Default(value = "0.85"))]
+    pub semantic_threshold: f32,
+    #[derivative(Default(value = "\"duplicate\".to_string()"))]
+    pub duplicate_dir_name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, SlintFromConvert)]
+#[serde(default)]
+#[from("UIDedupPhotosItem")]
+pub struct DedupPhotosItemData {
+    pub path: String,
+    pub filename: String,
+    pub status: i32,
+    pub error_msg: String,
+    pub result_msg: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]

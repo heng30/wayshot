@@ -56,6 +56,10 @@ import {
     SimilarVideoSegmentSettingDialog,
 } from "tools/similar-video-segment.slint";
 import {
+    DedupPhotosDialog,
+    DedupPhotosSettingDialog,
+} from "tools/dedup-photos.slint";
+import {
     SpeakersDialog,
     SpeakersSettingDialog,
 } from "tools/speakers.slint";
@@ -397,6 +401,40 @@ export component TopMovingDialog inherits Rectangle {
         }
         close => {
             Store.video-editor-is-show-similar-video-segment-setting-dialog = false;
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-dedup-photos-dialog: DedupPhotosDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-dedup-photos-remove-all();
+            Store.video-editor-is-show-dedup-photos-dialog = false;
+            Store.video-editor-is-show-dedup-photos-setting-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            Store.video-editor-is-show-dedup-photos-setting-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-dedup-photos-setting-dialog: DedupPhotosSettingDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-dedup-photos-setting-dialog = false;
         }
         minimal => {
             app-focus();

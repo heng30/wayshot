@@ -16353,6 +16353,7 @@ dependencies = [
  "cutil",
  "cutout",
  "deconvolution",
+ "dedup-photos",
  "deepfilter-rs",
  "derivative",
  "dewatermark",

@@ -79,6 +79,9 @@ pub fn init(ui: &AppWindow) {
             "video-editor-similar-video-segment-remove-all" => {
                 global_logic!(ui).invoke_video_editor_similar_video_segment_remove_all();
             }
+            "video-editor-dedup-photos-remove-all" => {
+                global_logic!(ui).invoke_video_editor_dedup_photos_remove_all();
+            }
             "video-editor-smart-mix-start" => {
                 global_logic!(ui).invoke_video_editor_smart_mix_start();
             }

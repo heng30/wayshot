@@ -58,6 +58,7 @@ import {
     VideoEditorStemSplitterConfig,
     VideoEditorDeepFilterConfig,
     VideoEditorSimilarVideoSegmentConfig,
+    VideoEditorDedupPhotosConfig,
     VideoEditorSpeakersConfig,
     VideoEditorOCRConfig,
     OcrTaskMode,
@@ -817,6 +818,17 @@ export global Logic {
     callback video-editor-similar-video-segment-choose-export-dir();
     callback video-editor-similar-video-segment-update-config(config: VideoEditorSimilarVideoSegmentConfig);
     pure callback video-editor-similar-video-segment-setting-is-valid() -> bool;
+
+    callback video-editor-dedup-photos-choose-scan-dir();
+    callback video-editor-dedup-photos-process();
+    callback video-editor-dedup-photos-cancel();
+    callback video-editor-dedup-photos-remove-all();
+    callback video-editor-dedup-photos-remove-item(index: int);
+    callback video-editor-dedup-photos-choose-model-path();
+    callback video-editor-dedup-photos-update-config(config: VideoEditorDedupPhotosConfig);
+    callback video-editor-dedup-photos-model-start-download(index: int, url: string);
+    callback video-editor-dedup-photos-model-cancel-download(index: int, url: string);
+    pure callback video-editor-dedup-photos-setting-is-valid() -> bool;
 
     callback video-editor-speakers-import-audio();
     callback video-editor-speakers-process-audio();
