@@ -426,10 +426,6 @@ fn video_editor_dedup_photos_update_config(ui: &AppWindow, config: UIDedupPhotos
 
 fn video_editor_dedup_photos_setting_is_valid(ui: &AppWindow) -> bool {
     let config = global_store!(ui).get_video_editor_dedup_photos_config();
-    let scan_dir = config.scan_dir.to_string();
-    if scan_dir.is_empty() || !PathBuf::from(&scan_dir).exists() {
-        return false;
-    }
     if config.semantic_enabled {
         let model_path = config.model_path.to_string();
         if model_path.is_empty() || !PathBuf::from(&model_path).exists() {
