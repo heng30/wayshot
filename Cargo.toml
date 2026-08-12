@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 default-members = ["wayshot"]
-exclude = ["lib/lfm-vl-candle"]
+exclude = ["lib/lfm-vl-candle", "patches/slint-dynamic-z"]
 members = ["wayshot", "wayshot-cursor", "tr-helper", "icon-helper", "lib/*"]
 
 [workspace.package]
@@ -136,7 +136,7 @@ alacritty_terminal = { version = "0.26", default-features = false }
 candle-transformers = { version = "0.11", default-features = false }
 unicode-segmentation = { version = "1.12", default-features = false }
 wayland-protocols-wlr = { version = "0.3", default-features = false }
-i-slint-backend-testing = { version = "1.17", default-features = false }
+i-slint-backend-testing = { version = "=1.17.1", default-features = false }
 
 hex = { version = "0.4", default-features = false, features = ["std"] }
 log = { version = "0.4", default-features = false, features = ["std"] }
@@ -238,9 +238,6 @@ image = { version = "0.25", default-features = false, features = [
   "webp",
   "tiff",
 ] }
-slint = { version = "1.17", default-features = false, features = [
-  "compat-1-2",
-] }
 flate2 = { version = "1.1", default-features = false, features = [
   "rust_backend",
 ] }
@@ -294,6 +291,9 @@ reqwest = { version = "0.13", default-features = false, features = [
   "charset",
   "default-tls",
 ] }
+slint = { version = "=1.17.1", default-features = false, features = [
+  "compat-1-2",
+] }
 jieba-rs = { version = "0.10", default-features = false, features = [
   "default-dict",
 ] }
@@ -342,9 +342,6 @@ burn-store = { version = "0.21", default-features = false, features = [
   "pytorch",
   "safetensors",
 ] }
-slint-build = { version = "1.17", default-features = false, features = [
-  "default",
-] }
 cosmic-text = { version = "0.19", default-features = false, features = [
   "std",
   "swash",
@@ -361,6 +358,9 @@ rustls-pemfile = { version = "2.2", default-features = false, features = [
 ] }
 derive_builder = { version = "0.20", default-features = false, features = [
   "std",
+] }
+slint-build = { version = "=1.17.1", default-features = false, features = [
+  "default",
 ] }
 portable-atomic = { version = "1.13", default-features = false, features = [
   "fallback",
@@ -430,3 +430,8 @@ speakrs = { path = "vendor/speakrs" }
 esaxx-rs = { path = "vendor/esaxx-rs" }
 voxcpm-rs = { path = "vendor/voxcpm-rs" }
 deep_filter = { path = "vendor/deep_filter" }
+
+# NOTE: Qt后端，支持动态调整`Z`层级
+i-slint-core = { path = "vendor/i-slint-core" }
+i-slint-compiler = { path = "vendor/i-slint-compiler" }
+i-slint-backend-qt = { path = "vendor/i-slint-backend-qt" }

@@ -1,0 +1,113 @@
+export component Example inherits Window {
+    width: 400px;
+    height: 300px;
+    title: "Dynamic Z Demo";
+
+    // 动态 z 的开关：点击哪个块，哪个块就置顶
+    in-out property <bool> red_on_top: false;
+
+    // 暴露两个矩形的运行时 z 值，供自动验证读取
+    in-out property <float> red_z: red_rect.z;
+    in-out property <float> blue_z: blue_rect.z;
+
+    red_rect := Rectangle {
+        x: 50px;
+        y: 50px;
+        width: 200px;
+        height: 150px;
+        background: #e03030;
+        // 动态 z：绑定表达式，运行时改变 red_on_top 即可改变层级
+        z: red_on_top ? 10 : 0;
+
+        TouchArea {
+            clicked => {
+                red_on_top = true;
+                debug("red_on_top = ", red_on_top);
+            }
+        }
+
+        Text {
+            text: "RED";
+            color: white;
+            x: 70px;
+            y: 60px;
+            font-size: 20px;
+        }
+    }
+
+    blue_rect := Rectangle {
+        x: 110px;
+        y: 110px;
+        width: 200px;
+        height: 150px;
+        background: #3050e0;
+        z: red_on_top ? 0 : 10;
+
+        TouchArea {
+            clicked => {
+                red_on_top = false;
+                debug("red_on_top = ", red_on_top);
+            }
+        }
+
+        Text {
+            text: "BLUE";
+            color: white;
+            x: 70px;
+            y: 60px;
+            font-size: 20px;
+        }
+    }
+
+    // 半透明面板（编译器会合成 Opacity 元素包裹它）+ 动态 z：
+    // 透明度包装元素的 z 必须与面板本体同步，渲染排序才能生效
+    green_bar := Rectangle {
+        x: 160px;
+        y: 20px;
+        width: 180px;
+        height: 70px;
+        background: #20a020;
+        opacity: 0.6;
+        z: red_on_top ? 30 : -30;
+
+        Text {
+            text: "GLASS";
+            color: white;
+            x: 60px;
+            y: 20px;
+            font-size: 16px;
+        }
+    }
+
+    // 回归：布局带 z + 内部元素带 opacity。
+    // 布局的 z 绑定会被提升到合成的 Opacity 元素上，以前会触发
+    // “Failed to lookup property z” 编译期 panic
+    searchbar := HorizontalLayout {
+        x: 10px;
+        y: 250px;
+        z: red_on_top ? 12 : 2;
+        padding: 4px;
+
+        Rectangle {
+            width: 100px;
+            height: 30px;
+            background: #808080;
+            opacity: 0.5;
+
+            Text {
+                text: "BAR";
+                color: white;
+                x: 32px;
+                y: 6px;
+                font-size: 12px;
+            }
+        }
+    }
+
+    Text {
+        text: "点击方块将其置顶（动态 z）";
+        x: 90px;
+        y: 270px;
+        font-size: 14px;
+    }
+}

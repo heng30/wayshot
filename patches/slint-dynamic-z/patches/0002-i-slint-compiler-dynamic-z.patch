@@ -1,0 +1,255 @@
+diff --git a/i-slint-compiler/builtins.slint b/i-slint-compiler/builtins.slint
+index c7c0cc7..1c2aff3 100644
+--- a/i-slint-compiler/builtins.slint
++++ b/i-slint-compiler/builtins.slint
+@@ -31,6 +31,10 @@
+ 
+  component Empty {
+     //-is_internal
++    /// The z-order of this element. Elements with a higher `z` value are
++    /// rendered on top of elements with a lower `z` value. The value may be a
++    /// runtime expression, so the stacking order can change dynamically.
++    in property <float> z: 0;
+ }
+ 
+ component Rectangle inherits Empty {
+@@ -785,6 +789,7 @@
+ /// ```
+ /// \group:gestures
+ export component TouchArea {
++    in property <float> z: 0;
+     /// When disabled, the `TouchArea` doesn't recognize any touch or mouse events and they are
+     /// passed through to elements underneath.
+     ///
+@@ -898,6 +903,7 @@
+ /// to deliver the key event to the parent element.
+ /// \group:keyboard-input
+ export component FocusScope {
++    in property <float> z: 0;
+     /// Is `true` when the element has keyboard focus.
+     out property <bool> has-focus;
+     /// When false, the FocusScope will not accept focus, neither via click nor via tab focus traversal, not even programmatically.
+@@ -1095,6 +1101,7 @@
+ /// If the pointer moves by more than 8 logical pixels in one of the enabled swipe directions, the gesture is recognized, and events are no longer forwarded to the children.
+ /// \group:gestures
+ export component SwipeGestureHandler {
++    in property <float> z: 0;
+     /// When disabled, the `SwipeGestureHandler` doesn't recognize any gestures.
+     in property <bool> enabled: true;
+     /// The position of the pointer when the swipe started.
+@@ -1183,6 +1190,7 @@
+ /// Use the `started` callback to capture your initial state, then multiply by `scale` and add `rotation` in the `updated` callback to apply the gesture.
+ /// \group:gestures
+ export component ScaleRotateGestureHandler {
++    in property <float> z: 0;
+     /// When disabled, the `ScaleRotateGestureHandler` doesn't recognize any gestures and any on-going gesture is cancelled.
+     in property <bool> enabled: true;
+ 
+@@ -1232,6 +1240,7 @@
+ /// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
+ /// \group:drag-and-drop
+ export component DragArea {
++    in property <float> z: 0;
+     /// Set to `false` to stop the `DragArea` from starting drags.
+     /// Events still reach the child elements.
+     in property <bool> enabled: true;
+@@ -1271,6 +1280,7 @@
+ /// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
+ /// \group:drag-and-drop
+ export component DropArea {
++    in property <float> z: 0;
+     /// Set to `false` to stop the `DropArea` from accepting any drops.
+     in property <bool> enabled: true;
+     /// Return the action this target wants to perform with the drag, or `DragAction.none` to reject.
+@@ -1508,6 +1518,7 @@
+ }
+ 
+ component WindowItem {
++    in property <float> z: 0;
+     in-out property <length> width;
+     in-out property <length> height;
+     /// Whether the window should be placed above all other windows on window managers supporting it.
+@@ -1743,6 +1754,7 @@
+ }
+ 
+ export component Clip {
++    in property <float> z: 0;
+     in property <length> border-top-left-radius;
+     in property <length> border-top-right-radius;
+     in property <length> border-bottom-left-radius;
+@@ -1754,6 +1766,7 @@
+ }
+ 
+ export component Opacity {
++    in property <float> z: 0;
+     in property <float> opacity: 1;
+     //-default_size_binding:expands_to_parent_geometry
+     //-is_internal
+diff --git a/i-slint-compiler/passes/materialize_fake_properties.rs b/i-slint-compiler/passes/materialize_fake_properties.rs
+index 5fb3001..5443939 100644
+--- a/i-slint-compiler/passes/materialize_fake_properties.rs
++++ b/i-slint-compiler/passes/materialize_fake_properties.rs
+@@ -100,6 +100,13 @@ fn should_materialize(
+     if property_declarations.contains_key(prop) {
+         return None;
+     }
++    // `z` is a runtime property stored directly in the item structs, so the
++    // binding must stay on the element itself and be emitted as an item field
++    // initialization. Materializing it would make move_declarations lift the
++    // binding up to the component root, where it would never reach the item.
++    if prop == "z" {
++        return None;
++    }
+     let has_declared_property = match base_type {
+         ElementType::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
+         ElementType::Builtin(b) => b.native_class.lookup_property(prop).is_some(),
+diff --git a/i-slint-compiler/passes/z_order.rs b/i-slint-compiler/passes/z_order.rs
+index 5f74781..cc60028 100644
+--- a/i-slint-compiler/passes/z_order.rs
++++ b/i-slint-compiler/passes/z_order.rs
+@@ -29,16 +29,19 @@ fn reorder_children_by_zorder(
+     // maps indexes to their z order
+     let mut children_z_order = Vec::new();
+     for (idx, child_elm) in elem.borrow().children.iter().enumerate() {
++        // Keep the `z` binding in place: it is a runtime property now, so the
++        // renderer can re-order children dynamically. Only constant z values
++        // participate in the compile-time reordering below.
+         let z = child_elm
+-            .borrow_mut()
++            .borrow()
+             .bindings
+-            .remove("z")
++            .get("z")
+             .and_then(|e| eval_const_expr(&e.borrow().expression, "z", &*e.borrow(), diag));
+         let z =
+             z.or_else(|| {
+                 child_elm.borrow().repeated.as_ref()?;
+                 if let ElementType::Component(c) = &child_elm.borrow().base_type {
+-                    c.root_element.borrow_mut().bindings.remove("z").and_then(|e| {
++                    c.root_element.borrow().bindings.get("z").and_then(|e| {
+                         eval_const_expr(&e.borrow().expression, "z", &*e.borrow(), diag)
+                     })
+                 } else {
+@@ -80,9 +83,9 @@ fn eval_const_expr(
+         Expression::Cast { from, .. } => eval_const_expr(from, name, span, diag),
+         Expression::UnaryOp { sub, op: '-' } => eval_const_expr(sub, name, span, diag).map(|v| -v),
+         Expression::UnaryOp { sub, op: '+' } => eval_const_expr(sub, name, span, diag),
+-        _ => {
+-            diag.push_error(format!("'{name}' must be an number literal"), span);
+-            None
+-        }
++        // Non-constant z expressions are fine: they are evaluated at runtime
++        // by the renderer. They just don't participate in the compile-time
++        // reordering (treated as z = 0).
++        _ => None,
+     }
+ }
+diff --git a/i-slint-compiler/passes/clip.rs b/i-slint-compiler/passes/clip.rs
+index a694d16..8afe4c9 100644
+--- a/i-slint-compiler/passes/clip.rs
++++ b/i-slint-compiler/passes/clip.rs
+@@ -114,6 +114,17 @@
+         )
+         .into(),
+     );
++    // Keep the runtime `z` in sync so the wrapper participates in z-ordering
++    // with the element it clips.
++    if parent_elem.borrow().bindings.contains_key("z") {
++        clip.borrow_mut().bindings.insert(
++            SmolStr::new_static("z"),
++            BindingExpression::new_two_way(
++                NamedReference::new(parent_elem, SmolStr::new_static("z")).into(),
++            )
++            .into(),
++        );
++    }
+ }
+ 
+ fn copy_optional_binding(
+diff --git a/i-slint-compiler/passes/visible.rs b/i-slint-compiler/passes/visible.rs
+index 8457a51..d3112ef 100644
+--- a/i-slint-compiler/passes/visible.rs
++++ b/i-slint-compiler/passes/visible.rs
+@@ -8,7 +8,7 @@
+ use std::rc::Rc;
+ 
+ use crate::diagnostics::BuildDiagnostics;
+-use crate::expression_tree::{Expression, NamedReference};
++use crate::expression_tree::{BindingExpression, Expression, NamedReference};
+ use crate::langtype::{ElementType, NativeClass, Type};
+ use crate::object_tree::{self, Component, Element, ElementRc};
+ use crate::typeregister::TypeRegister;
+@@ -89,24 +89,36 @@
+ 
+ fn create_visibility_element(child: &ElementRc, native_clip: &Rc<NativeClass>) -> ElementRc {
+     let child_grid_layout_cell = child.borrow_mut().grid_layout_cell.take();
++    let mut bindings: crate::object_tree::BindingsMap = std::iter::once((
++        SmolStr::new_static("clip"),
++        RefCell::new(
++            Expression::UnaryOp {
++                sub: Box::new(Expression::PropertyReference(NamedReference::new(
++                    child,
++                    SmolStr::new_static("visible"),
++                ))),
++                op: '!',
++            }
++            .into(),
++        ),
++    ))
++    .collect();
++    // Keep the runtime `z` in sync so the visibility wrapper participates in
++    // z-ordering with the element it wraps.
++    if child.borrow().bindings.contains_key("z") {
++        bindings.insert(
++            SmolStr::new_static("z"),
++            BindingExpression::new_two_way(
++                NamedReference::new(child, SmolStr::new_static("z")).into(),
++            )
++            .into(),
++        );
++    }
+     let element = Element {
+         id: format_smolstr!("{}-visibility", child.borrow().id),
+         base_type: ElementType::Native(native_clip.clone()),
+         enclosing_component: child.borrow().enclosing_component.clone(),
+-        bindings: std::iter::once((
+-            SmolStr::new_static("clip"),
+-            RefCell::new(
+-                Expression::UnaryOp {
+-                    sub: Box::new(Expression::PropertyReference(NamedReference::new(
+-                        child,
+-                        SmolStr::new_static("visible"),
+-                    ))),
+-                    op: '!',
+-                }
+-                .into(),
+-            ),
+-        ))
+-        .collect(),
++        bindings,
+         grid_layout_cell: child_grid_layout_cell,
+         ..Default::default()
+     };
+diff --git a/i-slint-compiler/passes/lower_shadows.rs b/i-slint-compiler/passes/lower_shadows.rs
+index 524311b..a9c19ad 100644
+--- a/i-slint-compiler/passes/lower_shadows.rs
++++ b/i-slint-compiler/passes/lower_shadows.rs
+@@ -73,6 +73,18 @@
+         );
+     }
+ 
++    // Keep the runtime `z` in sync so the shadow participates in z-ordering
++    // together with the element it shadows.
++    if sibling_element.borrow().bindings.contains_key("z") {
++        bindings.insert(
++            SmolStr::new_static("z"),
++            BindingExpression::new_two_way(
++                NamedReference::new(sibling_element, SmolStr::new_static("z")).into(),
++            )
++            .into(),
++        );
++    }
++
+     let mut element = Element {
+         id: format_smolstr!("{}-{}", sibling_element.borrow().id, id_suffix),
+         base_type: type_register.lookup_builtin_element("BoxShadow").unwrap(),

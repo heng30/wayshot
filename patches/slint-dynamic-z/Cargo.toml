@@ -1,0 +1,24 @@
+[package]
+name = "slint-dynamic-z"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+slint = { version = "=1.17.1", default-features = false, features = [
+  "compat-1-2",
+  "backend-qt",
+] }
+
+[build-dependencies]
+slint-build = "=1.17.1"
+
+[dev-dependencies]
+i-slint-backend-testing = { version = "=1.17.1", features = [
+  "renderer-software",
+] }
+
+# 只 patch 被修改过的 3 个库（补丁基线 = 1.17.1，与上面锁定版本一致）
+[patch.crates-io]
+i-slint-core = { path = "vendor/i-slint-core" }
+i-slint-compiler = { path = "vendor/i-slint-compiler" }
+i-slint-backend-qt = { path = "vendor/i-slint-backend-qt" }

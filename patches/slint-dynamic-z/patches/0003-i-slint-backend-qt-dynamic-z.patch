@@ -1,0 +1,285 @@
+diff --git a/i-slint-backend-qt/qt_widgets/button.rs b/i-slint-backend-qt/qt_widgets/button.rs
+index 37fcc98..777b3c9 100644
+--- a/i-slint-backend-qt/qt_widgets/button.rs
++++ b/i-slint-backend-qt/qt_widgets/button.rs
+@@ -122,6 +122,7 @@ pub struct NativeButton {
+     pub is_standard_button: Property<bool>,
+     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+     animation_tracker: Property<i32>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+@@ -195,6 +196,9 @@ impl NativeButton {
+ }
+ 
+ impl Item for NativeButton {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         let animation_tracker_property_ptr =
+             Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
+diff --git a/i-slint-backend-qt/qt_widgets/checkbox.rs b/i-slint-backend-qt/qt_widgets/checkbox.rs
+index cc56644..cdc3fe3 100644
+--- a/i-slint-backend-qt/qt_widgets/checkbox.rs
++++ b/i-slint-backend-qt/qt_widgets/checkbox.rs
+@@ -18,10 +18,14 @@ pub struct NativeCheckBox {
+     pub checked: Property<bool>,
+     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+     animation_tracker: Property<i32>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for NativeCheckBox {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         let animation_tracker_property_ptr =
+             Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
+diff --git a/i-slint-backend-qt/qt_widgets/combobox.rs b/i-slint-backend-qt/qt_widgets/combobox.rs
+index 72dc728..cf3cd80 100644
+--- a/i-slint-backend-qt/qt_widgets/combobox.rs
++++ b/i-slint-backend-qt/qt_widgets/combobox.rs
+@@ -17,10 +17,14 @@ pub struct NativeComboBox {
+     pub current_value: Property<SharedString>,
+     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+     animation_tracker: Property<i32>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for NativeComboBox {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         let animation_tracker_property_ptr =
+             Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
+@@ -186,10 +190,14 @@ fn slint_get_NativeComboBoxVTable() -> NativeComboBoxVTable for NativeComboBox
+ pub struct NativeComboBoxPopup {
+     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+     animation_tracker: Property<i32>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for NativeComboBoxPopup {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         let animation_tracker_property_ptr =
+             Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
+diff --git a/i-slint-backend-qt/qt_widgets/groupbox.rs b/i-slint-backend-qt/qt_widgets/groupbox.rs
+index fe3e43f..dcdf26f 100644
+--- a/i-slint-backend-qt/qt_widgets/groupbox.rs
++++ b/i-slint-backend-qt/qt_widgets/groupbox.rs
+@@ -12,6 +12,7 @@ use super::*;
+ pub struct NativeGroupBox {
+     pub enabled: Property<bool>,
+     pub title: Property<SharedString>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+     pub native_padding_left: Property<LogicalLength>,
+     pub native_padding_right: Property<LogicalLength>,
+@@ -61,6 +62,9 @@ fn minimum_group_box_size(title: qttypes::QString) -> qttypes::QSize {
+ }
+ 
+ impl Item for NativeGroupBox {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         let animation_tracker_property_ptr =
+             Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
+diff --git a/i-slint-backend-qt/qt_widgets/lineedit.rs b/i-slint-backend-qt/qt_widgets/lineedit.rs
+index 956280d..7995894 100644
+--- a/i-slint-backend-qt/qt_widgets/lineedit.rs
++++ b/i-slint-backend-qt/qt_widgets/lineedit.rs
+@@ -10,6 +10,7 @@ use super::*;
+ #[derive(FieldOffsets, Default, SlintElement)]
+ #[pin]
+ pub struct NativeLineEdit {
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+     pub native_padding_left: Property<LogicalLength>,
+     pub native_padding_right: Property<LogicalLength>,
+@@ -58,6 +59,9 @@ fn get_clear_icon() -> Image {
+ }
+ 
+ impl Item for NativeLineEdit {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         let animation_tracker_property_ptr =
+             Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
+diff --git a/i-slint-backend-qt/qt_widgets/listviewitem.rs b/i-slint-backend-qt/qt_widgets/listviewitem.rs
+index 9e251e3..03deb8c 100644
+--- a/i-slint-backend-qt/qt_widgets/listviewitem.rs
++++ b/i-slint-backend-qt/qt_widgets/listviewitem.rs
+@@ -12,6 +12,7 @@ pub struct NativeStandardListViewItem {
+     pub item: Property<i_slint_core::items::StandardListViewItem>,
+     pub index: Property<i32>,
+     pub is_selected: Property<bool>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+     pub has_hover: Property<bool>,
+     pub has_focus: Property<bool>,
+@@ -26,6 +27,9 @@ pub struct NativeStandardListViewItem {
+ }
+ 
+ impl Item for NativeStandardListViewItem {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         let animation_tracker_property_ptr =
+             Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
+diff --git a/i-slint-backend-qt/qt_widgets/progress_indicator.rs b/i-slint-backend-qt/qt_widgets/progress_indicator.rs
+index c94ea3d..2b9ed9f 100644
+--- a/i-slint-backend-qt/qt_widgets/progress_indicator.rs
++++ b/i-slint-backend-qt/qt_widgets/progress_indicator.rs
+@@ -13,10 +13,14 @@ pub struct NativeProgressIndicator {
+     pub progress: Property<f32>,
+     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+     animation_tracker: Property<i32>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for NativeProgressIndicator {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         let animation_tracker_property_ptr =
+             Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
+diff --git a/i-slint-backend-qt/qt_widgets/scrollview.rs b/i-slint-backend-qt/qt_widgets/scrollview.rs
+index a38e258..1a6381d 100644
+--- a/i-slint-backend-qt/qt_widgets/scrollview.rs
++++ b/i-slint-backend-qt/qt_widgets/scrollview.rs
+@@ -17,6 +17,7 @@ pub struct NativeScrollView {
+     pub vertical_max: Property<LogicalLength>,
+     pub vertical_page_size: Property<LogicalLength>,
+     pub vertical_value: Property<LogicalLength>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+     pub native_padding_left: Property<LogicalLength>,
+     pub native_padding_right: Property<LogicalLength>,
+@@ -35,6 +36,9 @@ pub struct NativeScrollView {
+ }
+ 
+ impl Item for NativeScrollView {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         let animation_tracker_property_ptr =
+             Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
+diff --git a/i-slint-backend-qt/qt_widgets/slider.rs b/i-slint-backend-qt/qt_widgets/slider.rs
+index d95fff1..9ddd16b 100644
+--- a/i-slint-backend-qt/qt_widgets/slider.rs
++++ b/i-slint-backend-qt/qt_widgets/slider.rs
+@@ -33,6 +33,7 @@ pub struct NativeSlider {
+     pub minimum: Property<f32>,
+     pub maximum: Property<f32>,
+     pub step: Property<f32>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+     data: Property<NativeSliderData>,
+     pub changed: Callback<FloatArg>,
+@@ -68,6 +69,9 @@ void initQSliderOptions(QStyleOptionSlider &option, bool pressed, bool enabled,
+ }}
+ 
+ impl Item for NativeSlider {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         let animation_tracker_property_ptr =
+             Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
+diff --git a/i-slint-backend-qt/qt_widgets/spinbox.rs b/i-slint-backend-qt/qt_widgets/spinbox.rs
+index 123d97e..5033ec1 100644
+--- a/i-slint-backend-qt/qt_widgets/spinbox.rs
++++ b/i-slint-backend-qt/qt_widgets/spinbox.rs
+@@ -31,6 +31,7 @@ pub struct NativeSpinBox {
+     pub maximum: Property<i32>,
+     pub step_size: Property<i32>,
+     pub horizontal_alignment: Property<TextHorizontalAlignment>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+     pub edited: Callback<IntArg>,
+     data: Property<NativeSpinBoxData>,
+@@ -66,6 +67,9 @@ option.frame = true;
+ }}
+ 
+ impl Item for NativeSpinBox {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         let animation_tracker_property_ptr =
+             Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
+diff --git a/i-slint-backend-qt/qt_widgets/tableheadersection.rs b/i-slint-backend-qt/qt_widgets/tableheadersection.rs
+index 54f3635..525901d 100644
+--- a/i-slint-backend-qt/qt_widgets/tableheadersection.rs
++++ b/i-slint-backend-qt/qt_widgets/tableheadersection.rs
+@@ -14,6 +14,7 @@ use super::*;
+ pub struct NativeTableHeaderSection {
+     pub item: Property<i_slint_core::items::TableColumn>,
+     pub index: Property<i32>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+     pub has_hover: Property<bool>,
+     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+@@ -21,6 +22,9 @@ pub struct NativeTableHeaderSection {
+ }
+ 
+ impl Item for NativeTableHeaderSection {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         let animation_tracker_property_ptr =
+             Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
+diff --git a/i-slint-backend-qt/qt_widgets/tabwidget.rs b/i-slint-backend-qt/qt_widgets/tabwidget.rs
+index 763de09..2e029f1 100644
+--- a/i-slint-backend-qt/qt_widgets/tabwidget.rs
++++ b/i-slint-backend-qt/qt_widgets/tabwidget.rs
+@@ -16,6 +16,7 @@ use super::*;
+ pub struct NativeTabWidget {
+     pub width: Property<LogicalLength>,
+     pub height: Property<LogicalLength>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+     pub content_min_height: Property<LogicalLength>,
+     pub content_min_width: Property<LogicalLength>,
+@@ -40,6 +41,9 @@ pub struct NativeTabWidget {
+ }
+ 
+ impl Item for NativeTabWidget {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         let animation_tracker_property_ptr =
+             Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
+@@ -382,10 +386,14 @@ pub struct NativeTab {
+     pub num_tabs: Property<i32>,
+     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+     animation_tracker: Property<i32>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for NativeTab {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         let animation_tracker_property_ptr =
+             Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);

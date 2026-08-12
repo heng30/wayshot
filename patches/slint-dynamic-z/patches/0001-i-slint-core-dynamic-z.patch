@@ -1,0 +1,749 @@
+diff --git a/i-slint-core/input.rs b/i-slint-core/input.rs
+index d64c375..f59e7b2 100644
+--- a/i-slint-core/input.rs
++++ b/i-slint-core/input.rs
+@@ -1539,6 +1539,41 @@
+     MouseInputResult { state: result, accepted }
+ }
+ 
++/// Visit the children of `item_rc` in hit-testing order: children with a
++/// higher (possibly dynamic) `z` value first, then children with equal `z` in
++/// their original FrontToBack (tree) order. This keeps mouse hit-testing
++/// consistent with the z-sorted paint order.
++fn visit_children_sorted_by_z(
++    item_rc: &ItemRc,
++    mut visitor: impl FnMut(&ItemTreeRc, u32, Pin<ItemRef>) -> VisitChildrenResult,
++) -> VisitChildrenResult {
++    let mut children: Vec<(f32, u32, crate::item_tree::ItemTreeRc)> = Vec::new();
++    let mut collect_visitor =
++        |component: &crate::item_tree::ItemTreeRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
++            children.push((item.as_ref().z(), index, component.clone()));
++            VisitChildrenResult::CONTINUE
++        };
++    vtable::new_vref!(let mut collect_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut collect_visitor);
++    vtable::VRc::borrow_pin(item_rc.item_tree()).as_ref().visit_children_item(
++        item_rc.index() as isize,
++        crate::item_tree::TraversalOrder::FrontToBack,
++        collect_visitor,
++    );
++
++    // Stable sort descending by z: the visually topmost child is hit-tested first.
++    children.sort_by(|(a, _, _), (b, _, _)| b.partial_cmp(a).unwrap_or(core::cmp::Ordering::Equal));
++
++    for (_, index, component) in children {
++        let child = ItemRc::new(component.clone(), index);
++        let borrowed = child.borrow();
++        let r = visitor(&component, index, borrowed);
++        if r.has_aborted() {
++            return r;
++        }
++    }
++    VisitChildrenResult::CONTINUE
++}
++
+ pub(crate) fn process_delayed_event(
+     window_adapter: &Rc<dyn WindowAdapter>,
+     mut mouse_input_state: MouseInputState,
+@@ -1558,7 +1593,7 @@
+     let prev_target = mouse_input_state.delayed_exit_items.last().and_then(|x| x.upgrade());
+     let last_top_item = prev_target.as_ref().unwrap_or(&top_item);
+ 
+-    let mut actual_visitor =
++    let actual_visitor =
+         |component: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
+             send_mouse_event_to_item(
+                 &event,
+@@ -1569,12 +1604,7 @@
+                 true,
+             )
+         };
+-    vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
+-    vtable::VRc::borrow_pin(top_item.item_tree()).as_ref().visit_children_item(
+-        top_item.index() as isize,
+-        crate::item_tree::TraversalOrder::FrontToBack,
+-        actual_visitor,
+-    );
++    visit_children_sorted_by_z(&top_item, actual_visitor);
+     mouse_input_state
+ }
+ 
+@@ -1644,23 +1674,16 @@
+ 
+     result.item_stack.push((item_rc.downgrade(), filter_result));
+     if forward_to_children {
+-        let mut actual_visitor =
+-            |component: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
+-                send_mouse_event_to_item(
+-                    &event_for_children,
+-                    ItemRc::new(component.clone(), index),
+-                    window_adapter,
+-                    result,
+-                    last_top_item,
+-                    ignore_delays,
+-                )
+-            };
+-        vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
+-        let r = vtable::VRc::borrow_pin(item_rc.item_tree()).as_ref().visit_children_item(
+-            item_rc.index() as isize,
+-            crate::item_tree::TraversalOrder::FrontToBack,
+-            actual_visitor,
+-        );
++        let r = visit_children_sorted_by_z(&item_rc, |component, index, _| {
++            send_mouse_event_to_item(
++                &event_for_children,
++                ItemRc::new(component.clone(), index),
++                window_adapter,
++                result,
++                last_top_item,
++                ignore_delays,
++            )
++        });
+         if r.has_aborted() {
+             return r;
+         }
+diff --git a/i-slint-core/item_rendering.rs b/i-slint-core/item_rendering.rs
+index dfb97e4..dcc6d00 100644
+--- a/i-slint-core/item_rendering.rs
++++ b/i-slint-core/item_rendering.rs
+@@ -18,6 +18,7 @@
+ use alloc::boxed::Box;
+ #[cfg(feature = "std")]
+ use core::cell::RefCell;
++use alloc::vec::Vec;
+ use core::pin::Pin;
+ #[cfg(feature = "std")]
+ use std::collections::HashMap;
+@@ -188,54 +189,70 @@
+ }
+ 
+ /// Renders the children of the item with the specified index into the renderer.
++///
++/// Children are drawn sorted by their (possibly dynamic) `z` value: lower `z`
++/// first, higher `z` on top. Children with equal `z` keep their tree order
++/// (stable sort).
+ pub fn render_item_children(
+     renderer: &mut dyn ItemRenderer,
+     component: &ItemTreeRc,
+     index: isize,
+     window_adapter: &WindowAdapterRc,
+ ) {
+-    let mut actual_visitor =
++    // First pass: collect all children so they can be re-ordered by z.
++    let mut children: Vec<(f32, u32, ItemTreeRc)> = Vec::new();
++    let mut collect_visitor =
+         |component: &ItemTreeRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
+-            renderer.save_state();
+-            let item_rc = ItemRc::new(component.clone(), index);
+-
+-            let (do_draw, item_geometry) = renderer.filter_item(&item_rc, window_adapter);
+-
+-            let item_origin = item_geometry.origin;
+-            renderer.translate(item_origin.to_vector());
+-
+-            // Don't render items that are clipped, with the exception of the Clip or Flickable since
+-            // they themselves clip their content.
+-            let render_result = if do_draw
+-               || item.as_ref().clips_children()
+-               // HACK, the geometry of the box shadow does not include the shadow, because when the shadow is the root for repeated elements it would translate the children
+-               || ItemRef::downcast_pin::<BoxShadow>(item).is_some()
+-               // Transform and Opacity should also be applied regardless if the item itself is clipped or not
+-               || ItemRef::downcast_pin::<Transform>(item).is_some()
+-               || ItemRef::downcast_pin::<Opacity>(item).is_some()
+-               || ItemRef::downcast_pin::<Layer>(item).is_some()
+-            {
+-                item.as_ref().render(
+-                    &mut (renderer as &mut dyn ItemRenderer),
+-                    &item_rc,
+-                    item_geometry.size,
+-                )
+-            } else {
+-                RenderingResult::ContinueRenderingChildren
+-            };
+-
+-            if matches!(render_result, RenderingResult::ContinueRenderingChildren) {
+-                render_item_children(renderer, component, index as isize, window_adapter);
+-            }
+-            renderer.restore_state();
++            children.push((item.as_ref().z(), index, component.clone()));
+             VisitChildrenResult::CONTINUE
+         };
+-    vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
++    vtable::new_vref!(let mut collect_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut collect_visitor);
+     VRc::borrow_pin(component).as_ref().visit_children_item(
+         index,
+         crate::item_tree::TraversalOrder::BackToFront,
+-        actual_visitor,
++        collect_visitor,
+     );
++
++    // Stable sort by z, ascending (back to front).
++    children.sort_by(|(a, _, _), (b, _, _)| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
++
++    // Second pass: render in sorted order.
++    for (_, child_index, child_component) in &children {
++        let item_rc = ItemRc::new(child_component.clone(), *child_index);
++        let item = item_rc.borrow();
++
++        renderer.save_state();
++
++        let (do_draw, item_geometry) = renderer.filter_item(&item_rc, window_adapter);
++
++        let item_origin = item_geometry.origin;
++        renderer.translate(item_origin.to_vector());
++
++        // Don't render items that are clipped, with the exception of the Clip or Flickable since
++        // they themselves clip their content.
++        let render_result = if do_draw
++           || item.as_ref().clips_children()
++           // HACK, the geometry of the box shadow does not include the shadow, because when the shadow is the root for repeated elements it would translate the children
++           || ItemRef::downcast_pin::<BoxShadow>(item).is_some()
++           // Transform and Opacity should also be applied regardless if the item itself is clipped or not
++           || ItemRef::downcast_pin::<Transform>(item).is_some()
++           || ItemRef::downcast_pin::<Opacity>(item).is_some()
++           || ItemRef::downcast_pin::<Layer>(item).is_some()
++        {
++            item.as_ref().render(
++                &mut (renderer as &mut dyn ItemRenderer),
++                &item_rc,
++                item_geometry.size,
++            )
++        } else {
++            RenderingResult::ContinueRenderingChildren
++        };
++
++        if matches!(render_result, RenderingResult::ContinueRenderingChildren) {
++            render_item_children(renderer, child_component, *child_index as isize, window_adapter);
++        }
++        renderer.restore_state();
++    }
+ }
+ 
+ /// Renders the tree of items that component holds, using the specified renderer. Rendering is done
+diff --git a/i-slint-core/items/component_container.rs b/i-slint-core/items/component_container.rs
+index 84ca1a5..e008a88 100644
+--- a/i-slint-core/items/component_container.rs
++++ b/i-slint-core/items/component_container.rs
+@@ -41,6 +41,7 @@ pub struct ComponentContainer {
+     pub component_factory: Property<ComponentFactory>,
+     pub has_component: Property<bool>,
+ 
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ 
+     component_tracker: OnceCell<Pin<Box<PropertyTracker>>>,
+@@ -154,6 +155,9 @@ impl ComponentContainer {
+ }
+ 
+ impl Item for ComponentContainer {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+         let rc = self_rc.item_tree();
+ 
+diff --git a/i-slint-core/items/drag_n_drop.rs b/i-slint-core/items/drag_n_drop.rs
+index 562525b..8a1b7c1 100644
+--- a/i-slint-core/items/drag_n_drop.rs
++++ b/i-slint-core/items/drag_n_drop.rs
+@@ -60,10 +60,14 @@ pub struct DragArea {
+     pub drag_finished: Callback<DragActionArg, ()>,
+     pressed: Cell<bool>,
+     pressed_position: Cell<LogicalPoint>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for DragArea {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -275,10 +279,14 @@ pub struct DropArea {
+     pub can_drop: Callback<DropEventArg, DragAction>,
+     pub dropped: Callback<DropEventArg, DragAction>,
+ 
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for DropArea {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+diff --git a/i-slint-core/items/flickable.rs b/i-slint-core/items/flickable.rs
+index 5485907..f26810f 100644
+--- a/i-slint-core/items/flickable.rs
++++ b/i-slint-core/items/flickable.rs
+@@ -71,10 +71,14 @@ pub struct Flickable {
+     data: FlickableDataBox,
+ 
+     /// FIXME: remove this
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for Flickable {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+         self.data.in_bound_change_handler.init_delayed(
+             self_rc.downgrade(),
+diff --git a/i-slint-core/items/image.rs b/i-slint-core/items/image.rs
+index 6e684d7..bedb818 100644
+--- a/i-slint-core/items/image.rs
++++ b/i-slint-core/items/image.rs
+@@ -39,10 +39,14 @@ pub struct ImageItem {
+     pub image_fit: Property<ImageFit>,
+     pub image_rendering: Property<ImageRendering>,
+     pub colorize: Property<Brush>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for ImageItem {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -205,10 +209,14 @@ pub struct ClippedImage {
+     pub horizontal_tiling: Property<ImageTiling>,
+     pub vertical_tiling: Property<ImageTiling>,
+ 
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for ClippedImage {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+diff --git a/i-slint-core/items/input_items.rs b/i-slint-core/items/input_items.rs
+index 849d19f..a16cabb 100644
+--- a/i-slint-core/items/input_items.rs
++++ b/i-slint-core/items/input_items.rs
+@@ -51,12 +51,16 @@ pub struct TouchArea {
+     pub pointer_event: Callback<PointerEventArg>,
+     pub scroll_event: Callback<PointerScrollEventArg, EventResult>,
+     /// FIXME: remove this
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+     /// true when we are currently grabbing the mouse
+     grabbed: Cell<bool>,
+ }
+ 
+ impl Item for TouchArea {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -289,10 +293,14 @@ pub struct KeyBinding {
+     pub keys: Property<Keys>,
+     pub enabled: Property<bool>,
+     pub activated: Callback<VoidArg>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for KeyBinding {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -437,6 +445,7 @@ pub struct FocusScope {
+     pub focus_lost: Callback<FocusReasonArg>,
+     pub key_bindings: MaybeKeyBindingList,
+     /// FIXME: remove this
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+@@ -506,6 +515,9 @@ impl FocusScope {
+ }
+ 
+ impl Item for FocusScope {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -722,10 +734,14 @@ pub struct SwipeGestureHandler {
+     pressed: Cell<bool>,
+     // capture_events: Cell<bool>,
+     /// FIXME: remove this
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for SwipeGestureHandler {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -999,10 +1015,14 @@ pub struct ScaleRotateGestureHandler {
+     pub cancelled: Callback<VoidArg>,
+ 
+     /// FIXME: remove this
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for ScaleRotateGestureHandler {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         self.scale.set(1.0);
+     }
+diff --git a/i-slint-core/items/path.rs b/i-slint-core/items/path.rs
+index e6046a7..45249c1 100644
+--- a/i-slint-core/items/path.rs
++++ b/i-slint-core/items/path.rs
+@@ -53,10 +53,14 @@ pub struct Path {
+     pub fit: Property<ImageFit>,
+     pub clip: Property<bool>,
+     pub anti_alias: Property<bool>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for Path {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+diff --git a/i-slint-core/items/system_tray.rs b/i-slint-core/items/system_tray.rs
+index 3a749bc..7dd11bd 100644
+--- a/i-slint-core/items/system_tray.rs
++++ b/i-slint-core/items/system_tray.rs
+@@ -190,6 +190,7 @@ pub struct SystemTrayIcon {
+     pub visible: Property<bool>,
+     pub color_scheme: Property<ColorScheme>,
+     pub clicked: Callback<VoidArg>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+     data: SystemTrayIconDataBox,
+ }
+@@ -255,6 +256,9 @@ impl SystemTrayIcon {
+ }
+ 
+ impl Item for SystemTrayIcon {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+         self.data.change_tracker.init_delayed(
+             self_rc.downgrade(),
+diff --git a/i-slint-core/items/text.rs b/i-slint-core/items/text.rs
+index b56b9b7..8008dc2 100644
+--- a/i-slint-core/items/text.rs
++++ b/i-slint-core/items/text.rs
+@@ -61,10 +61,14 @@ pub struct ComplexText {
+     pub stroke: Property<Brush>,
+     pub stroke_width: Property<LogicalLength>,
+     pub stroke_style: Property<TextStrokeStyle>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for ComplexText {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -245,10 +249,14 @@ pub struct StyledTextItem {
+     pub vertical_alignment: Property<TextVerticalAlignment>,
+     pub link_clicked: Callback<StringArg>,
+     pub link_color: Property<Color>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for StyledTextItem {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -467,10 +475,14 @@ pub struct SimpleText {
+     pub horizontal_alignment: Property<TextHorizontalAlignment>,
+     pub vertical_alignment: Property<TextVerticalAlignment>,
+ 
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for SimpleText {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -763,6 +775,7 @@ pub struct TextInput {
+     pub preedit_text: Property<SharedString>,
+     /// A selection within the preedit (cursor and anchor)
+     preedit_selection: Property<PreEditSelection>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+     // The x position where the cursor wants to be.
+     // It is not updated when moving up and down even when the line is shorter.
+@@ -774,6 +787,9 @@ pub struct TextInput {
+ }
+ 
+ impl Item for TextInput {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+diff --git a/i-slint-core/items.rs b/i-slint-core/items.rs
+index 6011c9a..4963884 100644
+--- a/i-slint-core/items.rs
++++ b/i-slint-core/items.rs
+@@ -217,6 +217,11 @@ pub struct ItemVTable {
+     ) -> LogicalRect,
+ 
+     pub clips_children: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> bool,
++
++    /// The z-order of this item (0.0 if the item has no explicit z value).
++    /// The renderer draws children with a higher z value on top of children
++    /// with a lower z value; items with equal z keep their tree order.
++    pub z: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> f32,
+ }
+ 
+ /// Alias for `vtable::VRef<ItemVTable>` which represent a pointer to a `dyn Item` with
+@@ -228,10 +233,14 @@ pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
+ #[pin]
+ /// The implementation of an empty items that does nothing
+ pub struct Empty {
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for Empty {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -334,10 +343,14 @@ declare_item_vtable! {
+ /// The implementation of the `Rectangle` element
+ pub struct Rectangle {
+     pub background: Property<Brush>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for Rectangle {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -449,10 +462,14 @@ pub struct BasicBorderRectangle {
+     pub border_width: Property<LogicalLength>,
+     pub border_radius: Property<LogicalLength>,
+     pub border_color: Property<Brush>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for BasicBorderRectangle {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -577,10 +594,14 @@ pub struct BorderRectangle {
+     pub border_bottom_left_radius: Property<LogicalLength>,
+     pub border_bottom_right_radius: Property<LogicalLength>,
+     pub border_color: Property<Brush>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for BorderRectangle {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -727,11 +748,15 @@ pub struct Clip {
+     pub border_bottom_left_radius: Property<LogicalLength>,
+     pub border_bottom_right_radius: Property<LogicalLength>,
+     pub border_width: Property<LogicalLength>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+     pub clip: Property<bool>,
+ }
+ 
+ impl Item for Clip {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -854,10 +879,14 @@ declare_item_vtable! {
+ pub struct Opacity {
+     // FIXME: this element shouldn't need these geometry property
+     pub opacity: Property<f32>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for Opacity {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -986,10 +1015,14 @@ declare_item_vtable! {
+ /// The Layer Item is not meant to be used directly by the .slint code, instead, the `layer: xxx` property should be used
+ pub struct Layer {
+     pub cache_rendering_hint: Property<bool>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for Layer {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -1095,10 +1128,14 @@ pub struct Transform {
+     pub transform_scale_x: Property<f32>,
+     pub transform_scale_y: Property<f32>,
+     pub transform_origin: Property<LogicalPosition>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for Transform {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -1269,10 +1306,14 @@ pub struct WindowItem {
+     pub default_font_family: Property<SharedString>,
+     pub default_font_size: Property<LogicalLength>,
+     pub default_font_weight: Property<i32>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+ impl Item for WindowItem {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+         #[cfg(feature = "std")]
+         self.full_screen.set(std::env::var("SLINT_FULLSCREEN").is_ok());
+@@ -1576,6 +1617,7 @@ pub struct ContextMenu {
+     pub sub_menu: Callback<MenuEntryArg, MenuEntryModel>,
+     pub activated: Callback<MenuEntryArg>,
+     pub show: Callback<PointArg>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+     pub popup_id: Cell<Option<NonZeroU32>>,
+     pub enabled: Property<bool>,
+@@ -1584,6 +1626,9 @@ pub struct ContextMenu {
+ }
+ 
+ impl Item for ContextMenu {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -1795,6 +1840,7 @@ pub struct BoxShadow {
+     pub blur: Property<LogicalLength>,
+     pub spread: Property<LogicalLength>,
+     pub inset: Property<bool>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+ }
+ 
+@@ -1810,6 +1856,9 @@ impl BoxShadow {
+ }
+ 
+ impl Item for BoxShadow {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+@@ -1989,12 +2038,16 @@ pub struct TooltipArea {
+     pub offset: Property<LogicalLength>,
+     pub show: Callback<VoidArg>,
+     pub hide: Callback<VoidArg>,
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+     popup_visible: Cell<bool>,
+     timer: crate::timers::Timer,
+ }
+ 
+ impl Item for TooltipArea {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+diff --git a/i-slint-core/menus.rs b/i-slint-core/menus.rs
+index 9213a1d..cc81f64 100644
+--- a/i-slint-core/menus.rs
++++ b/i-slint-core/menus.rs
+@@ -207,6 +207,7 @@ MenuVTable_static!(static MENU_FROM_ITEM_TREE_VT for MenuFromItemTree);
+ #[pin]
+ /// The implementation of an MenuItem items that does nothing
+ pub struct MenuItem {
++    pub z: Property<f32>,
+     pub cached_rendering_data: CachedRenderingData,
+     pub title: Property<SharedString>,
+     pub activated: Callback<VoidArg>,
+@@ -218,6 +219,9 @@ pub struct MenuItem {
+ }
+ 
+ impl crate::items::Item for MenuItem {
++    fn z(self: Pin<&Self>) -> f32 {
++        Self::FIELD_OFFSETS.z().apply_pin(self).get()
++    }
+     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+ 
+     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}

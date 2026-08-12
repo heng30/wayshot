@@ -6836,8 +6836,6 @@ dependencies = [
 [[package]]
 name = "i-slint-backend-qt"
 version = "1.17.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "610c7cfcd0c7412f88281e5b3e2f7b81e6451d38047da265d1eead6bf2359937"
 dependencies = [
  "const-field-offset",
  "cpp",
@@ -6956,8 +6954,6 @@ dependencies = [
 [[package]]
 name = "i-slint-compiler"
 version = "1.17.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45ea275b15a425c7f2f77481151e1f5f8f1ea83feae580273090ef6b9e192218"
 dependencies = [
  "annotate-snippets 0.12.16",
  "by_address",
@@ -6989,8 +6985,6 @@ dependencies = [
 [[package]]
 name = "i-slint-core"
 version = "1.17.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e407dc2bd5385dcbdd9c1cf927213d2e4bacda667545abf8839c60f8290f754"
 dependencies = [
  "auto_enums",
  "bitflags 2.13.1",
