@@ -744,6 +744,10 @@ export global Logic {
     callback video-editor-subtitle-remover-overlay-refresh(img-x1: float, img-y1: float, img-x2: float, img-y2: float);
     callback video-editor-subtitle-remover-cancel();
 
+    callback video-editor-subtitle-search-load();
+    callback video-editor-subtitle-search-filter(text: string);
+    callback video-editor-subtitle-search-jump(index: int);
+
     callback video-editor-cutout-import-image();
     callback video-editor-cutout-process-image();
     callback video-editor-cutout-export-to-playlist();

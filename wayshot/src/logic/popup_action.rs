@@ -732,6 +732,10 @@ pub fn init(ui: &AppWindow) {
                 "video-editor-show-subtitle-remover-dialog" => {
                     global_store!(ui).set_video_editor_is_show_subtitle_remover_dialog(true);
                 }
+                "video-editor-show-subtitle-search-dialog" => {
+                    global_logic!(ui).invoke_video_editor_subtitle_search_load();
+                    global_store!(ui).set_video_editor_is_show_subtitle_search_dialog(true);
+                }
                 "video-editor-show-clear-vision-dialog" => {
                     global_store!(ui).set_video_editor_is_show_clear_vision_dialog(true);
                 }

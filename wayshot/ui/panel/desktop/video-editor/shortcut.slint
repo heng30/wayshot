@@ -493,6 +493,14 @@ export component Shortcut inherits FocusScope {
         }
     }
 
+    KeyBinding {
+        keys: @keys(Alt + F);
+        activated => {
+            Logic.video-editor-subtitle-search-load();
+            Store.video-editor-is-show-subtitle-search-dialog = true;
+        }
+    }
+
     key-pressed(event) => {
         Store.video-editor-keyboard-modifiers = event.modifiers;
         accept

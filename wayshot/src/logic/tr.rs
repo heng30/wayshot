@@ -1975,6 +1975,9 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Prompt", "提示词"),
             ("Start AI translation failed", "启动 AI 翻译失败"),
             ("Subtitle Translate", "字幕翻译"),
+            ("Subtitle Search", "字幕搜索"),
+            ("No matching subtitles", "没有匹配的字幕"),
+            ("No subtitles", "没有字幕"),
             ("Subtitle translation completed", "字幕翻译完成"),
             ("Translate the subtitles to English", "将字幕翻译为英文"),
             ("image flies in to this position", "图像飞入此位置"),
@@ -2323,6 +2326,7 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Failed to parse lyrics", "未能解析歌词"),
             ("No audio samples to cache", "没有音频样本可供缓存"),
             ("Preamble samples cached", "前导样本已缓存"),
+            ("Subtitle search", "字幕搜索"),
         ])
     })
 }

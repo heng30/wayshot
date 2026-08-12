@@ -39,6 +39,7 @@ import {
     SubtitleRemoverDialog,
     SubtitleRemoverSettingDialog,
 } from "tools/subtitle-remover.slint";
+import { SubtitleSearchDialog } from "tools/subtitle-search.slint";
 import {
     CutoutDialog,
     CutoutSettingDialog,
@@ -491,6 +492,22 @@ export component TopMovingDialog inherits Rectangle {
         }
         minimal => {
             Store.video-editor-is-show-subtitle-remover-setting-dialog = false;
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-subtitle-search-dialog: SubtitleSearchDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Store.video-editor-is-show-subtitle-search-dialog = false;
+            app-focus();
+        }
+        minimal => {
             app-focus();
         }
         maximal => {

@@ -38,7 +38,7 @@ cursor-release:
 	cargo build --release -p wayshot-cursor --bin wayshot-cursor
 
 tr:
-	cargo run -p tr-helper --bin tr-helper
+	cargo run -p tr-helper --bin tr-helper -- -x vendor
 
 icon:
 	cargo run -p icon-helper --bin icon-helper -- -i ${app-name}/ui/images -o ${app-name}/ui/base

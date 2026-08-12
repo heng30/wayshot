@@ -1,0 +1,126 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    VideoEditorSubtitleSearchEntry,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    NoMessageImg,
+} from "../../../../base/widgets.slint";
+import { Search } from "../../../../base/search.slint";
+import { ListView } from "std-widgets.slint";
+import { CenterLayout } from "../../../../base/center-layout.slint";
+
+component SubtitleSearchItem inherits Rectangle {
+    in-out property <int> index;
+    in-out property <VideoEditorSubtitleSearchEntry> entry;
+
+    height: vbox.preferred-height;
+    border-radius: Theme.border-radius;
+    border-width: Theme.default-border-width;
+    background: ta.has-hover ? Theme.secondary-background : Theme.base-background;
+    border-color: ta.has-hover ? Theme.thirdly-brand-color : Theme.base-border-color;
+
+    ta := TouchArea {
+        clicked => {
+            Logic.video-editor-subtitle-search-jump(root.index);
+            Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+        }
+    }
+
+    vbox := VerticalLayout {
+        spacing: Theme.spacing;
+        padding: Theme.padding * 2;
+
+        time-lb := Label {
+            text: entry.start-time + " --> " + entry.end-time;
+            color: Theme.regular-text-color;
+        }
+
+        text-lb := Label {
+            text: entry.text;
+            overflow: elide;
+            font-size: Theme.title4-font-size;
+            color: Theme.primary-text-color;
+        }
+    }
+}
+
+export component SubtitleSearchDialog inherits MovingDialog {
+    title: Logic.tr("Subtitle Search");
+    icon: Icons.search-light;
+    header-width: Theme.moving-dialog-width;
+    body-height: root.header-width * Theme.golden-ratio;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+
+    private property <bool> is-search-empty: search.text.is-empty;
+    private property <bool> has-result: Store.video-editor-subtitle-search-filtered-entries.length > 0;
+
+    VerticalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        fsc := FocusScope {
+            forward-focus: search;
+
+            init => {
+                search.text = "";
+                self.focus();
+            }
+
+            search := Search {
+                width: parent.width;
+                enabled-popup: false;
+                gain-focus-when-clicked: true;
+
+                edited(text) => {
+                    Logic.video-editor-subtitle-search-filter(text);
+                }
+
+                search(text) => {
+                    self.focus();
+                    Logic.video-editor-subtitle-search-filter(text);
+                }
+
+                key-pressed(key-event) => {
+                    if key-event.text == Key.Escape {
+                        root.close();
+                    }
+                }
+            }
+        }
+
+        if !has-result: CenterLayout {
+            NoMessageImg {
+                width: root.header-width * Theme.golden-ratio;
+                text: is-search-empty ? Logic.tr("No subtitles") : Logic.tr("No matching subtitles");
+            }
+        }
+
+        if has-result: Rectangle {
+            border-color: Theme.base-border-color;
+            border-width: Theme.default-border-width;
+
+            VerticalLayout {
+                padding: Theme.padding * 2;
+
+                ListView {
+                    vertical-stretch: 1;
+
+                    for entry[index] in Store.video-editor-subtitle-search-filtered-entries: VerticalLayout {
+                        padding-top: index == 0 ? 0 : Theme.padding * 2;
+
+                        SubtitleSearchItem {
+                            index: index;
+                            entry: entry;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

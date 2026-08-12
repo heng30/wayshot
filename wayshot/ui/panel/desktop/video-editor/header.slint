@@ -140,6 +140,12 @@ export component Header inherits Rectangle {
                     sub-entries: [
                         {
                             icon: Icons.subtitle-light,
+                            text: Logic.tr("Subtitle Search"),
+                            shotcut: "Alt+F",
+                            action: "video-editor-show-subtitle-search-dialog",
+                        },
+                        {
+                            icon: Icons.subtitle-light,
                             text: Logic.tr("Subtitle Translate"),
                             shotcut: "Ctrl+Shift+Y",
                             action: "video-editor-show-subtitle-translate-dialog",

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use regex::Regex;
-use std::{collections::HashSet, fs, path::Path};
+use std::{collections::HashSet, ffi::OsStr, fs, path::Path};
 
 mod tr;
 use tr::tr;
@@ -25,11 +25,15 @@ struct Args {
 
     #[arg(short, long, default_value = "cn")]
     language: String,
+
+    /// Directories to exclude from scanning, matched by name at any depth (comma-separated or repeated)
+    #[arg(short = 'x', long)]
+    exclude_dirs: Vec<String>,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let translations = extract_tr(Path::new(&args.input_dir))?;
+    let translations = extract_tr(Path::new(&args.input_dir), &args.exclude_dirs)?;
 
     let mut final_translations = vec![];
     for item in translations {
@@ -52,7 +56,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn extract_tr(target_dir: &Path) -> Result<Vec<String>> {
+fn extract_tr(target_dir: &Path, exclude_dirs: &[String]) -> Result<Vec<String>> {
     let mut translations = HashSet::new();
 
     // Compile regex patterns
@@ -63,14 +67,10 @@ fn extract_tr(target_dir: &Path) -> Result<Vec<String>> {
     // Walk through directory
     for entry in walkdir::WalkDir::new(target_dir)
         .into_iter()
+        .filter_entry(|e| !is_excluded(e.path(), exclude_dirs))
         .filter_map(|e| e.ok())
     {
         let path = entry.path();
-
-        // Skip .git and target directories
-        if path.to_string_lossy().contains(".git/") || path.to_string_lossy().contains("target/") {
-            continue;
-        }
 
         // Process only .slint and .rs files
         if let Some(ext) = path.extension()
@@ -89,4 +89,16 @@ fn extract_tr(target_dir: &Path) -> Result<Vec<String>> {
     }
 
     Ok(translations.into_iter().collect())
+}
+
+fn is_excluded(path: &Path, exclude_dirs: &[String]) -> bool {
+    if path
+        .components()
+        .any(|c| c.as_os_str() == ".git" || c.as_os_str() == "target")
+    {
+        return true;
+    }
+    exclude_dirs
+        .iter()
+        .any(|dir| path.components().any(|c| c.as_os_str() == OsStr::new(dir)))
 }

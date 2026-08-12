@@ -35,6 +35,7 @@ mod speakers;
 mod stem_splitter;
 mod subtitle;
 mod subtitle_remover;
+mod subtitle_search;
 mod subtitle_translate;
 mod terminal;
 mod tts;
@@ -79,6 +80,7 @@ pub fn init(ui: &crate::slint_generatedAppWindow::AppWindow) {
     similar_video_segment::init(ui);
     dedup_photos::init(ui);
     subtitle_remover::init(ui);
+    subtitle_search::init(ui);
     subtitle_translate::init(ui);
     speakers::init(ui);
     smart_clip::init(ui);

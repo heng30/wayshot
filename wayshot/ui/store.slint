@@ -624,6 +624,13 @@ export enum VideoEditorTrackType {
 }
 
 
+export struct VideoEditorSubtitleSearchEntry {
+    start-time: string, // 显示用，如 00:01:23,500
+    end-time: string,   // 显示用，如 00:01:26,000
+    text: string,
+    start-ms: int,      // 用于跳转
+}
+
 export struct VideoEditorTrackSegment {
     uuid: string,
     hiding: bool,
@@ -1558,6 +1565,10 @@ export global Store {
     in-out property <image> video-editor-dewatermark-processed-image;
     in-out property <VideoEditorDewatermarkConfig> video-editor-dewatermark-config;
     in-out property <[Downloader]> video-editor-dewatermark-models-downloader: [{ }];
+
+    in-out property <bool> video-editor-is-show-subtitle-search-dialog;
+    in-out property <[VideoEditorSubtitleSearchEntry]> video-editor-subtitle-search-entries: [];
+    in-out property <[VideoEditorSubtitleSearchEntry]> video-editor-subtitle-search-filtered-entries: [];
 
     in-out property <bool> video-editor-is-show-subtitle-remover-dialog;
     in-out property <bool> video-editor-is-show-subtitle-remover-setting-dialog;
