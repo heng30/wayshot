@@ -158,6 +158,19 @@ This is a **video editing**, **screen recording**, **streaming**, and **screen s
 
 ----
 
+## Slint Version Upgrade
+Dynamic `z` support patches are applied to the components in the `vendor` directory. The patches live in `./patches/slint-dynamic-z/patches`, so do not upgrade the `Slint` version casually. The `Slint` version is also pinned in `Cargo`. If you need a newer `Slint` version, you can use AI to regenerate suitable patches. Then run `./patches/slint-dynamic-z/patches/vendor.sh wayshot` to apply the updated patches to the `Slint` dependencies in the `vendor` directory.
+
+Alternatively, if you upgrade to the latest `Slint` and do not need dynamic `z` support, comment out the patched libraries in the `[patch.crates-io]` section of `Cargo.toml`:
+
+```
+i-slint-core = { path = "vendor/i-slint-core" }
+i-slint-compiler = { path = "vendor/i-slint-compiler" }
+i-slint-backend-qt = { path = "vendor/i-slint-backend-qt" }
+```
+
+-----
+
 ## Troubleshooting
 - Using the `Qt backend` can resolve the issue of fuzzy fonts on the Windows platform. It is also recommended to prioritize the `Qt backend` to maintain a consistent build environment with the developers.
 

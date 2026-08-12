@@ -158,6 +158,19 @@
 
 ----
 
+## Slint 版本升级
+在`vendor`目录下，添加了组件动态调整`z`功能补丁。补丁在`./patches/slint-dynamic-z/patches` 中，所以不要随意升级`Slint`版本。在 `Cargo` 中的`Slint`版本也是锁死的。如果需要使用最新的`Slint`版本，可以使用AI，重新生成合适的补丁。然后运行`./patches/slint-dynamic-z/patches/vendor.sh wayshot` 应用修改后的补丁到`vendor`目录中的`Slint`相关依赖。
+
+或者升级到最新的`Slint`，并且不支持动态`z`功能，则注释`Cargo.toml`中的`[patch.crates-io]`部分的补丁库
+
+```
+i-slint-core = { path = "vendor/i-slint-core" }
+i-slint-compiler = { path = "vendor/i-slint-compiler" }
+i-slint-backend-qt = { path = "vendor/i-slint-backend-qt" }
+```
+
+-----
+
 ## 问题排查
 - 使用`Qt后端`能解决windows平台字体发虚的问题。也推荐优先使用`Qt后端`保持和开发者相同的构建环境
 
