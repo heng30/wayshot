@@ -560,6 +560,13 @@ component Segment inherits Rectangle {
             if (Store.video-editor-segment-is-dragging) {
                 return;
             }
+
+            // 选中 segment 时先清除旧的滤镜选中状态，
+            // 防止被删 segment 残留的 selected-filter 在预览中显示
+            VEFilter.selected-filter-index = -1;
+            VEFilter.selected-filter = { };
+            VEFilter.is-in-edit-mode = false;
+
             if (!(Store.video-editor-keyboard-modifiers.shift || Store.video-editor-keyboard-modifiers.control)) {
                 Store.video-editor-current-edited-track-index = track-index;
                 VEFilter.video-editor-update-subtitle-style-from-track(track-index);

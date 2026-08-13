@@ -988,6 +988,8 @@ fn remove_separators_except_between_digits(text: &str) -> String {
             }
         } else if ch == '。' || ch == ';' || ch == '；' {
             result.push(' ');
+        } else if (ch == '：' || ch == ':') && (index == 0 || index + 1 == chars.len()) {
+            // 开头或结尾的冒号直接移除，不添加空格
         } else {
             result.push(ch);
         }

@@ -422,6 +422,12 @@ fn inner_video_editor_remove_segments(ui: &AppWindow, shift_timeline: bool) {
         Ok(_) => {
             sync_and_refresh_simple(ui);
             store_video_editor_selected_segments_index!(ui).set_vec(vec![]);
+            // 删除成功：被删 segment 已移除，若之前正处于滤镜编辑状态则一并清理，
+            // 否则残留的 selected-filter / is-in-edit-mode 会在选中其他 segment 时
+            // 显示被删 segment 的预览图层
+            global_ve_filter!(ui).set_selected_filter_index(-1);
+            global_ve_filter!(ui).set_selected_filter(Default::default());
+            global_ve_filter!(ui).set_is_in_edit_mode(false);
             crate::toast_success!(
                 ui,
                 format!("Removed {} segments", selected_segment_indices.len())
@@ -431,8 +437,6 @@ fn inner_video_editor_remove_segments(ui: &AppWindow, shift_timeline: bool) {
             crate::toast_warn!(ui, format!("{}: {}", tr("Failed to remove segments"), e));
         }
     }
-
-    global_ve_filter!(ui).set_selected_filter_index(-1);
 }
 
 fn video_editor_split_segment(ui: &AppWindow) {
