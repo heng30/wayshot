@@ -108,6 +108,10 @@ pub struct VideoEditorPreferenceTrackConfig {
     pub snap_threshold_ms: i32,
 
     #[serde(default)]
+    #[derivative(Default(value = "1.0"))]
+    pub snap_precision_factor: f32,
+
+    #[serde(default)]
     #[derivative(Default(value = "25"))]
     pub waveform_samples_per_second: i32,
 }

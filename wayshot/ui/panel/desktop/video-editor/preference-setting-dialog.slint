@@ -74,6 +74,37 @@ component Track inherits SettingDetail {
 
         SettingDetailInnerVbox {
             SettingDetailLabel {
+                text: Logic.tr("Snap lookup precision");
+                tip: Logic.tr("Factor applied to the snap lookup trigger threshold; higher precision triggers snap lookup more often");
+            }
+
+            snap-precision-select := Select {
+                values: [
+                    Logic.tr("Low (1)"),
+                    Logic.tr("Medium (2/3)"),
+                    Logic.tr("High (1/2)"),
+                    Logic.tr("Ultra (1/4)"),
+                ];
+                current-index: cache-config.snap-precision-factor >= 1.0 ? 0 : (cache-config.snap-precision-factor >= 2.0 / 3.0 ? 1 : (cache-config.snap-precision-factor >= 1.0 / 2.0 ? 2 : 3));
+                current-value: self.values[self.current-index];
+                gain-focus-when-clicked: false;
+
+                selected(index, value) => {
+                    if (index == 0) {
+                        cache-config.snap-precision-factor = 1.0;
+                    } else if (index == 1) {
+                        cache-config.snap-precision-factor = 2.0 / 3.0;
+                    } else if (index == 2) {
+                        cache-config.snap-precision-factor = 1.0 / 2.0;
+                    } else {
+                        cache-config.snap-precision-factor = 1.0 / 4.0;
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
                 text: Logic.tr("Segment sanp threshold duration (ms)");
             }
 

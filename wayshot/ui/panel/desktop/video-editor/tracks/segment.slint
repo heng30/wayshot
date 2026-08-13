@@ -323,8 +323,8 @@ component Segment inherits Rectangle {
     private property <bool> is-active-resize-drag;
 
     // snap 节流阈值：鼠标相对按下点位移（mouse-x - pressed-x）超过该值才查找 snap。
-    // 默认取 snap 阈值（snap-threshold-ms，按时间轴比例换算为像素。
-    private property <length> snap-throttle-px: Store.video-editor-preference-config.track.snap-threshold-ms * length-pre-second / 1000;
+    // 默认取 snap 阈值（snap-threshold-ms，按时间轴比例换算为像素，再乘 snap-precision-factor 精度因子。
+    private property <length> snap-throttle-px: Store.video-editor-preference-config.track.snap-threshold-ms * length-pre-second / 1000 * Store.video-editor-preference-config.track.snap-precision-factor.clamp(0.25, 1.0);
 
     // 是否是正在跨轨道拖拽的segment（源segment）
     private property <bool> is-active-cross-track-drag: Store.video-editor-segment-cross-track-dragging && Store.video-editor-drag-segment-uuid == segment.uuid;
