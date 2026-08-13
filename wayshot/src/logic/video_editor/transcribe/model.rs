@@ -954,24 +954,50 @@ fn video_editor_transcribe_subtitles_to_primitive_numbers(ui: &AppWindow) {
 }
 
 fn video_editor_transcribe_subtitles_remove_separator(ui: &AppWindow) {
-    let separators = [',', '，', '。', ';', '；'];
     let entry = global_store!(ui).get_video_editor_transcribe();
     let subtitles = store_video_editor_transcribe_subtitles!(entry);
 
     let updated_subtitles = subtitles
         .iter()
         .map(|mut subtitle| {
-            let mut result = subtitle.original_text.to_string();
-            for sep in &separators {
-                result = result.replace(*sep, " ");
-            }
-            subtitle.original_text = result.trim().to_string().into();
+            subtitle.original_text =
+                remove_separators_except_between_digits(subtitle.original_text.as_str())
+                    .trim()
+                    .to_string()
+                    .into();
             subtitle
         })
         .collect::<Vec<_>>();
 
     store_video_editor_transcribe_subtitles!(entry).set_vec(updated_subtitles);
     toast_success!(ui, tr("Remove separators successfully"));
+}
+
+fn remove_separators_except_between_digits(text: &str) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    let mut result = String::with_capacity(chars.len());
+
+    for (index, &ch) in chars.iter().enumerate() {
+        if ch == ',' || ch == '，' {
+            let prev_is_digit = index > 0 && is_digit_char(chars[index - 1]);
+            let next_is_digit = index + 1 < chars.len() && is_digit_char(chars[index + 1]);
+            if prev_is_digit && next_is_digit {
+                result.push(ch);
+            } else {
+                result.push(' ');
+            }
+        } else if ch == '。' || ch == ';' || ch == '；' {
+            result.push(' ');
+        } else {
+            result.push(ch);
+        }
+    }
+
+    result
+}
+
+fn is_digit_char(ch: char) -> bool {
+    ch.is_ascii_digit() || ('０'..='９').contains(&ch)
 }
 
 fn video_editor_transcribe_subtitles_replace_text(
