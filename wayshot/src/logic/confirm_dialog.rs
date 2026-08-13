@@ -76,6 +76,9 @@ pub fn init(ui: &AppWindow) {
             "video-editor-chapter-summary-remove-all" => {
                 global_logic!(ui).invoke_video_editor_chapter_summary_remove_all();
             }
+            "video-editor-bookmark-remove-all" => {
+                global_logic!(ui).invoke_video_editor_bookmark_remove_all();
+            }
             "video-editor-similar-video-segment-remove-all" => {
                 global_logic!(ui).invoke_video_editor_similar_video_segment_remove_all();
             }

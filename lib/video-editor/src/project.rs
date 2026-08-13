@@ -10,7 +10,8 @@ pub use autosave::{
     restore_from_recovery,
 };
 pub use project::{
-    ChapterSummaryData, ManagerData, ProjectFile, ProjectPreviewConfig, load_project, save_project,
+    BookmarkData, ChapterSummaryData, ManagerData, ProjectFile, ProjectPreviewConfig, load_project,
+    save_project,
 };
 
 // 当前项目文件格式版本

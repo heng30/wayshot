@@ -17,6 +17,8 @@ import {
     Divider,
     Playhead,
     VolumeIndicator,
+    PopupActionEntry,
+    PopupActionSetting,
 } from "../../../../base/widgets.slint";
 import { VEFilter } from "../filter.slint";
 import { PreviewTransformLayers } from "preview-transform-layers.slint";
@@ -470,6 +472,12 @@ component TimelineThumbnail inherits Rectangle {
     private property <length> timeline-width: self.width;
     private property <length> label-width: Theme.default-font-size * 8;
     private property <int> timeline-offset: Store.video-editor-timeline-offset;
+    private property <int> total-duration: Store.video-editor-tracks-manager.duration;
+    private property <length> bookmark-marker-width: Theme.icon-size * 0.8;
+
+    pure function bookmark-x(time-ms: int) -> length {
+        return total-duration > 0 ? root.width * time-ms / total-duration : -1px;
+    }
 
     changed timeline-offset => {
         playhead.update();
@@ -518,6 +526,61 @@ component TimelineThumbnail inherits Rectangle {
             playhead.x = self.pressed-x - playhead.handle-width / 2;
             Store.video-editor-timeline-offset = Store.video-editor-tracks-manager.duration * self.pressed-x / root.width;
             Logic.video-editor-timeline-seek(Store.video-editor-timeline-offset);
+        }
+
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.right && event.kind == PointerEventKind.down) {
+                PopupActionSetting.show(
+                    self.absolute-position.x + self.mouse-x,
+                    self.absolute-position.y + self.mouse-y,
+                    [
+                    {
+                        icon: Icons.bookmark-light,
+                        text: Logic.tr("Add bookmark at playhead"),
+                        action: "video-editor-bookmark-add",
+                        user-data: "",
+                    },
+                    {
+                        icon: Icons.delete-all-light,
+                        text: Logic.tr("Remove all bookmarks"),
+                        action: "video-editor-bookmark-remove-all",
+                        user-data: "",
+                    }
+                ]);
+            }
+        }
+    }
+
+    for bookmark[index] in Store.video-editor-bookmarks: Image {
+        visible: root.bookmark-x(bookmark.time-ms) >= 0;
+        x: clamp(root.bookmark-x(bookmark.time-ms) - self.width / 2, 0px, max(root.width - self.width, 0px));
+        y: 0;
+        width: root.bookmark-marker-width;
+        height: self.width;
+        source: Icons.bookmark-fill;
+        colorize: Theme.thirdly-brand-color;
+
+        bm-ta := TouchArea {
+            clicked => {
+                Store.video-editor-timeline-offset = bookmark.time-ms;
+                Logic.video-editor-timeline-seek(bookmark.time-ms);
+            }
+
+            pointer-event(event) => {
+                if (event.button == PointerEventButton.right && event.kind == PointerEventKind.down) {
+                    PopupActionSetting.show(
+                        self.absolute-position.x + self.mouse-x,
+                        self.absolute-position.y + self.mouse-y,
+                        [
+                        {
+                            icon: Icons.delete-light,
+                            text: Logic.tr("Remove this bookmark"),
+                            action: "video-editor-bookmark-remove",
+                            user-data: "" + bookmark.time-ms,
+                        }
+                    ]);
+                }
+            }
         }
     }
 

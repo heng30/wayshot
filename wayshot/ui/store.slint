@@ -1179,6 +1179,10 @@ export struct ChapterSummaryEntry {
     title: string,
 }
 
+export struct VideoEditorBookmarkEntry {
+    time-ms: int,
+}
+
 export enum SubtitleTranslateProgressType {
     None,
     Translating,
@@ -1667,7 +1671,9 @@ export global Store {
     in-out property <bool> video-editor-is-show-chapter-summary-dialog;
     in-out property <float> video-editor-chapter-summary-progress;
     in-out property <ChapterSummaryProgressType> video-editor-chapter-summary-progress-type;
-    in-out property <[ChapterSummaryEntry]> video-editor-chapter-summary-entries;
+    in-out property <[ChapterSummaryEntry]> video-editor-chapter-summary-entries: [];
+
+    in-out property <[VideoEditorBookmarkEntry]> video-editor-bookmarks: [];
 
     in-out property <bool> video-editor-is-show-memo-dialog;
     in-out property <string> video-editor-global-memo-text;

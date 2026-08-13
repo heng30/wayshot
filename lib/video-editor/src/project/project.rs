@@ -37,6 +37,11 @@ pub struct ChapterSummaryData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BookmarkData {
+    pub time_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectFile {
     pub version: u32,
     pub created_at: DateTime<Utc>,
@@ -50,6 +55,8 @@ pub struct ProjectFile {
     pub global_filters: Vec<GlobalFilterData>,
     #[serde(default)]
     pub chapter_summary: Vec<ChapterSummaryData>,
+    #[serde(default)]
+    pub bookmarks: Vec<BookmarkData>,
     #[serde(default)]
     pub memo: String,
     #[serde(default)]
@@ -405,24 +412,30 @@ impl From<&TextElement> for TextElementData {
     }
 }
 
-impl From<&Manager> for ProjectFile {
-    fn from(manager: &Manager) -> Self {
+impl From<&ManagerData> for ProjectFile {
+    fn from(manager_data: &ManagerData) -> Self {
+        let manager = manager_data
+            .inner
+            .as_ref()
+            .expect("ManagerData inner manager is None");
+
         Self {
             version: CURRENT_PROJECT_VERSION,
-            created_at: Utc::now(),
+            created_at: manager_data.created_at,
             modified_at: Utc::now(),
             duration_secs: manager.duration.as_secs_f64(),
             tracks: manager.tracks.iter().map(|t| t.into()).collect(),
-            preview_config: ProjectPreviewConfig::default(),
-            playlist: MediaList::new("Default".to_string()),
-            is_backup: false,
+            preview_config: manager_data.preview_config.clone(),
+            playlist: manager_data.playlist.clone(),
+            is_backup: manager_data.is_backup,
             global_filters: manager
                 .global_filters
                 .iter()
                 .map(|f| global_filter_wrapper_to_data(f.as_ref()))
                 .collect(),
-            chapter_summary: vec![],
-            memo: String::new(),
+            chapter_summary: manager_data.chapter_summary.clone(),
+            bookmarks: manager_data.bookmarks.clone(),
+            memo: manager_data.memo.clone(),
         }
     }
 }
@@ -755,6 +768,7 @@ pub struct ManagerData {
     pub playlist: MediaList,
     pub inner: Option<Manager>,
     pub chapter_summary: Vec<ChapterSummaryData>,
+    pub bookmarks: Vec<BookmarkData>,
     pub memo: String,
     pub is_backup: bool,
 }
@@ -768,6 +782,7 @@ impl ManagerData {
             playlist: MediaList::new("Default".to_string()),
             inner: Some(manager),
             chapter_summary: vec![],
+            bookmarks: vec![],
             memo: String::new(),
             is_backup: false,
         }
@@ -785,6 +800,11 @@ impl ManagerData {
 
     pub fn with_chapter_summary(mut self, chapter_summary: Vec<ChapterSummaryData>) -> Self {
         self.chapter_summary = chapter_summary;
+        self
+    }
+
+    pub fn with_bookmarks(mut self, bookmarks: Vec<BookmarkData>) -> Self {
+        self.bookmarks = bookmarks;
         self
     }
 
@@ -832,6 +852,7 @@ impl TryFrom<&ProjectFile> for ManagerData {
             playlist: file.playlist.clone(),
             inner: Some(manager),
             chapter_summary: file.chapter_summary.clone(),
+            bookmarks: file.bookmarks.clone(),
             memo: file.memo.clone(),
             is_backup: file.is_backup,
         };
@@ -876,17 +897,11 @@ pub fn load_project<P: AsRef<Path>>(path: P) -> Result<ManagerData> {
 }
 
 pub fn save_project<P: AsRef<Path>>(manager_data: &ManagerData, path: P) -> Result<()> {
-    let Some(ref manager) = manager_data.inner else {
+    if manager_data.inner.is_none() {
         return Err(Error::InvalidConfig("manager is None".to_string()));
-    };
+    }
 
-    let mut project_file = ProjectFile::from(manager);
-    project_file.created_at = manager_data.created_at;
-    project_file.preview_config = manager_data.preview_config.clone();
-    project_file.playlist = manager_data.playlist.clone();
-    project_file.chapter_summary = manager_data.chapter_summary.clone();
-    project_file.memo = manager_data.memo.clone();
-    project_file.is_backup = manager_data.is_backup;
+    let project_file = ProjectFile::from(manager_data);
     let json = serde_json::to_string_pretty(&project_file)?;
 
     fs::write(&path, json)?;

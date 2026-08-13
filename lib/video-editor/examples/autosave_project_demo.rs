@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 4. 手动保存到临时文件
     println!("\n4. 手动保存到临时文件");
     let guard = manager_data.lock().unwrap();
-    let project_file = ProjectFile::from(guard.inner.as_ref().unwrap());
+    let project_file = ProjectFile::from(&*guard);
     drop(guard);
 
     let temp_path = autosave_manager.save_temp(&project_file)?;
@@ -90,8 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let manager_data_clone = Arc::clone(&manager_data);
     let handle = autosave_manager.start_autosave_thread(move || {
         let guard = manager_data_clone.lock().unwrap();
-        guard.inner.as_ref().map(|m| ProjectFile::from(m));
-        None // 返回 None 以演示线程逻辑，实际使用应返回 Some(project_file)
+        Some(ProjectFile::from(&*guard))
     });
     println!("   - 自动保存线程已启动");
     println!("   - 线程运行状态: {}", handle.is_running());

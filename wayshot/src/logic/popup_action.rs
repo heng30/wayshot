@@ -1,6 +1,9 @@
 use crate::{
     global_logic, global_store, global_ve_filter,
-    slint_generatedAppWindow::{AppWindow, PopupActionSetting, SelectedSegmentIndex},
+    logic::tr::tr,
+    slint_generatedAppWindow::{
+        AppWindow, ConfirmDialogSetting, PopupActionSetting, SelectedSegmentIndex,
+    },
 };
 use slint::ComponentHandle;
 
@@ -760,6 +763,22 @@ pub fn init(ui: &AppWindow) {
                 }
                 "video-editor-show-chapter-summary-dialog" => {
                     global_store!(ui).set_video_editor_is_show_chapter_summary_dialog(true);
+                }
+                "video-editor-bookmark-add" => {
+                    global_logic!(ui).invoke_video_editor_bookmark_add();
+                }
+                "video-editor-bookmark-remove" => {
+                    let time_ms = user_data.parse::<i32>().unwrap_or(-1);
+                    global_logic!(ui).invoke_video_editor_bookmark_remove(time_ms);
+                }
+                "video-editor-bookmark-remove-all" => {
+                    ui.global::<ConfirmDialogSetting>().invoke_set(
+                        true,
+                        tr("Warning").into(),
+                        tr("Remove all bookmarks or not?").into(),
+                        "video-editor-bookmark-remove-all".into(),
+                        "".into(),
+                    );
                 }
                 "video-editor-show-memo-dialog" => {
                     global_store!(ui).set_video_editor_is_show_memo_dialog(true);

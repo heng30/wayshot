@@ -1,4 +1,5 @@
 use super::{
+    bookmark::sync_bookmarks_to_ui,
     common_type::{
         VideoEditorPreferenceConfig, VideoEditorPreferenceMcpConfig, VideoEditorPreviewConfig,
         VideoEditorUIState,
@@ -46,7 +47,8 @@ use video_editor::{
     metadata::Metadata,
     preview::clear_global_audio_display_cache,
     project::{
-        AutoSaveConfig, AutoSaveHandle, AutoSaveManager, ChapterSummaryData, ProjectFile,
+        AutoSaveConfig, AutoSaveHandle, AutoSaveManager, BookmarkData, ChapterSummaryData,
+        ProjectFile,
         autosave::{
             RecoveryInfo, check_for_recovery, cleanup_recovery_file, cleanup_temp_files_by_path,
             restore_from_recovery,
@@ -138,6 +140,7 @@ pub struct ProjectState {
     pub library: MediaList,
 
     pub chapter_summary: Vec<ChapterSummaryData>,
+    pub bookmarks: Vec<BookmarkData>,
     pub memo: String,
 
     pub autosave_manager: Option<AutoSaveManager>,
@@ -315,7 +318,7 @@ fn video_editor_new_project(ui: &AppWindow) {
             .unwrap_or("Untitled")
             .to_string();
 
-        let (manager, playlist, chapter_summary, memo) = {
+        let (manager, playlist, chapter_summary, bookmarks, memo) = {
             let mut state = PROJECT_STATE.lock().unwrap();
             if state.is_none() {
                 *state = Some(ProjectState::default());
@@ -327,6 +330,7 @@ fn video_editor_new_project(ui: &AppWindow) {
                     state.tracks_manager.clone(),
                     state.playlist.clone(),
                     state.chapter_summary.clone(),
+                    state.bookmarks.clone(),
                     state.memo.clone(),
                 )
             } else {
@@ -338,6 +342,7 @@ fn video_editor_new_project(ui: &AppWindow) {
             .with_preview_config(preview_config.clone())
             .with_playlist(playlist)
             .with_chapter_summary(chapter_summary)
+            .with_bookmarks(bookmarks)
             .with_memo(memo);
 
         match video_editor::project::save_project(&manager_data, &path) {
@@ -355,6 +360,7 @@ fn video_editor_new_project(ui: &AppWindow) {
                     global_store!(ui).set_video_editor_chapter_summary_progress_type(
                         UIChapterSummaryProgressType::None,
                     );
+                    global_store!(ui).set_video_editor_bookmarks(ModelRc::new(VecModel::default()));
                     global_store!(ui).set_video_editor_project_memo_text(SharedString::default());
                     global_store!(ui).set_video_editor_new_project_config(
                         UIVideoEditorNewProjectConfig {
@@ -535,7 +541,7 @@ fn video_editor_backup_project(ui: &AppWindow) {
         .preview_config
         .into();
 
-    let (project_path, project_name, manager, chapter_summary, memo) = {
+    let (project_path, project_name, manager, chapter_summary, bookmarks, memo) = {
         let state = PROJECT_STATE.lock().unwrap();
         if let Some(ref s) = *state {
             let path = s.current_project_path.clone();
@@ -550,6 +556,7 @@ fn video_editor_backup_project(ui: &AppWindow) {
                 name,
                 s.tracks_manager.clone(),
                 s.chapter_summary.clone(),
+                s.bookmarks.clone(),
                 s.memo.clone(),
             )
         } else {
@@ -652,6 +659,7 @@ fn video_editor_backup_project(ui: &AppWindow) {
         let modified_project_file =
             create_project_file_with_relative_paths(&manager, &path_mappings, preview_config_val)
                 .with_chapter_summary(chapter_summary)
+                .with_bookmarks(bookmarks)
                 .with_memo(memo);
 
         match video_editor::project::save_project(&modified_project_file, &backup_project_path) {
@@ -882,6 +890,7 @@ fn clear_ui_state(ui: &AppWindow) {
     global_store!(ui).set_video_editor_chapter_summary_entries(ModelRc::new(VecModel::default()));
     global_store!(ui)
         .set_video_editor_chapter_summary_progress_type(UIChapterSummaryProgressType::None);
+    global_store!(ui).set_video_editor_bookmarks(ModelRc::new(VecModel::default()));
     global_store!(ui).set_video_editor_project_memo_text(SharedString::default());
     global_logic!(ui).invoke_video_editor_clear_all_selected_state();
     store_video_editor_playlist!(ui).set_vec(vec![]);
@@ -910,6 +919,7 @@ fn video_editor_close_project_with_save(ui: &AppWindow) {
             s.tracks_manager = Manager::new();
             s.playlist = create_playlist_with_cache();
             s.chapter_summary = vec![];
+            s.bookmarks = vec![];
             s.memo = String::new();
         }
     }
@@ -934,6 +944,7 @@ fn video_editor_close_project_without_save(ui: &AppWindow) {
             s.tracks_manager = Manager::new();
             s.playlist = create_playlist_with_cache();
             s.chapter_summary = vec![];
+            s.bookmarks = vec![];
             s.memo = String::new();
         }
     }
@@ -1092,6 +1103,7 @@ fn async_load_project(
     let preview_config = manager_data.preview_config;
     let mut playlist = manager_data.playlist;
     let chapter_summary = manager_data.chapter_summary;
+    let bookmarks = manager_data.bookmarks;
     let memo = manager_data.memo;
 
     let cache_dir = config::all().cache_dir.join("playlist_thumbnails");
@@ -1137,6 +1149,7 @@ fn async_load_project(
     state.library = original_library;
     state.recent_files_manager = original_recent_files_manager;
     state.chapter_summary = chapter_summary.clone();
+    state.bookmarks = bookmarks.clone();
     state.memo = memo.clone();
     *PROJECT_STATE.lock().unwrap() = Some(state);
 
@@ -1175,6 +1188,7 @@ fn async_load_project(
             );
         }
 
+        sync_bookmarks_to_ui(&ui);
         global_store!(ui).set_video_editor_project_memo_text(memo.into());
 
         match project_path {
@@ -1222,13 +1236,14 @@ fn async_save_project_to_path(
 ) {
     let path_display = path.display().to_string();
 
-    let (manager, playlist, chapter_summary, memo) = {
+    let (manager, playlist, chapter_summary, bookmarks, memo) = {
         let state = PROJECT_STATE.lock().unwrap();
         if let Some(ref s) = *state {
             (
                 s.tracks_manager.clone(),
                 s.playlist.clone(),
                 s.chapter_summary.clone(),
+                s.bookmarks.clone(),
                 s.memo.clone(),
             )
         } else {
@@ -1244,6 +1259,7 @@ fn async_save_project_to_path(
         .with_preview_config(preview_config)
         .with_playlist(playlist)
         .with_chapter_summary(chapter_summary)
+        .with_bookmarks(bookmarks)
         .with_memo(memo);
 
     match video_editor::project::save_project(&manager_data, &path) {
@@ -1348,8 +1364,7 @@ pub fn setup_autosave(project_path: Option<&Path>) {
             let handle = manager.start_autosave_thread(|| {
                 let state = PROJECT_STATE.lock().unwrap();
                 if let Some(ref s) = *state {
-                    let project_file = ProjectFile::from(&s.tracks_manager);
-                    Some(project_file)
+                    Some(ProjectFile::from(s))
                 } else {
                     None
                 }
@@ -1412,5 +1427,16 @@ impl From<ChapterSummaryData> for UIChapterSummaryEntry {
             end_ms: ch.end_ms as i32,
             title: ch.title.into(),
         }
+    }
+}
+
+impl From<&ProjectState> for ProjectFile {
+    fn from(state: &ProjectState) -> Self {
+        let manager_data = ManagerData::new(state.tracks_manager.clone())
+            .with_chapter_summary(state.chapter_summary.clone())
+            .with_bookmarks(state.bookmarks.clone())
+            .with_memo(state.memo.clone());
+
+        ProjectFile::from(&manager_data)
     }
 }

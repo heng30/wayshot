@@ -1,5 +1,6 @@
 mod bg_animation;
 mod bg_remover;
+mod bookmark;
 mod chapter_summary;
 mod clear_vision;
 mod code_image;
@@ -75,6 +76,7 @@ pub fn init(ui: &crate::slint_generatedAppWindow::AppWindow) {
     long_screenshot::init(ui);
     scene_detect::init(ui);
     chapter_summary::init(ui);
+    bookmark::init(ui);
     stem_splitter::init(ui);
     deep_filter::init(ui);
     similar_video_segment::init(ui);

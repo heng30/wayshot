@@ -864,6 +864,10 @@ export global Logic {
     callback video-editor-chapter-summary-remove-all();
     callback video-editor-chapter-summary-update-chapter(index: int, title: string);
 
+    callback video-editor-bookmark-add();
+    callback video-editor-bookmark-remove(time-ms: int);
+    callback video-editor-bookmark-remove-all();
+
     callback video-editor-memo-save(tab-index: int);
     callback video-editor-memo-close();
     callback video-editor-load-project-memo();
