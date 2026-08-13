@@ -18,8 +18,9 @@ use crate::slint_generatedAppWindow::{
     Keyframe as UIKeyframe, KeyframeValue as UIKeyframeValue,
     KeyframeValueType as UIKeyframeValueType, LightingDetail as UILightingDetail,
     LimiterDetail as UILimiterDetail, LinearMaskDetail as UILinearMaskDetail,
-    Live2dDetail as UILive2dDetail, LocalMagnifyDetail as UILocalMagnifyDetail,
-    MagnifierDetail as UIMagnifierDetail, MarginHorizontalDetail as UIMarginHorizontalDetail,
+    LiquidGlassDetail as UILiquidGlassDetail, Live2dDetail as UILive2dDetail,
+    LocalMagnifyDetail as UILocalMagnifyDetail, MagnifierDetail as UIMagnifierDetail,
+    MarginHorizontalDetail as UIMarginHorizontalDetail,
     MarginVerticalDetail as UIMarginVerticalDetail, MirrorMaskDetail as UIMirrorMaskDetail,
     MosaicDetail as UIMosaicDetail, MuteDetail as UIMuteDetail,
     NoiseGateDetail as UINoiseGateDetail, NormalizeDetail as UINormalizeDetail,
@@ -63,8 +64,8 @@ use video_editor::filters::{
         GenieAnchor, GenieFilter, GrainFilter, GrayscaleFilter, GridFilter, HSLAdjustFilter,
         HighlightRegion, LightingDirection as VELightingDirection,
         LightingFilter as VELightingFilter, LightingScene as VELightingScene, LinearMaskFilter,
-        Live2dFilter, LocalMagnifyFilter, LuminanceStandard, MagnifierFilter, MirrorMaskFilter,
-        MosaicFilter, OldFilmFilter, OpacityFilter, PageFlipAxis, PageFlipCorner,
+        LiquidGlassFilter, Live2dFilter, LocalMagnifyFilter, LuminanceStandard, MagnifierFilter,
+        MirrorMaskFilter, MosaicFilter, OldFilmFilter, OpacityFilter, PageFlipAxis, PageFlipCorner,
         PageFlipDirection, PageFlipFilter, PageFlipPosition, RectangleMaskFilter, ShadowFilter,
         SharpenFilter, SketchFilter, SlideDirection, SlideFilter, SpeedFilter, SplitDirection,
         SplitFilter, TextHighlightFilter, TransformFilter, VignetteFilter, WaveFilter, WaveType,
@@ -469,6 +470,51 @@ impl From<UIMosaicDetail> for MosaicFilter {
             block_size: d.block_size.max(1) as u32,
             keyframe_tracks: KeyframeTracks::default(),
         }
+    }
+}
+
+impl From<LiquidGlassFilter> for UILiquidGlassDetail {
+    fn from(f: LiquidGlassFilter) -> Self {
+        Self {
+            x: f.x,
+            y: f.y,
+            width: f.width,
+            height: f.height,
+            corner_radius: f.corner_radius,
+            refraction_height: f.refraction_height,
+            refraction_amount: f.refraction_amount,
+            blur_radius: f.blur_radius,
+            chromatic_aberration: f.chromatic_aberration,
+            depth_effect: f.depth_effect,
+            contrast: f.contrast,
+            white_point: f.white_point,
+            chroma_multiplier: f.chroma_multiplier,
+            tint_alpha: f.tint_alpha,
+            tint_color_r: f.tint_color[0],
+            tint_color_g: f.tint_color[1],
+            tint_color_b: f.tint_color[2],
+        }
+    }
+}
+
+impl From<UILiquidGlassDetail> for LiquidGlassFilter {
+    fn from(d: UILiquidGlassDetail) -> Self {
+        LiquidGlassFilter::default()
+            .with_x(d.x.clamp(0.0, 1.0))
+            .with_y(d.y.clamp(0.0, 1.0))
+            .with_width(d.width.clamp(0.0, 1.0))
+            .with_height(d.height.clamp(0.0, 1.0))
+            .with_corner_radius(d.corner_radius)
+            .with_refraction_height(d.refraction_height)
+            .with_refraction_amount(d.refraction_amount)
+            .with_blur_radius(d.blur_radius)
+            .with_chromatic_aberration(d.chromatic_aberration)
+            .with_depth_effect(d.depth_effect)
+            .with_contrast(d.contrast)
+            .with_white_point(d.white_point)
+            .with_chroma_multiplier(d.chroma_multiplier)
+            .with_tint_alpha(d.tint_alpha)
+            .with_tint_color([d.tint_color_r, d.tint_color_g, d.tint_color_b])
     }
 }
 

@@ -30,9 +30,9 @@ use crate::{
             FadeOutFilter as VideoFadeOutFilter, FisheyeFilter, FlipFilter, FlyInFilter,
             FocusFilter, FrameExtractFilter, GaussianBlurFilter, GenieFilter, GrainFilter,
             GrayscaleFilter, GridFilter, HSLAdjustFilter, LightingFilter, LinearMaskFilter,
-            Live2dFilter, LocalMagnifyFilter, MagnifierFilter, MirrorMaskFilter, MosaicFilter,
-            OldFilmFilter, OpacityFilter, PageFlipFilter, RectangleMaskFilter, ShadowFilter,
-            SharpenFilter, SketchFilter, SlideFilter, SpeedFilter, SplitFilter,
+            LiquidGlassFilter, Live2dFilter, LocalMagnifyFilter, MagnifierFilter, MirrorMaskFilter,
+            MosaicFilter, OldFilmFilter, OpacityFilter, PageFlipFilter, RectangleMaskFilter,
+            ShadowFilter, SharpenFilter, SketchFilter, SlideFilter, SpeedFilter, SplitFilter,
             TextHighlightFilter, TransformFilter, VignetteFilter, WaveFilter, WipeFilter,
             ZoomFilter,
         },
@@ -109,6 +109,9 @@ pub enum VideoFilterDataInner {
 
     #[serde(rename = "mosaic")]
     Mosaic(MosaicFilter),
+
+    #[serde(rename = "liquid_glass")]
+    LiquidGlass(LiquidGlassFilter),
 
     #[serde(rename = "border")]
     Border(BorderFilter),
@@ -404,6 +407,8 @@ pub fn video_filter_to_data(filter: &Box<dyn VideoFilter>) -> VideoFilterDataInn
         Zoom,
         MosaicFilter,
         Mosaic,
+        LiquidGlassFilter,
+        LiquidGlass,
         BorderFilter,
         Border,
         OpacityFilter,
@@ -582,6 +587,7 @@ pub fn data_to_video_filter_inner(data: &VideoFilterDataInner) -> Result<Box<dyn
         VideoFilterDataInner::Wipe,
         VideoFilterDataInner::Zoom,
         VideoFilterDataInner::Mosaic,
+        VideoFilterDataInner::LiquidGlass,
         VideoFilterDataInner::Border,
         VideoFilterDataInner::Opacity,
         VideoFilterDataInner::Vignette,

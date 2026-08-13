@@ -24,6 +24,7 @@ pub mod grid;
 pub mod hsl_adjust;
 pub mod lighting;
 pub mod linear_mask;
+pub mod liquid_glass;
 pub mod live2d;
 pub mod local_magnify;
 pub mod magnifier;
@@ -72,6 +73,7 @@ pub use grid::GridFilter;
 pub use hsl_adjust::{HSLAdjustFilter, LuminanceStandard};
 pub use lighting::{LightingDirection, LightingFilter, LightingScene};
 pub use linear_mask::LinearMaskFilter;
+pub use liquid_glass::LiquidGlassFilter;
 pub use live2d::{Live2dFilter, model_expression_names, model_motion_names, resolve_model_dir};
 pub use local_magnify::LocalMagnifyFilter;
 pub use magnifier::MagnifierFilter;
@@ -119,6 +121,7 @@ pub fn all_filter_names() -> &'static [&'static str] {
         FadeInFilter::NAME,
         FadeOutFilter::NAME,
         MosaicFilter::NAME,
+        LiquidGlassFilter::NAME,
         OpacityFilter::NAME,
         BorderFilter::NAME,
         ShadowFilter::NAME,

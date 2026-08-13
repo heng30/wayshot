@@ -29,9 +29,10 @@ use video_editor::{
             BorderFilter, ChromaKeyFilter, CircleMaskFilter, CropFilter, DirectionalBlurFilter,
             DrawCircleFilter, DrawRectangleFilter, EdgeDetectFilter, FisheyeFilter, FocusFilter,
             GaussianBlurFilter, GrainFilter, GrayscaleFilter, GridFilter, HSLAdjustFilter,
-            LightingFilter, LinearMaskFilter, Live2dFilter, LocalMagnifyFilter, MagnifierFilter,
-            MirrorMaskFilter, MosaicFilter, OldFilmFilter, OpacityFilter, RectangleMaskFilter,
-            ShadowFilter, SharpenFilter, SketchFilter, TransformFilter, VignetteFilter, WaveFilter,
+            LightingFilter, LinearMaskFilter, LiquidGlassFilter, Live2dFilter, LocalMagnifyFilter,
+            MagnifierFilter, MirrorMaskFilter, MosaicFilter, OldFilmFilter, OpacityFilter,
+            RectangleMaskFilter, ShadowFilter, SharpenFilter, SketchFilter, TransformFilter,
+            VignetteFilter, WaveFilter,
         },
     },
 };
@@ -205,6 +206,7 @@ fn get_animatable_properties(
         TransformFilter,
         OpacityFilter,
         MosaicFilter,
+        LiquidGlassFilter,
         ChromaKeyFilter,
         CropFilter,
         VignetteFilter,
@@ -930,6 +932,54 @@ fn get_mosaic_filter_detail_at_time(f: &MosaicFilter, time_ms: i32) -> SharedStr
         height.clamp(0.0, 1.0),
         f.block_size,
     );
+
+    serde_json::to_string(&interpolated)
+        .unwrap_or_default()
+        .into()
+}
+
+fn get_liquid_glass_filter_detail_at_time(f: &LiquidGlassFilter, time_ms: i32) -> SharedString {
+    let tracks = &f.keyframe_tracks;
+
+    let (x, y) = tracks
+        .get_track("position")
+        .map(|t| get_float2_at_time(t, time_ms as i64, f.x, f.y))
+        .unwrap_or((f.x, f.y));
+
+    let (width, height) = tracks
+        .get_track("size")
+        .map(|t| get_float2_at_time(t, time_ms as i64, f.width, f.height))
+        .unwrap_or((f.width, f.height));
+
+    let float_at = |name: &str, default: f32| {
+        tracks
+            .get_track(name)
+            .map(|t| get_float_at_time(t, time_ms as i64, default))
+            .unwrap_or(default)
+    };
+
+    let interpolated = LiquidGlassFilter::default()
+        .with_x(x.clamp(0.0, 1.0))
+        .with_y(y.clamp(0.0, 1.0))
+        .with_width(width.clamp(0.0, 1.0))
+        .with_height(height.clamp(0.0, 1.0))
+        .with_corner_radius(float_at("corner_radius", f.corner_radius).clamp(0.0, 1080.0))
+        .with_refraction_height(
+            float_at("refraction_height", f.refraction_height).clamp(0.0, 200.0),
+        )
+        .with_refraction_amount(
+            float_at("refraction_amount", f.refraction_amount).clamp(0.0, 200.0),
+        )
+        .with_blur_radius(float_at("blur_radius", f.blur_radius).clamp(0.0, 100.0))
+        .with_chromatic_aberration(
+            float_at("chromatic_aberration", f.chromatic_aberration).clamp(0.0, 2.0),
+        )
+        .with_depth_effect(float_at("depth_effect", f.depth_effect).clamp(-2.0, 2.0))
+        .with_contrast(float_at("contrast", f.contrast).clamp(-1.0, 1.0))
+        .with_white_point(float_at("white_point", f.white_point).clamp(-1.0, 1.0))
+        .with_chroma_multiplier(float_at("chroma_multiplier", f.chroma_multiplier).clamp(0.0, 2.0))
+        .with_tint_alpha(float_at("tint_alpha", f.tint_alpha).clamp(0.0, 1.0))
+        .with_tint_color(f.tint_color);
 
     serde_json::to_string(&interpolated)
         .unwrap_or_default()
@@ -2056,6 +2106,8 @@ fn get_filter_detail_at_time(ui: &AppWindow, filter_index: i32, time_ms: i32) ->
                         get_opacity_filter_detail_at_time,
                         MosaicFilter,
                         get_mosaic_filter_detail_at_time,
+                        LiquidGlassFilter,
+                        get_liquid_glass_filter_detail_at_time,
                         ChromaKeyFilter,
                         get_chroma_key_filter_detail_at_time,
                         CropFilter,

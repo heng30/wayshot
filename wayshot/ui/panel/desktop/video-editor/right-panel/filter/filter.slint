@@ -587,12 +587,12 @@ component SegmentFilter inherits Rectangle {
 
     rec := Rectangle {
         y: td.y + td.height;
-        visible: sl.selected-index >= 0; // todo
+        visible: sl.selected-index >= 0;
         max-height: root.height - tab.height;
         height: root.height * 2 / 3;
         background: Theme.secondary-background;
 
-        // todo
+        // TODO: 注释点
         if tab.checked-index == 0: FilterVideoDetail {
             y: 0;
             selected-filter: selected-filter;
@@ -612,7 +612,6 @@ component SegmentFilter inherits Rectangle {
         }
     }
 
-    // todo
     if sl.selected-index < 0: NoDataImg {
         y: td.y + td.height;
         height: root.height * 2 / 3;
@@ -1039,9 +1038,6 @@ export component Filter inherits Rectangle {
     private property <bool> update-selected-filter-flag;
     private property <bool> is-subtitle-track: Logic.video-editor-is-subtitle-track(Store.video-editor-current-edited-track-index);
     private property <bool> is-show-segment-filter: Store.video-editor-current-edited-track-index >= 0 && Store.video-editor-selected-segments-index.length > 0 && !is-subtitle-track;
-
-    // todo
-    // private property <bool> is-show-segment-filter: true;
 
     if !is-show-segment-filter && !is-subtitle-track: NoMessageImg {
         text: Logic.tr("No Filter");

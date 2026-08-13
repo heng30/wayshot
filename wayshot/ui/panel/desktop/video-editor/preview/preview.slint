@@ -26,6 +26,7 @@ import { PreviewCropLayers } from "preview-crop-layers.slint";
 import { PreviewZoomLayers } from "preview-zoom-layers.slint";
 import { PreviewFlyInLayer } from "preview-fly-in-layer.slint";
 import { PreviewMosaicLayers } from "preview-mosaic-layers.slint";
+import { PreviewLiquidGlassLayers } from "preview-liquid-glass-layers.slint";
 import { PreviewTextLayer } from "preview-text-layer.slint";
 import { PreviewDrawCircleLayer } from "preview-draw-circle-layer.slint";
 import { PreviewDrawRectangleLayer } from "preview-draw-rectangle-layer.slint";
@@ -288,6 +289,12 @@ component PreviewWindow inherits Rectangle {
             }
 
             if VEFilter.selected-filter.name == "mosaic": PreviewMosaicLayers {
+                width: parent.width;
+                height: parent.height;
+                layers: Store.video-editor-preview-layer-images;
+            }
+
+            if VEFilter.selected-filter.name == "liquid glass": PreviewLiquidGlassLayers {
                 width: parent.width;
                 height: parent.height;
                 layers: Store.video-editor-preview-layer-images;

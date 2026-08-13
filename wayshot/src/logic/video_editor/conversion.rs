@@ -8,13 +8,13 @@ use crate::slint_generatedAppWindow::{
     DrawRectangleDetail as UIDrawRectangleDetail, FilterType as UIFilterType,
     FlyInDetail as UIFlyInDetail, FocusDetail as UIFocusDetail, Fps as UIFps,
     GaussianBlurDetail as UIGaussianBlurDetail, LinearMaskDetail as UILinearMaskDetail,
-    LocalMagnifyDetail as UILocalMagnifyDetail, MagnifierDetail as UIMagnifierDetail,
-    MediaType as UIMediaType, MirrorMaskDetail as UIMirrorMaskDetail,
-    MosaicDetail as UIMosaicDetail, PresetTextStyle as UIPresetTextStyle,
-    RectangleMaskDetail as UIRectangleMaskDetail, Resolution as UIResolution,
-    SegmentFilter as UISegmentFilter, SubtitleType as UISubtitleType, TextElement as UITextElement,
-    TextHighlightDetail as UITextHighlightDetail, TransformDetail as UITransformDetail,
-    VideoEditorLayerImage as UIVideoEditorLayerImage,
+    LiquidGlassDetail as UILiquidGlassDetail, LocalMagnifyDetail as UILocalMagnifyDetail,
+    MagnifierDetail as UIMagnifierDetail, MediaType as UIMediaType,
+    MirrorMaskDetail as UIMirrorMaskDetail, MosaicDetail as UIMosaicDetail,
+    PresetTextStyle as UIPresetTextStyle, RectangleMaskDetail as UIRectangleMaskDetail,
+    Resolution as UIResolution, SegmentFilter as UISegmentFilter, SubtitleType as UISubtitleType,
+    TextElement as UITextElement, TextHighlightDetail as UITextHighlightDetail,
+    TransformDetail as UITransformDetail, VideoEditorLayerImage as UIVideoEditorLayerImage,
     VideoEditorPlaylistItem as UIVideoEditorPlaylistItem,
     VideoEditorPreviewConfig as UIVideoEditorPreviewConfig,
     VideoEditorRecentEntry as UIVideoEditorRecentEntry,
@@ -54,11 +54,11 @@ use video_editor::{
             FadeOutFilter as VideoFadeOutFilter, FisheyeFilter, FlipFilter, FlyInFilter,
             FocusFilter, FrameExtractFilter, GaussianBlurFilter, GenieFilter, GrainFilter,
             GrayscaleFilter, GridFilter, HSLAdjustFilter, LightingFilter as VELightingFilter,
-            LinearMaskFilter, Live2dFilter, LocalMagnifyFilter, MagnifierFilter, MirrorMaskFilter,
-            MosaicFilter, OldFilmFilter, OpacityFilter, PageFlipFilter, RectangleMaskFilter,
-            ShadowFilter, SharpenFilter, SketchFilter, SlideFilter, SpeedFilter, SplitFilter,
-            TextHighlightFilter, TransformFilter, VignetteFilter, WaveFilter, WipeFilter,
-            ZoomFilter,
+            LinearMaskFilter, LiquidGlassFilter, Live2dFilter, LocalMagnifyFilter, MagnifierFilter,
+            MirrorMaskFilter, MosaicFilter, OldFilmFilter, OpacityFilter, PageFlipFilter,
+            RectangleMaskFilter, ShadowFilter, SharpenFilter, SketchFilter, SlideFilter,
+            SpeedFilter, SplitFilter, TextHighlightFilter, TransformFilter, VignetteFilter,
+            WaveFilter, WipeFilter, ZoomFilter,
         },
     },
     media::{MediaItem, library::LibraryFolder, media_type::MediaType},
@@ -854,6 +854,8 @@ pub fn layer_frame_to_ui(layer: &LayerFrame) -> Option<UIVideoEditorLayerImage> 
     let zoom: UIZoomDetail = extract_filter_from_layer!(layer, is_image_track, ZoomFilter);
     let fly_in: UIFlyInDetail = extract_filter_from_layer!(layer, is_image_track, FlyInFilter);
     let mosaic: UIMosaicDetail = extract_filter_from_layer!(layer, is_image_track, MosaicFilter);
+    let liquid_glass: UILiquidGlassDetail =
+        extract_filter_from_layer!(layer, is_image_track, LiquidGlassFilter);
     let draw_circle: UIDrawCircleDetail =
         extract_filter_from_layer!(layer, is_image_track, DrawCircleFilter);
     let draw_rectangle: UIDrawRectangleDetail =
@@ -890,6 +892,7 @@ pub fn layer_frame_to_ui(layer: &LayerFrame) -> Option<UIVideoEditorLayerImage> 
         zoom,
         fly_in,
         mosaic,
+        liquid_glass,
         draw_circle,
         draw_rectangle,
         local_magnify,
@@ -969,6 +972,7 @@ pub fn video_filter_to_json_detail(filter: &Box<dyn VideoFilter>) -> String {
         BorderFilter,
         FlyInFilter,
         MosaicFilter,
+        LiquidGlassFilter,
         VignetteFilter,
         HSLAdjustFilter,
         SpeedFilter,

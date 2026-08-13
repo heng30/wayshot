@@ -233,6 +233,7 @@ fn create_video_filter_by_name(
         "hsl" | "hsl_adjust" => Some(Box::new(HSLAdjustFilter::default())),
         "shadow" => Some(Box::new(ShadowFilter::default())),
         "mosaic" => Some(Box::new(MosaicFilter::default())),
+        "liquid_glass" => Some(Box::new(LiquidGlassFilter::default())),
         "text_highlight" => Some(Box::new(TextHighlightFilter::default())),
         "background" => Some(Box::new(BackgroundFilter::default())),
         "fade_in" | "image_fade_in" => Some(Box::new(FadeInFilter::default())),

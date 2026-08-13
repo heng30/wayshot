@@ -1,0 +1,314 @@
+import {
+    Theme,
+    Store,
+    Logic,
+    Util,
+    Icons,
+    VideoPreviewSize,
+    VideoEditorLayerImage,
+    LiquidGlassDetail,
+} from "../../../def.slint";
+import { VEFilter, FilterType } from "../filter.slint";
+import { IconBtn, Divider, Label } from "../../../../base/widgets.slint";
+import { MoveHandle } from "move-handle.slint";
+
+export component PreviewLiquidGlassLayers inherits Rectangle {
+    in-out property <[VideoEditorLayerImage]> layers;
+    private property <float> width-hight-rate: self.width / self.height;
+    private property <FilterType> selected-filter-type <=> VEFilter.selected-filter.ty;
+
+    for index in layers.length: rec := Rectangle {
+        x: 0;
+        y: 0;
+
+        private property <VideoEditorLayerImage> layer: layers[layers.length - 1 - index];
+        private property <bool> is-edited-track: Store.video-editor-current-edited-track-index == layer.track-index;
+
+        private property <bool> has-keyframes: Logic.video-editor-segment-has-keyframes(layer.track-index, layer.segment-index);
+        private property <LiquidGlassDetail> config: is-edited-track && has-keyframes ? VEFilter.from-liquid-glass-json(VEFilter.selected-filter.detail) : layer.liquid-glass;
+        private property <bool> is-previewing: Store.video-editor-is-previewing;
+
+        changed is-previewing => {
+            if (is-edited-track && !is-previewing && has-keyframes) {
+                VEFilter.modify-liquid-glass-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+            }
+        }
+
+        if is-edited-track: container-rec := Rectangle {
+            width: img.width;
+            height: img.height;
+
+            TouchArea {
+                scroll-event(event) => {
+                    accept
+                }
+            }
+
+            img := Image {
+                private property <length> parent-width: rec.width;
+                private property <length> parent-height: rec.height;
+                private property <float> width-hight-rate: self.source.width / self.source.height;
+
+                changed parent-width => {
+                    self.update-size();
+                }
+
+                changed parent-height => {
+                    self.update-size();
+                }
+
+                function update-size() {
+                    if (root.width-hight-rate > self.width-hight-rate) {
+                        self.height = root.height;
+                        self.width = self.height * self.width-hight-rate;
+                    } else {
+                        self.width = root.width;
+                        self.height = self.width / self.width-hight-rate;
+                    }
+                }
+
+                function apply-resize(diff-x: length, diff-y: length, corner: int, orig-left: float, orig-top: float, orig-width: float, orig-height: float) {
+                    let norm-x = diff-x / self.width;
+                    let norm-y = diff-y / self.height;
+                    let min-width-norm = Theme.icon-size / self.width;
+                    let min-height-norm = Theme.icon-size / self.height;
+
+
+                    // corner 1: top-left, 2: top-right, 3: bottom-right, 4: bottom-left
+                    if (corner == 1) { // top-left
+                        let new-left = orig-left + norm-x;
+                        let new-top = orig-top + norm-y;
+                        let new-width = orig-width - norm-x;
+                        let new-height = orig-height - norm-y;
+                        if (new-left >= 0 && new-width >= min-width-norm) {
+                            config.x = new-left;
+                            config.width = new-width;
+                        }
+                        if (new-top >= 0 && new-height >= min-height-norm) {
+                            config.y = new-top;
+                            config.height = new-height;
+                        }
+                    } else if (corner == 2) { // top-right
+                        let new-width = orig-width + norm-x;
+                        let new-top = orig-top + norm-y;
+                        let new-height = orig-height - norm-y;
+                        if (config.x + new-width <= 1.0 && new-width >= min-width-norm) {
+                            config.width = new-width;
+                        }
+                        if (new-top >= 0 && new-height >= min-height-norm) {
+                            config.y = new-top;
+                            config.height = new-height;
+                        }
+                    } else if (corner == 3) { // bottom-right
+                        let new-width = orig_width + norm-x;
+                        let new-height = orig_height + norm-y;
+                        if (config.x + new-width <= 1.0 && new-width >= min-width-norm) {
+                            config.width = new-width;
+                        }
+                        if (config.y + new-height <= 1.0 && new-height >= min-height-norm) {
+                            config.height = new-height;
+                        }
+                    } else if (corner == 4) { // bottom-left
+                        let new-left = orig_left + norm-x;
+                        let new_width = orig_width - norm-x;
+                        let new_height = orig_height + norm-y;
+                        if (new-left >= 0 && new-width >= min-width-norm) {
+                            config.x = new-left;
+                            config.width = new-width;
+                        }
+                        if (config.y + new-height <= 1.0 && new-height >= min-height-norm) {
+                            config.height = new-height;
+                        }
+                    }
+                }
+
+                init => {
+                    self.update-size();
+                }
+
+                source: layer.original-image;
+                image-fit: ImageFit.contain;
+            }
+
+            if is-edited-track: Rectangle {
+                width: img.width;
+                height: img.height;
+
+                private property <length> min-glass-size: Theme.icon-size;
+                private property <length> display-corner-radius: max(0px, (config.corner-radius / 1080.0) * img.height);
+
+                // Display values with minimum size clamping (only for visual display)
+                private property <length> display-left: config.x * img.width;
+                private property <length> display-top: config.y * img.height;
+                private property <length> display-width: max(min-glass-size, min(config.width * img.width, img.width - display-left));
+                private property <length> display-height: max(min-glass-size, min(config.height * img.height, img.height - display-top));
+                private property <length> display-right: display-left + display-width;
+                private property <length> display-bottom: display-top + display-height;
+
+                // Store original glass values when drag starts
+                private property <float> orig-left;
+                private property <float> orig-top;
+                private property <float> orig-width;
+                private property <float> orig-height;
+
+                // Store initial mouse position (relative to img) when drag starts for handles
+                private property <length> handle-pressed-x;
+                private property <length> handle-pressed-y;
+
+                TouchArea {
+                    width: img.width;
+                    height: img.height;
+                    mouse-cursor: self.pressed ? grabbing : grab;
+
+                    private property <float> move-orig-left;
+                    private property <float> move-orig-top;
+
+                    pointer-event(event) => {
+                        if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                            move-orig-left = config.x;
+                            move-orig-top = config.y;
+                        }
+                    }
+
+                    moved => {
+                        let norm-x = (self.mouse-x - self.pressed-x) / img.width;
+                        let norm-y = (self.mouse-y - self.pressed-y) / img.height;
+
+                        let new-left = move-orig-left + norm-x;
+                        let new-top = move-orig-top + norm-y;
+
+                        config.x = max(0, min(1 - config.width, new-left));
+                        config.y = max(0, min(1 - config.height, new-top));
+                    }
+
+                    changed pressed => {
+                        if (!self.pressed) {
+                            VEFilter.modify-liquid-glass-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                        }
+                    }
+                }
+
+                Rectangle {
+                    x: display-left;
+                    y: display-top;
+                    width: display-width;
+                    height: display-height;
+                    border-radius: display-corner-radius;
+                    border-width: Theme.default-border-width * 2;
+                    border-color: white;
+                    background: Theme.hover-background;
+                    opacity: Theme.golden-ratio;
+                }
+
+                // Top-left handle
+                top-left-handle := MoveHandle {
+                    x: display-left - self.width / 2;
+                    y: display-top - self.height / 2;
+                    index: 1;
+
+                    pressed-changed => {
+                        orig-left = config.x;
+                        orig-top = config.y;
+                        orig-width = config.width;
+                        orig-height = config.height;
+
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 1,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-liquid-glass-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+
+                // Top-right handle
+                top-right-handle := MoveHandle {
+                    x: display-right - self.width / 2;
+                    y: display-top - self.height / 2;
+                    index: 2;
+
+                    pressed-changed => {
+                        orig-left = config.x;
+                        orig-top = config.y;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 2,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-liquid-glass-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+
+                // Bottom-right handle
+                bottom-right-handle := MoveHandle {
+                    x: display_right - self.width / 2;
+                    y: display_bottom - self.height / 2;
+                    index: 3;
+
+                    pressed-changed => {
+                        orig-left = config.x;
+                        orig-top = config.y;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 3,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-liquid-glass-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+
+                // Bottom-left handle
+                bottom-left-handle := MoveHandle {
+                    x: display_left - self.width / 2;
+                    y: display_bottom - self.height / 2;
+                    index: 4;
+
+                    pressed-changed => {
+                        orig-left = config.x;
+                        orig-top = config.y;
+                        orig-width = config.width;
+                        orig-height = config.height;
+                        handle-pressed-x = self.x + self.mouse-x;
+                        handle-pressed-y = self.y + self.mouse-y;
+                    }
+
+                    moved => {
+                        let current-x = self.x + self.mouse-x;
+                        let current-y = self.y + self.mouse-y;
+                        img.apply-resize(current-x - handle-pressed-x, current-y - handle-pressed-y, 4,
+                                          orig-left, orig-top, orig-width, orig-height);
+                    }
+
+                    released => {
+                        VEFilter.modify-liquid-glass-filter(VEFilter.selected-filter-index, config, selected-filter-type);
+                    }
+                }
+            }
+        }
+    }
+}

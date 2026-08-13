@@ -21,17 +21,18 @@ use crate::{
         GrainDetail as UIGrainDetail, GrayscaleDetail as UIGrayscaleDetail,
         GridDetail as UIGridDetail, HighlightRegionDetail as UIHighlightRegionDetail,
         HslAdjustDetail as UIHslAdjustDetail, LightingDetail as UILightingDetail,
-        LinearMaskDetail as UILinearMaskDetail, Live2dDetail as UILive2dDetail,
-        LocalMagnifyDetail as UILocalMagnifyDetail, MagnifierDetail as UIMagnifierDetail,
-        MirrorMaskDetail as UIMirrorMaskDetail, MosaicDetail as UIMosaicDetail,
-        OldFilmDetail as UIOldFilmDetail, OpacityDetail as UIOpacityDetail,
-        PageFlipDetail as UIPageFlipDetail, RectangleMaskDetail as UIRectangleMaskDetail,
-        ShadowDetail as UIShadowDetail, SharpenDetail as UISharpenDetail,
-        SketchDetail as UISketchDetail, SlideDetail as UISlideDetail, SpeedDetail as UISpeedDetail,
-        SplitDetail as UISplitDetail, TextHighlightDetail as UITextHighlightDetail,
-        TransformDetail as UITransformDetail, VideoFadeInDetail as UIVideoFadeInDetail,
-        VideoFadeOutDetail as UIVideoFadeOutDetail, VignetteDetail as UIVignetteDetail,
-        WaveDetail as UIWaveDetail, WipeDetail as UIWipeDetail, ZoomDetail as UIZoomDetail,
+        LinearMaskDetail as UILinearMaskDetail, LiquidGlassDetail as UILiquidGlassDetail,
+        Live2dDetail as UILive2dDetail, LocalMagnifyDetail as UILocalMagnifyDetail,
+        MagnifierDetail as UIMagnifierDetail, MirrorMaskDetail as UIMirrorMaskDetail,
+        MosaicDetail as UIMosaicDetail, OldFilmDetail as UIOldFilmDetail,
+        OpacityDetail as UIOpacityDetail, PageFlipDetail as UIPageFlipDetail,
+        RectangleMaskDetail as UIRectangleMaskDetail, ShadowDetail as UIShadowDetail,
+        SharpenDetail as UISharpenDetail, SketchDetail as UISketchDetail,
+        SlideDetail as UISlideDetail, SpeedDetail as UISpeedDetail, SplitDetail as UISplitDetail,
+        TextHighlightDetail as UITextHighlightDetail, TransformDetail as UITransformDetail,
+        VideoFadeInDetail as UIVideoFadeInDetail, VideoFadeOutDetail as UIVideoFadeOutDetail,
+        VignetteDetail as UIVignetteDetail, WaveDetail as UIWaveDetail, WipeDetail as UIWipeDetail,
+        ZoomDetail as UIZoomDetail,
     },
     ve_filter_cb,
 };
@@ -55,11 +56,11 @@ use video_editor::{
             FadeOutFilter as VideoFadeOutFilter, FisheyeFilter, FlipFilter, FlyInFilter,
             FocusFilter, FrameExtractFilter, GaussianBlurFilter, GenieFilter, GrainFilter,
             GrayscaleFilter, GridFilter, HSLAdjustFilter, LightingFilter as VELightingFilter,
-            LinearMaskFilter, Live2dFilter, LocalMagnifyFilter, MagnifierFilter, MirrorMaskFilter,
-            MosaicFilter, OldFilmFilter, OpacityFilter, PageFlipFilter, RectangleMaskFilter,
-            ShadowFilter, SharpenFilter, SketchFilter, SlideFilter, SpeedFilter, SplitFilter,
-            TextHighlightFilter, TransformFilter, VignetteFilter, WaveFilter, WipeFilter,
-            ZoomFilter,
+            LinearMaskFilter, LiquidGlassFilter as VELiquidGlassFilter, Live2dFilter,
+            LocalMagnifyFilter, MagnifierFilter, MirrorMaskFilter, MosaicFilter, OldFilmFilter,
+            OpacityFilter, PageFlipFilter, RectangleMaskFilter, ShadowFilter, SharpenFilter,
+            SketchFilter, SlideFilter, SpeedFilter, SplitFilter, TextHighlightFilter,
+            TransformFilter, VignetteFilter, WaveFilter, WipeFilter, ZoomFilter,
             device_frame::available_device_names,
             live2d::{model_expression_names, model_motion_names},
         },
@@ -80,6 +81,7 @@ pub fn init(ui: &AppWindow) {
     ve_filter_cb!(from_opacity_json, ui, json);
     ve_filter_cb!(from_border_json, ui, json);
     ve_filter_cb!(from_mosaic_json, ui, json);
+    ve_filter_cb!(from_liquid_glass_json, ui, json);
     ve_filter_cb!(from_draw_circle_json, ui, json);
     ve_filter_cb!(from_draw_rectangle_json, ui, json);
     ve_filter_cb!(from_background_json, ui, json);
@@ -128,6 +130,7 @@ pub fn init(ui: &AppWindow) {
     ve_filter_cb!(modify_opacity_filter, ui, index, config, filter_type);
     ve_filter_cb!(modify_border_filter, ui, index, config, filter_type);
     ve_filter_cb!(modify_mosaic_filter, ui, index, config, filter_type);
+    ve_filter_cb!(modify_liquid_glass_filter, ui, index, config, filter_type);
     ve_filter_cb!(modify_draw_circle_filter, ui, index, config, filter_type);
     ve_filter_cb!(modify_draw_rectangle_filter, ui, index, config, filter_type);
     ve_filter_cb!(modify_background_filter, ui, index, config, filter_type);
@@ -403,6 +406,11 @@ impl_modify_video_filter!(modify_opacity_filter, OpacityFilter, UIOpacityDetail)
 impl_modify_video_filter!(modify_border_filter, BorderFilter, UIBorderDetail);
 impl_modify_video_filter!(modify_mosaic_filter, MosaicFilter, UIMosaicDetail);
 impl_modify_video_filter!(
+    modify_liquid_glass_filter,
+    VELiquidGlassFilter,
+    UILiquidGlassDetail
+);
+impl_modify_video_filter!(
     modify_draw_circle_filter,
     DrawCircleFilter,
     UIDrawCircleDetail
@@ -513,6 +521,11 @@ from_filter_json!(from_wipe_json, WipeFilter, UIWipeDetail);
 from_filter_json!(from_opacity_json, OpacityFilter, UIOpacityDetail);
 from_filter_json!(from_border_json, BorderFilter, UIBorderDetail);
 from_filter_json!(from_mosaic_json, MosaicFilter, UIMosaicDetail);
+from_filter_json!(
+    from_liquid_glass_json,
+    VELiquidGlassFilter,
+    UILiquidGlassDetail
+);
 from_filter_json!(from_draw_circle_json, DrawCircleFilter, UIDrawCircleDetail);
 from_filter_json!(
     from_draw_rectangle_json,

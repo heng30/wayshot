@@ -21,6 +21,7 @@ import { Vignette } from "video/vignette.slint";
 import { Border } from "video/border.slint";
 import { FlyIn } from "video/fly-in.slint";
 import { Mosaic } from "video/mosaic.slint";
+import { LiquidGlass } from "video/liquid-glass.slint";
 import { DrawCircle } from "video/draw-circle.slint";
 import { DrawRectangle } from "video/draw-rectangle.slint";
 import { Background } from "video/background.slint";
@@ -198,6 +199,16 @@ export component FilterVideoDetail inherits Rectangle {
 
         apply(idx, config) => {
             VEFilter.modify-mosaic-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "liquid glass": LiquidGlass {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-liquid-glass-filter(idx, config, FilterType.Video);
         }
     }
 

@@ -27,7 +27,9 @@
     - 在 `wayshot/src/logic/video_editor/filters/conversion.rs` 添加类型转换实现
     - 在 `wayshot/ui/panel/desktop/video-editor/filter.slint` 添加不同类型的滤镜配置定义和回调函数
     - 在 `wayshot/ui/panel/desktop/video-editor/right-panel/filter` 添加不同类型的滤镜配置文件
-    - 只有需要在 `./wayshot/ui/panel/desktop/video-editor/preview` 中添加 `preview-xxx-layer.slint` 的情况下，才需要在 `./wayshot/ui/store.slint` 中的`VideoEditorLayerImage`变量中，添加滤镜配置
+    - 只有需要在 `./wayshot/ui/panel/desktop/video-editor/preview` 中添加 `preview-xxx-layer.slint` 的情况下
+        - 在 `./wayshot/ui/store.slint` 中的`VideoEditorLayerImage`变量中，添加滤镜配置
+        - 在 `./wayshot/ui/panel/desktop/video-editor/filter.slint` 的 `public function is-edit-mode-filter(filter-name: string) -> bool` 函数中添加上滤镜名称
     - 如果是视频滤镜，同时需要在 `wayshot/ui/panel/desktop/video-editor/right-panel/filter/image.slint` 中添加滤镜调用实现
     - 如果滤镜参数是有固定范围的，如：0~1。实现自定义的Slider组件。参考 `./wayshot/ui/panel/desktop/video-editor/right-panel/filter/video/vignette.slint` 的实现。
     - 运行`make tr`获取需要翻译的为文本，并且翻译到 `./wayshot/src/logic/tr.rs`。将滤镜名称也翻译到 `./wayshot/src/logic/tr.rs`

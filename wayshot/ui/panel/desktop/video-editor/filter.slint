@@ -315,6 +315,26 @@ export struct MosaicDetail {
     block-size: int,
 }
 
+export struct LiquidGlassDetail {
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    corner-radius: float,
+    refraction-height: float,
+    refraction-amount: float,
+    blur-radius: float,
+    chromatic-aberration: float,
+    depth-effect: float,
+    contrast: float,
+    white-point: float,
+    chroma-multiplier: float,
+    tint-alpha: float,
+    tint-color-r: float,
+    tint-color-g: float,
+    tint-color-b: float,
+}
+
 export struct SpeedDetail {
     speed: float,  // 0.1-10.0, 播放速度倍率
 }
@@ -774,6 +794,9 @@ export global VEFilter {
     pure callback from-mosaic-json(json: string) -> MosaicDetail;
     callback modify-mosaic-filter(index: int, config: MosaicDetail, filter-type: FilterType);
 
+    pure callback from-liquid-glass-json(json: string) -> LiquidGlassDetail;
+    callback modify-liquid-glass-filter(index: int, config: LiquidGlassDetail, filter-type: FilterType);
+
     pure callback from-background-json(json: string) -> BackgroundDetail;
     callback modify-background-filter(index: int, config: BackgroundDetail, filter-type: FilterType);
 
@@ -960,7 +983,7 @@ export global VEFilter {
 
     public function is-edit-mode-filter(filter-name: string) -> bool {
         let name = filter-name.to-lowercase();
-        return name == "transform" || name == "crop" || name == "zoom" || name == "fly in" || name == "mosaic" || name == "draw circle" || name == "draw rectangle" || name == "local magnify" || name == "magnifier" || name == "text highlight" || name == "linear mask" || name == "circle mask" || name == "mirror mask" || name == "rectangle mask" || name == "focus" || name == "gaussian blur";
+        return name == "transform" || name == "crop" || name == "zoom" || name == "fly in" || name == "mosaic" || name == "liquid glass" || name == "draw circle" || name == "draw rectangle" || name == "local magnify" || name == "magnifier" || name == "text highlight" || name == "linear mask" || name == "circle mask" || name == "mirror mask" || name == "rectangle mask" || name == "focus" || name == "gaussian blur";
     }
 
     pure public function filter-type-to-int(ty: FilterType) -> int {
