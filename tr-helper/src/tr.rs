@@ -425,6 +425,11 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Audio sample rate", "音频采样率"),
             ("Audio saved", "音频已保存"),
             ("Audio waveform amplification", "音频波形放大"),
+            ("Audio waveform precision", "音频波形精度"),
+            ("Samples per second for audio waveform display", "音频波形显示的每秒采样数"),
+            ("Low (15)", "低 (15)"),
+            ("Medium (25)", "中 (25)"),
+            ("High (30)", "高 (30)"),
             ("Background color", "背景颜色"),
             ("Basic", "基本"),
             ("Block Size", "块大小"),
@@ -2327,6 +2332,7 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Failed to parse lyrics", "未能解析歌词"),
             ("No audio samples to cache", "没有音频样本可供缓存"),
             ("Preamble samples cached", "前导样本已缓存"),
+            ("Subtitle search", "字幕搜索"),
         ])
     })
 }

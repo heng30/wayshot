@@ -56,9 +56,6 @@ use video_editor::{
 };
 use video_utils::{convert::resize_rgba_image, subtitle::ms_to_srt_timestamp};
 
-/// 显示用波形采样率（每声道每秒采样数），供 UI 波形渲染使用。
-/// 缓存层（lib）仍为 60Hz，此处只是请求的目标显示采样率。
-const DISPLAY_AUDIO_SAMPLES_PER_SECOND: u32 = 30;
 const THUMBNAIL_HEIGHT: u32 = 90;
 const GIF_MAX_WIDTH: u32 = 854;
 const GIF_MAX_HEIGHT: u32 = 480;
@@ -612,6 +609,7 @@ pub fn async_load_segment_audio(
     track_index: usize,
     segment_index: usize,
     uuid: String,
+    samples_per_second: u32,
 ) {
     tokio::task::spawn_blocking(move || {
         let seg = tracks_manager
@@ -634,7 +632,7 @@ pub fn async_load_segment_audio(
         };
 
         let (channels, audio_samples) = seg.audio_resampling_for_display(
-            (seg.duration.as_secs_f64() * DISPLAY_AUDIO_SAMPLES_PER_SECOND as f64).ceil() as u32,
+            (seg.duration.as_secs_f64() * samples_per_second as f64).ceil() as u32,
         );
 
         log::debug!(
@@ -2213,6 +2211,12 @@ pub fn refresh_affected_segments(ui: &AppWindow, affected: AffectedSegments) {
         return;
     }
 
+    let samples_per_second = global_store!(ui)
+        .get_video_editor_preference_config()
+        .track
+        .waveform_samples_per_second
+        .clamp(15, 30) as u32;
+
     for seg in affected.segments {
         if !seg.should_update() {
             continue;
@@ -2247,6 +2251,7 @@ pub fn refresh_affected_segments(ui: &AppWindow, affected: AffectedSegments) {
                     seg.track_index,
                     seg.segment_index,
                     uuid.clone(),
+                    samples_per_second,
                 );
             }
 
@@ -2277,6 +2282,31 @@ pub fn refresh_affected_segments(ui: &AppWindow, affected: AffectedSegments) {
             }
         });
     }
+}
+
+pub fn refresh_all_segment_audio_samples(ui: &AppWindow) {
+    let affected = with_history_manager(|state| {
+        let mut segments = Vec::new();
+
+        for (track_idx, track) in state.tracks_manager.iter().enumerate() {
+            if !matches!(track, Track::Video(_) | Track::Audio(_)) {
+                continue;
+            }
+
+            for seg_idx in 0..track.segments_count() {
+                let mut seg = AffectedSegment::new(track_idx, seg_idx);
+                seg.update_audio_sample = true;
+                segments.push(seg);
+            }
+        }
+
+        AffectedSegments {
+            segments,
+            tracks_changed: false,
+        }
+    });
+
+    refresh_affected_segments(ui, affected);
 }
 
 fn video_editor_update_edited_subtitle_from_segment(

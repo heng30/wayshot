@@ -5,7 +5,7 @@ use super::{
     },
     library::refresh_library_ui,
     media_list_common::{MediaListContext, refresh_ui},
-    segment::refresh_affected_segments,
+    segment::{refresh_affected_segments, refresh_all_segment_audio_samples},
 };
 use crate::{
     config,
@@ -960,12 +960,19 @@ fn video_editor_update_preference_track_config(
     setting: UIVideoEditorPreferenceTrackConfig,
 ) {
     let current = global_store!(ui).get_video_editor_preference_config();
+    let old_samples_per_second = current.track.waveform_samples_per_second;
     let config = VideoEditorPreferenceConfig {
-        track: setting.into(),
+        track: setting.clone().into(),
         ..current.into()
     };
+
     global_store!(ui).set_video_editor_preference_config(config.clone().into());
     db_update_preference_config(ui.as_weak(), config);
+
+    if setting.waveform_samples_per_second != old_samples_per_second {
+        refresh_all_segment_audio_samples(ui);
+    }
+
     crate::toast_success!(ui, tr("Save config successfully"));
 }
 

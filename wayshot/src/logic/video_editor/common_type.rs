@@ -93,6 +93,7 @@ pub struct VideoEditorPreviewConfig {
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]
 #[derivative(Default)]
 #[from("UIVideoEditorPreferenceTrackConfig")]
+#[serde(default)]
 pub struct VideoEditorPreferenceTrackConfig {
     #[derivative(Default(value = "true"))]
     pub show_thumbnail: bool,
@@ -105,6 +106,10 @@ pub struct VideoEditorPreferenceTrackConfig {
 
     #[derivative(Default(value = "100"))]
     pub snap_threshold_ms: i32,
+
+    #[serde(default)]
+    #[derivative(Default(value = "25"))]
+    pub waveform_samples_per_second: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative, SlintFromConvert)]

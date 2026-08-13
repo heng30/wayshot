@@ -88,6 +88,34 @@ component Track inherits SettingDetail {
         }
 
         SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Audio waveform precision");
+                tip: Logic.tr("Samples per second for audio waveform display");
+            }
+
+            precision-select := Select {
+                values: [
+                    Logic.tr("Low (15)"),
+                    Logic.tr("Medium (25)"),
+                    Logic.tr("High (30)"),
+                ];
+                current-index: cache-config.waveform-samples-per-second == 15 ? 0 : (cache-config.waveform-samples-per-second == 25 ? 1 : 2);
+                current-value: self.values[self.current-index];
+                gain-focus-when-clicked: false;
+
+                selected(index, value) => {
+                    if (index == 0) {
+                        cache-config.waveform-samples-per-second = 15;
+                    } else if (index == 1) {
+                        cache-config.waveform-samples-per-second = 25;
+                    } else {
+                        cache-config.waveform-samples-per-second = 30;
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
             as-hbox := HorizontalLayout {
                 alignment: start;
                 spacing: Theme.spacing * 4;
