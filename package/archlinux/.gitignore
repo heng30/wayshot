@@ -1,0 +1,5 @@
+*.pkg.tar.zst
+
+/package/usr/bin
+/package/usr/share/icons
+/package/usr/share/licenses/

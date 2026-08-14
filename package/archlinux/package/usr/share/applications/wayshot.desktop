@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=wayshot
+Exec=/usr/bin/wayshot
+Icon=xyz.heng30.wayshot
+Terminal=false
+Type=Application
+Categories=AudioVideo;Video;Utility;
+StartupNotify=true
+StartupWMClass=wayshot
+Comment=Video creation tool: Video editing, screen recording, streaming, and screen sharing.
+Comment[zh_CN]=视频创作工具：视频编辑、录屏、推流、屏幕共享。

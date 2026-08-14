@@ -1,7 +1,9 @@
+//! fork: https://GitHub.com/QmDeve/AndroidLiquidGlassView/
+
 use crate::{
     Result,
     filters::{
-        interpolation::{get_float2_at_time, get_float_at_time},
+        interpolation::{get_float_at_time, get_float2_at_time},
         keyframe::{AnimatableProperty, KeyframeTracks, KeyframeValue},
         subtitle::style::scale_pixel_f32_for_height,
         traits::{VideoData, VideoFilter},
@@ -200,10 +202,8 @@ impl LiquidGlassFilter {
             .map(|y| {
                 (0..width)
                     .map(|x| {
-                        let in_pane = x >= pane_left
-                            && x < pane_right
-                            && y >= pane_top
-                            && y < pane_bottom;
+                        let in_pane =
+                            x >= pane_left && x < pane_right && y >= pane_top && y < pane_bottom;
                         if !in_pane {
                             return src.get_pixel(x, y).0;
                         }
@@ -223,12 +223,7 @@ impl LiquidGlassFilter {
             .expect("Buffer size matches image dimensions");
     }
 
-    fn glass_pixel(
-        content: &RgbaImage,
-        lx: f32,
-        ly: f32,
-        g: &ResolvedGlass,
-    ) -> Option<[u8; 4]> {
+    fn glass_pixel(content: &RgbaImage, lx: f32, ly: f32, g: &ResolvedGlass) -> Option<[u8; 4]> {
         let centered = Vec2::new(lx - g.half_size.x, ly - g.half_size.y);
         let sd = sd_rounded_rect(centered, g.half_size, g.radius);
         if sd > 0.0 {
@@ -254,8 +249,8 @@ impl LiquidGlassFilter {
         let grad = safe_normalize(shape_grad + g.depth_effect * depth_grad, shape_grad);
 
         let base_disp = d * grad;
-        let dispersion = g.chromatic_aberration
-            * (centered.x * centered.y) / (g.half_size.x * g.half_size.y).max(f32::EPSILON);
+        let dispersion = g.chromatic_aberration * (centered.x * centered.y)
+            / (g.half_size.x * g.half_size.y).max(f32::EPSILON);
         let dispersed = base_disp * dispersion;
 
         let sample = |offset: Vec2| -> [f32; 4] {
@@ -357,7 +352,10 @@ fn convolve_separable(img: &RgbaImage, kernel: &[f32], horizontal: bool) -> Rgba
                         let (sx, sy) = if horizontal {
                             ((x as isize + offset).clamp(0, width as isize - 1) as u32, y)
                         } else {
-                            (x, (y as isize + offset).clamp(0, height as isize - 1) as u32)
+                            (
+                                x,
+                                (y as isize + offset).clamp(0, height as isize - 1) as u32,
+                            )
                         };
                         let pixel = img.get_pixel(sx, sy).0;
                         for c in 0..4 {
@@ -500,20 +498,12 @@ fn circle_map(x: f32) -> f32 {
 }
 
 fn safe_sign(value: f32) -> f32 {
-    if value < 0.0 {
-        -1.0
-    } else {
-        1.0
-    }
+    if value < 0.0 { -1.0 } else { 1.0 }
 }
 
 fn safe_normalize(value: Vec2, fallback: Vec2) -> Vec2 {
     let len = value.length();
-    if len > 0.001 {
-        value / len
-    } else {
-        fallback
-    }
+    if len > 0.001 { value / len } else { fallback }
 }
 
 impl VideoFilter for LiquidGlassFilter {

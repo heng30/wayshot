@@ -87,6 +87,11 @@ flatpak:
 	cd package/flatpak && bash -e "./pkg-flatpak.sh"
 	mv package/flatpak/$(app-name).flatpak target/${app-name}-${version}-x86_64-linux-${linux-app-postfix}.flatpak
 
+archlinux:
+	- rm -f target/${app-name}-*-x86_64-linux-${linux-app-postfix}.pkg.tar.zst
+	cd package/archlinux && bash -e "./pkg-arch.sh"
+	mv package/archlinux/$(app-name)-*.pkg.tar.zst target/${app-name}-${version}-x86_64-linux-${linux-app-postfix}.pkg.tar.zst
+
 app-name:
 	echo "$(app-name)" > target/app-name
 

@@ -1,0 +1,45 @@
+# Maintainer: heng30 <rongheng30@gmail.com>
+# Contributor: heng30
+
+pkgname=wayshot
+pkgver=1.0.2
+pkgrel=1
+pkgdesc="Video creation tool: Video editing, screen recording, streaming, and screen sharing."
+arch=('x86_64')
+url="https://github.com/Heng30/wayshot"
+license=('Apache-2.0' 'GPL-3.0-or-later')
+depends=('alsa-lib' 'ffmpeg' 'fontconfig' 'gcc-libs' 'libglvnd' 'libxcb' 'libxkbcommon' 'openssl' 'opus' 'pipewire' 'qt6-base' 'wayland' 'x264')
+makedepends=('alsa-lib' 'clang' 'cmake' 'ffmpeg' 'fontconfig' 'imagemagick' 'libglvnd' 'libxcb' 'libxkbcommon' 'openssl' 'opus' 'pipewire' 'pkgconf' 'qt6-base' 'rust' 'wayland' 'x264')
+options=(!strip)
+source=("wayshot::git+https://github.com/Heng30/wayshot.git#tag=v${pkgver}")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd wayshot
+    git describe --tags --abbrev=0 | sed 's/^v//'
+}
+
+build() {
+    cd wayshot
+    export SLINT_STYLE=fluent
+    export CMAKE_POLICY_VERSION_MINIMUM=3.5
+    cargo build --release --locked --bin wayshot --no-default-features --features=wayland-wlr
+}
+
+package() {
+    cd wayshot
+    install -Dm755 target/release/wayshot "$pkgdir/usr/bin/wayshot"
+    install -Dm644 package/archlinux/package/usr/share/applications/wayshot.desktop "$pkgdir/usr/share/applications/wayshot.desktop"
+    install -Dm644 LICENSE-APACHE "$pkgdir/usr/share/licenses/wayshot/LICENSE-APACHE"
+    install -Dm644 LICENSE-GPL "$pkgdir/usr/share/licenses/wayshot/LICENSE-GPL"
+    install -Dm644 package/appimage/wayshot.appdata.xml "$pkgdir/usr/share/metainfo/wayshot.appdata.xml"
+
+    local icon_name="brand.png"
+    local icon_dir="wayshot/ui/images/png"
+    local dst_icon_name="xyz.heng30.wayshot.png"
+    local sizes=(16x16 22x22 24x24 32x32 36x36 48x48 64x64 72x72 96x96 128x128 192x192 256x256 512x512)
+    local size
+    for size in "${sizes[@]}"; do
+        install -Dm644 <(magick "$icon_dir/$icon_name" -resize "$size" -background none -gravity center -extent "$size" png:-) "$pkgdir/usr/share/icons/hicolor/$size/apps/$dst_icon_name"
+    done
+}
