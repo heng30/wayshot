@@ -1,0 +1,487 @@
+import {
+    Store,
+    Logic,
+    Theme,
+    Icons,
+    Util,
+    TtfxConfig,
+    FontEntry,
+} from "../../../def.slint";
+import {
+    Label,
+    MovingDialog,
+    TxtEdit,
+    Select,
+    ConfirmBtn,
+    LineInput,
+    CheckBtn,
+    CircleProgress,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+    NoDataImg,
+} from "../../../../base/widgets.slint";
+
+export component TtfxDialog inherits MovingDialog {
+    title: Logic.tr("TTFX");
+    icon: Icons.terminal-light;
+    header-width: Theme.moving-dialog-width;
+    body-height: root.header-width * Theme.golden-ratio;
+    head-y: self.height * 0.1;
+    enable-resize: true;
+
+    private property <bool> is-recording: Store.video-editor-ttfx-is-recording;
+    private property <bool> is-previewing: Store.video-editor-ttfx-is-previewing;
+    private property <image> preview-image: Store.video-editor-ttfx-preview-image;
+    private property <bool> enabled-record: Store.video-editor-ttfx-record-enabled;
+    private property <bool> has-preview: preview-image.width > 0;
+    private property <TtfxConfig> config <=> Store.video-editor-ttfx-config;
+
+    private property <int> font-id;
+    private property <int> color-picker-id;
+    private property <bool> color-picker-confirmed-flag: Store.video-editor-color-picker-confirmed-flag;
+
+    private property <[string]> effect-options: [
+        "beams",
+        "binarypath",
+        "blackhole",
+        "bouncyballs",
+        "bubbles",
+        "burn",
+        "colorshift",
+        "crumble",
+        "decrypt",
+        "errorcorrect",
+        "expand",
+        "fireworks",
+        "highlight",
+        "laseretch",
+        "matrix",
+        "middleout",
+        "orbittingvolley",
+        "overflow",
+        "pour",
+        "print",
+        "rain",
+        "randomsequence",
+        "rings",
+        "scattered",
+        "slice",
+        "slide",
+        "smoke",
+        "spotlights",
+        "spray",
+        "swarm",
+        "sweep",
+        "synthgrid",
+        "thunderstorm",
+        "unstable",
+        "vhstape",
+        "waves",
+        "wipe",
+    ];
+
+    changed color-picker-confirmed-flag => {
+        if (color-picker-id == Store.video-editor-color-picker-id) {
+            config.background-color = Util.color-picker-str(
+                Store.video-editor-color-picker-color.red,
+                Store.video-editor-color-picker-color.green,
+                Store.video-editor-color-picker-color.blue,
+                Store.video-editor-color-picker-color.alpha);
+            Logic.video-editor-ttfx-update-config(config);
+        }
+    }
+
+    HorizontalLayout {
+        padding: Theme.padding * 2;
+        spacing: Theme.spacing * 2;
+
+        private property <length> inner-width: self.width - self.spacing * 2 - self.padding * 2;
+        private property <length> preview-width: self.inner-width * 0.7;
+        private property <length> params-width: self.inner-width - preview-width;
+
+        Rectangle {
+            width: preview-width;
+            background: Theme.secondary-background;
+
+            VerticalLayout {
+                spacing: Theme.spacing * 2;
+                padding: Theme.padding * 2;
+
+                VerticalLayout {
+                    vertical-stretch: 1;
+
+                    Rectangle {
+                        background: black;
+                        border-radius: Theme.border-radius;
+
+                        if !root.has-preview && !is-previewing && !is-recording: NoDataImg {
+                            image: Icons.preview-light;
+                            colorize: gray;
+                            text: Logic.tr("No Preview");
+                        }
+
+                        if !enabled-record && has-preview: VerticalLayout {
+                            width: parent.width - Theme.padding * 4;
+                            height: parent.height - Theme.padding * 4;
+
+                            img := Image {
+                                width: parent.width;
+                                height: parent.height;
+                                source: root.preview-image;
+                                image-fit: contain;
+                            }
+                        }
+
+                        if is-recording: CircleProgress {
+                            ring-width: Theme.icon-size * Theme.golden-ratio;
+                            radius: Theme.icon-size * 5;
+                            progress: Store.video-editor-ttfx-record-progress;
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.spacing * 10;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        record-ck := CheckBtn {
+                            text: enabled-record ? Logic.tr("Record enabled") : Logic.tr("Record disabled");
+                            checked: enabled-record;
+                            gain-focus-when-clicked: false;
+                            enabled: !is-previewing && !is-recording;
+
+                            toggled => {
+                                enabled-record = !enabled-record;
+
+                                if (enabled-record) {
+                                    if (is-previewing) {
+                                        Logic.video-editor-ttfx-stop-preview();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: start;
+                    spacing: Theme.spacing * 2;
+
+                    if !enabled-record: VerticalLayout {
+                        if is-previewing: ConfirmBtn {
+                            text: Logic.tr("Stop Preview");
+                            icon: Icons.control-stop-light;
+                            auto-size-vpadding: Theme.padding * 2;
+                            bg-color: Theme.success-color;
+
+                            clicked => {
+                                Logic.video-editor-ttfx-stop-preview();
+                            }
+                        }
+
+                        if !is-previewing: ConfirmBtn {
+                            text: Logic.tr("Start Preview");
+                            icon: Icons.control-start-light;
+                            auto-size-vpadding: Theme.padding * 2;
+
+                            clicked => {
+                                Logic.video-editor-ttfx-start-preview(config);
+                            }
+                        }
+                    }
+
+                    if enabled-record: VerticalLayout {
+                        if is-recording: ConfirmBtn {
+                            text: Logic.tr("Stop Record");
+                            icon: Icons.control-stop-light;
+                            auto-size-vpadding: Theme.padding * 2;
+                            bg-color: Theme.success-color;
+
+                            clicked => {
+                                Logic.video-editor-ttfx-stop-record();
+                            }
+                        }
+
+                        if !is-recording: ConfirmBtn {
+                            text: Logic.tr("Start Record");
+                            icon: Icons.control-start-light;
+                            auto-size-vpadding: Theme.padding * 2;
+
+                            clicked => {
+                                Logic.video-editor-ttfx-start-record(config);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Flickable {
+            interactive: false;
+            width: params-width;
+            viewport-height: params-vbox.preferred-height;
+
+            params-vbox := VerticalLayout {
+                x: 0;
+                y: 0;
+                width: parent.width;
+                spacing: Theme.spacing * 4;
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Effect");
+                    }
+
+                    Select {
+                        width: params-vbox.width - params-vbox.padding * 2;
+                        values: root.effect-options;
+                        current-value: config.effect-name;
+                        gain-focus-when-clicked: false;
+
+                        selected(index, value) => {
+                            config.effect-name = value;
+                            Logic.video-editor-ttfx-update-config(config);
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("FPS");
+                    }
+
+                    Select {
+                        width: params-vbox.width - params-vbox.padding * 2;
+                        values: [15, 24, 25, 30, 60];
+                        current-value: config.fps;
+                        gain-focus-when-clicked: false;
+
+                        selected(index, value) => {
+                            config.fps = round(value.to-float());
+                            Logic.video-editor-ttfx-update-config(config);
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Loops");
+                        tip: Logic.tr("How many times the animation is replayed");
+                    }
+
+                    LineInput {
+                        input-type: InputType.number;
+                        text: config.loops;
+                        border-color: self.text == config.loops ? self.default-border-color : Theme.danger-color;
+
+                        accepted => {
+                            config.loops = self.text.to-float().clamp(1, 20);
+                            self.text = config.loops;
+                            Logic.video-editor-ttfx-update-config(config);
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Text");
+                        tip: Logic.tr("Support multiple lines");
+                    }
+
+                    TxtEdit {
+                        text: config.text;
+                        height: self.font-size * 10;
+                        placeholder: Logic.tr("Enter your text here...");
+
+                        edited(new-text) => {
+                            config.text = new-text;
+                            Logic.video-editor-ttfx-update-config(config);
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    private property <FontEntry> selected-font <=> Store.selected-font-entry;
+                    private property <bool> font-exist: Logic.file-exist(config.ascii-font-path);
+                    private property <int> inner-font-id;
+
+                    changed selected-font => {
+                        if (root.font-id == self.inner-font-id) {
+                            ascii-font-li.text = selected-font.family;
+                            config.ascii-font-path = selected-font.path;
+                            config.ascii-font-family = selected-font.family;
+                            Logic.video-editor-ttfx-update-config(config);
+                        }
+                    }
+
+                    SettingDetailLabel {
+                        text: Logic.tr("ASCII Font");
+                        tip: Logic.tr("Font for English characters, drives the cell metrics");
+                    }
+
+                    ascii-font-li := LineInput {
+                        border-color: font-exist ? self.default-border-color : Theme.danger-color;
+                        read-only: true;
+                        icon: Icons.font-light;
+                        is-show-icon: true;
+                        icon-size: Theme.icon-size * Theme.golden-ratio;
+                        text: config.ascii-font-family;
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        clicked => {
+                            root.font-id += 1;
+                            parent.inner-font-id = root.font-id;
+                            Store.is-show-font-dialog = true;
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    private property <FontEntry> selected-font <=> Store.selected-font-entry;
+                    private property <bool> font-exist: Logic.file-exist(config.non-ascii-font-path);
+                    private property <int> inner-font-id;
+
+                    changed selected-font => {
+                        if (root.font-id == self.inner-font-id) {
+                            non-ascii-font-li.text = selected-font.family;
+                            config.non-ascii-font-path = selected-font.path;
+                            config.non-ascii-font-family = selected-font.family;
+                            Logic.video-editor-ttfx-update-config(config);
+                        }
+                    }
+
+                    SettingDetailLabel {
+                        text: Logic.tr("Non ASCII Font");
+                        tip: Logic.tr("Font for non-English characters, e.g. CJK");
+                    }
+
+                    non-ascii-font-li := LineInput {
+                        border-color: font-exist ? self.default-border-color : Theme.danger-color;
+                        read-only: true;
+                        icon: Icons.font-light;
+                        is-show-icon: true;
+                        icon-size: Theme.icon-size * Theme.golden-ratio;
+                        text: config.non-ascii-font-family;
+
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                            }
+                        }
+
+                        clicked => {
+                            root.font-id += 1;
+                            parent.inner-font-id = root.font-id;
+                            Store.is-show-font-dialog = true;
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Font Size");
+                    }
+
+                    LineInput {
+                        input-type: InputType.number;
+                        text: config.font-size.to-fixed(0);
+                        border-color: self.text == config.font-size.to-fixed(0) ? self.default-border-color : Theme.danger-color;
+
+                        accepted => {
+                            config.font-size = self.text.to-float();
+                            self.text = config.font-size;
+                            Logic.video-editor-ttfx-update-config(config);
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Horizontal Padding");
+                        tip: Logic.tr("Padding columns around the text in character cells");
+                    }
+
+                    LineInput {
+                        input-type: InputType.number;
+                        text: config.padding-x;
+                        border-color: self.text == config.padding-x ? self.default-border-color : Theme.danger-color;
+
+                        accepted => {
+                            config.padding-x = round(self.text.to-float());
+                            self.text = config.padding-x;
+                            Logic.video-editor-ttfx-update-config(config);
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Vertical Padding");
+                        tip: Logic.tr("Padding rows around the text in character cells");
+                    }
+
+                    LineInput {
+                        input-type: InputType.number;
+                        text: config.padding-y;
+                        border-color: self.text == config.padding-y ? self.default-border-color : Theme.danger-color;
+
+                        accepted => {
+                            config.padding-y = round(self.text.to-float());
+                            self.text = config.padding-y;
+                            Logic.video-editor-ttfx-update-config(config);
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Random Seed");
+                        tip: Logic.tr("0 uses a random seed each run, fixed seed gives reproducible results");
+                    }
+
+                    LineInput {
+                        input-type: InputType.number;
+                        text: config.seed;
+                        border-color: self.text == config.seed ? self.default-border-color : Theme.danger-color;
+
+                        accepted => {
+                            config.seed = round(self.text.to-float());
+                            self.text = config.seed;
+                            Logic.video-editor-ttfx-update-config(config);
+                        }
+                    }
+                }
+
+                SettingDetailInnerVbox {
+                    SettingDetailLabel {
+                        text: Logic.tr("Background");
+                        tip: Logic.tr("Background color of the animation");
+                    }
+
+                    LineInput {
+                        read-only: true;
+                        is-show-icon: true;
+                        is-show-color-block: true;
+                        icon: Icons.color-picker-light;
+                        color-block-color: Util.color-picker-hex-color(self.text);
+                        text: config.background-color.is-empty ? "#000000" : config.background-color;
+
+                        clicked => {
+                            Store.video-editor-color-picker-id = Store.video-editor-color-picker-id + 1;
+                            root.color-picker-id = Store.video-editor-color-picker-id;
+                            Store.video-editor-color-picker-color = config.background-color.is-empty ? #000000 : Util.color-picker-hex-color(config.background-color);
+                            Store.video-editor-color-picker-toggle-flag = !Store.video-editor-color-picker-toggle-flag;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

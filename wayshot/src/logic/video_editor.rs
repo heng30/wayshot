@@ -39,6 +39,7 @@ mod subtitle_remover;
 mod subtitle_search;
 mod subtitle_translate;
 mod terminal;
+mod ttfx;
 mod tts;
 mod vad;
 mod video_helper;
@@ -65,6 +66,7 @@ pub fn init(ui: &crate::slint_generatedAppWindow::AppWindow) {
     record_audio::init(ui);
     item_preview::init(ui);
     code_image::init(ui);
+    ttfx::init(ui);
     pure_color_image::init(ui);
     tts::init(ui);
     bg_remover::init(ui);

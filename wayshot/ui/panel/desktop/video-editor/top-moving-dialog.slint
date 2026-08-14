@@ -13,6 +13,7 @@ import { ItemPreviewDialog } from "left-panel/item-preview-dialog.slint";
 import { MetadataDialog } from "tools/metadata-dialog.slint";
 import { OCRDialog, OCRSettingDialog } from "tools/ocr.slint";
 import { CodeImageDialog } from "tools/code-image-dialog.slint";
+import { TtfxDialog } from "tools/ttfx-dialog.slint";
 import { PureColorImageDialog } from "tools/pure-color-image-dialog.slint";
 import { RecordAudioDialog } from "tools/record-audio-dialog.slint";
 import { BackgroundAnimationDialog } from "tools/bg-animation/panel.slint";
@@ -713,6 +714,25 @@ export component TopMovingDialog inherits Rectangle {
         close => {
             Store.video-editor-code-image-config.code = "";
             Store.video-editor-is-show-code-image-dialog = false;
+            app-focus();
+        }
+        minimal => {
+            app-focus();
+        }
+        maximal => {
+            app-focus();
+        }
+    }
+
+    if Store.video-editor-is-show-ttfx-dialog: TtfxDialog {
+        init => {
+            self.head-x = ((root.width - self.header-width) / 2).max(0);
+        }
+        close => {
+            Logic.video-editor-ttfx-stop-preview();
+            Logic.video-editor-ttfx-stop-record();
+            Store.video-editor-ttfx-config.text = "";
+            Store.video-editor-is-show-ttfx-dialog = false;
             app-focus();
         }
         minimal => {

@@ -20,6 +20,7 @@ mod video_editor;
 
 pub use video_editor::project::{
     BG_ANIMATION_CONFIG_ID, CODE_IMAGE_CONFIG_ID, GLOBAL_FILTER_CONFIG_ID, TEXT_STYLE_CONFIG_ID,
+    TTFX_CONFIG_ID,
 };
 
 pub fn init(ui: &crate::slint_generatedAppWindow::AppWindow) {

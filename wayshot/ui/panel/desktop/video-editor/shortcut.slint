@@ -470,6 +470,13 @@ export component Shortcut inherits FocusScope {
     }
 
     KeyBinding {
+        keys: @keys(Control + Alt + T);
+        activated => {
+            Store.video-editor-is-show-ttfx-dialog = true;
+        }
+    }
+
+    KeyBinding {
         keys: @keys(Alt + Digit1);
 
         activated => {

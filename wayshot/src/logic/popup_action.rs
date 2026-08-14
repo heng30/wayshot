@@ -723,6 +723,9 @@ pub fn init(ui: &AppWindow) {
                 "video-editor-show-code-image-dialog" => {
                     global_store!(ui).set_video_editor_is_show_code_image_dialog(true);
                 }
+                "video-editor-show-ttfx-dialog" => {
+                    global_store!(ui).set_video_editor_is_show_ttfx_dialog(true);
+                }
                 "video-editor-show-pure-color-image-dialog" => {
                     global_store!(ui).set_video_editor_is_show_pure_color_image_dialog(true);
                 }

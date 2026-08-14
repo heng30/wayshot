@@ -46,6 +46,7 @@ import {
     TextElement,
     CodeImageConfig,
     PureColorImageConfig,
+    TtfxConfig,
     TTSConfig,
     TTSEntry,
     TTSVoice,
@@ -514,6 +515,12 @@ export global Logic {
     callback video-editor-generate-code-image(config: CodeImageConfig) -> image;
     callback video-editor-add-code-image-to-playlist(image: image);
     callback video-editor-update-code-image-config(config: CodeImageConfig);
+
+    callback video-editor-ttfx-start-preview(config: TtfxConfig);
+    callback video-editor-ttfx-stop-preview();
+    callback video-editor-ttfx-start-record(config: TtfxConfig);
+    callback video-editor-ttfx-stop-record();
+    callback video-editor-ttfx-update-config(config: TtfxConfig);
 
     callback video-editor-pure-color-image-select-dir();
     callback video-editor-update-pure-color-image-config(config: PureColorImageConfig);

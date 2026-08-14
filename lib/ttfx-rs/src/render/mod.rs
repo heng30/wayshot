@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 
 use image::RgbaImage;
 
+use crate::engine::canvas::Anchor;
 use crate::engine::ctx::{Clock, EngineCtx};
 use crate::engine::effect::Effect;
 use crate::engine::error::EngineError;
@@ -69,6 +70,8 @@ pub struct RenderConfig {
     pub fps: u32,
     /// Background color of the image (cells without an explicit background).
     pub background: Color,
+    /// Text anchoring inside the canvas (default bottom-left, matching TTE).
+    pub anchor_text: Anchor,
     /// Font used to draw the glyphs.
     pub font: Font,
     /// Optional seed for reproducible renders.
@@ -89,6 +92,7 @@ impl RenderConfig {
             cell_height: 0,
             fps: 60,
             background: Color::from_hex("000000").expect("valid hex"),
+            anchor_text: Anchor::Sw,
             font,
             seed: None,
         }
@@ -112,6 +116,7 @@ impl RenderConfig {
             cell_height: 0,
             fps: 60,
             background: Color::from_hex("000000").expect("valid hex"),
+            anchor_text: Anchor::Sw,
             font,
             seed: None,
         }
@@ -243,6 +248,7 @@ impl SequenceRenderer {
             canvas_height: rows,
             ignore_terminal_dimensions: true,
             terminal_background_color: render.background,
+            anchor_text: render.anchor_text,
             ..TerminalConfig::default()
         };
         SequenceRenderer::with_terminal_config(input, render, config)

@@ -15313,6 +15313,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ttfx-rs"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "cosmic-text",
+ "image 0.25.10",
+]
+
+[[package]]
 name = "turn"
 version = "0.17.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16411,6 +16420,7 @@ dependencies = [
  "tokio-stream",
  "toml 1.1.3+spec-1.1.0",
  "ttf-parser 0.25.1",
+ "ttfx-rs",
  "uuid",
  "video-editor",
  "video-encoder",

@@ -926,6 +926,23 @@ export struct CodeImageConfig {
     terminal-title: string,
 }
 
+export struct TtfxConfig {
+    id: string,
+    text: string,
+    effect-name: string,
+    font-size: float,
+    ascii-font-family: string,
+    ascii-font-path: string,
+    non-ascii-font-family: string,
+    non-ascii-font-path: string,
+    padding-x: int,
+    padding-y: int,
+    background-color: string,
+    fps: int,
+    seed: int,
+    loops: int,
+}
+
 export struct PureColorImageConfig {
     id: string,
     width: int,
@@ -1492,6 +1509,14 @@ export global Store {
 
     in-out property <bool> video-editor-is-show-code-image-dialog;
     in-out property <CodeImageConfig> video-editor-code-image-config;
+
+    in-out property <bool> video-editor-is-show-ttfx-dialog;
+    in-out property <TtfxConfig> video-editor-ttfx-config;
+    in-out property <image> video-editor-ttfx-preview-image;
+    in-out property <bool> video-editor-ttfx-is-previewing;
+    in-out property <bool> video-editor-ttfx-is-recording;
+    in-out property <bool> video-editor-ttfx-record-enabled;
+    in-out property <float> video-editor-ttfx-record-progress;
 
     in-out property <bool> video-editor-is-show-pure-color-image-dialog;
     in-out property <PureColorImageConfig> video-editor-pure-color-image-config;

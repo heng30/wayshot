@@ -1,4 +1,6 @@
-use crate::logic::{BG_ANIMATION_CONFIG_ID, CODE_IMAGE_CONFIG_ID, TEXT_STYLE_CONFIG_ID};
+use crate::logic::{
+    BG_ANIMATION_CONFIG_ID, CODE_IMAGE_CONFIG_ID, TEXT_STYLE_CONFIG_ID, TTFX_CONFIG_ID,
+};
 use crate::slint_generatedAppWindow::{
     AnimationType, ArrowAnimConfig as UIArrowAnimConfig,
     BackgroundAnimationConfig as UIBackgroundAnimationConfig,
@@ -36,7 +38,8 @@ use crate::slint_generatedAppWindow::{
     Subtitle as UISubtitle, SubtitleTranslateConfig as UISubtitleTranslateConfig,
     TTSConfig as UITTSConfig, TimerGlobalFilterConfig as UITimerGlobalFilterConfig,
     TimerItem as UITimerItem, TimerMode as UITimerMode, TimerStyle as UITimerStyle,
-    TriangleAnimConfig as UITriangleAnimConfig, VideoEditorBgRemoverConfig as UIBgRemoverConfig,
+    TriangleAnimConfig as UITriangleAnimConfig, TtfxConfig as UITtfxConfig,
+    VideoEditorBgRemoverConfig as UIBgRemoverConfig,
     VideoEditorClearVisionConfig as UIClearVisionConfig, VideoEditorCutoutConfig as UICutoutConfig,
     VideoEditorDedupPhotosConfig as UIDedupPhotosConfig,
     VideoEditorDedupPhotosItem as UIDedupPhotosItem,
@@ -292,27 +295,37 @@ pub enum FontSource {
 
 crate::impl_c_like_enum_convert!(UIFontSource, FontSource, System, Imported);
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Derivative)]
+#[derivative(Default)]
 pub struct TextStyleConfig {
+    #[derivative(Default(value = "TEXT_STYLE_CONFIG_ID.to_string()"))]
     pub id: String,
     pub font_path: String,
     pub font_family: String,
     pub font_style: String,
+    #[derivative(Default(value = "20"))]
     pub font_size: i32,
+    #[derivative(Default(value = "255"))]
     pub primary_color_r: i32,
+    #[derivative(Default(value = "255"))]
     pub primary_color_g: i32,
+    #[derivative(Default(value = "255"))]
     pub primary_color_b: i32,
+    #[derivative(Default(value = "255"))]
     pub primary_color_a: i32,
+    #[derivative(Default(value = "2"))]
     pub outline_width: i32,
     pub outline_color_r: i32,
     pub outline_color_g: i32,
     pub outline_color_b: i32,
+    #[derivative(Default(value = "255"))]
     pub outline_color_a: i32,
     pub background_color_r: i32,
     pub background_color_g: i32,
     pub background_color_b: i32,
     pub background_color_a: i32,
     pub border_radius: i32,
+    #[derivative(Default(value = "4"))]
     pub padding: i32,
     pub border_width: i32,
     pub border_color_r: i32,
@@ -320,40 +333,8 @@ pub struct TextStyleConfig {
     pub border_color_b: i32,
     pub border_color_a: i32,
     #[serde(default = "default_alignment")]
+    #[derivative(Default(value = "1"))]
     pub alignment: i32, // 0=Left, 1=Center, 2=Right
-}
-
-impl Default for TextStyleConfig {
-    fn default() -> Self {
-        Self {
-            id: TEXT_STYLE_CONFIG_ID.to_string(),
-            font_path: String::new(),
-            font_family: String::new(),
-            font_style: String::new(),
-            font_size: 20,
-            primary_color_r: 255,
-            primary_color_g: 255,
-            primary_color_b: 255,
-            primary_color_a: 255,
-            outline_width: 2,
-            outline_color_r: 0,
-            outline_color_g: 0,
-            outline_color_b: 0,
-            outline_color_a: 255,
-            background_color_r: 0,
-            background_color_g: 0,
-            background_color_b: 0,
-            background_color_a: 0,
-            border_radius: 0,
-            padding: 4,
-            border_width: 0,
-            border_color_r: 0,
-            border_color_g: 0,
-            border_color_b: 0,
-            border_color_a: 0,
-            alignment: 1,
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -371,13 +352,18 @@ fn default_alignment() -> i32 {
     1
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, SlintFromConvert)]
+#[derive(Serialize, Deserialize, Debug, Clone, SlintFromConvert, Derivative)]
+#[derivative(Default)]
 #[serde(default)]
 #[from("UICodeImageConfig")]
 pub struct CodeImageConfigData {
+    #[derivative(Default(value = "CODE_IMAGE_CONFIG_ID.to_string()"))]
     pub id: String,
+    #[derivative(Default(value = "\"Rust\".to_string()"))]
     pub language: String,
+    #[derivative(Default(value = "\"InspiredGitHub\".to_string()"))]
     pub syntax_theme: String,
+    #[derivative(Default(value = "14.0"))]
     pub font_size: f32,
     pub ascii_font_family: String,
     pub ascii_font_path: String,
@@ -385,39 +371,47 @@ pub struct CodeImageConfigData {
     pub non_ascii_font_family: String,
     pub non_ascii_font_path: String,
     pub non_ascii_font_style: String,
+    #[derivative(Default(value = "1.5"))]
     pub line_height_ratio: f32,
+    #[derivative(Default(value = "10.0"))]
     pub padding: f32,
+    #[derivative(Default(value = "2.0"))]
     pub scale: f32,
+    #[derivative(Default(value = "true"))]
     pub line_numbers: bool,
     pub bg_color: String,
     pub enable_terminal: bool,
+    #[derivative(Default(value = "\"MacOS\".to_string()"))]
     pub terminal_style: String,
     pub terminal_title: String,
 }
 
-impl Default for CodeImageConfigData {
-    fn default() -> Self {
-        Self {
-            id: CODE_IMAGE_CONFIG_ID.to_string(),
-            language: "Rust".to_string(),
-            syntax_theme: "InspiredGitHub".to_string(),
-            font_size: 14.0,
-            ascii_font_family: String::new(),
-            ascii_font_path: String::new(),
-            ascii_font_style: String::new(),
-            non_ascii_font_family: String::new(),
-            non_ascii_font_path: String::new(),
-            non_ascii_font_style: String::new(),
-            line_height_ratio: 1.5,
-            padding: 10.0,
-            scale: 2.0,
-            line_numbers: true,
-            bg_color: String::new(),
-            enable_terminal: false,
-            terminal_style: "MacOS".to_string(),
-            terminal_title: String::new(),
-        }
-    }
+#[derive(Serialize, Deserialize, Debug, Clone, SlintFromConvert, Derivative)]
+#[derivative(Default)]
+#[serde(default)]
+#[from("UITtfxConfig")]
+pub struct TtfxConfigData {
+    #[derivative(Default(value = "TTFX_CONFIG_ID.to_string()"))]
+    pub id: String,
+    pub text: String,
+    #[derivative(Default(value = "\"beams\".to_string()"))]
+    pub effect_name: String,
+    #[derivative(Default(value = "28.0"))]
+    pub font_size: f32,
+    pub ascii_font_family: String,
+    pub ascii_font_path: String,
+    pub non_ascii_font_family: String,
+    pub non_ascii_font_path: String,
+    #[derivative(Default(value = "2"))]
+    pub padding_x: i32,
+    #[derivative(Default(value = "1"))]
+    pub padding_y: i32,
+    pub background_color: String,
+    #[derivative(Default(value = "30"))]
+    pub fps: i32,
+    pub seed: i32,
+    #[derivative(Default(value = "1"))]
+    pub loops: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, SlintFromConvert, derivative::Derivative)]

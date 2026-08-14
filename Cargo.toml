@@ -386,6 +386,7 @@ cutout = { path = "lib/cutout" }
 denoise = { path = "lib/denoise" }
 bytesio = { path = "lib/bytesio" }
 turn-rs = { path = "lib/turn-rs" }
+ttfx-rs = { path = "lib/ttfx-rs" }
 recorder = { path = "lib/recorder" }
 lighting = { path = "lib/lighting" }
 live2d-rs = { path = "lib/live2d-rs" }

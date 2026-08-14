@@ -89,6 +89,7 @@ pub const PRESET_TEXT_STYLES_ID: &str = "video_editor_preset_text_styles";
 pub const TEXT_STYLE_CONFIG_ID: &str = "text_style_default";
 pub const TTS_CONFIG_ID: &str = "tts_config_default";
 pub const CODE_IMAGE_CONFIG_ID: &str = "code_image_config_default";
+pub const TTFX_CONFIG_ID: &str = "ttfx_config_default";
 pub const PURE_COLOR_IMAGE_CONFIG_ID: &str = "pure_color_image_config";
 pub const BG_ANIMATION_CONFIG_ID: &str = "bg_animation";
 pub const BG_REMOVER_CONFIG_ID: &str = "bg_remover_config_default";
