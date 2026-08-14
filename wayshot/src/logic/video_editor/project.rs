@@ -892,6 +892,10 @@ fn clear_ui_state(ui: &AppWindow) {
         .set_video_editor_chapter_summary_progress_type(UIChapterSummaryProgressType::None);
     global_store!(ui).set_video_editor_bookmarks(ModelRc::new(VecModel::default()));
     global_store!(ui).set_video_editor_project_memo_text(SharedString::default());
+    global_store!(ui).set_video_editor_new_project_config(UIVideoEditorNewProjectConfig {
+        name: SharedString::default(),
+        ..global_store!(ui).get_video_editor_new_project_config()
+    });
     global_logic!(ui).invoke_video_editor_clear_all_selected_state();
     store_video_editor_playlist!(ui).set_vec(vec![]);
     crate::logic::video_editor::filters::global::clear_ui_state(ui);

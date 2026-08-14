@@ -478,6 +478,7 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("EaseOut", "缓出"),
             ("Easing", "缓动"),
             ("Edit", "编辑"),
+            ("toggle preview edit mode (E)", "切换预览编辑模式 (E)"),
             ("Effect starts after this time", "此时间后开始效果"),
             ("End", "结束"),
             ("End Radius", "结束半径"),

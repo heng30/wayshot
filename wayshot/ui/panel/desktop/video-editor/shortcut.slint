@@ -1,6 +1,7 @@
 import {
     Store,
     Logic,
+    VEFilter,
 } from "../../def.slint";
 
 export component Shortcut inherits FocusScope {
@@ -103,6 +104,13 @@ export component Shortcut inherits FocusScope {
         activated => {
             Store.video-editor-ui-state.enabled-link-track = !Store.video-editor-ui-state.enabled-link-track;
             Logic.video-editor-update-ui-state();
+        }
+    }
+
+    KeyBinding {
+        keys: @keys(E);
+        activated => {
+            VEFilter.preview-edit-mode = !VEFilter.preview-edit-mode;
         }
     }
 

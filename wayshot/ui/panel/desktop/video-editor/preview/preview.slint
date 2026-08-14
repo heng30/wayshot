@@ -188,6 +188,15 @@ component Btns inherits Rectangle {
                 }
             }
         }
+
+        edit-mode-btn := IconBtn {
+            icon: Icons.drag-light;
+            checked-color: Theme.checked-background;
+            hover-background-padding: Theme.padding;
+            tip: Logic.tr("toggle preview edit mode (E)");
+            is-show-tip: true;
+            checked <=> VEFilter.preview-edit-mode;
+        }
     }
 }
 
@@ -237,7 +246,7 @@ component PreviewWindow inherits Rectangle {
 
         private property <bool> selected-segment-under-playhead: Logic.selected-segment-under-playhead(Store.video-editor-timeline-offset, Store.video-editor-segment-selected-flag);
         private property <bool> edit-mode-common: !Store.video-editor-is-previewing && Store.video-editor-selected-segments-index.length > 0 && Store.video-editor-current-edited-track-index >= 0 && selected-segment-under-playhead;
-        private property <bool> in-edit-mode: VEFilter.is-in-edit-mode && VEFilter.selected-filter.enabled && edit-mode-common && !in-text-edit-mod;
+        private property <bool> in-edit-mode: VEFilter.preview-edit-mode && VEFilter.is-in-edit-mode && VEFilter.selected-filter.enabled && edit-mode-common && !in-text-edit-mod;
         private property <bool> in-text-edit-mod: Store.video-editor-is-editing-text-segment && edit-mode-common;
 
         changed width-height-rate => {

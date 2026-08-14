@@ -646,6 +646,8 @@ export struct PresetSubtitleStyle {
 
 export global VEFilter {
     in-out property <bool> is-in-edit-mode;
+    // 预览编辑状态开关（临时，不持久化；切换滤镜后重置为启用，方便在编辑模式下观察最终渲染效果）
+    in-out property <bool> preview-edit-mode: true;
     in-out property <int> selected-filter-index: -1;
     in-out property <FilterType> selected-filter-type; // 用于popup action 和 switch。UI界面逻辑不要使用这个变量
     in-out property <SegmentFilter> selected-filter;

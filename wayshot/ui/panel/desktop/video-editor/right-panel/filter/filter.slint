@@ -180,6 +180,9 @@ component SegmentFilterList inherits Rectangle {
     callback filter-selected(ty: FilterType);
 
     changed selected-index => {
+        // 切换滤镜后重置预览编辑状态开关，避免上一个滤镜的状态残留
+        VEFilter.preview-edit-mode = true;
+
         if (selected-index == -1) {
             VEFilter.selected-filter = { };
             VEFilter.is-in-edit-mode = false;

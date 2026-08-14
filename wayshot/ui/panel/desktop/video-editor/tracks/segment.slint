@@ -567,6 +567,9 @@ component Segment inherits Rectangle {
             VEFilter.selected-filter = { };
             VEFilter.is-in-edit-mode = false;
 
+            // 切换滤镜后重置预览编辑状态开关，避免上一个滤镜的状态残留
+            VEFilter.preview-edit-mode = true;
+
             if (!(Store.video-editor-keyboard-modifiers.shift || Store.video-editor-keyboard-modifiers.control)) {
                 Store.video-editor-current-edited-track-index = track-index;
                 VEFilter.video-editor-update-subtitle-style-from-track(track-index);
