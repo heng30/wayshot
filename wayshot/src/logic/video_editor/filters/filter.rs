@@ -63,8 +63,8 @@ use video_editor::{
             LiquidGlassFilter, Live2dFilter, LocalMagnifyFilter, MagnifierFilter, MirrorMaskFilter,
             MosaicFilter, OldFilmFilter, OpacityFilter, PageFlipFilter, RectangleMaskFilter,
             ShadowFilter, SharpenFilter, SketchFilter, SlideFilter, SpeedFilter, SplitFilter,
-            TextHighlightFilter, TransformFilter, VignetteFilter, WaveFilter, WipeFilter,
-            ZoomFilter, all_filter_names as all_image_filter_names,
+            TextHighlightFilter, TransformFilter, VignetteFilter, WaveFilter, WindScatterFilter,
+            WipeFilter, ZoomFilter, all_filter_names as all_image_filter_names,
             all_filter_names as all_video_filter_names,
         },
     },
@@ -1621,7 +1621,8 @@ fn create_video_filter_by_name(name: &str) -> Option<Box<dyn VideoFilter>> {
         LightingFilter,
         SplitFilter,
         FrameExtractFilter,
-        Live2dFilter
+        Live2dFilter,
+        WindScatterFilter
     )
 }
 
@@ -1717,7 +1718,8 @@ fn create_video_filter_by_name_with_detail(
         LightingFilter,
         SplitFilter,
         FrameExtractFilter,
-        Live2dFilter
+        Live2dFilter,
+        WindScatterFilter
     )
 }
 

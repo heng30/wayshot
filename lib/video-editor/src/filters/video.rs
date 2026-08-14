@@ -44,6 +44,7 @@ pub mod text_highlight;
 pub mod transform;
 pub mod vignette;
 pub mod wave;
+pub mod wind_scatter;
 pub mod wipe;
 pub mod zoom;
 
@@ -95,6 +96,7 @@ pub use text_highlight::{HighlightRegion, TextHighlightFilter};
 pub use transform::TransformFilter;
 pub use vignette::VignetteFilter;
 pub use wave::{WaveFilter, WaveType};
+pub use wind_scatter::WindScatterFilter;
 pub use wipe::{WipeDirection, WipeFilter};
 pub use zoom::ZoomFilter;
 
@@ -142,6 +144,7 @@ pub fn all_filter_names() -> &'static [&'static str] {
         DirectionalBlurFilter::NAME,
         SharpenFilter::NAME,
         WaveFilter::NAME,
+        WindScatterFilter::NAME,
         EdgeDetectFilter::NAME,
         SketchFilter::NAME,
         GrayscaleFilter::NAME,

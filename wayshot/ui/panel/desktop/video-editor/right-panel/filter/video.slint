@@ -52,6 +52,7 @@ import { DeviceFrame } from "video/device-frame.slint";
 import { PageFlip } from "video/page-flip.slint";
 import { Lighting } from "video/lighting.slint";
 import { Genie } from "video/genie.slint";
+import { WindScatter } from "video/wind-scatter.slint";
 import { Grid } from "video/grid.slint";
 import { Split } from "video/split.slint";
 import { Live2d } from "video/live-2d.slint";
@@ -489,6 +490,16 @@ export component FilterVideoDetail inherits Rectangle {
 
         apply(idx, config) => {
             VEFilter.modify-genie-filter(idx, config, FilterType.Video);
+        }
+    }
+
+    if selected-filter.name.to-lowercase() == "wind scatter": WindScatter {
+        index: index;
+        width: parent.width;
+        selected-filter: selected-filter;
+
+        apply(idx, config) => {
+            VEFilter.modify-wind-scatter-filter(idx, config, FilterType.Video);
         }
     }
 

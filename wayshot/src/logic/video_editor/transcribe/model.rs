@@ -94,6 +94,7 @@ pub fn init(ui: &AppWindow) {
     logic_cb!(dir_exist, ui, file);
     logic_cb!(is_valid_subtitle_timestamp, ui, timestamp);
     logic_cb!(ms_to_srt_timestamp_ui, ui, ms);
+    logic_cb!(srt_timestamp_to_ms_ui, ui, timestamp);
 
     logic_cb!(video_editor_transcribe_setting_is_valid, ui);
     logic_cb!(video_editor_transcribe_start, ui);
@@ -177,6 +178,10 @@ fn is_valid_subtitle_timestamp(_ui: &AppWindow, timestamp: SharedString) -> bool
 
 fn ms_to_srt_timestamp_ui(_ui: &AppWindow, ms: f32) -> SharedString {
     ms_to_srt_timestamp(ms as u64).into()
+}
+
+fn srt_timestamp_to_ms_ui(_ui: &AppWindow, timestamp: SharedString) -> i32 {
+    srt_timestamp_to_ms(&timestamp).unwrap_or(0) as i32
 }
 
 fn video_editor_transcribe_setting_is_valid(ui: &AppWindow) -> bool {

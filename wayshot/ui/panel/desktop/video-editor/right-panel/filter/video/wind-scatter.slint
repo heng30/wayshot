@@ -1,0 +1,281 @@
+import {
+    Theme,
+    Logic,
+    Store,
+} from "../../../../../def.slint";
+import {
+    ClickAndEditLabel,
+    LineInput,
+    Slider,
+    Select,
+    SettingDetailInner,
+    SettingDetailInnerVbox,
+    SettingDetailLabel,
+} from "../../../../../../base/widgets.slint";
+import {
+    VEFilter,
+    SegmentFilter,
+    WindScatterDetail,
+} from "../../../filter.slint";
+
+export component WindScatter inherits Rectangle {
+    in-out property <int> index: -1;
+    in-out property <SegmentFilter> selected-filter;
+    in-out property <WindScatterDetail> config: VEFilter.from-wind-scatter-json(selected-filter.detail);
+
+    callback apply(index: int, config: WindScatterDetail);
+
+    changed selected-filter => {
+        if (selected-filter.name == "wind scatter") {
+            self.config = VEFilter.from-wind-scatter-json(selected-filter.detail);
+            duration-li.text = self.config.duration.to-fixed(0);
+            angle-sl.value = self.config.angle-deg;
+            tile-size-li.text = self.config.tile-size;
+            rotation-sl.value = self.config.max-rotation-deg;
+            speed-li.text = self.config.speed.to-fixed(2);
+            seed-li.text = self.config.seed;
+        }
+    }
+
+    SettingDetailInner {
+        interactive: false;
+
+        SettingDetailInnerVbox {
+            // Position: Start (reassemble) / End (scatter)
+            SettingDetailLabel {
+                text: Logic.tr("Position");
+                enabled: selected-filter.enabled;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 2;
+
+                position-select := Select {
+                    enabled: selected-filter.enabled;
+                    gain-focus-when-clicked: false;
+                    background: Theme.thirdly-background;
+
+                    values: [Logic.tr("Start"), Logic.tr("End")];
+                    current-index: config.position;
+                    current-value: config.position == 0 ? Logic.tr("Start") : Logic.tr("End");
+
+                    selected(idx, value) => {
+                        config.position = idx;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Duration (ms)");
+                enabled: selected-filter.enabled;
+            }
+
+            duration-li := LineInput {
+                enabled: selected-filter.enabled;
+                input-type: InputType.number;
+                text: config.duration;
+                border-color: self.text != config.duration ? Theme.danger-color : self.default-border-color;
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    let val = round(self.text.to-float());
+                    config.duration = val > 0 ? val : 1000;
+                    self.text = config.duration;
+                    apply(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Particle Size");
+                enabled: selected-filter.enabled;
+                tip: Logic.tr("pixels (min: 1)");
+            }
+
+            tile-size-li := LineInput {
+                enabled: selected-filter.enabled;
+                input-type: InputType.number;
+                text: config.tile-size;
+                border-color: self.text != config.tile-size ? Theme.danger-color : self.default-border-color;
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    let val = round(self.text.to-float());
+                    config.tile-size = val > 0 ? val : 1;
+                    self.text = config.tile-size;
+                    apply(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Speed");
+                enabled: selected-filter.enabled;
+                tip: Logic.tr("scatter distance (fraction of shorter side)");
+            }
+
+            speed-li := LineInput {
+                enabled: selected-filter.enabled;
+                input-type: InputType.decimal;
+                text: config.speed.to-fixed(2);
+                border-color: self.text != config.speed.to-fixed(2) ? Theme.danger-color : self.default-border-color;
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    let val = self.text.to-float();
+                    config.speed = val > 0.0 ? val : 1.0;
+                    self.text = config.speed;
+                    apply(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Seed");
+                enabled: selected-filter.enabled;
+                tip: Logic.tr("random seed (deterministic)");
+            }
+
+            seed-li := LineInput {
+                enabled: selected-filter.enabled;
+                input-type: InputType.number;
+                text: config.seed;
+                border-color: self.text != config.seed ? Theme.danger-color : self.default-border-color;
+
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+                    }
+                }
+
+                accepted => {
+                    let val = round(self.text.to-float());
+                    config.seed = val;
+                    self.text = config.seed;
+                    apply(index, config);
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Wind Angle");
+                enabled: selected-filter.enabled;
+                tip: Logic.tr("degrees, 0 = left to right");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    angle-sl := Slider {
+                        minimum: -180.0;
+                        maximum: 180.0;
+                        value: config.angle-deg;
+                        indicator-size: Theme.default-font-size;
+                        height: self.indicator-size * 0.3;
+                        unfinished-progress-color: Theme.thirdly-background;
+                        enabled: selected-filter.enabled;
+
+                        changed(value) => {
+                            config.angle-deg = value;
+                        }
+
+                        released(value) => {
+                            config.angle-deg = value;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                ClickAndEditLabel {
+                    enabled: selected-filter.enabled;
+                    use-fixed-width: true;
+                    width: Theme.default-font-size * 3;
+                    text: round(config.angle-deg);
+                    text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                    accepted(text) => {
+                        config.angle-deg = text.to-float().clamp(-360, 360);
+                        angle-sl.value = config.angle-deg;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        SettingDetailInnerVbox {
+            SettingDetailLabel {
+                text: Logic.tr("Rotation");
+                enabled: selected-filter.enabled;
+                tip: Logic.tr("degrees (0-360)");
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing * 4;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    rotation-sl := Slider {
+                        minimum: 0.0;
+                        maximum: 360.0;
+                        value: config.max-rotation-deg;
+                        indicator-size: Theme.default-font-size;
+                        height: self.indicator-size * 0.3;
+                        unfinished-progress-color: Theme.thirdly-background;
+                        enabled: selected-filter.enabled;
+
+                        changed(value) => {
+                            config.max-rotation-deg = value;
+                        }
+
+                        released(value) => {
+                            config.max-rotation-deg = value;
+                            apply(index, config);
+                        }
+                    }
+                }
+
+                ClickAndEditLabel {
+                    enabled: selected-filter.enabled;
+                    use-fixed-width: true;
+                    width: Theme.default-font-size * 3;
+                    text: round(config.max-rotation-deg);
+                    text-color: self.enabled ? Theme.primary-text-color : Theme.disabled-color;
+
+                    accepted(text) => {
+                        config.max-rotation-deg = text.to-float().clamp(0, 360);
+                        rotation-sl.value = config.max-rotation-deg;
+                        apply(index, config);
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { }
+    }
+}

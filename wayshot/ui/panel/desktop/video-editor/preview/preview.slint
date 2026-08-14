@@ -424,10 +424,24 @@ component ProcessTime inherits VerticalLayout {
         alignment: center;
 
         li := LineInput {
+            private property <int> timeline-offset <=> Store.video-editor-timeline-offset;
+            changed timeline-offset => {
+                self.text = Logic.ms-to-srt-timestamp-ui(timeline-offset);
+            }
+
             vpadding: Theme.padding;
             width: Theme.default-font-size * 7;
             font-size: Theme.default-font-size;
-            text: Logic.ms-to-srt-timestamp-ui(Store.video-editor-timeline-offset);
+            text: Logic.ms-to-srt-timestamp-ui(timeline-offset);
+            border-color: Logic.is-valid-subtitle-timestamp(self.text) ? self.default-border-color : Theme.danger-color;
+
+            accepted => {
+                if Logic.is-valid-subtitle-timestamp(self.text) {
+                    let timeline-offset = Logic.srt-timestamp-to-ms-ui(self.text);
+                    Logic.video-editor-preview-seek(timeline-offset.clamp(0, Store.video-editor-tracks-manager.duration));
+                }
+                Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
+            }
         }
 
         Label {

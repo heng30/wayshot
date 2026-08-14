@@ -35,7 +35,8 @@ use crate::slint_generatedAppWindow::{
     TextHighlightDetail as UITextHighlightDetail, TransformDetail as UITransformDetail,
     VideoFadeInDetail as UIVideoFadeInDetail, VideoFadeOutDetail as UIVideoFadeOutDetail,
     VignetteDetail as UIVignetteDetail, VoiceChangerDetail as UIVoiceChangerDetail,
-    WaveDetail as UIWaveDetail, WipeDetail as UIWipeDetail, ZoomDetail as UIZoomDetail,
+    WaveDetail as UIWaveDetail, WindScatterDetail as UIWindScatterDetail,
+    WipeDetail as UIWipeDetail, ZoomDetail as UIZoomDetail,
 };
 use image::Rgba;
 use slint::{Model, ModelRc, SharedString, VecModel};
@@ -69,7 +70,7 @@ use video_editor::filters::{
         PageFlipDirection, PageFlipFilter, PageFlipPosition, RectangleMaskFilter, ShadowFilter,
         SharpenFilter, SketchFilter, SlideDirection, SlideFilter, SpeedFilter, SplitDirection,
         SplitFilter, TextHighlightFilter, TransformFilter, VignetteFilter, WaveFilter, WaveType,
-        WipeDirection, WipeFilter, ZoomFilter,
+        WindScatterFilter, WipeDirection, WipeFilter, ZoomFilter,
     },
 };
 
@@ -1854,6 +1855,32 @@ impl From<GenieFilter> for UIGenieDetail {
             shadow: f.shadow,
             easing: u8::from(f.easing) as i32,
         }
+    }
+}
+
+impl From<WindScatterFilter> for UIWindScatterDetail {
+    fn from(f: WindScatterFilter) -> Self {
+        Self {
+            position: u8::from(f.position) as i32,
+            duration: f.duration.as_millis() as i32,
+            angle_deg: f.angle_deg,
+            tile_size: f.tile_size as i32,
+            max_rotation_deg: f.max_rotation_deg,
+            speed: f.speed,
+            seed: f.seed as i32,
+        }
+    }
+}
+
+impl From<UIWindScatterDetail> for WindScatterFilter {
+    fn from(d: UIWindScatterDetail) -> Self {
+        let position: EffectPosition = (d.position as u8).try_into().unwrap_or_default();
+        WindScatterFilter::new(position, Duration::from_millis(d.duration as u64))
+            .with_angle_deg(d.angle_deg)
+            .with_tile_size((d.tile_size.max(1)) as u32)
+            .with_max_rotation_deg(d.max_rotation_deg)
+            .with_speed(d.speed)
+            .with_seed(d.seed as u64)
     }
 }
 

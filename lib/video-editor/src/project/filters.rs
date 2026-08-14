@@ -33,8 +33,8 @@ use crate::{
             LiquidGlassFilter, Live2dFilter, LocalMagnifyFilter, MagnifierFilter, MirrorMaskFilter,
             MosaicFilter, OldFilmFilter, OpacityFilter, PageFlipFilter, RectangleMaskFilter,
             ShadowFilter, SharpenFilter, SketchFilter, SlideFilter, SpeedFilter, SplitFilter,
-            TextHighlightFilter, TransformFilter, VignetteFilter, WaveFilter, WipeFilter,
-            ZoomFilter,
+            TextHighlightFilter, TransformFilter, VignetteFilter, WaveFilter, WindScatterFilter,
+            WipeFilter, ZoomFilter,
         },
     },
 };
@@ -220,6 +220,9 @@ pub enum VideoFilterDataInner {
 
     #[serde(rename = "live_2d")]
     Live2d(Live2dFilter),
+
+    #[serde(rename = "wind_scatter")]
+    WindScatter(WindScatterFilter),
 
     // 未知滤镜类型（用于向前兼容）
     #[serde(rename = "unknown")]
@@ -480,7 +483,9 @@ pub fn video_filter_to_data(filter: &Box<dyn VideoFilter>) -> VideoFilterDataInn
         FrameExtractFilter,
         FrameExtract,
         Live2dFilter,
-        Live2d
+        Live2d,
+        WindScatterFilter,
+        WindScatter
     );
 
     let name = filter.name();
@@ -623,7 +628,8 @@ pub fn data_to_video_filter_inner(data: &VideoFilterDataInner) -> Result<Box<dyn
         VideoFilterDataInner::Lighting,
         VideoFilterDataInner::Split,
         VideoFilterDataInner::FrameExtract,
-        VideoFilterDataInner::Live2d
+        VideoFilterDataInner::Live2d,
+        VideoFilterDataInner::WindScatter
     )
 }
 

@@ -516,6 +516,16 @@ export struct GenieDetail {
     easing: int,         // EasingFunction enum as int
 }
 
+export struct WindScatterDetail {
+    position: int,           // EffectPosition enum as int (0=Start reassemble, 1=End scatter)
+    duration: int,           // milliseconds
+    angle-deg: float,        // wind direction in degrees (0=left→right)
+    tile-size: int,          // particle cluster edge length in pixels (>=1)
+    max-rotation-deg: float, // max particle rotation in degrees (0-360)
+    speed: float,            // travel distance as a multiple of the frame diagonal
+    seed: int,               // random seed (deterministic)
+}
+
 export struct PageFlipDetail {
     duration: int,          // milliseconds
     position: int,          // PageFlipPosition enum as int (0=Start, 1=End)
@@ -874,6 +884,9 @@ export global VEFilter {
 
     pure callback from-genie-json(json: string) -> GenieDetail;
     callback modify-genie-filter(index: int, config: GenieDetail, filter-type: FilterType);
+
+    pure callback from-wind-scatter-json(json: string) -> WindScatterDetail;
+    callback modify-wind-scatter-filter(index: int, config: WindScatterDetail, filter-type: FilterType);
 
     pure callback from-page-flip-json(json: string) -> PageFlipDetail;
     callback modify-page-flip-filter(index: int, config: PageFlipDetail, filter-type: FilterType);

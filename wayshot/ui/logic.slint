@@ -273,6 +273,7 @@ export global Logic {
 
     pure callback is-valid-subtitle-timestamp(timestamp: string) -> bool;
     pure callback ms-to-srt-timestamp-ui(ms: float) -> string;
+    pure callback srt-timestamp-to-ms-ui(timestamp: string) -> int;
 
     callback video-editor-update-ui-state();
     callback video-editor-new-project();

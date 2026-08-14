@@ -245,6 +245,7 @@ fn create_video_filter_by_name(
         "draw_rectangle" => Some(Box::new(DrawRectangleFilter::default())),
         "draw_circle" => Some(Box::new(DrawCircleFilter::default())),
         "frame_extract" => Some(Box::new(FrameExtractFilter::default())),
+        "wind_scatter" => Some(Box::new(WindScatterFilter::default())),
         _ => None,
     }
 }

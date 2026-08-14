@@ -58,7 +58,7 @@ use video_editor::{
             MirrorMaskFilter, MosaicFilter, OldFilmFilter, OpacityFilter, PageFlipFilter,
             RectangleMaskFilter, ShadowFilter, SharpenFilter, SketchFilter, SlideFilter,
             SpeedFilter, SplitFilter, TextHighlightFilter, TransformFilter, VignetteFilter,
-            WaveFilter, WipeFilter, ZoomFilter,
+            WaveFilter, WindScatterFilter, WipeFilter, ZoomFilter,
         },
     },
     media::{MediaItem, library::LibraryFolder, media_type::MediaType},
@@ -1004,7 +1004,8 @@ pub fn video_filter_to_json_detail(filter: &Box<dyn VideoFilter>) -> String {
         VELightingFilter,
         SplitFilter,
         FrameExtractFilter,
-        Live2dFilter
+        Live2dFilter,
+        WindScatterFilter
     );
 }
 
