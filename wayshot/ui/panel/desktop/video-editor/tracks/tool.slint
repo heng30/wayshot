@@ -234,10 +234,21 @@ export component Tool inherits Rectangle {
                 is-show-tip: true;
                 icon: Icons.link-remove-light;
                 icon-size: Theme.icon-size * 0.9;
-                tip: Logic.tr("linked remove") + "  " + "(X)";
+                tip: Logic.tr("remove segments in linked mode") + "  " + "(X)";
 
                 clicked => {
                     Logic.video-editor-linked-remove-segments();
+                }
+            }
+
+            IconBtn {
+                is-show-tip: true;
+                icon: Icons.unlink-remove-light;
+                icon-size: Theme.icon-size * 0.9;
+                tip: Logic.tr("remove segments in unlinked mode") + "  " + "(C)";
+
+                clicked => {
+                    Logic.video-editor-unlinked-remove-segments();
                 }
             }
 

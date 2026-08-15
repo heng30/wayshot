@@ -89,6 +89,13 @@ export component Shortcut inherits FocusScope {
         }
     }
 
+    KeyBinding {
+        keys: @keys(C);
+        activated => {
+            Logic.video-editor-unlinked-remove-segments();
+        }
+    }
+
     // 方便左手
     KeyBinding {
         keys: @keys(D);

@@ -76,6 +76,7 @@ pub fn init(ui: &AppWindow) {
     logic_cb!(video_editor_select_all_segments, ui);
     logic_cb!(video_editor_remove_segments, ui);
     logic_cb!(video_editor_linked_remove_segments, ui);
+    logic_cb!(video_editor_unlinked_remove_segments, ui);
     logic_cb!(video_editor_split_segment, ui);
     logic_cb!(video_editor_commit_segment_move, ui, index, final_offset_ms);
     logic_cb!(
@@ -376,6 +377,10 @@ fn video_editor_remove_segments(ui: &AppWindow) {
 
 fn video_editor_linked_remove_segments(ui: &AppWindow) {
     inner_video_editor_remove_segments(ui, true);
+}
+
+fn video_editor_unlinked_remove_segments(ui: &AppWindow) {
+    inner_video_editor_remove_segments(ui, false);
 }
 
 fn inner_video_editor_remove_segments(ui: &AppWindow, shift_timeline: bool) {
@@ -1883,28 +1888,34 @@ fn video_editor_segment_merge(ui: &AppWindow) {
 
         let track = state.tracks_manager.get(track_idx).unwrap();
 
-        if !track.is_video_or_audio() {
+        let is_subtitle = track.is_subtitle();
+        if !(track.is_video_or_audio() || is_subtitle) {
             return Err(Error::InvalidConfig(
-                "Merge only works on Video or Audio tracks".into(),
+                "Merge only works on Video, Audio or Subtitle tracks".into(),
             ));
         }
 
         let first_segment = track.get_segment(first_seg_idx)?;
         let second_segment = track.get_segment(second_seg_idx)?;
 
-        if first_segment.metadata.path != second_segment.metadata.path {
-            return Err(Error::InvalidConfig(
-                "Segments must be from the same source file".into(),
-            ));
-        }
+        // Subtitle segments are time-independent: no source file / source_offset
+        // ordering constraints, merge in track order instead.
+        let (actual_first_idx, actual_second_idx) = if is_subtitle {
+            (first_seg_idx, second_seg_idx)
+        } else {
+            if first_segment.metadata.path != second_segment.metadata.path {
+                return Err(Error::InvalidConfig(
+                    "Segments must be from the same source file".into(),
+                ));
+            }
 
-        // Determine which segment has smaller source_offset (should be "first")
-        let (actual_first_idx, actual_second_idx) =
+            // Determine which segment has smaller source_offset (should be "first")
             if first_segment.source_offset < second_segment.source_offset {
                 (first_seg_idx, second_seg_idx)
             } else {
                 (second_seg_idx, first_seg_idx)
-            };
+            }
+        };
 
         let command = MergeSegmentsCommand::new(track_idx, actual_first_idx, actual_second_idx);
         state
@@ -1938,10 +1949,6 @@ fn video_editor_segment_resize_to_playhead(ui: &AppWindow, index: UISelectedSegm
 
     let playhead_ms = global_store!(ui).get_video_editor_timeline_offset();
     let playhead = Duration::from_millis(playhead_ms as u64);
-
-    // let shift_timeline = global_store!(ui)
-    //     .get_video_editor_ui_state()
-    //     .enabled_link_track;
 
     let shift_timeline = false;
 

@@ -354,6 +354,7 @@ export global Logic {
     callback video-editor-select-all-segments();
     callback video-editor-remove-segments();
     callback video-editor-linked-remove-segments();
+    callback video-editor-unlinked-remove-segments();
     callback video-editor-split-segment();
     pure callback video-editor-find-snap-position(offset-ms: int, threshold-ms: int, exclude-track-index: int, exclude-segment-index: int, target-track-index: int) -> SnapResult;
     callback video-editor-commit-segment-move(index: SelectedSegmentIndex, final-offset-ms: int);

@@ -1851,6 +1851,7 @@ pub struct MergeSegmentsCommand {
     original_first_duration: Option<Duration>,
     original_first_original_duration: Option<Duration>,
     original_playback_speed: Option<f32>,
+    original_first_subtitle_text: Option<Option<String>>,
     removed_second_segment: Option<Arc<Segment>>,
     // Save entire filter lists for undo (not just counts)
     original_video_filters: Option<Vec<Arc<VideoFilterWrapper>>>,
@@ -1876,6 +1877,7 @@ impl MergeSegmentsCommand {
             original_first_duration: None,
             original_first_original_duration: None,
             original_playback_speed: None,
+            original_first_subtitle_text: None,
             removed_second_segment: None,
             original_video_filters: None,
             original_audio_filters: None,
@@ -1891,9 +1893,9 @@ impl Command for MergeSegmentsCommand {
     fn execute(&mut self, manager: &mut Manager) -> Result<()> {
         let track = get_track_from_manager(manager, self.track_index)?;
 
-        if !track.is_video_or_audio() {
+        if !(track.is_video_or_audio() || track.is_subtitle()) {
             return Err(Error::InvalidConfig(
-                "Merge only works on Video or Audio tracks".into(),
+                "Merge only works on Video, Audio or Subtitle tracks".into(),
             ));
         }
 
@@ -1904,37 +1906,53 @@ impl Command for MergeSegmentsCommand {
             ));
         }
 
+        let is_subtitle = track.is_subtitle();
+
         let first_segment = track.get_segment(self.first_segment_index)?;
         let second_segment = track.get_segment(self.second_segment_index)?;
 
-        if first_segment.metadata.path != second_segment.metadata.path {
-            return Err(Error::InvalidConfig(
-                "Segments must be from the same source file".into(),
-            ));
-        }
+        if !is_subtitle {
+            if first_segment.metadata.path != second_segment.metadata.path {
+                return Err(Error::InvalidConfig(
+                    "Segments must be from the same source file".into(),
+                ));
+            }
 
-        if first_segment.source_offset >= second_segment.source_offset {
-            return Err(Error::InvalidConfig(
-                "First segment's source_offset must be before second's".into(),
-            ));
+            if first_segment.source_offset >= second_segment.source_offset {
+                return Err(Error::InvalidConfig(
+                    "First segment's source_offset must be before second's".into(),
+                ));
+            }
         }
 
         // Save original state for undo
         self.original_first_duration = Some(first_segment.duration);
         self.original_first_original_duration = Some(first_segment.original_duration);
         self.original_playback_speed = Some(first_segment.playback_speed);
+        self.original_first_subtitle_text = Some(first_segment.subtitle_text.clone());
         self.removed_second_segment = Some(second_segment.clone());
         self.original_video_filters = Some(first_segment.video_filters.clone());
         self.original_audio_filters = Some(first_segment.audio_filters.clone());
         self.original_subtitle_filters = Some(first_segment.subtitle_filters.clone());
         self.original_image_filters = Some(first_segment.image_filters.clone());
 
-        // Use the same playback_speed for merged segment (must be consistent)
-        let playback_speed = first_segment.playback_speed;
-        let source_end = second_segment.source_offset + second_segment.original_duration;
-        let new_original_duration = source_end - first_segment.source_offset;
-        let new_duration =
-            Duration::from_secs_f64(new_original_duration.as_secs_f64() / playback_speed as f64);
+        // Subtitle merge: merge by timeline span, no requirement that the first
+        // segment ends exactly when the second starts (gaps/overlaps are allowed).
+        let (new_duration, new_original_duration) = if is_subtitle {
+            let first_start = first_segment.timeline_offset;
+            let first_end = first_segment.timeline_offset + first_segment.duration;
+            let second_end = second_segment.timeline_offset + second_segment.duration;
+            let span = second_end.max(first_end) - first_start;
+            (span, span)
+        } else {
+            // Use the same playback_speed for merged segment (must be consistent)
+            let playback_speed = first_segment.playback_speed;
+            let source_end = second_segment.source_offset + second_segment.original_duration;
+            let new_original_duration = source_end - first_segment.source_offset;
+            let new_duration =
+                Duration::from_secs_f64(new_original_duration.as_secs_f64() / playback_speed as f64);
+            (new_duration, new_original_duration)
+        };
 
         let original_total = first_segment.duration + second_segment.duration;
 
@@ -1951,9 +1969,23 @@ impl Command for MergeSegmentsCommand {
         let second_subtitle_filters = second_segment.subtitle_filters.clone();
         let second_image_filters = second_segment.image_filters.clone();
 
+        let merged_subtitle_text = if is_subtitle {
+            Some(match (&first_segment.subtitle_text, &second_segment.subtitle_text) {
+                (Some(a), Some(b)) => format!("{} {}", a.trim(), b.trim()),
+                (Some(a), None) => a.clone(),
+                (None, Some(b)) => b.clone(),
+                (None, None) => String::new(),
+            })
+        } else {
+            None
+        };
+
         track.modify_segment(self.first_segment_index, |segment| {
             segment.duration = new_duration;
             segment.original_duration = new_original_duration;
+            if let Some(text) = merged_subtitle_text {
+                segment.subtitle_text = Some(text);
+            }
             merge_filters_dedup_video(&mut segment.video_filters, &second_video_filters);
             merge_filters_dedup_audio(&mut segment.audio_filters, &second_audio_filters);
             merge_filters_dedup_subtitle(&mut segment.subtitle_filters, &second_subtitle_filters);
@@ -1984,6 +2016,9 @@ impl Command for MergeSegmentsCommand {
                 }
                 if let Some(speed) = self.original_playback_speed {
                     segment.playback_speed = speed;
+                }
+                if let Some(text) = self.original_first_subtitle_text.take() {
+                    segment.subtitle_text = text;
                 }
                 if let Some(filters) = self.original_video_filters.take() {
                     segment.video_filters = filters;
