@@ -49,16 +49,31 @@ fn fill_rect(img: &mut RgbaImage, x0: i64, y0: i64, w: u32, h: u32, color: Rgba<
 }
 
 /// Source-over blend of a coverage-weighted foreground pixel.
+///
+/// 必须保留 alpha 通道而不是强制 255：透明背景（GIF 导出）时，画布初始
+/// alpha=0、RGB 是背景色，若把前景色与背景 RGB 混合后再强制不透明，
+/// 抗锯齿边缘像素会混入背景色（默认黑色）并变成完全不透明，
+/// GIF 中表现为文字黑色描边。真正的 source-over 混合让边缘像素保持
+/// 前景色本身 + 部分透明；不透明背景（MP4）下与旧行为完全一致。
 fn blend_pixel(img: &mut RgbaImage, x: u32, y: u32, fg: Rgba<u8>, coverage: f32) {
     if coverage <= 0.0 {
         return;
     }
     let px = img.get_pixel_mut(x, y);
-    let a = coverage;
-    for i in 0..3 {
-        px.0[i] = (fg.0[i] as f32 * a + px.0[i] as f32 * (1.0 - a)) as u8;
+    let src_a = coverage * (fg[3] as f32 / 255.0);
+    if src_a <= 0.0 {
+        return;
     }
-    px.0[3] = 255;
+    let dst_a = px.0[3] as f32 / 255.0;
+    let out_a = src_a + dst_a * (1.0 - src_a);
+    if out_a <= 0.0 {
+        return;
+    }
+    for i in 0..3 {
+        px.0[i] =
+            ((fg.0[i] as f32 * src_a + px.0[i] as f32 * dst_a * (1.0 - src_a)) / out_a) as u8;
+    }
+    px.0[3] = (out_a * 255.0) as u8;
 }
 
 /// Draw a horizontal line across a cell at relative height `fraction`
