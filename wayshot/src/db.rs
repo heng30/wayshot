@@ -402,16 +402,18 @@ pub struct TtfxConfigData {
     pub ascii_font_path: String,
     pub non_ascii_font_family: String,
     pub non_ascii_font_path: String,
-    #[derivative(Default(value = "2"))]
-    pub padding_x: i32,
-    #[derivative(Default(value = "1"))]
-    pub padding_y: i32,
+    #[derivative(Default(value = "1920"))]
+    pub width: i32,
+    #[derivative(Default(value = "1080"))]
+    pub height: i32,
     pub background_color: String,
     #[derivative(Default(value = "30"))]
     pub fps: i32,
     pub seed: i32,
     #[derivative(Default(value = "1"))]
     pub loops: i32,
+    #[derivative(Default(value = "\"mp4\".to_string()"))]
+    pub export_format: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, SlintFromConvert, derivative::Derivative)]

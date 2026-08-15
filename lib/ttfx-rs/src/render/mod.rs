@@ -70,6 +70,9 @@ pub struct RenderConfig {
     pub fps: u32,
     /// Background color of the image (cells without an explicit background).
     pub background: Color,
+    /// Background alpha (0-255). Used for transparent backgrounds (e.g. GIF
+    /// export); MP4 export forces 255.
+    pub background_alpha: u8,
     /// Text anchoring inside the canvas (default bottom-left, matching TTE).
     pub anchor_text: Anchor,
     /// Font used to draw the glyphs.
@@ -92,6 +95,7 @@ impl RenderConfig {
             cell_height: 0,
             fps: 60,
             background: Color::from_hex("000000").expect("valid hex"),
+            background_alpha: 255,
             anchor_text: Anchor::Sw,
             font,
             seed: None,
@@ -116,6 +120,7 @@ impl RenderConfig {
             cell_height: 0,
             fps: 60,
             background: Color::from_hex("000000").expect("valid hex"),
+            background_alpha: 255,
             anchor_text: Anchor::Sw,
             font,
             seed: None,
@@ -140,32 +145,18 @@ impl RenderConfig {
     }
 }
 
-/// Compute the engine's text bounding box `(columns, rows)` for `input`:
-/// the widest line's character count (tabs expanded like the engine's
-/// preprocessor, `tab_width = 4`) and the number of non-trailing-empty lines.
-/// Mirrors the Preprocessor's screen layout so an auto-sized canvas never
-/// clips the text.
-fn text_bounding_box(input: &str) -> (i64, i64) {
-    const TAB_WIDTH: i64 = 4;
+/// 输入文本的行数（非尾部空行），用作 auto-size 画布高度；画布宽度由
+/// [`measure_text_width`] 按字形实际布局测量。
+fn text_line_count(input: &str) -> i64 {
     let effective = if input.is_empty() { "No Input." } else { input };
     let mut rows = 0i64;
-    let mut max_cols = 0i64;
-    for line in effective.lines() {
-        let mut cols = 0i64;
-        for c in line.chars() {
-            if c == '\t' {
-                cols += TAB_WIDTH - (cols % TAB_WIDTH);
-            } else {
-                cols += 1;
-            }
-        }
+    for _line in effective.lines() {
         rows += 1;
-        max_cols = max_cols.max(cols);
     }
     if rows == 0 {
         rows = 1;
     }
-    (max_cols.max(1), rows)
+    rows
 }
 
 /// One rendered frame: the pixel buffer plus its 0-based sequence index.
@@ -216,6 +207,68 @@ impl From<std::io::Error> for RenderError {
     }
 }
 
+/// 测量输入文本的实际字形布局跨度（min_x..max_x），返回最宽行占的字符格数
+/// （向上取整）。用 cosmic-text 布局而非 wcwidth 近似，且与 rasterize 的字形组
+/// 测量一致（跨度而非最右边界），保证画布宽度不小于字形组跨度，避免首尾
+/// 字形因负的 placement.left 被裁掉。
+fn measure_text_width(input: &str, render: &RenderConfig) -> i64 {
+    use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, SwashCache};
+
+    let (cell_w, cell_h) = render.resolved_cell_size();
+    let size = (cell_h as f32).max(2.0);
+    let mut system = render.font.font_system.lock().expect("font system poisoned");
+    let attrs = Attrs::new().family(Family::Name(&render.font.primary_family));
+
+    let effective = if input.is_empty() { "No Input." } else { input };
+    let mut max_cols = 0i64;
+    for line in effective.lines() {
+        let mut buffer = Buffer::new(&mut system, Metrics::new(size, size));
+        // 与 rasterize 的 draw_text_line 保持一致：设置布局区域宽度（防 wrap）。
+        buffer.set_size(Some(line.chars().count() as f32 * cell_w as f32 * 2.0 + 1.0), None);
+        buffer.set_text(line, &attrs, Shaping::Advanced, None);
+        buffer.shape_until_scroll(&mut system, false);
+
+        let mut cache = SwashCache::new();
+        let mut min_x = f32::MAX;
+        let mut max_x = f32::MIN;
+        for run in buffer.layout_runs() {
+            for glyph in run.glyphs {
+                let physical = glyph.physical((0.0, run.line_y), 1.0);
+                if let Some(image) = cache.get_image(&mut system, physical.cache_key) {
+                    let gx = physical.x as f32 + image.placement.left as f32;
+                    min_x = min_x.min(gx);
+                    max_x = max_x.max(gx + image.placement.width as f32);
+                }
+            }
+        }
+        if min_x <= max_x {
+            max_cols = max_cols.max(((max_x - min_x) / cell_w as f32).ceil() as i64);
+        }
+    }
+    max_cols.max(1)
+}
+
+/// 输入文本最宽行的字符数（引擎每字符占一格，画布列数必须不小于它，
+/// 否则引擎会把超出画布的字符放到画布外，frame_cells 不再返回，导致
+/// 渲染缺字符）。制表符按 4 格展开，与 Preprocessor 一致。
+fn max_char_count(input: &str) -> i64 {
+    const TAB_WIDTH: i64 = 4;
+    let effective = if input.is_empty() { "No Input." } else { input };
+    let mut max_cols = 0i64;
+    for line in effective.lines() {
+        let mut cols = 0i64;
+        for c in line.chars() {
+            if c == '\t' {
+                cols += TAB_WIDTH - (cols % TAB_WIDTH);
+            } else {
+                cols += 1;
+            }
+        }
+        max_cols = max_cols.max(cols);
+    }
+    max_cols.max(1)
+}
+
 /// Incremental renderer: owns the engine state and rasterizes one frame per
 /// call to [`SequenceRenderer::next_frame`].
 pub struct SequenceRenderer {
@@ -235,7 +288,11 @@ impl SequenceRenderer {
     pub fn new(input: &str, render: RenderConfig) -> Result<Self, RenderError> {
         let (cell_width, cell_height) = render.resolved_cell_size();
         let (cols, rows) = if render.auto_size {
-            let (text_width, text_height) = text_bounding_box(input);
+            // 列数取字形实际布局跨度与引擎网格列数（字符数）的较大值：
+            // 前者保证画布贴合字形无多余边距，后者保证引擎不会把字符
+            // 放到画布外导致渲染缺字符。行数按文本行数。
+            let text_width = measure_text_width(input, &render).max(max_char_count(input));
+            let text_height = text_line_count(input);
             (
                 text_width + render.padding_x as i64 * 2,
                 text_height + render.padding_y as i64 * 2,

@@ -148,9 +148,9 @@ fn rasterize_draws_glyph_and_background() {
     };
     let img = ttfx_rs::render::rasterize(std::slice::from_ref(&cell), &render);
     let mut painted = 0;
-    // The cell sits at the bottom of the image: y0 = height - row*cell_h = 140.
-    for y in 140..160 {
-        for x in 0..8 {
+    // 字形整行居中到画布：统计全图红色像素，验证字形确实被绘制。
+    for y in 0..img.height() {
+        for x in 0..img.width() {
             let p = img.get_pixel(x, y);
             if p[0] > 0 {
                 painted += 1;

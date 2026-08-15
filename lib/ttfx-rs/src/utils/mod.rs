@@ -1,4 +1,5 @@
 pub mod ansi;
+pub mod char_width;
 pub mod easing;
 pub mod geometry;
 pub mod graphics;

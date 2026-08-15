@@ -381,6 +381,11 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Choose media file", "选择媒体文件"),
             ("Choose model or tokenizer", "选择模型或分词器"),
             ("Export Subtitle", "导出字幕"),
+            ("Export TTFX Video", "导出 TTFX 视频"),
+            ("Export Format", "导出格式"),
+            ("GIF export supports transparent background", "GIF 导出支持透明背景"),
+            ("Loops", "循环次数"),
+            ("How many times the animation is replayed", "动画重放的次数"),
             ("Insert Above", "在上方插入"),
             ("Insert Below", "在下方插入"),
             ("Merge Above", "向上合并"),
@@ -561,6 +566,7 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Outline color", "轮廓颜色"),
             ("Outline width", "轮廓宽度"),
             ("Padding", "内边距"),
+            ("Canvas size; adjust with font size to fit the text", "画布尺寸；与字号配合调整以容纳文本"),
             ("Paste", "粘贴"),
             ("Paste Filter", "粘贴滤镜"),
             ("Playlist", "播放列表"),
@@ -2380,6 +2386,7 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("No audio samples to cache", "没有音频样本可供缓存"),
             ("Preamble samples cached", "前导样本已缓存"),
             ("Subtitle search", "字幕搜索"),
+            ("TTFX", "终端文本特效"),
         ])
     })
 }

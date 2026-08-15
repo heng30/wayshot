@@ -9,6 +9,7 @@
 use std::error::Error;
 
 use ttfx_rs::effects::EffectCommand;
+use ttfx_rs::engine::canvas::Anchor;
 use ttfx_rs::render::{render_to_pngs, Font, RenderConfig};
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -25,6 +26,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut render = RenderConfig::auto(24.0, 1, 1, font);
     render.seed = Some(7);
     render.fps = 30;
+    render.anchor_text = Anchor::C;
 
     let out_dir = "out/cjk";
     let mut effect = EffectCommand::from_name("print")

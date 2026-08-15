@@ -103,11 +103,23 @@ impl Canvas {
         anchor: Anchor,
     ) -> Result<Vec<CharId>, String> {
         use Anchor::*;
-        let input_width = characters
-            .iter()
-            .map(|&id| arena[id.0 as usize].input_coord.column)
-            .max()
-            .ok_or("no input characters to anchor")?;
+        // 视觉宽度按 wcwidth 计算（CJK/全宽字符算 2 列）：取所有行中视觉最宽
+        // 的一行。字符序数列只反映顺序，用它居中会把视觉上更宽的中文行放偏。
+        let input_width = {
+            use std::collections::HashMap;
+            let mut row_widths: HashMap<i64, i64> = HashMap::new();
+            for &id in &characters {
+                let ch = &arena[id.0 as usize];
+                let w = crate::utils::char_width::first_char_width(&ch.input_symbol);
+                *row_widths.entry(ch.input_coord.row).or_insert(0) += w;
+            }
+            row_widths
+                .values()
+                .copied()
+                .max()
+                .ok_or("no input characters to anchor")?
+                - 1
+        };
         let input_height = characters
             .iter()
             .map(|&id| arena[id.0 as usize].input_coord.row)
@@ -116,16 +128,19 @@ impl Canvas {
 
         let mut column_delta = 0;
         let mut row_delta = 0;
+        // 文本坐标是 1-based（底部为 1）：input_width 是视觉宽度-1，
+        // input_height 是行数。居中需用 (extent+1)/2，否则单行/奇数宽
+        // 会偏一个单元格。
         if input_width != self.width {
             match anchor {
-                S | N | C => column_delta = self.center_column - floor_div(input_width, 2),
+                S | N | C => column_delta = self.center_column - floor_div(input_width + 1, 2),
                 Se | E | Ne => column_delta = self.right - input_width,
                 Sw | W | Nw => column_delta = self.left - 1,
             }
         }
         if input_height != self.height {
             match anchor {
-                W | E | C => row_delta = self.center_row - floor_div(input_height, 2),
+                W | E | C => row_delta = self.center_row - floor_div(input_height + 1, 2),
                 Nw | N | Ne => row_delta = self.top - input_height,
                 Sw | S | Se => row_delta = self.bottom - 1,
             }

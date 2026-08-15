@@ -122,21 +122,42 @@ fn prepare_render(ui: &AppWindow, data: &TtfxConfigData) -> Option<(String, Stri
         }
     };
 
-    let background = if data.background_color.trim().is_empty() {
-        Color::from_hex("000000").expect("valid hex")
-    } else {
-        Color::from_hex(data.background_color.trim())
-            .unwrap_or_else(|_| Color::from_hex("000000").expect("valid hex"))
+    // 背景色支持 6 位（不透明）和 8 位（带 alpha）hex；alpha 仅 GIF 导出生效。
+    let (background, background_alpha) = {
+        let hex = data.background_color.trim().trim_start_matches('#');
+        if hex.len() == 8 {
+            let alpha = u8::from_str_radix(&hex[6..8], 16).unwrap_or(255);
+            let color = Color::from_hex(&hex[..6])
+                .unwrap_or_else(|_| Color::from_hex("000000").expect("valid hex"));
+            (color, alpha)
+        } else {
+            let color = if hex.is_empty() {
+                Color::from_hex("000000").expect("valid hex")
+            } else {
+                Color::from_hex(hex)
+                    .unwrap_or_else(|_| Color::from_hex("000000").expect("valid hex"))
+            };
+            (color, 255)
+        }
     };
 
-    let mut render = RenderConfig::auto(
-        data.font_size.max(4.0),
-        data.padding_x.max(0) as u32,
-        data.padding_y.max(0) as u32,
-        font,
-    );
+    // 固定分辨率画布：用户通过分辨率 + 字体大小灵活调整，避免字符被裁剪。
+    let width = (data.width.max(64) as u32) & !1;
+    let height = (data.height.max(64) as u32) & !1;
+    let mut render = RenderConfig::new(width, height, font);
+    // 字号按高度缩放到 1080P 基准，保证不同分辨率下视觉大小一致。
+    let scale = height as f32 / 1080.0;
+    render.font_size = data.font_size.max(4.0) * scale;
     render.fps = data.fps.max(1) as u32;
     render.background = background;
+
+    // GIF 导出支持透明背景，MP4 不透明。
+    render.background_alpha = if data.export_format == "gif" {
+        background_alpha
+    } else {
+        255
+    };
+
     // 库默认把文本锚定在画布左下角（Sw），这里改为居中。
     render.anchor_text = Anchor::C;
     render.seed = if data.seed > 0 {
@@ -167,36 +188,40 @@ fn video_editor_ttfx_start_preview(ui: &AppWindow, config: UITtfxConfig) {
     let ui_weak = ui.as_weak();
     let fps = render.fps;
     let thread_stop_sig = stop_sig.clone();
+    let loops = data.loops.max(1) as usize;
 
     std::thread::spawn(move || {
-        let Some(mut effect) = EffectCommand::from_name(&effect_name).map(|c| c.build_effect())
-        else {
-            return;
-        };
-        let mut renderer = match SequenceRenderer::new(&input, render) {
-            Ok(renderer) => renderer,
-            Err(e) => {
-                log::warn!("ttfx preview failed to create renderer: {e}");
-                return;
-            }
-        };
-        if let Err(e) = renderer.build_effect(effect.as_mut()) {
-            log::warn!("ttfx preview failed to build effect: {e}");
-            return;
-        }
-
         let frame_duration = Duration::from_secs_f32(1.0 / fps as f32);
         let start = Instant::now();
         let mut frame_idx: u32 = 0;
-        while let Some(frame) = renderer.next_frame(effect.as_mut()) {
-            if thread_stop_sig.load(Ordering::SeqCst) {
-                break;
+
+        for _ in 0..loops {
+            let Some(mut effect) = EffectCommand::from_name(&effect_name).map(|c| c.build_effect())
+            else {
+                return;
+            };
+            let mut renderer = match SequenceRenderer::new(&input, render.clone()) {
+                Ok(renderer) => renderer,
+                Err(e) => {
+                    log::warn!("ttfx preview failed to create renderer: {e}");
+                    return;
+                }
+            };
+            if let Err(e) = renderer.build_effect(effect.as_mut()) {
+                log::warn!("ttfx preview failed to build effect: {e}");
+                return;
             }
-            spin_sleep::sleep_until(start + frame_duration * frame_idx);
-            if sender.try_send(frame.image).is_err() {
-                // 接收端（UI）繁忙时丢弃这一帧，保证渲染线程不被阻塞。
+
+            while let Some(frame) = renderer.next_frame(effect.as_mut()) {
+                if thread_stop_sig.load(Ordering::SeqCst) {
+                    return;
+                }
+                spin_sleep::sleep_until(start + frame_duration * frame_idx);
+                if sender.try_send(frame.image).is_err() {
+                    // 接收端（UI）繁忙时丢弃这一帧，保证渲染线程不被阻塞。
+                }
+                frame_idx += 1;
             }
-            frame_idx += 1;
         }
     });
 
@@ -278,13 +303,27 @@ fn video_editor_ttfx_start_record(ui: &AppWindow, config: UITtfxConfig) {
     let thread_stop_sig = stop_sig.clone();
 
     tokio::spawn(async move {
-        // 弹出保存对话框选择输出位置，取消则停止并恢复状态。
+        let is_gif = data.export_format == "gif";
+        let (filter_name, ext, default_name) = if is_gif {
+            (
+                tr("GIF Image"),
+                "gif".to_string(),
+                format!("ttfx_{}.gif", chrono::Local::now().format("%Y%m%d_%H%M%S")),
+            )
+        } else {
+            (
+                tr("MP4 Video"),
+                "mp4".to_string(),
+                format!("ttfx_{}.mp4", chrono::Local::now().format("%Y%m%d_%H%M%S")),
+            )
+        };
+
         let Some(output_path) = picker_save_file(
             ui_weak_worker.clone(),
             &tr("Export TTFX Video"),
-            &tr("MP4 Video"),
-            &["mp4"],
-            &format!("ttfx_{}.mp4", chrono::Local::now().format("%Y%m%d_%H%M%S")),
+            &filter_name,
+            &[ext.as_str()],
+            &default_name,
         ) else {
             stop_record_thread();
             _ = ui_weak_worker.upgrade_in_event_loop(move |ui| {
@@ -295,18 +334,30 @@ fn video_editor_ttfx_start_record(ui: &AppWindow, config: UITtfxConfig) {
         };
 
         std::thread::spawn(move || {
-            let result = record_to_mp4(
-                &input,
-                &effect_name,
-                &render,
-                loops,
-                &output_path,
-                &thread_stop_sig,
-                &progress_sender,
-            );
+            let result = if is_gif {
+                record_to_gif(
+                    &input,
+                    &effect_name,
+                    &render,
+                    loops,
+                    &output_path,
+                    &thread_stop_sig,
+                    &progress_sender,
+                )
+            } else {
+                record_to_mp4(
+                    &input,
+                    &effect_name,
+                    &render,
+                    loops,
+                    &output_path,
+                    &thread_stop_sig,
+                    &progress_sender,
+                )
+            };
             match result {
                 Ok(path) => {
-                    let _ = progress_sender.send(1.0);
+                    _ = progress_sender.send(1.0);
                     _ = ui_weak_worker.upgrade_in_event_loop(move |ui| {
                         let ui_weak = ui.as_weak();
                         tokio::spawn(async move {
@@ -442,7 +493,7 @@ fn record_to_mp4(
             }
             encoded_frames += 1;
             let progress = (encoded_frames as f32 / total_frames as f32).min(0.99);
-            let _ = progress_sender.try_send(progress);
+            _ = progress_sender.try_send(progress);
 
             let rgb = frame_to_rgb(frame.image, width, height, need_pad, background_rgba);
             match encoder.encode_frame(rgb) {
@@ -487,6 +538,92 @@ fn record_to_mp4(
         .join()
         .map_err(|_| "Processor thread error".to_string())?;
 
+    Ok(output_path.to_path_buf())
+}
+
+/// 把效果渲染成 gif（无限循环）。帧保留 alpha 通道直接编码，
+/// GifEncoder 会把 alpha=0 的像素作为透明色，实现透明背景。
+fn record_to_gif(
+    input: &str,
+    effect_name: &str,
+    render: &RenderConfig,
+    loops: usize,
+    output_path: &Path,
+    stop_sig: &Arc<AtomicBool>,
+    progress_sender: &Sender<f32>,
+) -> Result<PathBuf, String> {
+    // 先探测一遍：获得总帧数。
+    let (frame_count, _, _) = probe_render(input, effect_name, render)?;
+    if stop_sig.load(Ordering::SeqCst) {
+        return Err("record stopped".to_string());
+    }
+    let total_frames = frame_count * loops as u32;
+    let delay_ms = 1000 / render.fps.max(1) as u32;
+
+    // GIF 编码是纯 Rust 的 256 色量化 + LZW 压缩，比 x264 慢得多；
+    // 放到独立线程异步编码，渲染线程只负责渲染帧并投递，不被编码阻塞。
+    let (frame_sender, frame_receiver) = crossbeam::channel::bounded::<(image::RgbaImage, u32)>(8);
+    let encoder_stop = Arc::new(AtomicBool::new(false));
+    let encoder_stop_thread = encoder_stop.clone();
+    let output_owned = output_path.to_path_buf();
+    let encoder_thread = std::thread::spawn(move || -> Result<(), String> {
+        let file = std::fs::File::create(&output_owned)
+            .map_err(|e| format!("Failed to create GIF file: {e}"))?;
+        let mut encoder = image::codecs::gif::GifEncoder::new(file);
+        encoder
+            .set_repeat(image::codecs::gif::Repeat::Infinite)
+            .map_err(|e| format!("Failed to set GIF repeat: {e}"))?;
+
+        while let Ok((image, delay_ms)) = frame_receiver.recv() {
+            if encoder_stop_thread.load(Ordering::SeqCst) {
+                return Err("record stopped".to_string());
+            }
+            // 用 from_numer_denom_ms(ms, 1) 而不是 from_saturating_duration：后者生成
+            // (ms, 1000) 的 ratio，GIF 编码器 to_integer() 得到 0，导致帧延迟全为 0。
+            let delay = image::Delay::from_numer_denom_ms(delay_ms, 1);
+            let gif_frame = image::Frame::from_parts(image, 0, 0, delay);
+            encoder
+                .encode_frame(gif_frame)
+                .map_err(|e| format!("Failed to encode GIF frame: {e}"))?;
+        }
+        Ok(())
+    });
+
+    let mut encoded_frames: u32 = 0;
+    let result = (|| -> Result<(), String> {
+        for _ in 0..loops {
+            let Some(mut effect) = EffectCommand::from_name(effect_name).map(|c| c.build_effect())
+            else {
+                return Err(format!("unknown effect: {effect_name}"));
+            };
+            let mut renderer = SequenceRenderer::new(input, render.clone())
+                .map_err(|e| format!("Failed to create renderer: {e}"))?;
+            renderer
+                .build_effect(effect.as_mut())
+                .map_err(|e| format!("Failed to build effect: {e}"))?;
+
+            while let Some(frame) = renderer.next_frame(effect.as_mut()) {
+                if stop_sig.load(Ordering::SeqCst) {
+                    encoder_stop.store(true, Ordering::SeqCst);
+                    return Err("record stopped".to_string());
+                }
+                encoded_frames += 1;
+                let progress = (encoded_frames as f32 / total_frames as f32).min(0.99);
+                let _ = progress_sender.try_send(progress);
+
+                if frame_sender.send((frame.image, delay_ms)).is_err() {
+                    return Err("GIF encoder channel closed".to_string());
+                }
+            }
+        }
+        Ok(())
+    })();
+    // 渲染结束：关闭通道，等待编码线程把队列里的帧写完。
+    drop(frame_sender);
+    encoder_thread
+        .join()
+        .map_err(|_| "GIF encoder thread panicked".to_string())??;
+    result?;
     Ok(output_path.to_path_buf())
 }
 

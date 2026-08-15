@@ -187,6 +187,12 @@ export component Header inherits Rectangle {
                             action: "video-editor-show-img-animation-dialog",
                         },
                         {
+                            icon: Icons.terminal-light,
+                            text: Logic.tr("TTFX"),
+                            shotcut: "Ctrl+Alt+T",
+                            action: "video-editor-show-ttfx-dialog",
+                        },
+                        {
                             icon: Icons.segmentation-light,
                             text: Logic.tr("Similar Video Segment"),
                             shotcut: "Ctrl+Alt+S",
@@ -227,12 +233,6 @@ export component Header inherits Rectangle {
                             text: Logic.tr("Code Image"),
                             shotcut: "Ctrl+Shift+C",
                             action: "video-editor-show-code-image-dialog",
-                        },
-                        {
-                            icon: Icons.terminal-light,
-                            text: Logic.tr("TTFX"),
-                            shotcut: "Ctrl+Alt+T",
-                            action: "video-editor-show-ttfx-dialog",
                         },
                         {
                             icon: Icons.color-picker-light,
