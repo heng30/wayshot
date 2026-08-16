@@ -6,13 +6,17 @@ use crate::{
     Result,
     filters::{
         keyframe::{KeyframeTracks, KeyframeValue},
-        subtitle::{renderer::create_text_image, style::SubtitleStyle},
+        subtitle::{
+            renderer::{create_text_image, text_image_size},
+            style::{SubtitleStyle, TextAlignment},
+        },
     },
     metadata::Metadata,
 };
 use image::{Rgba, RgbaImage, imageops};
 use imageproc::geometric_transformations::{Interpolation, rotate_about_center};
 use std::{path::PathBuf, sync::Arc, time::Duration};
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Clone, derivative::Derivative)]
 #[derivative(Default)]
@@ -255,6 +259,7 @@ fn render_text_element(
         .scaled_for_resolution(img.width(), img.height());
 
     let text_img = render_element_text(element, &scaled_style, typewriter_progress)?;
+    let revealed_width = text_img.width();
 
     let final_img = if rotation != 0.0 {
         apply_rotation(&text_img, rotation)
@@ -262,7 +267,12 @@ fn render_text_element(
         text_img
     };
 
-    let px = (position.0 * img.width() as f32).round() as i32 - final_img.width() as i32 / 2;
+    let anchor_x = (position.0 * img.width() as f32).round() as i32;
+    let px = if element.typewriter && typewriter_progress < 1.0 {
+        typewriter_anchor_x(element, &scaled_style, anchor_x, revealed_width)?
+    } else {
+        anchor_x - final_img.width() as i32 / 2
+    };
     let py = (position.1 * img.height() as f32).round() as i32 - final_img.height() as i32 / 2;
 
     blend_image(img, &final_img, px, py, opacity);
@@ -270,34 +280,49 @@ fn render_text_element(
     Ok(())
 }
 
-fn typewriter_reveal_text(text: &str, progress: f32) -> String {
-    use unicode_segmentation::UnicodeSegmentation;
-
+fn typewriter_reveal_text(text: &str, progress: f32, backward: bool) -> String {
     let lines: Vec<&str> = text.split("\\N").collect();
-    let total: usize = lines.iter().map(|l| l.graphemes(true).count()).sum();
-    let mut remaining = (progress * total as f32).round() as usize;
+    let counts: Vec<usize> = lines.iter().map(|l| l.graphemes(true).count()).collect();
+    let total: usize = counts.iter().sum();
+    let shown = (progress * total as f32).round() as usize;
 
-    if remaining >= total {
+    if shown >= total {
         return text.to_string();
     }
 
-    let mut shown_lines: Vec<String> = Vec::new();
-    for line in lines {
-        if remaining == 0 {
-            break;
+    if !backward {
+        let mut remaining = shown;
+        let mut out: Vec<String> = Vec::new();
+        for (i, line) in lines.iter().enumerate() {
+            if remaining == 0 {
+                break;
+            }
+            let count = counts[i];
+            if remaining >= count {
+                out.push((*line).to_string());
+                remaining -= count;
+            } else {
+                out.push(line.graphemes(true).take(remaining).collect());
+                remaining = 0;
+            }
         }
-
-        let count = line.graphemes(true).count();
-        if remaining >= count {
-            shown_lines.push(line.to_string());
-            remaining -= count;
-        } else {
-            shown_lines.push(line.graphemes(true).take(remaining).collect());
-            remaining = 0;
+        out.join("\\N")
+    } else {
+        let skip = total - shown;
+        let mut remaining_skip = skip;
+        let mut out: Vec<String> = Vec::new();
+        for (i, line) in lines.iter().enumerate() {
+            let count = counts[i];
+            if remaining_skip >= count {
+                remaining_skip -= count;
+                continue;
+            }
+            let graphemes: Vec<&str> = line.graphemes(true).collect();
+            out.push(graphemes[remaining_skip..].concat());
+            remaining_skip = 0;
         }
+        out.join("\\N")
     }
-
-    shown_lines.join("\\N")
 }
 
 fn render_element_text(
@@ -309,8 +334,25 @@ fn render_element_text(
         return create_text_image(&element.text, scaled_style);
     }
 
-    let revealed = typewriter_reveal_text(&element.text, typewriter_progress);
+    let backward = element.style.text_alignment == TextAlignment::Right;
+    let revealed = typewriter_reveal_text(&element.text, typewriter_progress, backward);
     create_text_image(&revealed, scaled_style)
+}
+
+fn typewriter_anchor_x(
+    element: &TextElement,
+    scaled_style: &SubtitleStyle,
+    anchor_x: i32,
+    revealed_width: u32,
+) -> Result<i32> {
+    let full_w = text_image_size(&element.text, scaled_style)?.0 as i32;
+    let revealed_w = revealed_width as i32;
+
+    Ok(match element.style.text_alignment {
+        TextAlignment::Left => anchor_x - full_w / 2,
+        TextAlignment::Right => anchor_x + full_w / 2 - revealed_w,
+        TextAlignment::Center => anchor_x - revealed_w / 2,
+    })
 }
 
 fn blend_image(dest: &mut RgbaImage, src: &RgbaImage, offset_x: i32, offset_y: i32, opacity: f32) {
@@ -501,6 +543,7 @@ pub fn create_text_layer_frame(
         1.0
     };
     let text_img = render_element_text(element, &scaled_style, progress)?;
+    let revealed_width = text_img.width();
 
     // original_image: 未经位置和旋转变换的原始文字图片
     let origin_video_image = VideoImage::image(text_img.clone());
@@ -514,7 +557,12 @@ pub fn create_text_layer_frame(
     let mut img = RgbaImage::new(output_width, output_height);
 
     // Calculate position (center the text at the given position)
-    let px = (position.0 * output_width as f32).round() as i32 - final_img.width() as i32 / 2;
+    let anchor_x = (position.0 * output_width as f32).round() as i32;
+    let px = if element.typewriter && progress < 1.0 {
+        typewriter_anchor_x(element, &scaled_style, anchor_x, revealed_width)?
+    } else {
+        anchor_x - final_img.width() as i32 / 2
+    };
     let py = (position.1 * output_height as f32).round() as i32 - final_img.height() as i32 / 2;
 
     blend_image(&mut img, &final_img, px, py, opacity);

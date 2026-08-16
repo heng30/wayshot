@@ -799,6 +799,56 @@ pub fn create_text_image(text: &str, style: &SubtitleStyle) -> Result<RgbaImage>
     create_text_image_with_cache(text, style, &mut font_system, &mut swash_cache)
 }
 
+/// 计算完整文本渲染后的图片尺寸 (宽, 高), 不产生实际图片.
+/// 用于逐字显示时确定最终布局的锚点位置.
+pub fn text_image_size(text: &str, style: &SubtitleStyle) -> Result<(u32, u32)> {
+    if !style.font_path.exists() {
+        return Err(Error::InvalidFile(format!(
+            "No found font: `{}`",
+            style.font_path.display()
+        )));
+    }
+
+    let preferred_family = if style.font_family.is_empty() {
+        None
+    } else {
+        Some(style.font_family.as_str())
+    };
+    let preferred_style = if style.font_style.is_empty() {
+        None
+    } else {
+        Some(style.font_style.as_str())
+    };
+
+    let mut font_system = FontSystem::new();
+    let (font_family, font_weight, font_fs_style) = load_font(
+        &style.font_path,
+        &mut font_system,
+        preferred_family,
+        preferred_style,
+    )?;
+    let font_size = style.font_size.max(1) as f32;
+    let (text_width, text_height, _, _) = calculate_text_size(
+        &mut font_system,
+        text,
+        font_size,
+        &font_family,
+        font_weight,
+        font_fs_style,
+        None,
+    )?;
+
+    let padding = style.padding.unwrap_or(0);
+    let outline_width = style.outline_width.unwrap_or(0);
+    let border_width = style.border_width.unwrap_or(0);
+    let total_padding = padding + outline_width + border_width;
+
+    Ok((
+        text_width + 2 * total_padding,
+        text_height + 2 * total_padding,
+    ))
+}
+
 pub fn render_text_to_image(img: &mut RgbaImage, text: &str, style: &SubtitleStyle) -> Result<()> {
     let scaled_style = style.scaled_for_resolution(img.width(), img.height());
 
