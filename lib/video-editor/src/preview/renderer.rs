@@ -246,8 +246,8 @@ impl PreviewRenderer {
         output_width: u32,
         output_height: u32,
     ) -> Option<LayerFrame> {
-        // 有关键帧的文本不缓存，因为每帧的 position/opacity/rotation 可能不同
-        if text_item.element.keyframe_tracks.has_keyframes() {
+        // 有关键帧或逐字显示的文本不缓存
+        if text_item.element.keyframe_tracks.has_keyframes() || text_item.element.typewriter {
             return create_text_layer_frame(
                 &text_item.element,
                 text_item.segment.clone(),

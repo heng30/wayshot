@@ -335,6 +335,8 @@ pub struct TextStyleConfig {
     #[serde(default = "default_alignment")]
     #[derivative(Default(value = "1"))]
     pub alignment: i32, // 0=Left, 1=Center, 2=Right
+    #[serde(default)]
+    pub typewriter: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

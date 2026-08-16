@@ -172,6 +172,8 @@ pub struct TextElementData {
     pub padding: Option<u32>,
     pub border_width: Option<u32>,
     pub border_color: Option<(u8, u8, u8, u8)>,
+    #[serde(default)]
+    pub typewriter: bool,
     pub text_alignment: Option<String>,
 }
 
@@ -407,6 +409,7 @@ impl From<&TextElement> for TextElementData {
             padding: element.style.padding,
             border_width: element.style.border_width,
             border_color: element.style.border_color.map(|c| (c[0], c[1], c[2], c[3])),
+            typewriter: element.typewriter,
             text_alignment: Some(element.style.text_alignment.to_string()),
         }
     }
@@ -721,6 +724,7 @@ impl From<&TextElementData> for TextElement {
                     .and_then(|s| s.parse::<TextAlignment>().ok())
                     .unwrap_or_default(),
             },
+            typewriter: data.typewriter,
             keyframe_tracks: KeyframeTracks::default(),
         }
     }

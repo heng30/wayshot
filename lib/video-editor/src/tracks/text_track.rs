@@ -29,6 +29,8 @@ pub struct TextElement {
     #[derivative(Default(value = "0.0"))]
     pub rotation: f32,
 
+    pub typewriter: bool,
+
     pub keyframe_tracks: KeyframeTracks,
 }
 
@@ -213,7 +215,12 @@ impl TextTrack {
             if let Some(element) = &segment.text_element {
                 let relative_time = time.saturating_sub(segment.timeline_offset);
                 let time_ms = relative_time.as_millis() as i64;
-                render_text_element(&mut img, element, time_ms)?;
+                let progress = if element.typewriter && !segment.duration.is_zero() {
+                    (relative_time.as_secs_f32() / segment.duration.as_secs_f32()).clamp(0.0, 1.0)
+                } else {
+                    1.0
+                };
+                render_text_element(&mut img, element, time_ms, progress)?;
             }
         }
 
@@ -221,7 +228,12 @@ impl TextTrack {
     }
 }
 
-fn render_text_element(img: &mut RgbaImage, element: &TextElement, time_ms: i64) -> Result<()> {
+fn render_text_element(
+    img: &mut RgbaImage,
+    element: &TextElement,
+    time_ms: i64,
+    typewriter_progress: f32,
+) -> Result<()> {
     let position = element
         .get_value_at_time("position", time_ms)
         .and_then(|v| v.as_float2())
@@ -242,7 +254,7 @@ fn render_text_element(img: &mut RgbaImage, element: &TextElement, time_ms: i64)
         .style
         .scaled_for_resolution(img.width(), img.height());
 
-    let text_img = create_text_image(&element.text, &scaled_style)?;
+    let text_img = render_element_text(element, &scaled_style, typewriter_progress)?;
 
     let final_img = if rotation != 0.0 {
         apply_rotation(&text_img, rotation)
@@ -256,6 +268,49 @@ fn render_text_element(img: &mut RgbaImage, element: &TextElement, time_ms: i64)
     blend_image(img, &final_img, px, py, opacity);
 
     Ok(())
+}
+
+fn typewriter_reveal_text(text: &str, progress: f32) -> String {
+    use unicode_segmentation::UnicodeSegmentation;
+
+    let lines: Vec<&str> = text.split("\\N").collect();
+    let total: usize = lines.iter().map(|l| l.graphemes(true).count()).sum();
+    let mut remaining = (progress * total as f32).round() as usize;
+
+    if remaining >= total {
+        return text.to_string();
+    }
+
+    let mut shown_lines: Vec<String> = Vec::new();
+    for line in lines {
+        if remaining == 0 {
+            break;
+        }
+
+        let count = line.graphemes(true).count();
+        if remaining >= count {
+            shown_lines.push(line.to_string());
+            remaining -= count;
+        } else {
+            shown_lines.push(line.graphemes(true).take(remaining).collect());
+            remaining = 0;
+        }
+    }
+
+    shown_lines.join("\\N")
+}
+
+fn render_element_text(
+    element: &TextElement,
+    scaled_style: &SubtitleStyle,
+    typewriter_progress: f32,
+) -> Result<image::RgbaImage> {
+    if !element.typewriter || typewriter_progress >= 1.0 {
+        return create_text_image(&element.text, scaled_style);
+    }
+
+    let revealed = typewriter_reveal_text(&element.text, typewriter_progress);
+    create_text_image(&revealed, scaled_style)
 }
 
 fn blend_image(dest: &mut RgbaImage, src: &RgbaImage, offset_x: i32, offset_y: i32, opacity: f32) {
@@ -440,7 +495,12 @@ pub fn create_text_layer_frame(
         .style
         .scaled_for_resolution(output_width, output_height);
 
-    let text_img = create_text_image(&element.text, &scaled_style)?;
+    let progress = if element.typewriter && !segment.duration.is_zero() {
+        (relative_time.as_secs_f32() / segment.duration.as_secs_f32()).clamp(0.0, 1.0)
+    } else {
+        1.0
+    };
+    let text_img = render_element_text(element, &scaled_style, progress)?;
 
     // original_image: 未经位置和旋转变换的原始文字图片
     let origin_video_image = VideoImage::image(text_img.clone());

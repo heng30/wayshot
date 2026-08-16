@@ -48,6 +48,7 @@ video-encoder.workspace = true
 derive_setters.workspace = true
 mp3lame-encoder.workspace = true
 fast_image_resize.workspace = true
+unicode-segmentation.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 yuv = { workspace = true, features = ["rayon"] }
 cutil = { workspace = true, features = ["str"] }

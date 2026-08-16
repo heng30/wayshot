@@ -15921,6 +15921,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.19",
  "turn-rs",
+ "unicode-segmentation",
  "usvg",
  "uuid",
  "video-encoder",

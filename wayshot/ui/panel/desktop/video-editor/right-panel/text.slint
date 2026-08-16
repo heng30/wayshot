@@ -21,6 +21,8 @@ import {
     Select,
     TxtEdit,
     ConfirmBtn,
+    SwitchBtn,
+    SettingDetailSwitch,
 } from "../../../../base/widgets.slint";
 import { VEFilter, KeyframeValue } from "../filter.slint";
 import { KeyframeButton } from "filter/keyframe-btn.slint";
@@ -739,6 +741,18 @@ component TextEditorStylePanel inherits Rectangle {
                             current-element.alignment = index;
                             update-element();
                         }
+                    }
+                }
+
+                SettingDetailSwitch {
+                    checked: current-element.typewriter;
+                    gain-focus-when-clicked: false;
+                    icon: Icons.typewriter-light;
+                    text: self.checked ? Logic.tr("Typewriter Enabled") : Logic.tr("Typewriter Disabled");
+
+                    toggled() => {
+                        current-element.typewriter = self.checked;
+                        update-element();
                     }
                 }
             }

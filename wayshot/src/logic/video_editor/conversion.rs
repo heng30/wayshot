@@ -1147,6 +1147,7 @@ impl From<TextElement> for UITextElement {
             border_color_g: border_color[1] as i32,
             border_color_b: border_color[2] as i32,
             border_color_a: border_color[3] as i32,
+            typewriter: element.typewriter,
             alignment,
         }
     }
@@ -1241,8 +1242,9 @@ impl From<UITextElement> for TextElement {
             position: (ui_element.position_x, ui_element.position_y),
             opacity: ui_element.opacity,
             rotation: ui_element.rotation,
-            style,
+            typewriter: ui_element.typewriter,
             keyframe_tracks: Default::default(),
+            style,
         }
     }
 }
@@ -1276,6 +1278,7 @@ impl From<&UITextElement> for TextStyleConfig {
             border_color_b: element.border_color_b,
             border_color_a: element.border_color_a,
             alignment: element.alignment,
+            typewriter: element.typewriter,
         }
     }
 }
@@ -1313,6 +1316,7 @@ impl From<&TextStyleConfig> for UITextElement {
             border_color_b: config.border_color_b,
             border_color_a: config.border_color_a,
             alignment: config.alignment,
+            typewriter: config.typewriter,
         }
     }
 }
