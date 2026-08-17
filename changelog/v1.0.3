@@ -1,0 +1,125 @@
+# v1.0.3
+
+## English
+
+### Highlights
+
+- **TTFX Text Effects** — New TTFX text-effect engine: create animated text with per-character effects, configurable resolution presets (480P–4K / portrait / square), export to video or transparent GIF, and a **typewriter reveal** mode for progressive word/character display.
+- **Two New Filters** — **Liquid Glass**: frosted-glass rounded card with refraction, dispersion, blur and color grading (12 animatable parameters); **Wind Scatter**: particle breakup effect with wind direction, scatter distance, particle rotation and random seed.
+- **Photo Dedup Tool** — New duplicate-photo finder with a three-stage pipeline (SHA-256 exact match, dHash perceptual, CLIP semantic), directory scanning, staged progress, cooperative cancel, and a full settings dialog (Ctrl+Alt+D).
+- **Subtitle Search** — Instant subtitle/transcription search with live filtering and click-to-jump (Alt+F).
+- **Upgrade Notifier** — UpdateDialog checks GitHub Releases API and notifies users when a newer version is available, with "don't ask again" persistence.
+
+### Features
+
+#### TTFX Text Effects
+- TTFX live preview and recording with a configuration dialog (format / resolution / background color, loop count)
+- Fixed resolution presets; font size scales by height to keep visuals consistent across presets
+- Full-line cosmic-text layout: CJK glyphs keep natural width with per-character animation offsets
+- Typewriter reveal: progressive character display by alignment (right-aligned plays in reverse), progress computation and rendering
+
+#### GIF Export
+- GIF export with transparent background (8-digit hex background color) and infinite loop; encoding runs on an async thread
+
+#### New Filters
+- **Liquid Glass**: rounded frosted-glass card with refraction, chromatic dispersion, blur and color grading; 12 animatable parameters; pixel params auto-scale to 1080p; preview radius drag handles
+- **Wind Scatter**: wind direction, scatter distance, particle rotation and random seed; parameter panel, filter list and MCP service registration
+
+#### Tools
+- **Photo Dedup**: SHA-256 / dHash / CLIP three-stage pipeline; directory scan, staged progress, cooperative cancel; result sorting (errors > done, keep > move); settings dialog (thresholds, keep strategy, dup-dir name, CLIP model download)
+- **Subtitle Search**: vertical layout (search box + virtual ListView), instant filter, click a result to seek to the subtitle start
+
+#### Timeline & Editing
+- Preview timeline **bookmarks**: rendered markers, left-click to jump, right-click menu (delete single / add or delete all with confirmation); persisted into project files
+- **Non-linked segment deletion** (C shortcut): delete a segment without touching linked segments; toolbar button and icon
+- **Subtitle track segment merge**: merge segments spanning the timeline regardless of gap/overlap, concatenating subtitle text
+
+#### UI & System
+- **Update dialog**: GitHub Releases API check, semantic version comparison, "don't ask again" persistence (config.skip-update-version)
+- **Slint dynamic-z patch**: upgraded to slint 1.17.1 with dynamic z-ordering; move dialogs can be brought to front by clicking
+- **Sub-menu support** for popup menus: AI tools regrouped into Video / Image / Audio sub-menus; new "Text to Speech" toolbar button
+- **Preview edit-mode toggle** (E shortcut): temporarily hide the overlays to inspect the raw render
+- **Arch Linux packaging** (PKGBUILD + pkg-arch.sh) and Makefile target
+
+### Improvements
+
+- Waveform precision setting (Low 15 / Medium 25 / High 30) with on-change refresh of all segment waveforms
+- Snap lookup precision setting (Low / Medium / High / Ultra), snap search throttled by precision factor
+- SRT timestamp support without the hours field; timeline end-slot judgment fixed to append the final time label
+- Chinese numeral conversion: thousand separators (1000 → 1,000) and decimal scenarios (三点一四 → 3.14)
+- Audio waveform sample rate raised from 15 Hz to 30 Hz
+- Status bar draggable toggle and clicked/top-z callbacks; move dialog click-to-front via dynamic z
+- Subtitle list virtual viewport keeps a margin before culling
+
+### Bug Fixes
+
+- **Transparent GIF export**: text no longer gets a black outline — blend_pixel now uses proper source-over alpha blending
+- **TTFX recording**: fixed black preview and progress stuck at 99%; save dialog is shown on stop
+- **Photo Dedup**: fixed wrong scan-directory existence check that gated the settings dialog
+- **Project title**: closing a project now resets the project name instead of leaving the old name in the window title
+- **Timeline tail slot**: fixed last-slot detection so the final time label is rendered
+- Deleted segment no longer leaves stale selected-filter / edit-mode state; focus resets cleanly
+- Transcribe separator removal keeps digits' commas
+
+---
+
+## 简体中文
+
+### 亮点
+
+- **TTFX 文字特效** — 全新文字特效引擎：逐字符动画文字，支持分辨率预设（480P~4K/竖屏/方形），可导出视频或透明 GIF，并支持**打字机逐字显示**模式。
+- **新增两个滤镜** — **液态玻璃**：圆角磨砂玻璃卡片，含折射、色散、模糊与调色（12 个可动画参数）；**风吹飘散**：粒子破碎效果，可调风向、飘散距离、粒子旋转与随机种子。
+- **照片去重工具** — 全新重复照片查找器，三重管线（SHA-256 精确匹配、dHash 感知、CLIP 语义），支持目录扫描、阶段进度、协作取消与完整设置对话框（Ctrl+Alt+D）。
+- **字幕搜索** — 字幕/转录即时搜索，实时过滤、点击跳转（Alt+F）。
+- **更新提示** — UpdateDialog 通过 GitHub Releases API 检测新版本并提醒用户，支持"不再提示"持久化。
+
+### 新功能
+
+#### TTFX 文字特效
+- TTFX 实时预览与录制，配置对话框（格式/分辨率/背景色、循环次数）
+- 固定分辨率预设；字号按高度缩放，各预设间视觉一致
+- 整行 cosmic-text 布局：CJK 字形保持自然宽度，支持逐字符动画偏移
+- 打字机逐字显示：按对齐方式渐进显示（右对齐反向逐字），含进度计算与渲染
+
+#### GIF 导出
+- GIF 导出支持透明背景（8 位 hex 背景色）与无限循环；编码走异步线程
+
+#### 新增滤镜
+- **液态玻璃**：圆角磨砂玻璃卡片，折射、色散、模糊与调色；12 个可动画参数；像素参数按 1080p 缩放；预览圆角边框拖拽
+- **风吹飘散**：风向、飘散距离、粒子旋转、随机种子；参数面板、滤镜列表与 MCP 服务注册
+
+#### 工具
+- **照片去重**：SHA-256 / dHash / CLIP 三重管线；目录扫描、阶段进度、协作取消；结果排序（错误 > 完成，保留 > 移动）；设置对话框（阈值、保留策略、重复目录名、CLIP 模型下载）
+- **字幕搜索**：垂直布局（搜索框 + 虚拟 ListView），输入即过滤，点击结果跳转到字幕开始位置
+
+#### 时间轴与编辑
+- 预览时间轴 **bookmark**：标记渲染、左键点击跳转、右键菜单（删除单个 / 在播放头位置添加或删除全部，删除全部带确认）；随项目文件持久化
+- **非关联删除片段**（C 快捷键）：仅删除目标片段不影响关联片段；工具栏按钮与图标
+- **字幕轨道片段合并**：按时间线跨度合并，允许间隔/重叠，自动拼接字幕文本
+
+#### UI 与系统
+- **更新提示对话框**：GitHub Releases API 检查、语义化版本比较、"不再提示"持久化（config.skip-update-version）
+- **slint 动态 z 补丁**：升级至 slint 1.17.1 并支持动态层级；移动对话框点击置顶
+- 弹出菜单**子菜单支持**：AI 工具菜单重构为「视频 / 图像 / 音频」子菜单分组；新增「文本转语音」工具条按钮
+- **预览编辑模式开关**（E 快捷键）：临时隐藏叠加层，观察原始渲染效果
+- **Arch Linux 打包**（PKGBUILD + pkg-arch.sh）及 Makefile 目标
+
+### 优化
+
+- 波形精度选择（低 15 / 中 25 / 高 30），变更时刷新全部片段波形采样数据
+- Snap 查找精度设置（Low / Medium / High / Ultra），按精度因子节流查找
+- SRT 时间戳支持无小时制格式；修复时间轴末尾槽位判断，补齐最后时间标签
+- 中文数字转换：支持千分位分隔符（1000 → 1,000）与小数点场景（三点一四 → 3.14）
+- 波形显示采样率从 15Hz 提升至 30Hz
+- 状态栏新增 draggable 开关与 clicked/top-z 回调；移动对话框基于动态 z 点击置顶
+- 删除片段时清理选中滤镜与编辑模式的残留状态
+
+### Bug 修复
+
+- **透明 GIF 导出**：文字不再出现黑色描边 —— blend_pixel 改为真正的 source-over alpha 混合
+- **TTFX 录制**：修复预览黑屏与进度卡 99%；停止时弹出保存对话框
+- **照片去重**：修复错误检查扫描目录是否存在，作为弹出设置对话框的依据
+- **项目标题**：关闭项目后重置项目名，修复窗口标题残留旧项目名称
+- **时间轴末尾槽位**：修复末尾槽位判断，确保最后时间标签正确渲染
+- 删除片段后不再残留过期的 selected-filter / 编辑模式状态
+- 转写分隔符移除时保留数字间逗号
