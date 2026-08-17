@@ -520,13 +520,21 @@ component TimelineThumbnail inherits Rectangle {
     height: Theme.icon-size * 1.5;
     background: Theme.table-item-second;
     HorizontalLayout {
-        private property <int> total-index: root.timeline-width / label-width;
+        private property <length> label-preferred-width;
+        private property <bool> has-last-slot: mod(root.timeline-width, label-width) > label-preferred-width;
+        private property <int> total-index: root.timeline-width / label-width + (has-last-slot ? 1 : 0);
 
         alignment: start;
 
         for index in total-index: HorizontalLayout {
             width: label-width;
             spacing: Theme.spacing;
+
+            init => {
+                if index == 0 {
+                    label-preferred-width = lb.preferred-width;
+                }
+            }
 
             VerticalLayout {
                 alignment: end;
@@ -542,7 +550,7 @@ component TimelineThumbnail inherits Rectangle {
             VerticalLayout {
                 alignment: end;
                 padding-bottom: Theme.padding / 2;
-                Label {
+                lb := Label {
                     text: Logic.video-editor-calc-timeline-offset(index, root.timeline-width / label-width, Store.video-editor-timeline-flag);
                     font-size: Theme.default-font-size * 0.8;
                     color: Theme.regular-text-color;

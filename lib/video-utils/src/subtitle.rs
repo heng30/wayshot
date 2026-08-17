@@ -25,6 +25,11 @@ pub fn ms_to_srt_timestamp(milliseconds: u64) -> String {
     ms_to_timestamp(milliseconds, ",")
 }
 
+#[inline]
+pub fn ms_to_srt_timestamp_without_hours(milliseconds: u64) -> String {
+    ms_to_timestamp_without_hours(milliseconds, ",")
+}
+
 fn ms_to_timestamp(milliseconds: u64, ms_sep: &str) -> String {
     let total_seconds = milliseconds / 1000;
     let hours = total_seconds / 3600;
@@ -36,6 +41,15 @@ fn ms_to_timestamp(milliseconds: u64, ms_sep: &str) -> String {
         "{:02}:{:02}:{:02}{ms_sep}{:03}",
         hours, minutes, seconds, millis
     )
+}
+
+fn ms_to_timestamp_without_hours(milliseconds: u64, ms_sep: &str) -> String {
+    let total_seconds = milliseconds / 1000;
+    let minutes = (total_seconds % 3600) / 60;
+    let seconds = total_seconds % 60;
+    let millis = milliseconds % 1000;
+
+    format!("{:02}:{:02}{ms_sep}{:03}", minutes, seconds, millis)
 }
 
 pub fn srt_timestamp_to_ms(timestamp: &str) -> Result<u64> {

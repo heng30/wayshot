@@ -81,10 +81,18 @@ export component Timeline inherits Rectangle {
 
             Rectangle {
                 HorizontalLayout {
-                    private property <int> total-index: root.timeline-width / label-width;
+                    private property <length> label-preferred-width;
+                    private property <bool> has-last-slot: mod(root.timeline-width, label-width) > label-preferred-width;
+                    private property <int> total-index: root.timeline-width / label-width + (has-last-slot ? 1 : 0);
 
                     for index in total-index: HorizontalLayout {
                         spacing: Theme.spacing;
+
+                        init => {
+                            if index == 0 {
+                                label-preferred-width = lb.preferred-width;
+                            }
+                        }
 
                         VerticalLayout {
                             alignment: center;
@@ -97,7 +105,7 @@ export component Timeline inherits Rectangle {
                             }
                         }
 
-                        Label {
+                        lb := Label {
                             text: Logic.video-editor-calc-timeline-offset(index, root.timeline-width / label-width, Store.video-editor-timeline-flag);
                             font-size: Theme.default-font-size * 0.8;
                             color: Theme.regular-text-color;

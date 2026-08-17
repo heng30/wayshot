@@ -875,6 +875,8 @@ fn cn() -> &'static HashMap<&'static str, &'static str> {
             ("Terminal Style", "终端样式"),
             ("Style", "样式"),
             ("Text Alignment", "文本对齐"),
+            ("Typewriter Disabled", "已禁用打字机"),
+            ("Typewriter Enabled", "已启用打字机"),
             ("Tool", "工具"),
             ("Transcribe", "转录"),
             ("Window Title", "窗口标题"),
