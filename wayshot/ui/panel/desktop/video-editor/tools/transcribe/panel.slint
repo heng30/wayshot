@@ -252,7 +252,7 @@ export component TranscribeTextDialog inherits MovingDialog {
                 if !input-te.text.is-empty {
                     Logic.video-editor-transcribe-subtitles-correction-with-text(input-te.text);
                     input-te.clear();
-                    Store.video-editor-transcribe-is-show-original-text-dialog = false;
+                    root.close();
                 }
             }
         }
