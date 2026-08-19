@@ -916,7 +916,7 @@ export component TTSAddDialog inherits MovingDialog {
                     if !input-te.text.is-empty {
                         Logic.video-editor-tts-add-entry(input-te.text);
                         input-te.clear();
-                        root.close();
+                        root.inner-close();
                     }
                 }
             }

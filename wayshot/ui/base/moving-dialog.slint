@@ -42,6 +42,10 @@ export component MovingDialog inherits Rectangle {
     callback maximal();
     callback resize(offset-x: length, offset-y: length);
 
+    public function inner-close() {
+        sb.close();
+    }
+
     init => {
         root.normal-header-width = root.header-width;
         self.z = MovingDialogSetting.inc-fetch-z();
