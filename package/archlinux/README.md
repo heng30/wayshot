@@ -2,6 +2,10 @@
 
 Two ways to produce an Arch Linux package (`.pkg.tar.zst`):
 
+## Install build tools
+- `sudo pacman -S --needed base-devel`
+- `sudo pacman -S debugedit`
+
 ## Quick pack (uses the already-built release binary)
 
 Prerequisites (on Arch Linux):
@@ -21,10 +25,15 @@ make archlinux
 Output: `package/archlinux/wayshot-<version>-1-x86_64.pkg.tar.zst`
 
 Install / uninstall:
-
 ```bash
 sudo pacman -U wayshot-<version>-1-x86_64.pkg.tar.zst
 sudo pacman -R wayshot
+```
+
+Metadata / Files
+```bash
+pacman -Qip /path/to/package.pkg.tar.zst
+pacman -Qlp /path/to/package.pkg.tar.zst
 ```
 
 ## From source (PKGBUILD)
