@@ -75,10 +75,9 @@ rodio = { version = "0.22", default-features = false }
 winapi = { version = "0.3", default-features = false }
 fast2s = { version = "0.3", default-features = false }
 cfg-if = { version = "1.0", default-features = false }
-rubato = { version = "4.0", default-features = false }
+rubato = { version = "5.0", default-features = false }
 rustls = { version = "0.23", default-features = false }
 nokhwa = { version = "0.10", default-features = false }
-webrtc = { version = "0.17", default-features = false }
 pinyin = { version = "0.11", default-features = false }
 base64 = { version = "0.23", default-features = false }
 fdk-aac = { version = "0.8", default-features = false }
@@ -97,6 +96,7 @@ symphonia = { version = "0.6", default-features = false }
 photon-rs = { version = "0.3", default-features = false }
 voxcpm-rs = { version = "0.5", default-features = false }
 stacksafe = { version = "1.0", default-features = false }
+webrtc = { version = "=0.17.2", default-features = false }
 candle-nn = { version = "0.11", default-features = false }
 indicatif = { version = "0.18", default-features = false }
 serde_yaml = { version = "0.9", default-features = false }
@@ -117,7 +117,7 @@ html-escape = { version = "0.2", default-features = false }
 urlencoding = { version = "2.1", default-features = false }
 ndarray-npy = { version = "0.10", default-features = false }
 candle-core = { version = "0.11", default-features = false }
-egui_extras = { version = "0.35", default-features = false }
+egui_extras = { version = "0.36", default-features = false }
 display-info = { version = "0.5", default-features = false }
 cmudict-fast = { version = "0.8", default-features = false }
 portable-pty = { version = "0.9", default-features = false }
@@ -172,7 +172,7 @@ num-complex = { version = "0.4", default-features = false, features = ["std"] }
 quote = { version = "1.0", default-features = false, features = ["proc-macro"] }
 stunclient = { version = "0.4", default-features = false, features = ["async"] }
 tokenizers = { version = "0.23", default-features = false, features = ["onig"] }
-scenesdetect = { version = "0.1", default-features = false, features = ["std"] }
+scenesdetect = { version = "0.3", default-features = false, features = ["std"] }
 
 syn = { version = "3.0", default-features = false, features = [
   "derive",
@@ -214,12 +214,12 @@ webpx = { version = "0.4", default-features = false, features = [
   "encode",
   "animation",
 ] }
-usvg = { version = "0.47", default-features = false, features = [
+usvg = { version = "0.48", default-features = false, features = [
   "text",
   "system-fonts",
   "memmap-fonts",
 ] }
-resvg = { version = "0.47", default-features = false, features = [
+resvg = { version = "0.48", default-features = false, features = [
   "text",
   "system-fonts",
   "memmap-fonts",
@@ -275,7 +275,7 @@ voxudio = { version = "0.7", default-features = false, features = [
   "sonic",
   "device",
 ] }
-eframe = { version = "0.35", default-features = false, features = [
+eframe = { version = "0.36", default-features = false, features = [
   "glow",
   "x11",
   "wayland",
@@ -313,7 +313,7 @@ minijinja = { version = "2.21", default-features = false, features = [
   "deserialization",
   "std_collections",
 ] }
-ffmpeg-next = { version = "8.0", default-features = false, features = [
+ffmpeg-next = { version = "9.0", default-features = false, features = [
   "codec",
   "device",
   "filter",

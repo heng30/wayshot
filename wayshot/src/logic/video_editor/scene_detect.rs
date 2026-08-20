@@ -21,7 +21,7 @@ use scenesdetect::{
 };
 use slint::{ComponentHandle, Weak};
 use std::{
-    num::NonZeroU32,
+    num::NonZeroI32,
     sync::{
         Arc,
         atomic::{AtomicU32, Ordering},
@@ -252,7 +252,7 @@ fn detect_scene_split_points(
         return Ok(vec![]);
     }
 
-    let tb = Timebase::new(fps.round() as u32, NonZeroU32::new(1).unwrap());
+    let tb = Timebase::new(fps.round() as i32, NonZeroI32::new(1).unwrap());
     let frames_per_chunk = fps.ceil() as usize;
     let total_chunks = duration_secs.ceil() as usize;
     let start_frame = (segment.source_offset.as_secs_f64() * fps) as usize;

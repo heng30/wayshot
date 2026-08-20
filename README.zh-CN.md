@@ -185,7 +185,7 @@ i-slint-backend-qt = { path = "vendor/i-slint-backend-qt" }
 - `Ubuntu` 安装编译依赖：
     ```bash
     sudo apt install \
-      libxcb-composite0-dev imagemagick libasound2-dev libpipewire-0.3-dev libx264-dev libx11-dev \
+      libxcb-composite0-dev imagemagick libasound2-dev libpipewire-0.3-dev libx11-dev pkg-config \
       libxi-dev libxtst-dev libevdev-dev libfontconfig-dev libavcodec-dev libavformat-dev libavutil-dev \
       libswscale-dev libavfilter-dev libavdevice-dev libssl-dev clang libclang-dev libx264-dev libx265-dev \
       libfdk-aac-dev libmp3lame-dev libopus-dev libvpx-dev libvorbis-dev qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
