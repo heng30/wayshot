@@ -1160,13 +1160,35 @@ fn video_editor_transcribe_subtitle_merge_above(ui: &AppWindow, index: i32) {
 
     let mut prev = subtitles.row_data(index - 1).unwrap();
     let current = subtitles.row_data(index).unwrap();
+    let without_space_chars = ['、', '：', '，', '。', '；', '？', '！'];
 
     prev.end_timestamp = current.end_timestamp;
-    prev.original_text = format!("{} {}", prev.original_text, current.original_text).into();
+    prev.original_text = format!(
+        "{}{}{}",
+        prev.original_text,
+        if prev.original_text.ends_with(without_space_chars) {
+            ""
+        } else {
+            " "
+        },
+        current.original_text
+    )
+    .into();
+
     prev.correction_text = if current.correction_text.is_empty() {
         format!("{}{}", prev.correction_text, current.correction_text).into()
     } else {
-        format!("{} {}", prev.correction_text, current.correction_text).into()
+        format!(
+            "{}{}{}",
+            prev.correction_text,
+            if prev.correction_text.ends_with(without_space_chars) {
+                ""
+            } else {
+                " "
+            },
+            current.correction_text
+        )
+        .into()
     };
     prev.audio_wave_amplitude = prev.audio_wave_amplitude.max(current.audio_wave_amplitude);
 
