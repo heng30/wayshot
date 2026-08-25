@@ -8,7 +8,7 @@ version = `git describe --tags --abbrev=0`
 features ?= wayland-wlr
 linux-app-postfix = $(if $(filter wayland-portal,$(features)),portal,wlr)
 run-env = RUST_LOG=debug
-build-env = SLINT_STYLE=fluent CMAKE_POLICY_VERSION_MINIMUM=3.5
+build-env = SLINT_STYLE=fluent
 proj-features = --features=${features},database,qrcode,center-window
 
 all: build-release

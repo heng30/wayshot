@@ -22,7 +22,6 @@ pkgver() {
 build() {
     cd wayshot
     export SLINT_STYLE=fluent
-    export CMAKE_POLICY_VERSION_MINIMUM=3.5
     cargo build --release --locked --bin wayshot --no-default-features --features=wayland-wlr
 }
 

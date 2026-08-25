@@ -33,8 +33,6 @@ serde = { workspace = true, features = ["derive"] }
 reqwest = { workspace = true, features = ["json"] }
 tokio-rustls = { workspace = true, features = ["tls12"] }
 
-# cmake = "0.1.57" # for `audiopus_sys`
-
 [dev-dependencies]
 image.workspace = true
 hound.workspace = true
