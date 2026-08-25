@@ -266,10 +266,6 @@ futures = { version = "0.3", default-features = false, features = [
   "std",
   "async-await",
 ] }
-bincode = { version = "2.0", default-features = false, features = [
-  "std",
-  "derive",
-] }
 voxudio = { version = "0.7", default-features = false, features = [
   "knf",
   "opus",
