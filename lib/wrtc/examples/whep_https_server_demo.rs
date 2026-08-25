@@ -13,7 +13,7 @@ use tokio::sync::{
     Notify,
     broadcast::{self, Sender},
 };
-use webrtc::media::io::{h264_reader::H264Reader, ogg_reader::OggReader};
+use rtc::media::io::{h26x_reader::H26xSampleReader, ogg_reader::OggReader};
 use wrtc::{
     Event, PacketData, WebRTCServer, WebRTCServerConfig,
     opus::OPUS_SAMPLE_RATE,
@@ -109,32 +109,27 @@ fn h264_streaming_thread(packet_sender: Sender<PacketData>, video_file: String) 
         'out: loop {
             let file = File::open(&video_file.clone()).unwrap();
             let reader = BufReader::new(file);
-            let mut h264 = H264Reader::new(reader, 1_048_576);
+            let mut h264 = H26xSampleReader::new(reader, 1_048_576, false);
 
             let mut ticker = tokio::time::interval(Duration::from_millis(40)); // 25fps
             loop {
-                let nal = match h264.next_nal() {
-                    Ok(nal) => nal,
+                let sample = match h264.next_sample() {
+                    Ok(sample) => sample,
                     Err(_) => break,
                 };
 
-                log::trace!(
-                    "PictureOrderCount={}, ForbiddenZeroBit={}, RefIdc={}, UnitType={}, data={}",
-                    nal.picture_order_count,
-                    nal.forbidden_zero_bit,
-                    nal.ref_idc,
-                    nal.unit_type,
-                    nal.data.len()
-                );
+                log::trace!("sending h264 sample ({} bytes)", sample.data.len());
 
                 if let Err(e) = packet_sender.send(PacketData::Video {
                     timestamp: Instant::now(),
-                    data: nal.data.freeze().into(),
+                    data: sample.data,
                 }) {
                     log::warn!("send h264 nal data failed: {e}");
                 };
 
-                _ = ticker.tick().await;
+                if sample.timed {
+                    _ = ticker.tick().await;
+                }
 
                 if CONNECTIONS.lock().unwrap().is_empty() {
                     break 'out;

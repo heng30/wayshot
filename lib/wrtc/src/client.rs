@@ -12,29 +12,28 @@ use http::{
 use log::{debug, info, trace, warn};
 use openh264::decoder::Decoder;
 use opus::Channels;
+use rtc::{
+    ice::network_type::NetworkType,
+    interceptor::Registry,
+    peer_connection::{
+        configuration::media_engine::{MIME_TYPE_H264, MIME_TYPE_OPUS, MediaEngine},
+        transport::RTCIceCandidateType,
+    },
+    rtcp::payload_feedbacks::picture_loss_indication::PictureLossIndication,
+    rtp_transceiver::rtp_sender::{RTCRtpCodec, RTCRtpCodecParameters, RtpCodecKind},
+};
 use std::sync::Arc;
 use tokio::{
-    sync::{Mutex, Notify, mpsc::Sender},
+    sync::{Mutex, Notify, broadcast, mpsc::Sender},
     time::Duration,
 };
 use webrtc::{
-    api::{
-        APIBuilder,
-        interceptor_registry::register_default_interceptors,
-        media_engine::{MIME_TYPE_H264, MIME_TYPE_OPUS, MediaEngine},
-        setting_engine::SettingEngine,
-    },
-    ice::network_type::NetworkType,
-    ice_transport::{
-        ice_candidate_type::RTCIceCandidateType, ice_connection_state::RTCIceConnectionState,
-    },
-    interceptor::registry::Registry,
+    media_stream::track_remote::{TrackRemote, TrackRemoteEvent},
     peer_connection::{
-        configuration::RTCConfiguration, sdp::session_description::RTCSessionDescription,
+        PeerConnection, PeerConnectionBuilder, PeerConnectionEventHandler, RTCConfigurationBuilder,
+        RTCIceConnectionState, RTCIceGatheringState, RTCSessionDescription, SettingEngine,
+        register_default_interceptors,
     },
-    rtcp::payload_feedbacks::picture_loss_indication::PictureLossIndication,
-    rtp_transceiver::rtp_codec::{RTCRtpCodecCapability, RTCRtpCodecParameters, RTPCodecType},
-    track::track_remote::TrackRemote,
 };
 
 pub type RGBFrame = (u32, u32, Vec<u8>); // (width, height, rgb_data)
@@ -122,7 +121,7 @@ impl WHEPClient {
         let mut m = MediaEngine::default();
         m.register_codec(
             RTCRtpCodecParameters {
-                capability: RTCRtpCodecCapability {
+                rtp_codec: RTCRtpCodec {
                     mime_type: MIME_TYPE_H264.to_owned(),
                     clock_rate: video_encoder::VIDEO_TIMESCALE,
                     channels: 0,
@@ -130,15 +129,14 @@ impl WHEPClient {
                     rtcp_feedback: vec![],
                 },
                 payload_type: 102,
-                ..Default::default()
             },
-            RTPCodecType::Video,
+            RtpCodecKind::Video,
         )?;
 
         if let Some(ref audio_info) = self.media_info.audio {
             m.register_codec(
                 RTCRtpCodecParameters {
-                    capability: RTCRtpCodecCapability {
+                    rtp_codec: RTCRtpCodec {
                         mime_type: MIME_TYPE_OPUS.to_owned(),
                         clock_rate: OPUS_SAMPLE_RATE as u32,
                         channels: audio_info.channels,
@@ -146,14 +144,12 @@ impl WHEPClient {
                         rtcp_feedback: vec![],
                     },
                     payload_type: 111,
-                    ..Default::default()
                 },
-                RTPCodecType::Audio,
+                RtpCodecKind::Audio,
             )?;
         }
 
-        let mut registry = Registry::new();
-        registry = register_default_interceptors(registry, &mut m)?;
+        let registry = register_default_interceptors(Registry::new(), &mut m)?;
 
         let mut setting_engine = SettingEngine::default();
         if self.media_info.disable_host_ipv6 {
@@ -164,130 +160,53 @@ impl WHEPClient {
                 .set_nat_1to1_ips(self.config.host_ips.clone(), RTCIceCandidateType::Host);
         }
 
-        let api = APIBuilder::new()
-            .with_media_engine(m)
-            .with_interceptor_registry(registry)
-            .with_setting_engine(setting_engine)
-            .build();
-
         let ice_servers = if self.media_info.ice_servers.is_empty() {
             self.config.ice_servers.clone()
         } else {
             self.media_info.ice_servers.clone()
         };
 
-        let config = RTCConfiguration {
-            ice_servers,
-            ..Default::default()
-        };
+        let config = RTCConfigurationBuilder::new()
+            .with_ice_servers(ice_servers)
+            .build();
 
-        let peer_connection = Arc::new(api.new_peer_connection(config).await?);
+        let (gather_complete_tx, mut gather_complete_rx) = broadcast::channel(1);
+
+        let handler = Arc::new(WHEPClientHandler {
+            media_info: self.media_info.clone(),
+            video_sender: self.video_sender.clone(),
+            audio_sender: self.audio_sender.clone(),
+            exit_notify: self.exit_notify.clone(),
+            gather_complete_tx,
+        });
+
+        let peer_connection: Arc<dyn PeerConnection> = Arc::new(
+            PeerConnectionBuilder::new()
+                .with_configuration(config)
+                .with_media_engine(m)
+                .with_interceptor_registry(registry)
+                .with_setting_engine(setting_engine)
+                .with_handler(handler)
+                .with_udp_addrs(vec!["0.0.0.0:0".to_owned()])
+                .build()
+                .await?,
+        );
+
         peer_connection
-            .add_transceiver_from_kind(RTPCodecType::Video, None)
+            .add_transceiver_from_kind(RtpCodecKind::Video, None)
             .await?;
 
         if self.media_info.audio.is_some() {
             peer_connection
-                .add_transceiver_from_kind(RTPCodecType::Audio, None)
+                .add_transceiver_from_kind(RtpCodecKind::Audio, None)
                 .await?;
         }
-
-        let exit_notify = self.exit_notify.clone();
-        let video_sender = self.video_sender.clone();
-        let audio_sender = self.audio_sender.clone();
-        let pc = Arc::downgrade(&peer_connection);
-        let media_info = self.media_info.clone();
-
-        peer_connection.on_track(Box::new(move |track, _, _| {
-            // Send a PLI on an interval so that the publisher is pushing a keyframe every rtcpPLIInterval
-            let media_ssrc = track.ssrc();
-            let pc2 = pc.clone();
-            tokio::spawn(async move {
-                let mut result = ClientResult::<usize>::Ok(0);
-                while result.is_ok() {
-                    let timeout = tokio::time::sleep(Duration::from_secs(3));
-                    tokio::pin!(timeout);
-
-                    tokio::select! {
-                        _ = timeout.as_mut() =>{
-                            if let Some(pc) = pc2.upgrade(){
-                                result = pc.write_rtcp(&[Box::new(PictureLossIndication{
-                                    sender_ssrc: 0,
-                                    media_ssrc,
-                                })]).await.map_err(Into::into);
-                            }else {
-                                break;
-                            }
-                        }
-                    };
-                }
-            });
-
-            let exit_notify = exit_notify.clone();
-            let media_info = media_info.clone();
-            let mut video_sender = video_sender.clone();
-            let mut audio_sender = audio_sender.clone();
-
-            Box::pin(async move {
-                let codec = track.codec();
-                let mime_type = codec.capability.mime_type.to_lowercase();
-                if mime_type == MIME_TYPE_OPUS.to_lowercase() {
-                    info!("Got Opus track, processing audio");
-
-                    if let Some(audio_info) = media_info.audio
-                        && let Some(sender) = audio_sender.take()
-                    {
-                        tokio::spawn(async move {
-                            _ = process_audio_track(
-                                track,
-                                sender,
-                                exit_notify,
-                                audio_info.sample_rate,
-                                audio_info.channels,
-                            )
-                            .await;
-                        });
-                    }
-                } else if mime_type == MIME_TYPE_H264.to_lowercase() {
-                    info!("Got H264 track, processing video");
-                    if let Some(sender) = video_sender.take() {
-                        tokio::spawn(async move {
-                            _ = process_video_track(
-                                track,
-                                sender,
-                                exit_notify,
-                                media_info.video.width as u32,
-                                media_info.video.height as u32,
-                            )
-                            .await;
-                        });
-                    }
-                }
-            })
-        }));
-
-        let exit_notify = self.exit_notify.clone();
-
-        peer_connection.on_ice_connection_state_change(Box::new(
-            move |connection_state: RTCIceConnectionState| {
-                debug!("Connection State has changed {connection_state}");
-
-                if connection_state == RTCIceConnectionState::Connected {
-                    info!("WHEP client connected to server");
-                } else if connection_state == RTCIceConnectionState::Failed {
-                    warn!("WHEP client connection failed");
-                    exit_notify.notify_waiters();
-                }
-                Box::pin(async {})
-            },
-        ));
 
         info!("WHEP client connecting to: {}", self.config.server_url);
 
         let offer = peer_connection.create_offer(None).await?;
-        let mut gather_complete = peer_connection.gathering_complete_promise().await;
         peer_connection.set_local_description(offer).await?;
-        let _ = gather_complete.recv().await;
+        _ = gather_complete_rx.recv().await;
 
         if let Some(local_desc) = peer_connection.local_description().await {
             let client = reqwest::Client::builder()
@@ -407,8 +326,110 @@ impl WHEPClient {
     }
 }
 
+struct WHEPClientHandler {
+    media_info: MediaInfo,
+    video_sender: Option<Sender<RGBFrame>>,
+    audio_sender: Option<Sender<AudioSamples>>,
+    exit_notify: Arc<Notify>,
+    gather_complete_tx: broadcast::Sender<()>,
+}
+
+#[async_trait::async_trait]
+impl PeerConnectionEventHandler for WHEPClientHandler {
+    async fn on_ice_gathering_state_change(&self, state: RTCIceGatheringState) {
+        if state == RTCIceGatheringState::Complete {
+            debug!("ICE gathering complete");
+            let _ = self.gather_complete_tx.send(());
+        }
+    }
+
+    async fn on_ice_connection_state_change(&self, connection_state: RTCIceConnectionState) {
+        debug!("Connection State has changed {connection_state}");
+
+        if connection_state == RTCIceConnectionState::Connected {
+            info!("WHEP client connected to server");
+        } else if connection_state == RTCIceConnectionState::Failed {
+            warn!("WHEP client connection failed");
+            self.exit_notify.notify_waiters();
+        }
+    }
+
+    async fn on_track(&self, track: Arc<dyn TrackRemote>) {
+        let media_ssrc = *track.ssrcs().await.first().unwrap_or(&0);
+        let mime_type = track
+            .codec(media_ssrc)
+            .await
+            .map(|c| c.mime_type.to_lowercase())
+            .unwrap_or_default();
+
+        // Send a PLI on an interval so that the publisher is pushing a keyframe every rtcpPLIInterval
+        if mime_type == MIME_TYPE_H264.to_lowercase() {
+            let pli_track = track.clone();
+            let exit_notify = self.exit_notify.clone();
+            tokio::spawn(async move {
+                let mut result = ClientResult::<()>::Ok(());
+                while result.is_ok() {
+                    let timeout = tokio::time::sleep(Duration::from_secs(3));
+                    tokio::pin!(timeout);
+
+                    tokio::select! {
+                        _ = timeout.as_mut() =>{
+                            result = pli_track
+                                .write_rtcp(vec![Box::new(PictureLossIndication{
+                                    sender_ssrc: 0,
+                                    media_ssrc,
+                                })])
+                                .await
+                                .map_err(Into::into);
+                        }
+                        _ = exit_notify.notified() => break,
+                    }
+                }
+            });
+        }
+
+        let exit_notify = self.exit_notify.clone();
+        let video_sender = self.video_sender.clone();
+        let audio_sender = self.audio_sender.clone();
+        let media_info = self.media_info.clone();
+
+        if mime_type == MIME_TYPE_OPUS.to_lowercase() {
+            info!("Got Opus track, processing audio");
+
+            if let Some(audio_info) = media_info.audio
+                && let Some(sender) = audio_sender
+            {
+                tokio::spawn(async move {
+                    _ = process_audio_track(
+                        track,
+                        sender,
+                        exit_notify,
+                        audio_info.sample_rate,
+                        audio_info.channels,
+                    )
+                    .await;
+                });
+            }
+        } else if mime_type == MIME_TYPE_H264.to_lowercase() {
+            info!("Got H264 track, processing video");
+            if let Some(sender) = video_sender {
+                tokio::spawn(async move {
+                    _ = process_video_track(
+                        track,
+                        sender,
+                        exit_notify,
+                        media_info.video.width as u32,
+                        media_info.video.height as u32,
+                    )
+                    .await;
+                });
+            }
+        }
+    }
+}
+
 async fn process_video_track(
-    track: Arc<TrackRemote>,
+    track: Arc<dyn TrackRemote>,
     video_sender: Sender<RGBFrame>,
     notify: Arc<Notify>,
     width: u32,
@@ -424,20 +445,22 @@ async fn process_video_track(
 
     loop {
         tokio::select! {
-            result = track.read_rtp() => {
-                if let Ok((rtp_packet, _)) = result {
-                    let payload = rtp_packet.payload;
+            result = track.poll() => {
+                if let Some(evt) = result {
+                    if let TrackRemoteEvent::OnRtpPacket(rtp_packet) = evt {
+                        let payload = rtp_packet.payload;
 
-                    let h264_data_chunks = handle_h264_rtp_payload(&payload, &mut fragment_buffer, &mut frame_assembling);
+                        let h264_data_chunks = handle_h264_rtp_payload(&payload, &mut fragment_buffer, &mut frame_assembling);
 
-                    for nal_unit in h264_data_chunks {
-                         match h264_decoder.decode(&nal_unit) {
-                            Ok(rgb_frame) => {
-                                if let Err(e) = video_sender.try_send(rgb_frame) {
-                                    warn!("video_sender try send failed: {e}");
+                        for nal_unit in h264_data_chunks {
+                             match h264_decoder.decode(&nal_unit) {
+                                Ok(rgb_frame) => {
+                                    if let Err(e) = video_sender.try_send(rgb_frame) {
+                                        warn!("video_sender try send failed: {e}");
+                                    }
                                 }
+                                Err(e) =>  trace!("H264 decoding attempt failed: {e:?}"),
                             }
-                            Err(e) =>  trace!("H264 decoding attempt failed: {e:?}"),
                         }
                     }
                 } else {
@@ -455,7 +478,7 @@ async fn process_video_track(
 }
 
 async fn process_audio_track(
-    track: Arc<TrackRemote>,
+    track: Arc<dyn TrackRemote>,
     audio_sender: Sender<AudioSamples>,
     notify: Arc<Notify>,
     sample_rate: u32,
@@ -474,17 +497,19 @@ async fn process_audio_track(
 
     loop {
         tokio::select! {
-            result = track.read_rtp() => {
-                if let Ok((rtp_packet, _)) = result {
-                    let payload = rtp_packet.payload;
+            result = track.poll() => {
+                if let Some(evt) = result {
+                    if let TrackRemoteEvent::OnRtpPacket(rtp_packet) = evt {
+                        let payload = rtp_packet.payload;
 
-                    match opus_decoder.decode(&payload) {
-                        Ok(audio_samples) => {
-                            if let Err(e) = audio_sender.try_send(audio_samples) {
-                                warn!("audio_sender try send failed: {e}");
+                        match opus_decoder.decode(&payload) {
+                            Ok(audio_samples) => {
+                                if let Err(e) = audio_sender.try_send(audio_samples) {
+                                    warn!("audio_sender try send failed: {e}");
+                                }
                             }
+                            Err(e) =>  warn!("Opus decoding failed: {e}"),
                         }
-                        Err(e) =>  warn!("Opus decoding failed: {e}"),
                     }
                 } else {
                     info!("Audio track ended");

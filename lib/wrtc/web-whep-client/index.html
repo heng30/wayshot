@@ -1455,15 +1455,23 @@
         const pc = new RTCPeerConnection();
         currentPeerConnection = pc;
 
+        // 服务器返回的音频/视频 track 具有不同的 msid
+        // （whep-audio-stream / whep-video-stream），浏览器会把它们放到
+        // 两个独立的 MediaStream 中。若直接用 event.streams[0] 作为
+        // srcObject，播放器只会拿到单个 track —— 视频能播但听不到声音。
+        // 因此合并到一个 MediaStream，音频 track 到达后 <video> 会自动追加。
+        const mediaStream = new MediaStream();
+
         //Add recv only transceivers
         pc.addTransceiver("audio");
         pc.addTransceiver("video");
 
         pc.ontrack = (event) => {
           console.log(event);
+          mediaStream.addTrack(event.track);
           if (event.track.kind == "video") {
             var player = document.getElementById("localVideo");
-            player.srcObject = event.streams[0];
+            player.srcObject = mediaStream;
             player.controls = false; // Disable default controls
 
             // Get volume slider value and set volume before playing

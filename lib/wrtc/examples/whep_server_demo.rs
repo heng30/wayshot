@@ -1,5 +1,6 @@
 use anyhow::{Result, bail};
 use once_cell::sync::Lazy;
+use rtc::media::io::{h26x_reader::H26xSampleReader, ogg_reader::OggReader};
 use std::{
     collections::HashSet,
     fs::File,
@@ -12,11 +13,10 @@ use tokio::sync::{
     Notify,
     broadcast::{self, Sender},
 };
-use webrtc::media::io::{h264_reader::H264Reader, ogg_reader::OggReader};
 use wrtc::{
     Event, PacketData, WebRTCServer, WebRTCServerConfig,
     opus::OPUS_SAMPLE_RATE,
-    session::{MediaInfo, WebRTCServerSessionConfig},
+    session::{MediaInfo, VideoInfo, WebRTCServerSessionConfig},
 };
 
 static CONNECTIONS: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet::default()));
@@ -33,9 +33,22 @@ async fn main() -> Result<()> {
     let video_path = "./data/test.h264".to_string();
     let audio_path = "./data/test.ogg".to_string();
     let config = WebRTCServerConfig::new("0.0.0.0:9090".to_string(), None);
+
+    let media_info =
+        MediaInfo::default().with_video(VideoInfo::default().with_width(854).with_height(480));
+
+    // 本机测试：使用不可解析的 .invalid 域名，使 STUN 解析失败、gathering 立即完成，
+    // 仅保留 host 候选（127.0.0.1）直连，不依赖外网 STUN。
+    // 注意端口必须用 3478（标准 STUN 端口），浏览器对 ICE server URL 有端口白名单，
+    // 用 :1 这类端口会直接报 "uses a port that is blocked"。
+    let media_info = media_info.with_ice_servers(vec![wrtc::RTCIceServer {
+        urls: vec!["stun:unresolvable.invalid:3478".to_string()],
+        ..Default::default()
+    }]);
+
     let session_config = WebRTCServerSessionConfig::default()
-        .with_media_info(MediaInfo::default())
-        .with_host_ips(vec!["192.168.10.8".to_string()]);
+        .with_media_info(media_info)
+        .with_host_ips(vec!["127.0.0.1".to_string()]);
 
     let (packet_sender, _) = broadcast::channel(128);
     let (event_sender, mut event_receiver) = broadcast::channel(16);
@@ -108,32 +121,27 @@ fn h264_streaming_thread(packet_sender: Sender<PacketData>, video_file: String) 
         'out: loop {
             let file = File::open(&video_file.clone()).unwrap();
             let reader = BufReader::new(file);
-            let mut h264 = H264Reader::new(reader, 1_048_576);
+            let mut h264 = H26xSampleReader::new(reader, 1_048_576, false);
 
             let mut ticker = tokio::time::interval(Duration::from_millis(40)); // 25fps
             loop {
-                let nal = match h264.next_nal() {
-                    Ok(nal) => nal,
+                let sample = match h264.next_sample() {
+                    Ok(sample) => sample,
                     Err(_) => break,
                 };
 
-                log::trace!(
-                    "PictureOrderCount={}, ForbiddenZeroBit={}, RefIdc={}, UnitType={}, data={}",
-                    nal.picture_order_count,
-                    nal.forbidden_zero_bit,
-                    nal.ref_idc,
-                    nal.unit_type,
-                    nal.data.len()
-                );
+                log::trace!("sending h264 sample ({} bytes)", sample.data.len());
 
                 if let Err(e) = packet_sender.send(PacketData::Video {
                     timestamp: Instant::now(),
-                    data: nal.data.freeze().into(),
+                    data: sample.data,
                 }) {
                     log::warn!("send h264 nal data failed: {e}");
                 };
 
-                _ = ticker.tick().await;
+                if sample.timed {
+                    _ = ticker.tick().await;
+                }
 
                 if CONNECTIONS.lock().unwrap().is_empty() {
                     break 'out;

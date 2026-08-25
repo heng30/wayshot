@@ -23,7 +23,7 @@ use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::{net::TcpStream, sync::Mutex};
-use webrtc::peer_connection::{RTCPeerConnection, sdp::session_description::RTCSessionDescription};
+use webrtc::peer_connection::{PeerConnection, RTCSessionDescription};
 
 static WEB_WHEP_JS: &str = include_str!("../web-whep-client/whep.js");
 static WEB_WHEP_INDEX: &str = include_str!("../web-whep-client/index.html");
@@ -120,7 +120,7 @@ pub struct WebRTCServerSession {
 
     pub session_id: Option<Uuid>,
     pub http_request_data: Option<HttpRequest>,
-    pub peer_connection: Option<Arc<RTCPeerConnection>>,
+    pub peer_connection: Option<Arc<dyn PeerConnection>>,
 }
 
 impl WebRTCServerSession {

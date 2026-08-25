@@ -36,14 +36,24 @@ async fn main() -> Result<()> {
     CryptoProvider::install_default(ring::default_provider().into())
         .expect("failed to set crypto provider");
 
-    let audio_path = "./data/test-44100.wav".to_string();
-    let medio_info = MediaInfo::default().with_video(
+    let audio_path = "./data/test.wav".to_string();
+    let media_info = MediaInfo::default().with_video(
         VideoInfo::default()
             .with_width(IMG_WIDTH as i32)
             .with_height(IMG_HEIGHT as i32),
     );
+
+    // 本机测试：使用不可解析的 .invalid 域名，使 STUN 解析失败、gathering 立即完成，
+    // 仅保留 host 候选（127.0.0.1）直连，不依赖外网 STUN。
+    // 注意端口必须用 3478（标准 STUN 端口），浏览器对 ICE server URL 有端口白名单，
+    // 用 :1 这类端口会直接报 "uses a port that is blocked"。
+    let media_info = media_info.with_ice_servers(vec![wrtc::RTCIceServer {
+        urls: vec!["stun:unresolvable.invalid:3478".to_string()],
+        ..Default::default()
+    }]);
+
     let config = WebRTCServerConfig::new("0.0.0.0:9090".to_string(), Some("123".to_string()));
-    let session_config = WebRTCServerSessionConfig::default().with_media_info(medio_info);
+    let session_config = WebRTCServerSessionConfig::default().with_media_info(media_info);
     let (packet_sender, _) = broadcast::channel(128);
     let (event_sender, mut event_receiver) = broadcast::channel(16);
     let exit_notify = Arc::new(Notify::new());
@@ -137,7 +147,7 @@ fn h264_streaming_thread(packet_sender: Sender<PacketData>) {
                 let encoded_frame = h264_encoder.encode_frame(img.clone()).unwrap();
 
                 match encoded_frame {
-                    EncodedFrame::Frame((_, data)) => {
+                    EncodedFrame::Frame { data, .. } => {
                         if let Err(e) = packet_sender.send(PacketData::Video {
                             timestamp: Instant::now(),
                             data: data.into(),
@@ -155,7 +165,7 @@ fn h264_streaming_thread(packet_sender: Sender<PacketData>) {
                 }
             }
 
-            if let Err(e) = h264_encoder.flush(Box::new(move |data| {
+            if let Err(e) = h264_encoder.flush(Box::new(move |data, _is_keyframe| {
                 if let Err(e) = packet_sender.send(PacketData::Video {
                     timestamp: Instant::now(),
                     data: data.into(),

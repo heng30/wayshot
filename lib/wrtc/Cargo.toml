@@ -12,11 +12,11 @@ description = "A whep library"
 
 [dependencies]
 log.workspace = true
+rtc.workspace = true
 opus.workspace = true
 rand.workspace = true
 http.workspace = true
 bytes.workspace = true
-webrtc.workspace = true
 bytesio.workspace = true
 indexmap.workspace = true
 openh264.workspace = true
@@ -25,6 +25,7 @@ derivative.workspace = true
 serde_json.workspace = true
 mp4-player.workspace = true
 audio-utils.workspace = true
+async-trait.workspace = true
 video-encoder.workspace = true
 derive_setters.workspace = true
 rustls-pemfile.workspace = true
@@ -32,6 +33,7 @@ tokio = { workspace = true, features = ["full"] }
 serde = { workspace = true, features = ["derive"] }
 reqwest = { workspace = true, features = ["json"] }
 tokio-rustls = { workspace = true, features = ["tls12"] }
+webrtc = { workspace = true, features = ["runtime-tokio"] }
 
 [dev-dependencies]
 image.workspace = true

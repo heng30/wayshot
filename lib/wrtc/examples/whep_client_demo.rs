@@ -17,9 +17,7 @@ use wrtc::client::{AudioSamples, RGBFrame, WHEPClient, WHEPClientConfig};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // let server_url = "http://localhost:9090".to_string();
-    let server_url = "http://192.168.10.8:9090".to_string();
-    // let server_url = "https://192.168.10.8:9090".to_string();
+    let server_url = "http://127.0.0.1:9090".to_string();
 
     env_logger::builder()
         .filter_module("webrtc", log::LevelFilter::Warn)
@@ -48,7 +46,9 @@ async fn main() -> Result<()> {
 
     let config = WHEPClientConfig::new(server_url)
         .with_auth_token("123".to_string())
-        .with_host_ips(vec!["192.168.10.8".to_string()]);
+        // 本机测试：禁用外网 STUN，仅 host 候选（127.0.0.1）直连
+        .with_ice_servers(vec![])
+        .with_host_ips(vec!["127.0.0.1".to_string()]);
 
     let client =
         WHEPClient::new(config, Some(video_tx), Some(audio_tx), exit_notify.clone()).await?;

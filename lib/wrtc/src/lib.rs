@@ -9,7 +9,7 @@ pub mod whep;
 pub mod wrtc;
 
 pub use ::opus::Channels as OpusChannels;
-pub use webrtc::ice_transport::ice_server::RTCIceServer;
+pub use webrtc::peer_connection::RTCIceServer;
 pub use wrtc::{WebRTCServer, WebRTCServerConfig};
 
 #[derive(Clone)]
@@ -43,9 +43,6 @@ pub type EventReceiver = tokio::sync::broadcast::Receiver<Event>;
 pub enum WebRTCError {
     #[error("webrtc error: {0}")]
     RTCError(#[from] ::webrtc::error::Error),
-
-    #[error("webrtc util error: {0}")]
-    RTCUtilError(#[from] ::webrtc::util::Error),
 
     #[error("parse int error: {0}")]
     ParseIntError(#[from] std::num::ParseIntError),
@@ -133,9 +130,6 @@ pub enum ClientError {
 
     #[error("WebRTC error: {0}")]
     WebRTCError(#[from] ::webrtc::error::Error),
-
-    #[error("WebRTC util error: {0}")]
-    WebRTCUtilError(#[from] ::webrtc::util::Error),
 
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
