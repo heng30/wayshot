@@ -1949,17 +1949,20 @@ impl Command for MergeSegmentsCommand {
             let playback_speed = first_segment.playback_speed;
             let source_end = second_segment.source_offset + second_segment.original_duration;
             let new_original_duration = source_end - first_segment.source_offset;
-            let new_duration =
-                Duration::from_secs_f64(new_original_duration.as_secs_f64() / playback_speed as f64);
+            let new_duration = Duration::from_secs_f64(
+                new_original_duration.as_secs_f64() / playback_speed as f64,
+            );
             (new_duration, new_original_duration)
         };
 
         let original_total = first_segment.duration + second_segment.duration;
 
-        // After removing second segment, shift subsequent segments if needed
+        // 字幕按 timeline span 合并，合并段已覆盖到 second 的结束位置，删除 second 后
+        // 后续 segments 在 timeline 上的位置不应改变；只有视频/音频按源时长拉长
+        // 合并段时，才需要把与合并段重叠的后续 segment 推移出去。
         self.shifted_from_index = self.first_segment_index + 1;
 
-        if new_duration > original_total {
+        if !is_subtitle && new_duration > original_total {
             self.shift_amount = Some(new_duration - original_total);
         }
 
@@ -1970,12 +1973,14 @@ impl Command for MergeSegmentsCommand {
         let second_image_filters = second_segment.image_filters.clone();
 
         let merged_subtitle_text = if is_subtitle {
-            Some(match (&first_segment.subtitle_text, &second_segment.subtitle_text) {
-                (Some(a), Some(b)) => format!("{} {}", a.trim(), b.trim()),
-                (Some(a), None) => a.clone(),
-                (None, Some(b)) => b.clone(),
-                (None, None) => String::new(),
-            })
+            Some(
+                match (&first_segment.subtitle_text, &second_segment.subtitle_text) {
+                    (Some(a), Some(b)) => format!("{} {}", a.trim(), b.trim()),
+                    (Some(a), None) => a.clone(),
+                    (None, Some(b)) => b.clone(),
+                    (None, None) => String::new(),
+                },
+            )
         } else {
             None
         };
