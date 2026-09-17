@@ -378,6 +378,7 @@ export component DesktopPanel inherits Rectangle {
     }
 
     if Store.is-show-font-dialog: FontDialog {
+        z: self.z-order;
         close => {
             Store.is-show-font-dialog = false;
             Store.video-editor-focus-flag = !Store.video-editor-focus-flag;

@@ -102,6 +102,7 @@ export component TopMovingDialog inherits Rectangle {
     callback app-focus();
 
     if Store.video-editor-is-show-tts-dialog: TTSDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -123,6 +124,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-tts-setting-dialog: TTSSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -139,6 +141,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-tts-add-dialog: TTSAddDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -155,6 +158,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-transcribe-is-show-dialog: TranscribeDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -177,6 +181,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-smart-clip-is-show-dialog: SmartClipDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -197,6 +202,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-smart-clip-is-show-reference-dialog: SmartClipReferenceDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -213,6 +219,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-smart-clip-is-show-setting-dialog: SmartClipSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -229,6 +236,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-transcribe-is-show-replace-dialog: ReplaceDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -247,6 +255,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-transcribe-is-show-original-text-dialog: TranscribeTextDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -263,6 +272,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-transcribe-is-show-setting-dialog: TranscribeSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -279,6 +289,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-ocr-dialog: OCRDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -296,6 +307,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-ocr-setting-dialog: OCRSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -312,6 +324,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-bg-remover-dialog: BgRemoverDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -330,6 +343,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-bg-remover-setting-dialog: BgRemoverSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -345,6 +359,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-musicgen-dialog: MusicGenDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -364,6 +379,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-musicgen-setting-dialog: MusicGenSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -379,6 +395,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-similar-video-segment-dialog: SimilarVideoSegmentDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -398,6 +415,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-similar-video-segment-setting-dialog: SimilarVideoSegmentSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -413,6 +431,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-dedup-photos-dialog: DedupPhotosDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -432,6 +451,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-dedup-photos-setting-dialog: DedupPhotosSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -447,6 +467,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-dewatermark-dialog: DewatermarkDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -466,6 +487,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-dewatermark-setting-dialog: DewatermarkSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -482,6 +504,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-subtitle-remover-dialog: SubtitleRemoverDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -501,6 +524,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-subtitle-search-dialog: SubtitleSearchDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -517,6 +541,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-subtitle-remover-setting-dialog: SubtitleRemoverSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -533,6 +558,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-cutout-dialog: CutoutDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -552,6 +578,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-cutout-setting-dialog: CutoutSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -568,6 +595,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-clear-vision-dialog: ClearVisionDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -587,6 +615,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-clear-vision-setting-dialog: ClearVisionSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -603,6 +632,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-stem-splitter-dialog: StemSplitterDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -622,6 +652,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-stem-splitter-setting-dialog: StemSplitterSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -638,6 +669,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-deep-filter-dialog: DeepFilterDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -657,6 +689,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-deep-filter-setting-dialog: DeepFilterSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -673,6 +706,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-speakers-dialog: SpeakersDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -692,6 +726,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-speakers-setting-dialog: SpeakersSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -708,6 +743,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-code-image-dialog: CodeImageDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -725,6 +761,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-ttfx-dialog: TtfxDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -744,6 +781,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-pure-color-image-dialog: PureColorImageDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -760,6 +798,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-bg-animation-dialog: BackgroundAnimationDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -776,6 +815,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-img-animation-dialog: ImageAnimationDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -792,6 +832,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-global-filter-dialog: GlobalFilterDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -812,6 +853,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-global-filter-danmaku-is-show-add-items-dialog: DanmakuAddItemsDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -821,6 +863,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-global-filter-danmaku-is-show-fetch-items-dialog: DanmakuFetchItemsDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -830,6 +873,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-help-dialog: HelpDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -846,6 +890,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-metadata-dialog: MetadataDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -862,6 +907,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-record-audio-dialog: RecordAudioDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -881,6 +927,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-recent-dialog: RecentDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -897,6 +944,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-item-preview-dialog: ItemPreviewDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -920,6 +968,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-backup-progress-dialog: BackupProgressDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -937,6 +986,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-scene-detect-dialog: SceneDetectDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -955,6 +1005,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-long-screenshot-dialog: LongScreenshotDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -973,6 +1024,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-chapter-summary-dialog: ChapterSummaryDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -991,6 +1043,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-subtitle-translate-dialog: SubtitleTranslateDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -1009,6 +1062,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-memo-dialog: MemoDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -1026,6 +1080,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-smart-mix-is-show-dialog: SmartMixPanel {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -1044,6 +1099,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-smart-mix-is-show-setting-dialog: SmartMixSettingDialog {
+        z: self.z-order;
         close => {
             Store.video-editor-smart-mix-is-show-setting-dialog = false;
             app-focus();
@@ -1057,6 +1113,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-online-search-image-setting-dialog: OnlineSearchImageSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }
@@ -1074,6 +1131,7 @@ export component TopMovingDialog inherits Rectangle {
     }
 
     if Store.video-editor-is-show-online-search-audio-setting-dialog: OnlineSearchAudioSettingDialog {
+        z: self.z-order;
         init => {
             self.head-x = ((root.width - self.header-width) / 2).max(0);
         }

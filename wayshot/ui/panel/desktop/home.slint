@@ -21,8 +21,8 @@ import {
 } from "video-editor/tools/subtitle-remover.slint";
 
 import {
-    Terminal,
-} from "video-editor/right-panel/terminal.slint";
+    TtfxDialog,
+} from "video-editor/tools/ttfx-dialog.slint";
 
 import {
     SmartMixPanel,
@@ -30,30 +30,29 @@ import {
 } from "video-editor/tools/smart-mix.slint";
 
 import {
-    MusicGenDialog,
-    MusicGenSettingDialog,
-} from "video-editor/tools/musicgen.slint";
+    TTSDialog,
+    TTSAddDialog,
+    TTSSettingDialog,
+} from "video-editor/tools/tts-dialog.slint";
 
 import {
     GlobalFilterDialog,
 } from "video-editor/tools/global-filter/panel.slint";
 
 import {
-    PageFlip,
-} from "./video-editor/right-panel/filter/video/page-flip.slint";
+    WindScatter,
+} from "./video-editor/right-panel/filter/video/wind-scatter.slint";
 
 export component Home inherits VerticalLayout {
     // Rectangle {
     //     Rectangle {
     //         width: 600px;
-    //         PageFlip { }
+    //         WindScatter { }
     //     }
     // }
 
     // Rectangle {
-    //     SmartMixPanel { }
-    // //
-    // //     SmartMixSettingDialog { }
+    //     TtfxDialog { }
     // }
 
     //
@@ -72,23 +71,23 @@ export component Home inherits VerticalLayout {
     //     }
     // }
     //
-    if Store.current-tab-index == TabIndex.Home: MainPanel {
-        height: parent.height;
-    }
-
-    if Store.current-tab-index == TabIndex.History: HistoryPanel {
-        height: parent.height;
-    }
-
-    if Store.current-tab-index == TabIndex.Player: PlayerPanel {
-        height: parent.height;
-    }
-
-    if Store.current-tab-index == TabIndex.ShareScreen: ShareScreenPanel {
-        width: parent.width;
-        height: parent.height;
-    }
-
+    // if Store.current-tab-index == TabIndex.Home: MainPanel {
+    //     height: parent.height;
+    // }
+    //
+    // if Store.current-tab-index == TabIndex.History: HistoryPanel {
+    //     height: parent.height;
+    // }
+    //
+    // if Store.current-tab-index == TabIndex.Player: PlayerPanel {
+    //     height: parent.height;
+    // }
+    //
+    // if Store.current-tab-index == TabIndex.ShareScreen: ShareScreenPanel {
+    //     width: parent.width;
+    //     height: parent.height;
+    // }
+    //
     if Store.current-tab-index == TabIndex.VideoEditor: VideoEditor {
         height: parent.height;
     }
