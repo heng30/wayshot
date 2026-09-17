@@ -92,6 +92,10 @@ export component AppWindow inherits Window {
             Store.is-show-update-dialog = false;
         }
 
+        close => {
+            self.canceled();
+        }
+
         canceled => {
             Store.is-show-update-dialog = false;
             if self.dont-ask-again {

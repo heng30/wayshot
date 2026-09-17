@@ -340,7 +340,7 @@ component ImageHeaderBar inherits Flickable {
     in property <length> select-width;
 
     height: header-hbox.preferred-height;
-    viewport-width: header-hbox.preferred-width;
+    content-width: header-hbox.preferred-width;
 
     header-hbox := HorizontalLayout {
         alignment: start;
@@ -525,7 +525,7 @@ component AudioHeaderBar inherits Flickable {
     in property <length> select-width;
 
     height: header-hbox.preferred-height;
-    viewport-width: header-hbox.preferred-width;
+    content-width: header-hbox.preferred-width;
 
     header-hbox := HorizontalLayout {
         alignment: start;

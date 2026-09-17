@@ -137,7 +137,7 @@ alacritty_terminal = { version = "0.26", default-features = false }
 candle-transformers = { version = "0.11", default-features = false }
 unicode-segmentation = { version = "1.12", default-features = false }
 wayland-protocols-wlr = { version = "0.3", default-features = false }
-i-slint-backend-testing = { version = "=1.17.1", default-features = false }
+i-slint-backend-testing = { version = "1.18", default-features = false }
 
 hex = { version = "0.4", default-features = false, features = ["std"] }
 log = { version = "0.4", default-features = false, features = ["std"] }
@@ -173,7 +173,7 @@ num-complex = { version = "0.4", default-features = false, features = ["std"] }
 quote = { version = "1.0", default-features = false, features = ["proc-macro"] }
 stunclient = { version = "0.4", default-features = false, features = ["async"] }
 tokenizers = { version = "0.23", default-features = false, features = ["onig"] }
-scenesdetect = { version = "0.3", default-features = false, features = ["std"] }
+scenesdetect = { version = "0.4", default-features = false, features = ["std"] }
 
 syn = { version = "3.0", default-features = false, features = [
   "derive",
@@ -288,7 +288,7 @@ reqwest = { version = "0.13", default-features = false, features = [
   "charset",
   "default-tls",
 ] }
-slint = { version = "=1.17.1", default-features = false, features = [
+slint = { version = "1.18", default-features = false, features = [
   "compat-1-2",
 ] }
 jieba-rs = { version = "0.10", default-features = false, features = [
@@ -356,7 +356,7 @@ rustls-pemfile = { version = "2.2", default-features = false, features = [
 derive_builder = { version = "0.20", default-features = false, features = [
   "std",
 ] }
-slint-build = { version = "=1.17.1", default-features = false, features = [
+slint-build = { version = "1.18", default-features = false, features = [
   "default",
 ] }
 portable-atomic = { version = "1.13", default-features = false, features = [
@@ -428,8 +428,3 @@ speakrs = { path = "vendor/speakrs" }
 esaxx-rs = { path = "vendor/esaxx-rs" }
 voxcpm-rs = { path = "vendor/voxcpm-rs" }
 deep_filter = { path = "vendor/deep_filter" }
-
-# NOTE: Qt后端，支持动态调整`Z`层级
-i-slint-core = { path = "vendor/i-slint-core" }
-i-slint-compiler = { path = "vendor/i-slint-compiler" }
-i-slint-backend-qt = { path = "vendor/i-slint-backend-qt" }

@@ -216,8 +216,8 @@ component SpeakerList inherits Rectangle {
     if !is-progressing && Store.video-editor-speakers-audio-player-status.length > 1: Flickable {
         height: parent.height;
         width: parent.width;
-        viewport-height: vbox.preferred-height;
-        viewport-width: parent.width;
+        content-height: vbox.preferred-height;
+        content-width: parent.width;
 
         vbox := VerticalLayout {
             spacing: Theme.spacing * 2;

@@ -367,7 +367,7 @@ component ResultListView inherits ScrollView {
 
                 if is-show-audio-entries: ListView {
                     height: min(Theme.icon-size * 10, audio-entry-height * current-smart-mix.audio-entries.length);
-                    viewport-width: audio-entry-height * current-smart-mix.audio-entries.length;
+                    content-width: audio-entry-height * current-smart-mix.audio-entries.length;
 
                     private property <length> audio-entry-height;
 
@@ -411,7 +411,7 @@ component ResultListView inherits ScrollView {
 
                 if is-show-visual-items: ListView {
                     height: min(Theme.icon-size * 20, visual-item-height * current-smart-mix.visual-items.length);
-                    viewport-width: visual-item-height * current-smart-mix.visual-items.length;
+                    content-width: visual-item-height * current-smart-mix.visual-items.length;
 
                     private property <length> visual-item-height;
 
@@ -454,7 +454,7 @@ component ResultListView inherits ScrollView {
 
                 if is-show-match-items: ListView {
                     height: min(Theme.icon-size * 10, match-item-height * current-smart-mix.match-items.length);
-                    viewport-width: match-item-height * current-smart-mix.match-items.length;
+                    content-width: match-item-height * current-smart-mix.match-items.length;
 
                     private property <length> match-item-height;
 

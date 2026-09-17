@@ -71,14 +71,14 @@ component LeftTrackHead inherits Rectangle {
 }
 
 component TracksList inherits Rectangle {
-    in-out property viewport-height <=> header-lv.viewport-height;
+    in-out property viewport-height <=> header-lv.content-height;
     in-out property tracks <=> Store.video-editor-tracks-manager.tracks;
     out property <length> track-header-width;
     in property playhead-x <=> playhead.x;
-    in-out property viewport-x <=> segments-lv.viewport-x;
-    out property viewport-width <=> segments-lv.viewport-width;
+    in-out property viewport-x <=> segments-lv.content-x;
+    out property viewport-width <=> segments-lv.content-width;
     out property visible-width <=> segments-lv.visible-width;
-    out property <length> header-viewport-y <=> header-lv.viewport-y;
+    out property <length> header-viewport-y <=> header-lv.content-y;
 
     callback scroll-event <=> scroll-ta.scroll-event;
 
@@ -111,10 +111,10 @@ component TracksList inherits Rectangle {
         private property <int> track-len: Store.video-editor-tracks-manager.tracks.length;
         changed track-len => {
             if (track-len == 0) {
-                header-lv.viewport-y = 0;
-                segments-lv.viewport-x = 0;
-            } else if (header-lv.viewport-height > header-lv-vbox.preferred-height) {
-                header-lv.viewport-y = 0;
+                header-lv.content-y = 0;
+                segments-lv.content-x = 0;
+            } else if (header-lv.content-height > header-lv-vbox.preferred-height) {
+                header-lv.content-y = 0;
             }
         }
 
@@ -124,7 +124,7 @@ component TracksList inherits Rectangle {
             horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
 
             header-lv-vbox := VerticalLayout {
-                padding-bottom: segments-lv.viewport-width > segments-lv.width ? 15px : 0;
+                padding-bottom: segments-lv.content-width > segments-lv.width ? 15px : 0;
 
                 for track[index] in tracks: LeftTrackHead {
                     init => {
@@ -141,14 +141,14 @@ component TracksList inherits Rectangle {
         }
 
         segments-lv := ScrollView {
-            viewport-height: header-lv.viewport-height;
-            viewport-width: vbox.preferred-width;
+            content-height: header-lv.content-height;
+            content-width: vbox.preferred-width;
             preferred-height: header-lv.preferred-height;
-            viewport-y <=> header-lv.viewport-y;
+            content-y <=> header-lv.content-y;
 
             function is-in-viewport(pos-x: length, pos-y: length, width: length, height: length) -> bool {
-                let in-vw = pos-x + width >= abs(self.viewport-x) && pos-x <= abs(self.viewport-x) + self.visible-width;
-                let in-vh = pos-y + height >= abs(self.viewport-y) && pos-y <= abs(self.viewport-y) + self.visible-height;
+                let in-vw = pos-x + width >= abs(self.content-x) && pos-x <= abs(self.content-x) + self.visible-width;
+                let in-vh = pos-y + height >= abs(self.content-y) && pos-y <= abs(self.content-y) + self.visible-height;
                 return in-vw && in-vh;
             }
 
@@ -162,8 +162,8 @@ component TracksList inherits Rectangle {
                 vbox := VerticalLayout {
                     for track[index] in tracks: TrackSegments {
                         visible: segments-lv.is-in-viewport(self.x, self.y, self.width, self.height);
-                        viewport-x: segments-lv.viewport-x;
-                        viewport-y: segments-lv.viewport-y;
+                        viewport-x: segments-lv.content-x;
+                        viewport-y: segments-lv.content-y;
                         viewport-visible-width: segments-lv.visible-width;
                         viewport-visible-height: segments-lv.visible-height;
                         track-index: index;

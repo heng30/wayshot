@@ -108,8 +108,8 @@ export component CodeImageDialog inherits MovingDialog {
                     flick := Flickable {
                         width: parent.width;
                         height: parent.height;
-                        viewport-width: img.width;
-                        viewport-height: img.height;
+                        content-width: img.width;
+                        content-height: img.height;
 
                         img := Image {
                             width: parent.width;
@@ -122,14 +122,14 @@ export component CodeImageDialog inherits MovingDialog {
                                     let scale-factor = event.delta-y < 0 ? 1.1 : 0.9;
                                     let pos-x = self.mouse-x / self.width;
                                     let pos-y = self.mouse-y / self.height;
-                                    let offset-x = self.mouse-x - abs(flick.viewport-x);
-                                    let offset-y = self.mouse-y - abs(flick.viewport-y);
+                                    let offset-x = self.mouse-x - abs(flick.content-x);
+                                    let offset-y = self.mouse-y - abs(flick.content-y);
 
                                     img.width = max(flick.width, img.width * scale-factor);
                                     img.height = max(flick.height, img.height * scale-factor);
 
-                                    flick.viewport-x = -(img.width * pos-x - offset-x);
-                                    flick.viewport-y = -(img.height * pos-y - offset-y);
+                                    flick.content-x = -(img.width * pos-x - offset-x);
+                                    flick.content-y = -(img.height * pos-y - offset-y);
 
                                     accept
                                 }
@@ -214,7 +214,7 @@ export component CodeImageDialog inherits MovingDialog {
         Flickable {
             interactive: false;
             width: parent.inner-width * 0.25;
-            viewport-height: right-vbox.preferred-height;
+            content-height: right-vbox.preferred-height;
 
             right-vbox := VerticalLayout {
                 x: 0;

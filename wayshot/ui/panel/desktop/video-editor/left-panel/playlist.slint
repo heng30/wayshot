@@ -212,14 +212,14 @@ component Header inherits Rectangle {
             alignment: LayoutAlignment.end;
 
             Flickable {
-                viewport-width: text-btn-hbox.preferred-width;
+                content-width: text-btn-hbox.preferred-width;
 
                 scroll-ta := TouchArea {
                     scroll-event(event) => {
                         if (event.delta-y > 0) {
-                            parent.viewport-x = clamp(parent.viewport-x + parent.viewport-width / 4,  min(0, -(parent.viewport-width - parent.width)), 0);
+                            parent.content-x = clamp(parent.content-x + parent.content-width / 4,  min(0, -(parent.content-width - parent.width)), 0);
                         } else if (event.delta-y < 0) {
-                            parent.viewport-x = clamp(parent.viewport-x - parent.viewport-width / 4, min(0,  -(parent.viewport-width - parent.width)), 0);
+                            parent.content-x = clamp(parent.content-x - parent.content-width / 4, min(0,  -(parent.content-width - parent.width)), 0);
                         }
                         accept
                     }
@@ -970,7 +970,7 @@ export component ThumbnailView inherits Rectangle {
                     grid-origin: root.absolute-position;
                     grid-width: root.width;
                     grid-column-count: column-count;
-                    flickable-viewport-y: flick.viewport-y;
+                    flickable-viewport-y: flick.content-y;
 
                     double-clicked => {
                         root.double-clicked(self.index);

@@ -544,7 +544,7 @@ export component TimerPanel inherits HorizontalLayout {
                 }
 
                 if Store.video-editor-global-filter-config.timer.items.length > 0: ScrollView {
-                    viewport-height: vbox.preferred-height;
+                    content-height: vbox.preferred-height;
 
                     vbox := VerticalLayout {
                         spacing: Theme.spacing * 2;

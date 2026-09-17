@@ -89,7 +89,7 @@ component RightPanel inherits VerticalLayout {
         }
 
         if Store.video-editor-tts-voices.length > 0: ScrollView {
-            viewport-height: vbox.preferred-height;
+            content-height: vbox.preferred-height;
 
             vbox := VerticalLayout {
                 padding: rec.border-width;
@@ -359,14 +359,14 @@ component LeftPanel inherits VerticalLayout {
                     return false;
                 }
                 let pos = playing-index * list-item-height;
-                return !(pos > abs(self.viewport-y) && pos < abs(self.viewport-y) + self.height - list-item-height);
+                return !(pos > abs(self.content-y) && pos < abs(self.content-y) + self.height - list-item-height);
             }
 
             function scroll-to-item() {
                 if (list-item-height <= 0 || playing-index < 0) {
                     return;
                 }
-                self.viewport-y = 0 - clamp(playing-index * list-item-height - list-item-height / 2, 0, self.viewport-height - self.height);
+                self.content-y = 0 - clamp(playing-index * list-item-height - list-item-height / 2, 0, self.content-height - self.height);
             }
 
             changed audio-player-progress => {

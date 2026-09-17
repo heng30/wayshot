@@ -36,14 +36,14 @@ export component Tool inherits Rectangle {
     flick := Flickable {
         width: root.width;
         height: hbox.preferred-height;
-        viewport-width: hbox.preferred-width;
+        content-width: hbox.preferred-width;
 
         TouchArea {
             scroll-event(event) => {
                 if (event.delta-y > 0) {
-                    flick.viewport-x = min(0, flick.viewport-x + root.width / 4);
+                    flick.content-x = min(0, flick.content-x + root.width / 4);
                 } else {
-                    flick.viewport-x = max(flick.viewport-x - root.width / 4, -(flick.viewport-width - root.width));
+                    flick.content-x = max(flick.content-x - root.width / 4, -(flick.content-width - root.width));
                 }
 
                 accept
@@ -505,30 +505,30 @@ export component Tool inherits Rectangle {
         }
     }
 
-    if root.width > flick.viewport-width: TouchArea {
-        x: flick.viewport-width;
-        width: root.width - flick.viewport-width;
+    if root.width > flick.content-width: TouchArea {
+        x: flick.content-width;
+        width: root.width - flick.content-width;
 
         clicked => {
             Logic.video-editor-clear-all-selected-state();
         }
     }
 
-    if abs(flick.viewport-x) > Theme.icon-size / 2: ElevatedBtn {
+    if abs(flick.content-x) > Theme.icon-size / 2: ElevatedBtn {
         x: 0;
         icon: Icons.arrow-left-light;
 
         clicked => {
-            flick.viewport-x = min(0, flick.viewport-x + root.width / 4);
+            flick.content-x = min(0, flick.content-x + root.width / 4);
         }
     }
 
-    if abs(flick.viewport-x) + root.width < flick.viewport-width: ElevatedBtn {
+    if abs(flick.content-x) + root.width < flick.content-width: ElevatedBtn {
         x: root.width - self.width;
         icon: Icons.arrow-right-light;
 
         clicked => {
-            flick.viewport-x = max(flick.viewport-x - root.width / 4, -(flick.viewport-width - root.width));
+            flick.content-x = max(flick.content-x - root.width / 4, -(flick.content-width - root.width));
         }
     }
 }

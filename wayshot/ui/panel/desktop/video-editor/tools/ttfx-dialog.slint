@@ -221,7 +221,7 @@ export component TtfxDialog inherits MovingDialog {
         Flickable {
             interactive: false;
             width: params-width;
-            viewport-height: params-vbox.preferred-height;
+            content-height: params-vbox.preferred-height;
 
             params-vbox := VerticalLayout {
                 x: 0;

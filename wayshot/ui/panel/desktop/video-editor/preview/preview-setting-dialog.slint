@@ -109,11 +109,15 @@ export component PreviewSettingDialog inherits Dialog {
         max-height: inner-height;
     }
 
-    cancel-clicked => {
+    close => {
+        self.canceled();
+    }
+
+    canceled => {
         self.escape();
     }
 
-    ok-clicked => {
+    confirmed => {
         Logic.video-editor-preview-update-config(setting.get());
         self.escape();
     }

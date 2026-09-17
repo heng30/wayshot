@@ -62,7 +62,7 @@ component SubtitleListView inherits ScrollView {
     }
 
     function is-in-virtual-viewport(pos: length, height: length) -> bool {
-        return pos + height > abs(self.viewport-y) - self.visible-height && pos < abs(self.viewport-y) + self.visible-height + self.visible-height;
+        return pos + height > abs(self.content-y) - self.visible-height && pos < abs(self.content-y) + self.visible-height + self.visible-height;
     }
 
     function need-scroll() -> bool {
@@ -73,7 +73,7 @@ component SubtitleListView inherits ScrollView {
         if (item-index < 0 || item-index >= subtitles.length) {
             return false;
         }
-        return !(current-playing-index-pos-y > abs(self.viewport-y) && current-playing-index-pos-y + current-playing-index-preferred-height < abs(self.viewport-y) + self.height);
+        return !(current-playing-index-pos-y > abs(self.content-y) && current-playing-index-pos-y + current-playing-index-preferred-height < abs(self.content-y) + self.height);
     }
 
     function scroll-to-item() {
@@ -81,7 +81,7 @@ component SubtitleListView inherits ScrollView {
         if (item-index < 0 || item-index >= subtitles.length) {
             return;
         }
-        root.viewport-y = 0 - clamp(current-playing-index-pos-y, 0, root.viewport-height - root.height);
+        root.content-y = 0 - clamp(current-playing-index-pos-y, 0, root.content-height - root.height);
     }
 
     changed audio-player-progress => {

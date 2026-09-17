@@ -17,8 +17,8 @@ export component Timeline inherits Rectangle {
     in property <length> timeline-width;
     out property playhead-x <=> playhead.x;
     out property pressed <=> ta.pressed;
-    in-out property viewport-x <=> flick.viewport-x;
-    in-out property viewport-width <=> flick.viewport-width;
+    in-out property viewport-x <=> flick.content-x;
+    in-out property viewport-width <=> flick.content-width;
 
     private property <length> label-width: Theme.default-font-size * 10;
     private property <int> timeline-offset: Store.video-editor-timeline-offset;
@@ -44,7 +44,7 @@ export component Timeline inherits Rectangle {
     }
 
     public function playhead-in-viewport() -> bool {
-        return abs(flick.viewport-x) - playhead.handle-width / 2 < playhead.x && playhead.x < abs(flick.viewport-x) + flick.width;
+        return abs(flick.content-x) - playhead.handle-width / 2 < playhead.x && playhead.x < abs(flick.content-x) + flick.width;
     }
 
     height: Theme.icon-size * 1.3;
@@ -116,7 +116,7 @@ export component Timeline inherits Rectangle {
                 ta := TouchArea {
                     clicked => {
                         playhead.x = self.pressed-x - playhead.handle-width / 2;
-                        Store.video-editor-timeline-offset = Store.video-editor-tracks-manager.duration * self.pressed-x / flick.viewport-width;
+                        Store.video-editor-timeline-offset = Store.video-editor-tracks-manager.duration * self.pressed-x / flick.content-width;
                         Logic.video-editor-timeline-seek(Store.video-editor-timeline-offset);
 
                         Store.video-editor-focus-flag = !Store.video-editor-focus-flag;
@@ -125,16 +125,16 @@ export component Timeline inherits Rectangle {
 
                 playhead := Playhead {
                     out property <length> start-x: self.handle-width / -2;
-                    out property <length> end-x: flick.viewport-width - self.handle-width / 2;
+                    out property <length> end-x: flick.content-width - self.handle-width / 2;
 
                     public function update() {
-                        playhead.x = clamp(flick.viewport-width * timeline-offset / Store.video-editor-tracks-manager.duration - playhead.handle-width / 2, playhead.start-x, playhead.end-x);
+                        playhead.x = clamp(flick.content-width * timeline-offset / Store.video-editor-tracks-manager.duration - playhead.handle-width / 2, playhead.start-x, playhead.end-x);
                     }
 
                     changed pressed => {
                         if (!pressed) {
                             let line-pos-x = playhead.x + playhead.handle-width / 2;
-                            Store.video-editor-timeline-offset = Store.video-editor-tracks-manager.duration * line-pos-x / flick.viewport-width;
+                            Store.video-editor-timeline-offset = Store.video-editor-tracks-manager.duration * line-pos-x / flick.content-width;
                             Logic.video-editor-timeline-seek(Store.video-editor-timeline-offset);
                         }
                     }

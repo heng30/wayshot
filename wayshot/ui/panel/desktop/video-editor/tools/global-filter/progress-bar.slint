@@ -544,10 +544,10 @@ export component ProgressBarPanel inherits HorizontalLayout {
             if Store.video-editor-global-filter-config.progress-bar.items.length > 0: ScrollView {
                 private property <bool> inner-add-flag <=> root.add-flag;
                 changed inner-add-flag => {
-                    self.viewport-y = (-(self.viewport-height - self.visible-height)).min(0);
+                    self.content-y = (-(self.content-height - self.visible-height)).min(0);
                 }
 
-                viewport-height: vbox.preferred-height;
+                content-height: vbox.preferred-height;
 
                 vbox := VerticalLayout {
                     spacing: Theme.spacing * 1.5;
@@ -563,7 +563,7 @@ export component ProgressBarPanel inherits HorizontalLayout {
 
     if is-show-setting: Flickable {
         width: Theme.default-font-size * 14;
-        viewport-height: pb.preferred-height;
+        content-height: pb.preferred-height;
         interactive: false;
 
         pb := ProgressBarParams { }

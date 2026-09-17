@@ -422,11 +422,11 @@ export component PreferenceSettingDialog inherits Dialog {
         height: inner-height;
     }
 
-    cancel-clicked => {
+    close => {
         self.escape();
     }
 
-    ok-clicked => {
+    confirmed => {
         setting.apply();
         self.escape();
     }

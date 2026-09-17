@@ -226,11 +226,11 @@ component EntryListView inherits ScrollView {
         if (Store.video-editor-smart-clip-playing-index < 0) {
             return false;
         }
-        return !(current-playing-index-pos-y > abs(self.viewport-y) && current-playing-index-pos-y + current-playing-index-preferred-height < abs(self.viewport-y) + self.height);
+        return !(current-playing-index-pos-y > abs(self.content-y) && current-playing-index-pos-y + current-playing-index-preferred-height < abs(self.content-y) + self.height);
     }
 
     function scroll-to-item() {
-        self.viewport-y = 0 - clamp(current-playing-index-pos-y, 0, self.viewport-height - root.height);
+        self.content-y = 0 - clamp(current-playing-index-pos-y, 0, self.content-height - root.height);
     }
 
     changed audio-player-progress => {

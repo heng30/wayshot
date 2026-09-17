@@ -197,8 +197,8 @@ component VideoFileList inherits Rectangle {
     if Store.video-editor-similar-video-segment-items.length > 0: Flickable {
         height: parent.height;
         width: parent.width;
-        viewport-height: vbox.preferred-height;
-        viewport-width: parent.width;
+        content-height: vbox.preferred-height;
+        content-width: parent.width;
 
         vbox := VerticalLayout {
             padding: Theme.default-border-width;

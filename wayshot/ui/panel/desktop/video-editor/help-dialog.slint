@@ -434,8 +434,8 @@ component ShortcutsTable inherits VerticalLayout {
 }
 
 component HelpContent inherits ScrollView {
-    viewport-height: vbox.preferred-height;
-    viewport-width: vbox.preferred-width;
+    content-height: vbox.preferred-height;
+    content-width: vbox.preferred-width;
 
     init => {
         HelpTranslation.width = vbox.width - vbox.padding * 2;
