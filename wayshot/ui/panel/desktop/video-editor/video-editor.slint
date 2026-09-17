@@ -147,11 +147,11 @@ export component VideoEditor inherits Rectangle {
         }
     }
 
-    // TopModalDialog {
-    //     app-focus => {
-    //         fs.focus();
-    //     }
-    // }
+    TopModalDialog {
+        app-focus => {
+            fs.focus();
+        }
+    }
 
     color-picker := ColorPickerPopup {
         x: (root.width - self.width) / 2;

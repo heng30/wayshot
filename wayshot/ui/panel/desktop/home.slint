@@ -71,23 +71,23 @@ export component Home inherits VerticalLayout {
     //     }
     // }
     //
-    // if Store.current-tab-index == TabIndex.Home: MainPanel {
-    //     height: parent.height;
-    // }
-    //
-    // if Store.current-tab-index == TabIndex.History: HistoryPanel {
-    //     height: parent.height;
-    // }
-    //
-    // if Store.current-tab-index == TabIndex.Player: PlayerPanel {
-    //     height: parent.height;
-    // }
-    //
-    // if Store.current-tab-index == TabIndex.ShareScreen: ShareScreenPanel {
-    //     width: parent.width;
-    //     height: parent.height;
-    // }
-    //
+    if Store.current-tab-index == TabIndex.Home: MainPanel {
+        height: parent.height;
+    }
+
+    if Store.current-tab-index == TabIndex.History: HistoryPanel {
+        height: parent.height;
+    }
+
+    if Store.current-tab-index == TabIndex.Player: PlayerPanel {
+        height: parent.height;
+    }
+
+    if Store.current-tab-index == TabIndex.ShareScreen: ShareScreenPanel {
+        width: parent.width;
+        height: parent.height;
+    }
+
     if Store.current-tab-index == TabIndex.VideoEditor: VideoEditor {
         height: parent.height;
     }

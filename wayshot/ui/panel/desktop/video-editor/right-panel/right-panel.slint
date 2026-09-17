@@ -29,21 +29,21 @@ export component RightPanel inherits Rectangle {
         padding-right: Theme.padding * 2;
         spacing: Theme.spacing;
 
-        // if selected-index == 0: Filter {
-        //     width: parent.width - parent.padding-right;
-        // }
-        //
-        // if selected-index == 1: Subtitle {
-        //     width: parent.width - parent.padding-right;
-        // }
-        //
-        // if selected-index == 2: TextEditorPanel {
-        //     width: parent.width - parent.padding-right;
-        // }
-        //
-        // if selected-index == 3: terminal := Terminal {
-        //     width: parent.width - parent.padding-right;
-        // }
+        if selected-index == 0: Filter {
+            width: parent.width - parent.padding-right;
+        }
+
+        if selected-index == 1: Subtitle {
+            width: parent.width - parent.padding-right;
+        }
+
+        if selected-index == 2: TextEditorPanel {
+            width: parent.width - parent.padding-right;
+        }
+
+        if selected-index == 3: terminal := Terminal {
+            width: parent.width - parent.padding-right;
+        }
 
         hbox := HorizontalLayout {
             alignment: LayoutAlignment.center;
