@@ -53,6 +53,8 @@ export component Preference inherits SettingDetail {
     }
 
     SettingDetailInner {
+        width: parent.width;
+
         if Store.device-type == DeviceType.Desktop: SettingDetailInnerVbox {
             win-size-txt := SettingDetailLabel {
                 text: Logic.tr("Window size");
