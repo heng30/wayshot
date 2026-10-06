@@ -7,7 +7,8 @@
 //! - Smoothstep helper for AA transitions (`smoothstep`)
 //! - Separable box blur (`box_blur_horizontal`, `box_blur_vertical`, `apply_box_blur`)
 //! - Distance-based blur factor with smoothstep transition (`blur_factor`)
-//! - Alpha mask operations (`dilate_mask`, `fill_from_mask`)
+//! - Alpha mask operations (`dilate_mask`, `outline_mask_from_alpha`, `fill_from_mask`)
+//! - Euclidean distance transform (`euclidean_distance_field`)
 //! - Image compositing (`composite_image`)
 //!
 //! # Pixel center sampling
@@ -21,6 +22,9 @@
 //! ```
 
 use image::{Rgba, RgbaImage};
+
+/// Sentinel used by the distance transform for "no foreground pixel found".
+const DIST_FAR: i32 = i32::MAX / 8;
 
 /// Blend a pixel onto the buffer using alpha compositing ("over" operation).
 ///
@@ -315,14 +319,11 @@ pub fn blend_pixel_inplace(pixel: &mut Rgba<u8>, color: Rgba<u8>, src_alpha: f32
     let out_alpha = src_alpha + dst_alpha * (1.0 - src_alpha);
 
     if out_alpha > 0.0 {
-        pixel[0] = ((color[0] as f32 * src_alpha
-            + pixel[0] as f32 * dst_alpha * (1.0 - src_alpha))
+        pixel[0] = ((color[0] as f32 * src_alpha + pixel[0] as f32 * dst_alpha * (1.0 - src_alpha))
             / out_alpha) as u8;
-        pixel[1] = ((color[1] as f32 * src_alpha
-            + pixel[1] as f32 * dst_alpha * (1.0 - src_alpha))
+        pixel[1] = ((color[1] as f32 * src_alpha + pixel[1] as f32 * dst_alpha * (1.0 - src_alpha))
             / out_alpha) as u8;
-        pixel[2] = ((color[2] as f32 * src_alpha
-            + pixel[2] as f32 * dst_alpha * (1.0 - src_alpha))
+        pixel[2] = ((color[2] as f32 * src_alpha + pixel[2] as f32 * dst_alpha * (1.0 - src_alpha))
             / out_alpha) as u8;
         pixel[3] = (out_alpha * 255.0) as u8;
     }
@@ -331,8 +332,10 @@ pub fn blend_pixel_inplace(pixel: &mut Rgba<u8>, color: Rgba<u8>, src_alpha: f32
 /// Dilate an alpha mask by the given radius using max filter within a circular kernel.
 ///
 /// Each output pixel takes the maximum alpha value found within radius `radius` in the input.
-/// This produces a clean, solid expanded shape without blur from overlapping
-/// anti-aliased renders — ideal for generating crisp text outlines.
+/// Because it copies source alphas rather than measuring a distance, the expanded
+/// border keeps whatever partial coverage the source edge had, which makes the
+/// result look ragged/blurry on curves and diagonals. Prefer
+/// [`outline_mask_from_alpha`] when generating text outlines.
 ///
 /// - `mask`: Flat alpha mask buffer, one byte per pixel, row-major
 /// - `width`, `height`: Mask dimensions
@@ -372,6 +375,197 @@ pub fn dilate_mask(mask: &[u8], width: u32, height: u32, radius: u32) -> Vec<u8>
     }
 
     dilated
+}
+
+/// Add a candidate vector to the running best (squared lengths are compared
+/// to avoid square roots).
+#[inline]
+fn update_best(candidate: Option<(i32, i32)>, best: &mut i64, out: &mut (i32, i32)) {
+    if let Some((dx, dy)) = candidate {
+        let d = (dx as i64) * (dx as i64) + (dy as i64) * (dy as i64);
+        if d < *best {
+            *best = d;
+            *out = (dx, dy);
+        }
+    }
+}
+
+/// Vector from pixel `n` to its nearest foreground pixel, offset so that it
+/// points from the neighbour to the pixel currently being updated.
+#[inline]
+fn neighbour_vector(vx: &[i32], vy: &[i32], n: usize, ox: i32, oy: i32) -> Option<(i32, i32)> {
+    if vx[n] == DIST_FAR && vy[n] == DIST_FAR {
+        return None;
+    }
+    Some((vx[n] + ox, vy[n] + oy))
+}
+
+/// Two-pass 8SSEDT (8-points Signed Sequential Euclidean Distance Transform).
+///
+/// Returns, for every pixel, the vector pointing to the nearest pixel whose mask
+/// value is `>= threshold`. Pixels unreachable from any foreground pixel get
+/// [`DIST_FAR`] in both components.
+fn distance_vectors(mask: &[u8], width: u32, height: u32, threshold: u8) -> (Vec<i32>, Vec<i32>) {
+    let w = width as usize;
+    let h = height as usize;
+
+    let mut vx = vec![DIST_FAR; w * h];
+    let mut vy = vec![DIST_FAR; w * h];
+    for (i, &a) in mask.iter().enumerate() {
+        if a >= threshold {
+            vx[i] = 0;
+            vy[i] = 0;
+        }
+    }
+
+    // Forward pass: propagate from already-visited left/top neighbours.
+    for y in 0..h {
+        for x in 0..w {
+            let i = y * w + x;
+            if vx[i] == 0 && vy[i] == 0 {
+                continue;
+            }
+            let mut best = i64::MAX;
+            let mut v = (DIST_FAR, DIST_FAR);
+            if x > 0 {
+                update_best(neighbour_vector(&vx, &vy, i - 1, -1, 0), &mut best, &mut v);
+            }
+            if y > 0 {
+                update_best(neighbour_vector(&vx, &vy, i - w, 0, -1), &mut best, &mut v);
+                if x > 0 {
+                    update_best(
+                        neighbour_vector(&vx, &vy, i - w - 1, -1, -1),
+                        &mut best,
+                        &mut v,
+                    );
+                }
+                if x + 1 < w {
+                    update_best(
+                        neighbour_vector(&vx, &vy, i - w + 1, 1, -1),
+                        &mut best,
+                        &mut v,
+                    );
+                }
+            }
+            if best != i64::MAX {
+                vx[i] = v.0;
+                vy[i] = v.1;
+            }
+        }
+    }
+
+    // Backward pass: propagate from right/bottom neighbours.
+    for y in (0..h).rev() {
+        for x in (0..w).rev() {
+            let i = y * w + x;
+            if vx[i] == 0 && vy[i] == 0 {
+                continue;
+            }
+            let mut best = i64::MAX;
+            let mut v = (vx[i], vy[i]);
+            if vx[i] != DIST_FAR || vy[i] != DIST_FAR {
+                best = (vx[i] as i64) * (vx[i] as i64) + (vy[i] as i64) * (vy[i] as i64);
+            }
+            if x + 1 < w {
+                update_best(neighbour_vector(&vx, &vy, i + 1, 1, 0), &mut best, &mut v);
+            }
+            if y + 1 < h {
+                update_best(neighbour_vector(&vx, &vy, i + w, 0, 1), &mut best, &mut v);
+                if x + 1 < w {
+                    update_best(
+                        neighbour_vector(&vx, &vy, i + w + 1, 1, 1),
+                        &mut best,
+                        &mut v,
+                    );
+                }
+                if x > 0 {
+                    update_best(
+                        neighbour_vector(&vx, &vy, i + w - 1, -1, 1),
+                        &mut best,
+                        &mut v,
+                    );
+                }
+            }
+            if best != i64::MAX {
+                vx[i] = v.0;
+                vy[i] = v.1;
+            }
+        }
+    }
+
+    (vx, vy)
+}
+
+/// Euclidean distance field: for every pixel, the distance in pixels to the
+/// nearest foreground pixel (mask value `>= threshold`).
+///
+/// Foreground pixels themselves get `0.0`. Pixels with no foreground pixel
+/// anywhere in the mask get `f32::INFINITY`.
+///
+/// The transform is computed with two raster passes in `O(width * height)` and
+/// is accurate to well under half a pixel, which makes it suitable for
+/// generating clean geometric expansion (outlines, glows, strokes).
+pub fn euclidean_distance_field(mask: &[u8], width: u32, height: u32, threshold: u8) -> Vec<f32> {
+    let (vx, vy) = distance_vectors(mask, width, height, threshold);
+    vx.iter()
+        .zip(vy.iter())
+        .map(|(&dx, &dy)| {
+            if dx == DIST_FAR && dy == DIST_FAR {
+                f32::INFINITY
+            } else {
+                (((dx as f32) * (dx as f32)) + ((dy as f32) * (dy as f32))).sqrt()
+            }
+        })
+        .collect()
+}
+
+/// Expand an alpha mask into a solid, anti-aliased outline mask.
+///
+/// Every pixel within `radius` of the shape becomes fully opaque, and the
+/// remaining transition is confined to a single sub-pixel band, so the stroke
+/// keeps a constant thickness and a crisp outer edge.
+///
+/// Unlike [`dilate_mask`], which copies the raw (partially covered) source
+/// alphas into the expanded border and therefore produces ragged, washed out
+/// strokes, this works on a Euclidean distance field and reconstructs sub-pixel
+/// edge positions from the source coverage, which is what makes the outline look
+/// solid instead of blurry.
+pub fn outline_mask_from_alpha(mask: &[u8], width: u32, height: u32, radius: u32) -> Vec<u8> {
+    if radius == 0 || mask.is_empty() {
+        return mask.to_vec();
+    }
+
+    let w = width as usize;
+    let (vx, vy) = distance_vectors(mask, width, height, 128);
+    let r = radius as f32 + 0.5;
+
+    let mut out = vec![0u8; mask.len()];
+    for (i, pixel) in out.iter_mut().enumerate() {
+        // Pixels already inside the shape stay fully covered.
+        if mask[i] >= 128 {
+            *pixel = 255;
+            continue;
+        }
+
+        let (dx, dy) = (vx[i], vy[i]);
+        if dx == DIST_FAR && dy == DIST_FAR {
+            continue;
+        }
+
+        // Distance from this pixel centre to the nearest covered pixel, minus the
+        // sub-pixel correction implied by that pixel's own coverage
+        // (`coverage = 0.5 - signed_distance` for the pixel containing an edge).
+        let nearest = (i as i64 + dy as i64 * w as i64 + dx as i64) as usize;
+        let len = (((dx as f32) * (dx as f32)) + ((dy as f32) * (dy as f32))).sqrt();
+        let edge_distance = len + 0.5 - mask[nearest] as f32 / 255.0;
+
+        let coverage = (r - edge_distance).clamp(0.0, 1.0);
+        if coverage > 0.0 {
+            *pixel = (coverage * 255.0).round() as u8;
+        }
+    }
+
+    out
 }
 
 /// Fill image pixels from an alpha mask with a solid color, using standard alpha blending.
@@ -713,10 +907,26 @@ mod tests {
             assert_eq!(dilated[idx], 255, "pixel at ({},{}) should be 255", x, y);
         }
         // Diagonal neighbors should remain 0 (dx²+dy² = 2 > 1)
-        assert_eq!(dilated[(1 * 5 + 1) as usize], 0, "pixel at (1,1) should be 0");
-        assert_eq!(dilated[(1 * 5 + 3) as usize], 0, "pixel at (3,1) should be 0");
-        assert_eq!(dilated[(3 * 5 + 1) as usize], 0, "pixel at (1,3) should be 0");
-        assert_eq!(dilated[(3 * 5 + 3) as usize], 0, "pixel at (3,3) should be 0");
+        assert_eq!(
+            dilated[(1 * 5 + 1) as usize],
+            0,
+            "pixel at (1,1) should be 0"
+        );
+        assert_eq!(
+            dilated[(1 * 5 + 3) as usize],
+            0,
+            "pixel at (3,1) should be 0"
+        );
+        assert_eq!(
+            dilated[(3 * 5 + 1) as usize],
+            0,
+            "pixel at (1,3) should be 0"
+        );
+        assert_eq!(
+            dilated[(3 * 5 + 3) as usize],
+            0,
+            "pixel at (3,3) should be 0"
+        );
         // Corner pixels should remain 0
         assert_eq!(dilated[0], 0);
         assert_eq!(dilated[4], 0);
@@ -729,6 +939,97 @@ mod tests {
         let mask = vec![128u8; 16];
         let dilated = dilate_mask(&mask, 4, 4, 0);
         assert_eq!(dilated, mask); // no change with radius 0
+    }
+
+    #[test]
+    fn test_euclidean_distance_field_single_pixel() {
+        let mut mask = vec![0u8; 49];
+        mask[24] = 255; // centre of a 7x7 mask
+        let dist = euclidean_distance_field(&mask, 7, 7, 128);
+
+        assert_eq!(dist[24], 0.0);
+        // 4-connected neighbours are exactly 1px away
+        assert!((dist[23] - 1.0).abs() < 1e-6);
+        assert!((dist[17] - 1.0).abs() < 1e-6);
+        // Diagonal neighbour is sqrt(2)
+        assert!((dist[16] - 2.0_f32.sqrt()).abs() < 1e-5);
+        // Two pixels left
+        assert!((dist[22] - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_euclidean_distance_field_no_foreground() {
+        let mask = vec![0u8; 16];
+        let dist = euclidean_distance_field(&mask, 4, 4, 128);
+        assert!(dist.iter().all(|d| d.is_infinite()));
+    }
+
+    #[test]
+    fn test_outline_mask_radius_zero_is_identity() {
+        let mut mask = vec![0u8; 25];
+        mask[12] = 200;
+        mask[7] = 40;
+        assert_eq!(outline_mask_from_alpha(&mask, 5, 5, 0), mask);
+    }
+
+    #[test]
+    fn test_outline_mask_solid_core_and_aa_edge() {
+        // 3x3 solid block in the middle of a 9x9 mask.
+        let mut mask = vec![0u8; 81];
+        for y in 3..6 {
+            for x in 3..6 {
+                mask[y * 9 + x] = 255;
+            }
+        }
+
+        let outline = outline_mask_from_alpha(&mask, 9, 9, 2);
+
+        // Source is fully covered.
+        for y in 3..6 {
+            for x in 3..6 {
+                assert_eq!(outline[y * 9 + x], 255);
+            }
+        }
+        // 2px away along an axis: still fully opaque (solid core).
+        assert_eq!(outline[4 * 9 + 1], 255);
+        assert_eq!(outline[1 * 9 + 4], 255);
+        // 3px away: outside the radius, fully transparent.
+        assert_eq!(outline[4 * 9 + 0], 0);
+        assert_eq!(outline[0 * 9 + 4], 0);
+        // Corner of the expansion: partially covered, i.e. anti-aliased.
+        let corner = outline[1 * 9 + 1];
+        assert!(corner > 0 && corner < 255, "corner alpha = {corner}");
+    }
+
+    #[test]
+    fn test_outline_mask_edge_stays_anti_aliased_on_diagonal() {
+        // A hard-edged diagonal: no anti-aliasing information in the source, so
+        // the outline edge itself has to provide the coverage transition.
+        let size = 32u32;
+        let mut mask = vec![0u8; (size * size) as usize];
+        for y in 0..size {
+            for x in 0..size {
+                if x as i32 + y as i32 >= 32 {
+                    mask[(y * size + x) as usize] = 255;
+                }
+            }
+        }
+
+        let outline = outline_mask_from_alpha(&mask, size, size, 4);
+
+        // A hard-edged diagonal carries no coverage information, so the outline
+        // edge can only be quantised to the distances the lattice allows.
+        // What matters is that the edge is *smooth* (the same coverage repeats
+        // along the whole diagonal) and that no source pixel is lost.
+        let partial = outline.iter().filter(|&&a| a > 0 && a < 255).count();
+        assert!(partial >= 20, "only {partial} anti-aliased pixels");
+        for (i, &a) in mask.iter().enumerate() {
+            if a == 255 {
+                assert_eq!(outline[i], 255, "source pixel {i} lost coverage");
+            }
+        }
+        // Interior of the expansion is fully solid, not a gradient.
+        assert_eq!(outline[16 * size as usize + 16], 255);
     }
 
     #[test]

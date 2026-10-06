@@ -10,7 +10,7 @@ use cosmic_text::fontdb::{Style as FontStyle, Weight as FontWeight};
 use cosmic_text::{
     Attrs, Buffer, Family, FontSystem, Metrics, Shaping, SwashCache, SwashContent, SwashImage,
 };
-use draw_utils::{composite_image, dilate_mask, fill_from_mask};
+use draw_utils::{composite_image, fill_from_mask, outline_mask_from_alpha};
 use image::{Rgba, RgbaImage};
 use std::path::Path;
 
@@ -772,13 +772,14 @@ pub fn create_text_image_with_cache(
         img_height.max(1),
     );
 
-    // Draw outline: dilate the text mask, then fill with outline color
+    // Draw outline: build a solid, anti-aliased expansion of the text mask,
+    // then fill it with the outline color.
     // Skip if outline color is not set (None) or transparent (alpha == 0)
     if let Some(oc) = outline_color
         && outline_width > 0
         && oc[3] > 0
     {
-        let outline_mask = dilate_mask(
+        let outline_mask = outline_mask_from_alpha(
             &text_mask,
             img_width.max(1),
             img_height.max(1),
@@ -1030,11 +1031,12 @@ pub fn render_text_to_image(img: &mut RgbaImage, text: &str, style: &SubtitleSty
         current_y += line_height as i32;
     }
 
-    // Draw outline: dilate the text mask, then fill with outline color
+    // Draw outline: build a solid, anti-aliased expansion of the text mask,
+    // then fill it with the outline color.
     // Skip if outline color is not set (None) or transparent (alpha == 0)
     if let Some(oc) = outline_color {
         if outline_width > 0 && oc[3] > 0 {
-            let outline_mask = dilate_mask(&text_mask, temp_w, temp_h, outline_width);
+            let outline_mask = outline_mask_from_alpha(&text_mask, temp_w, temp_h, outline_width);
             fill_from_mask(&mut temp_img, &outline_mask, oc);
         }
     }
