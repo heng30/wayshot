@@ -238,6 +238,7 @@ export component MusicGenSettingDialog inherits MovingDialog {
     ];
 
     SettingDetailInner {
+        width: root.header-width - root.body-border-width;
         SettingDetailInnerVbox {
             SettingDetailLabel {
                 text: Logic.tr("Export directory");
