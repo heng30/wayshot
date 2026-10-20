@@ -354,6 +354,7 @@ fn extract_subtitle_style_from_filters(
             if let Some(f) = filter.as_any().downcast_ref::<FontPathFilter>() {
                 config.font_path = f.font_path.to_string_lossy().to_string();
                 config.font_family = f.font_family.clone();
+                config.font_style = f.font_style.clone();
             }
         } else if filter_name == FontSizeFilter::NAME {
             if let Some(f) = filter.as_any().downcast_ref::<FontSizeFilter>() {

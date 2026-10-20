@@ -27,7 +27,6 @@ import {
 import { VEFilter, KeyframeValue } from "../filter.slint";
 import { KeyframeButton } from "filter/keyframe-btn.slint";
 
-
 component TextEditorStylePanel inherits Rectangle {
     x: Theme.padding / 2;
 
@@ -167,6 +166,11 @@ component TextEditorStylePanel inherits Rectangle {
                         text: current-element.text;
                         border-color: self.has-focus ? Theme.thirdly-brand-color : Theme.is-dark ? Theme.base-border-color.brighter(20%) : Theme.base-border-color.darker(10%);
                         height: self.font-size * 6;
+
+                        private property <TextElement> el: root.current-element;
+                        changed el => {
+                            text-input.text = current-element.text;
+                        }
 
                         changed has-focus => {
                             if (!self.has-focus) {
