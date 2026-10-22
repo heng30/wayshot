@@ -451,7 +451,7 @@ fn get_export_subtitles(ui: &AppWindow) -> Option<Vec<ExportSubtitle>> {
         .enumerate()
     {
         let item = ExportSubtitle {
-            index: index as u32,
+            index: index as u32 + 1,
             start_timestamp: srt_timestamp_to_ms(&item.start_timestamp).ok()?,
             end_timestamp: srt_timestamp_to_ms(&item.end_timestamp).ok()?,
             text: item.original_text.into(),

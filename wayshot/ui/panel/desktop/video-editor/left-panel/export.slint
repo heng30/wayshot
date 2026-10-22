@@ -353,27 +353,32 @@ component ExportDetailSubtitle inherits SettingDetail {
             padding: Theme.padding * 2;
             padding-top: Theme.padding * 4;
 
-            RadioBtn {
-                text: "SRT";
-                checked: subtitle-type == SubtitleType.Srt;
-                check => {
-                    subtitle-type = SubtitleType.Srt;
-                }
-            }
+            HorizontalLayout {
+                alignment: space-between;
+                spacing: Theme.spacing * 4;
 
-            RadioBtn {
-                text: Logic.tr("VTT");
-                checked: subtitle-type == SubtitleType.Vtt;
-                check => {
-                    subtitle-type = SubtitleType.Vtt;
+                RadioBtn {
+                    text: "SRT";
+                    checked: subtitle-type == SubtitleType.Srt;
+                    check => {
+                        subtitle-type = SubtitleType.Srt;
+                    }
                 }
-            }
 
-            RadioBtn {
-                text: Logic.tr("ASS");
-                checked: subtitle-type == SubtitleType.Ass;
-                check => {
-                    subtitle-type = SubtitleType.Ass;
+                RadioBtn {
+                    text: Logic.tr("VTT");
+                    checked: subtitle-type == SubtitleType.Vtt;
+                    check => {
+                        subtitle-type = SubtitleType.Vtt;
+                    }
+                }
+
+                RadioBtn {
+                    text: Logic.tr("ASS");
+                    checked: subtitle-type == SubtitleType.Ass;
+                    check => {
+                        subtitle-type = SubtitleType.Ass;
+                    }
                 }
             }
         }
