@@ -22,6 +22,7 @@ use std::{
     },
 };
 use video_editor::export::progress::CancellationToken;
+use video_editor::tracks::track::Track;
 use video_editor::export::{
     AudioExportConfig, AudioExporter, Mp4ExportConfig, Mp4Exporter, SubtitleExportConfig,
     SubtitleExporter,
@@ -358,12 +359,19 @@ fn video_editor_export_subtitle(ui: &AppWindow, ty: UISubtitleType) {
             Arc::new(state.tracks_manager.clone())
         };
 
+        let subtitle_track_count = manager
+            .tracks
+            .iter()
+            .filter(|track| matches!(track, Track::Subtitle(inner) if !inner.hiding))
+            .count();
+
         let task_id = next_export_task_id();
         let cancellation_token = CancellationToken::new();
 
         let export_config = SubtitleExportConfig::default()
             .with_output_base_path(output_path.clone())
             .with_format(format)
+            .with_include_track_index(subtitle_track_count > 1)
             .with_cancellation_token(Some(cancellation_token.clone()));
 
         let task = UIVideoEditorExportQueueItem {
