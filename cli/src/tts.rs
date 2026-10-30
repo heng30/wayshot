@@ -34,7 +34,7 @@ pub struct Args {
 }
 
 pub fn run(args: &Args) -> Result<Value> {
-    let device = burn::tensor::Device::ndarray();
+    let device = burn::tensor::Device::flex();
     let model = VoxCPM::from_local(&args.model, &device)
         .map_err(|e| anyhow::anyhow!("加载模型失败: {e}"))?;
 

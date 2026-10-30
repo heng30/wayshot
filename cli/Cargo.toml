@@ -43,7 +43,7 @@ camera.workspace = true
 nokhwa = { workspace = true, features = ["decoding"] }
 cutout.workspace = true
 voxcpm-rs.workspace = true
-burn = { workspace = true, features = ["ndarray", "simd"] }
+burn = { workspace = true, features = ["flex", "simd"] }
 bili-danmaku.workspace = true
 imagedl-rs.workspace = true
 downloader.workspace = true

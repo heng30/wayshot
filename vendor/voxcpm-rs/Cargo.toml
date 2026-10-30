@@ -35,7 +35,7 @@ wgpu-fast = ["wgpu", "burn/fusion", "burn/autotune"]
 # Pure-CPU fallback using ndarray. SIMD speeds up elementwise ops; ndarray's
 # native matmul is still single-threaded — enable `cpu-blas` (compiles a
 # vendored OpenBLAS, no system deps required) for multi-core matmul.
-cpu = ["burn/ndarray", "burn/simd"]
+cpu = ["burn/flex", "burn/simd"]
 cpu-blas = ["cpu", "burn/openblas"]
 # Convenience: enable both
 all-backends = ["wgpu", "cpu"]

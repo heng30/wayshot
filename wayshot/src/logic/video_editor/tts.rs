@@ -1544,11 +1544,11 @@ async fn get_or_load_model(
             Ok(m) => VoxCpmModel::Wgpu { model: m, device },
             Err(e) => {
                 log::warn!("GPU backend failed, falling back to CPU: {e}");
-                VoxCpmModel::NdArray(VoxCPM::from_local(model_dir, &Device::ndarray())?)
+                VoxCpmModel::NdArray(VoxCPM::from_local(model_dir, &Device::flex())?)
             }
         }
     } else {
-        VoxCpmModel::NdArray(VoxCPM::from_local(model_dir, &Device::ndarray())?)
+        VoxCpmModel::NdArray(VoxCPM::from_local(model_dir, &Device::flex())?)
     };
 
     {
