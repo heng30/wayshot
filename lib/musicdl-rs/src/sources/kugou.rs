@@ -4,10 +4,11 @@
 //! and the mobile play info API for download URL resolution.
 
 use async_trait::async_trait;
+use base64::Engine;
 use reqwest::header::{HeaderMap, USER_AGENT};
 
-use crate::client::http::HttpClient;
 use crate::client::MusicSource;
+use crate::client::http::HttpClient;
 use crate::detect::is_valid_audio_ext;
 use crate::error::{MusicDlError, Result};
 use crate::types::{Filters, SearchParams, SearchUrl, SongInfo};
@@ -101,12 +102,11 @@ impl MusicSource for KugouMusicSource {
     }
 
     fn parse_search_result(&self, body: &str) -> Result<Vec<SongInfo>> {
-        let data: serde_json::Value = serde_json::from_str(body).map_err(|e| {
-            MusicDlError::Parse {
+        let data: serde_json::Value =
+            serde_json::from_str(body).map_err(|e| MusicDlError::Parse {
                 origin: self.source_name().to_string(),
                 reason: format!("JSON parse error: {}", e),
-            }
-        })?;
+            })?;
 
         let results = data
             .get("data")
@@ -212,13 +212,10 @@ impl MusicSource for KugouMusicSource {
         Ok(songs)
     }
 
-    async fn parse_download_url(
-        &self,
-        song_info: &mut SongInfo,
-        http: &HttpClient,
-    ) -> Result<()> {
+    async fn parse_download_url(&self, song_info: &mut SongInfo, http: &HttpClient) -> Result<()> {
         let file_hash = song_info.identifier.clone();
-        let album_id = song_info.raw_data
+        let album_id = song_info
+            .raw_data
             .get("album_id")
             .and_then(|v| v.as_str())
             .unwrap_or("0");
@@ -229,7 +226,10 @@ impl MusicSource for KugouMusicSource {
             file_hash, album_id
         );
 
-        match http.get_json::<serde_json::Value>(&url, self.parse_headers.clone()).await {
+        match http
+            .get_json::<serde_json::Value>(&url, self.parse_headers.clone())
+            .await
+        {
             Ok(result) => {
                 let download_url = result
                     .get("url")
@@ -319,7 +319,8 @@ impl MusicSource for KugouMusicSource {
 
         // Fetch lyrics if download URL was resolved
         if song_info.download_url.is_some() && song_info.lyric.is_none() {
-            let filename = song_info.raw_data
+            let filename = song_info
+                .raw_data
                 .get("filename")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
@@ -333,11 +334,18 @@ impl MusicSource for KugouMusicSource {
                 &song_info.identifier,
             );
 
-            if let Ok(search_result) = http.get_json::<serde_json::Value>(&search_url, self.search_headers.clone()).await {
-                if let Some(candidates) = search_result.get("candidates").and_then(|c| c.as_array()) {
+            if let Ok(search_result) = http
+                .get_json::<serde_json::Value>(&search_url, self.search_headers.clone())
+                .await
+            {
+                if let Some(candidates) = search_result.get("candidates").and_then(|c| c.as_array())
+                {
                     if let Some(first) = candidates.first() {
                         let lyric_id = first.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                        let accesskey = first.get("accesskey").and_then(|v| v.as_str()).unwrap_or("");
+                        let accesskey = first
+                            .get("accesskey")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
 
                         // Step 2: Download lyrics
                         let download_url = format!(
@@ -345,9 +353,18 @@ impl MusicSource for KugouMusicSource {
                             lyric_id, accesskey,
                         );
 
-                        if let Ok(dl_result) = http.get_json::<serde_json::Value>(&download_url, self.search_headers.clone()).await {
-                            if let Some(content) = dl_result.get("content").and_then(|v| v.as_str()) {
-                                if let Ok(decoded) = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, content) {
+                        if let Ok(dl_result) = http
+                            .get_json::<serde_json::Value>(
+                                &download_url,
+                                self.search_headers.clone(),
+                            )
+                            .await
+                        {
+                            if let Some(content) = dl_result.get("content").and_then(|v| v.as_str())
+                            {
+                                if let Ok(decoded) =
+                                    base64::engine::general_purpose::STANDARD.decode(content)
+                                {
                                     if let Ok(lrc_text) = String::from_utf8(decoded) {
                                         if let Some(cleaned) = utils::clean_lrc(&lrc_text) {
                                             song_info.lyric = Some(cleaned);

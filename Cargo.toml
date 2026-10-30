@@ -2,11 +2,18 @@
 resolver = "3"
 default-members = ["wayshot"]
 exclude = ["lib/lfm-vl-candle", "patches/slint-dynamic-z"]
-members = ["wayshot", "wayshot-cursor", "tr-helper", "icon-helper", "lib/*"]
+members = [
+  "wayshot",
+  "cli",
+  "wayshot-cursor",
+  "tr-helper",
+  "icon-helper",
+  "lib/*",
+]
 
 [workspace.package]
 edition = "2024"
-version = "0.1.0"
+version = "1.0.3"
 readme = "README.md"
 license = "Apache-2.0 or GPLv3"
 authors = ["Heng30 <rongheng30@gmail.com>"]
@@ -81,7 +88,6 @@ webrtc = { version = "0.20", default-features = false }
 rustls = { version = "0.23", default-features = false }
 nokhwa = { version = "0.10", default-features = false }
 pinyin = { version = "0.11", default-features = false }
-base64 = { version = "0.23", default-features = false }
 fdk-aac = { version = "0.8", default-features = false }
 memmap2 = { version = "0.9", default-features = false }
 realfft = { version = "3.5", default-features = false }
@@ -144,20 +150,20 @@ log = { version = "0.4", default-features = false, features = ["std"] }
 num = { version = "0.4", default-features = false, features = ["std"] }
 http = { version = "1.4", default-features = false, features = ["std"] }
 burn = { version = "0.21", default-features = false, features = ["std"] }
-rand = { version = "0.10", default-features = false, features = ["std"] }
 uuid = { version = "1.19", default-features = false, features = ["std"] }
 glam = { version = "0.33", default-features = false, features = ["std"] }
 bytes = { version = "1.11", default-features = false, features = ["std"] }
 anyhow = { version = "1.0", default-features = false, features = ["std"] }
 strum = { version = "0.28", default-features = false, features = ["std"] }
 approx = { version = "0.5", default-features = false, features = ["std"] }
+base64 = { version = "0.23", default-features = false, features = ["std"] }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
 ashpd = { version = "0.13", default-features = false, features = ["tokio"] }
 ndarray = { version = "0.17", default-features = false, features = ["std"] }
 num_enum = { version = "0.7", default-features = false, features = ["std"] }
 indexmap = { version = "2.13", default-features = false, features = ["std"] }
 thiserror = { version = "2.0", default-features = false, features = ["std"] }
 crossbeam = { version = "0.8", default-features = false, features = ["std"] }
-tracing = { version = "0.1", default-features = false, features = ["std"] }
 byteorder = { version = "1.5", default-features = false, features = ["std"] }
 qrcode = { version = "0.14", default-features = false, features = ["image"] }
 speakrs = { version = "0.5", default-features = false, features = ["online"] }
@@ -206,6 +212,10 @@ axum = { version = "0.8", default-features = false, features = [
   "tokio",
   "matched-path",
   "original-uri",
+] }
+rand = { version = "0.10", default-features = false, features = [
+  "std",
+  "thread_rng",
 ] }
 serde = { version = "1.0", default-features = false, features = [
   "std",

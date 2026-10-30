@@ -4,6 +4,7 @@
 /log
 /tmp
 /dist
+/.prux
 /.pi
 
 sync-archlinux.sh

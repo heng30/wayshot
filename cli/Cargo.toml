@@ -1,0 +1,74 @@
+[package]
+name = "wayshot-cli"
+license.workspace = true
+edition.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+keywords.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Wayshot 的无 GUI 命令行工具，面向 LLM 调用"
+
+[[bin]]
+name = "wayshot-cli"
+path = "src/main.rs"
+
+[dependencies]
+log.workspace = true
+env_logger.workspace = true
+clap.workspace = true
+hound.workspace = true
+anyhow.workspace = true
+serde_json.workspace = true
+code-image.workspace = true
+audio-utils.workspace = true
+video-utils = { workspace = true, features = ["ffmpeg"] }
+record-audio.workspace = true
+recorder = { workspace = true, features = ["wayland-wlr"] }
+image-effect.workspace = true
+ffmpeg-next.workspace = true
+screenshot.workspace = true
+video-editor.workspace = true
+dedup-photos.workspace = true
+image-animation.workspace = true
+background-animation.workspace = true
+mp4m.workspace = true
+video-encoder.workspace = true
+subtitle-remover.workspace = true
+lfm-vl-onnx.workspace = true
+ndarray.workspace = true
+camera.workspace = true
+# camera 库没有启用 nokhwa 的 mjpeg 解码，MJPEG 摄像头会取帧失败
+nokhwa = { workspace = true, features = ["decoding"] }
+cutout.workspace = true
+voxcpm-rs.workspace = true
+burn = { workspace = true, features = ["ndarray", "simd"] }
+bili-danmaku.workspace = true
+imagedl-rs.workspace = true
+downloader.workspace = true
+reqwest.workspace = true
+cutil = { workspace = true, features = ["str", "time", "number", "fs", "http"] }
+ttfx-rs.workspace = true
+clear-vision.workspace = true
+dewatermark.workspace = true
+stem-splitter.workspace = true
+background-remover.workspace = true
+similar-video-segment.workspace = true
+scenesdetect = { workspace = true, features = ["serde"] }
+deepfilter-rs.workspace = true
+musicdl-rs.workspace = true
+musicgen-rs.workspace = true
+paddle-ocr-rs.workspace = true
+fun-ast-nano.workspace = true
+fast2s.workspace = true
+candle-core.workspace = true
+bot.workspace = true
+uuid = { workspace = true, features = ["v4"] }
+speakrs.workspace = true
+screen-capture = { workspace = true, features = ["wayland"] }
+screen-capture-wayland-wlr.workspace = true
+tokio = { workspace = true, features = ["full"] }
+qrcode = { workspace = true, features = ["image"] }
+arboard = { workspace = true, features = ["wayland-data-control", "image-data"] }
+image = { workspace = true, features = ["png", "jpeg", "webp", "gif", "bmp", "tiff", "ico", "tga", "pnm", "hdr", "qoi"] }
