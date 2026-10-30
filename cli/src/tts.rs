@@ -3,8 +3,6 @@ use serde_json::{Value, json};
 use std::path::PathBuf;
 use voxcpm_rs::{GenerateOptions, Prompt, PromptAudio, VoxCPM};
 
-type Backend = burn::backend::NdArray<f32>;
-
 #[derive(clap::Args)]
 pub struct Args {
     /// 要合成的文本
@@ -36,8 +34,8 @@ pub struct Args {
 }
 
 pub fn run(args: &Args) -> Result<Value> {
-    let device = Default::default();
-    let model = VoxCPM::<Backend>::from_local(&args.model, &device)
+    let device = burn::tensor::Device::ndarray();
+    let model = VoxCPM::from_local(&args.model, &device)
         .map_err(|e| anyhow::anyhow!("加载模型失败: {e}"))?;
 
     let mut options = GenerateOptions {

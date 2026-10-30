@@ -7,14 +7,14 @@ use burn::nn::{Linear, LinearConfig};
 use burn::prelude::*;
 
 #[derive(Module, Debug)]
-pub struct VoxCpmLocEnc<B: Backend> {
-    pub special_token: Param<Tensor<B, 4>>, // [1, 1, 1, hidden]
-    pub in_proj: Linear<B>,
-    pub encoder: MiniCpmModel<B>,
+pub struct VoxCpmLocEnc {
+    pub special_token: Param<Tensor<4>>, // [1, 1, 1, hidden]
+    pub in_proj: Linear,
+    pub encoder: MiniCpmModel,
 }
 
-impl<B: Backend> VoxCpmLocEnc<B> {
-    pub fn new(config: MiniCpm4Config, input_dim: usize, device: &B::Device) -> Self {
+impl VoxCpmLocEnc {
+    pub fn new(config: MiniCpm4Config, input_dim: usize, device: &Device) -> Self {
         assert_eq!(config.vocab_size, 0, "vocab_size must be 0 for local encoder");
         let hidden = config.hidden_size;
         Self {
@@ -29,7 +29,7 @@ impl<B: Backend> VoxCpmLocEnc<B> {
     }
 
     /// `x`: `[B, T, P, D]`. Returns `[B, T, hidden]` (cls-pooled per frame).
-    pub fn forward(&self, x: Tensor<B, 4>) -> Tensor<B, 3> {
+    pub fn forward(&self, x: Tensor<4>) -> Tensor<3> {
         let [b, t, p, _d] = x.dims();
         let hidden = self.encoder.config.hidden_size;
 
@@ -37,9 +37,9 @@ impl<B: Backend> VoxCpmLocEnc<B> {
         let special = self.special_token.val().expand([b as i32, t as i32, 1, hidden as i32]);
         let x = Tensor::cat(vec![special, x], 2); // [B, T, P+1, H]
 
-        let x: Tensor<B, 3> = x.reshape([b * t, p + 1, hidden]);
+        let x: Tensor<3> = x.reshape([b * t, p + 1, hidden]);
         let (outputs, _) = self.encoder.forward(x, false); // [B*T, P+1, H]
-        let cls: Tensor<B, 2> = outputs.narrow(1, 0, 1).squeeze_dim::<2>(1);
+        let cls: Tensor<2> = outputs.narrow(1, 0, 1).squeeze_dim::<2>(1);
         cls.reshape([b, t, hidden])
     }
 }

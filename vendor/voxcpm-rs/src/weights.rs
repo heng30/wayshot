@@ -13,7 +13,6 @@
 //!      effective `weight = weight_g * weight_v / ||weight_v||_per_out_channel`
 //!      tensor on the fly before handing it to burn-store.
 
-use std::any::TypeId;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -32,14 +31,12 @@ use crate::{Error, Result};
 /// bytes to the target backend tensors with no mismatch. burn-store does
 /// not auto-cast across dtypes, so we must materialise weights in the
 /// backend's native float type.
-fn target_float_dtype<B: Backend>() -> Dtype {
-    let id = TypeId::of::<B::FloatElem>();
-    if id == TypeId::of::<f16>() {
-        Dtype::F16
-    } else if id == TypeId::of::<bf16>() {
-        Dtype::BF16
-    } else {
-        Dtype::F32
+fn target_float_dtype(device: &Device) -> Dtype {
+    match device.settings().float_dtype {
+        burn::tensor::FloatDType::F64 => Dtype::F64,
+        burn::tensor::FloatDType::F32 | burn::tensor::FloatDType::Flex32 => Dtype::F32,
+        burn::tensor::FloatDType::F16 => Dtype::F16,
+        burn::tensor::FloatDType::BF16 => Dtype::BF16,
     }
 }
 
@@ -53,12 +50,13 @@ fn target_float_dtype<B: Backend>() -> Dtype {
 /// - `audiovae.safetensors` **or** `audiovae.pth` — AudioVAE weights.
 ///   (The HF repo currently ships `audiovae.pth`; `.safetensors` is preferred
 ///   when both are present.)
-pub fn load_pretrained<B: Backend, M: ModuleSnapshot<B>>(
+pub fn load_pretrained<M: ModuleSnapshot>(
     model: &mut M,
     snapshot_dir: impl AsRef<Path>,
+    device: &Device,
 ) -> Result<ApplyResult> {
     let dir = snapshot_dir.as_ref();
-    let target_dtype = target_float_dtype::<B>();
+    let target_dtype = target_float_dtype(device);
 
     let mut result = ApplyResult {
         applied: Vec::new(),
@@ -268,7 +266,7 @@ fn merge_apply_result(dst: &mut ApplyResult, src: ApplyResult) {
     dst.skipped.extend(src.skipped);
 }
 
-fn load_single<B: Backend, M: ModuleSnapshot<B>>(
+fn load_single<M: ModuleSnapshot>(
     model: &mut M,
     path: &Path,
     prefix: Option<&str>,
@@ -310,7 +308,7 @@ fn load_single<B: Backend, M: ModuleSnapshot<B>>(
 /// repo publishes only `.pth` files (e.g. `audiovae.pth` in
 /// [openbmb/VoxCPM2](https://huggingface.co/openbmb/VoxCPM2)), so no manual
 /// pth→safetensors conversion step is required on the user's side.
-fn load_single_pth<B: Backend, M: ModuleSnapshot<B>>(
+fn load_single_pth<M: ModuleSnapshot>(
     model: &mut M,
     path: &Path,
     prefix: Option<&str>,
@@ -325,15 +323,15 @@ fn load_single_pth<B: Backend, M: ModuleSnapshot<B>>(
         .map_err(|e| Error::Other(format!("read pytorch file `{}`: {e}", path.display())))?;
     let mut tensors: Vec<(String, Vec<usize>, Dtype, Vec<u8>)> = Vec::with_capacity(reader.len());
     for (name, snapshot) in reader.tensors() {
-        let td = snapshot
-            .to_data()
+        let dtype = pth_dtype_to_safetensors(snapshot.dtype())?;
+        let data = snapshot
+            .read()
             .map_err(|e| Error::Other(format!("materialize `{name}` from pth: {e:?}")))?;
-        let dtype = burn_dtype_to_safetensors(td.dtype)?;
         // Many HF-published `.pth` files wrap the weights under a top-level
         // dict (e.g. `state_dict`, `model`, `model_state_dict`). Strip the
         // common ones so downstream remapping sees bare parameter paths.
         let bare = strip_pth_top_level(name);
-        tensors.push((bare.to_string(), td.shape.to_vec(), dtype, td.as_bytes().to_vec()));
+        tensors.push((bare.to_string(), snapshot.shape().to_vec(), dtype, data));
     }
     log::debug!(
         "weights[{}] read-pth: {:.2?} ({} tensors)",
@@ -344,30 +342,26 @@ fn load_single_pth<B: Backend, M: ModuleSnapshot<B>>(
     repack_and_apply(model, path, tensors, prefix, remap, target_float_dtype)
 }
 
-fn burn_dtype_to_safetensors(dt: burn::tensor::DType) -> Result<Dtype> {    use burn::tensor::DType as B;
+fn pth_dtype_to_safetensors(dt: burn_store::pytorch_reader::DType) -> Result<Dtype> {
+    use burn_store::pytorch_reader::DType as P;
     Ok(match dt {
-        B::F64 => Dtype::F64,
-        B::F32 | B::Flex32 => Dtype::F32,
-        B::F16 => Dtype::F16,
-        B::BF16 => Dtype::BF16,
-        B::I64 => Dtype::I64,
-        B::I32 => Dtype::I32,
-        B::I16 => Dtype::I16,
-        B::I8 => Dtype::I8,
-        B::U64 => Dtype::U64,
-        B::U32 => Dtype::U32,
-        B::U16 => Dtype::U16,
-        B::U8 => Dtype::U8,
-        B::Bool(_) => Dtype::BOOL,
-        other => {
-            return Err(Error::Unsupported(format!(
-                "burn DType {other:?} has no safetensors equivalent"
-            )));
-        }
+        P::F64 => Dtype::F64,
+        P::F32 => Dtype::F32,
+        P::F16 => Dtype::F16,
+        P::BF16 => Dtype::BF16,
+        P::I64 => Dtype::I64,
+        P::I32 => Dtype::I32,
+        P::I16 => Dtype::I16,
+        P::I8 => Dtype::I8,
+        P::U64 => Dtype::U64,
+        P::U32 => Dtype::U32,
+        P::U16 => Dtype::U16,
+        P::U8 => Dtype::U8,
+        P::Bool => Dtype::BOOL,
     })
 }
 
-fn repack_and_apply<B: Backend, M: ModuleSnapshot<B>>(
+fn repack_and_apply<M: ModuleSnapshot>(
     model: &mut M,
     path: &Path,
     tensors: Vec<(String, Vec<usize>, Dtype, Vec<u8>)>,
@@ -806,11 +800,11 @@ impl SafetensorsFile {
             .collect()
     }
 
-    pub fn read_tensor<B: Backend, const D: usize>(
+    pub fn read_tensor<const D: usize>(
         &self,
         name: &str,
-        device: &B::Device,
-    ) -> Result<Tensor<B, D>> {
+        device: &Device,
+    ) -> Result<Tensor<D>> {
         let view = self
             .view()
             .tensor(name)

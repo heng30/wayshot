@@ -6,14 +6,14 @@ use burn::tensor::{Int, TensorData};
 
 /// Precomputed cosine/sine caches.
 #[derive(Module, Debug)]
-pub struct MiniCpmLongRope<B: Backend> {
-    pub cos: Tensor<B, 2>, // [max_seq_len, head_dim]
-    pub sin: Tensor<B, 2>,
+pub struct MiniCpmLongRope {
+    pub cos: Tensor<2>, // [max_seq_len, head_dim]
+    pub sin: Tensor<2>,
     pub head_dim: usize,
 }
 
-impl<B: Backend> MiniCpmLongRope<B> {
-    pub fn new(config: &MiniCpm4Config, device: &B::Device) -> Self {
+impl MiniCpmLongRope {
+    pub fn new(config: &MiniCpm4Config, device: &Device) -> Self {
         let head_dim = config.head_dim();
         let base = config.rope_theta as f64;
         let max_positions = config.max_position_embeddings;
@@ -55,7 +55,7 @@ impl<B: Backend> MiniCpmLongRope<B> {
 
     /// Select the (cos, sin) rows at the given `position_ids` (shape `[S]`).
     /// Returns tensors of shape `[S, head_dim]`.
-    pub fn gather(&self, position_ids: Tensor<B, 1, Int>) -> (Tensor<B, 2>, Tensor<B, 2>) {
+    pub fn gather(&self, position_ids: Tensor<1, Int>) -> (Tensor<2>, Tensor<2>) {
         let cos = self.cos.clone().select(0, position_ids.clone());
         let sin = self.sin.clone().select(0, position_ids);
         (cos, sin)
@@ -63,7 +63,7 @@ impl<B: Backend> MiniCpmLongRope<B> {
 }
 
 /// Rotate the last dim by splitting into two halves and returning `[-x2, x1]`.
-pub fn rotate_half<B: Backend, const D: usize>(x: Tensor<B, D>) -> Tensor<B, D> {
+pub fn rotate_half<const D: usize>(x: Tensor<D>) -> Tensor<D> {
     let dims = x.dims();
     let last = D - 1;
     let half = dims[last] / 2;
@@ -73,12 +73,12 @@ pub fn rotate_half<B: Backend, const D: usize>(x: Tensor<B, D>) -> Tensor<B, D> 
 }
 
 /// Apply RoPE to q, k (both shape `[B, H, S, D]`) given cos/sin of shape `[S, D]`.
-pub fn apply_rotary_pos_emb<B: Backend>(
-    q: Tensor<B, 4>,
-    k: Tensor<B, 4>,
-    cos: Tensor<B, 2>,
-    sin: Tensor<B, 2>,
-) -> (Tensor<B, 4>, Tensor<B, 4>) {
+pub fn apply_rotary_pos_emb(
+    q: Tensor<4>,
+    k: Tensor<4>,
+    cos: Tensor<2>,
+    sin: Tensor<2>,
+) -> (Tensor<4>, Tensor<4>) {
     // Match Python reference: cast q/k to f32 for the rotation, cast back at
     // the end. The rotation itself is only element-wise mul/add over the
     // head_dim, but Python upcasts here for numerical headroom around the
@@ -87,8 +87,8 @@ pub fn apply_rotary_pos_emb<B: Backend>(
     let orig: burn::tensor::FloatDType = q.dtype().into();
     let qf = q.cast(burn::tensor::FloatDType::F32);
     let kf = k.cast(burn::tensor::FloatDType::F32);
-    let cos4: Tensor<B, 4> = cos.cast(burn::tensor::FloatDType::F32).unsqueeze();
-    let sin4: Tensor<B, 4> = sin.cast(burn::tensor::FloatDType::F32).unsqueeze();
+    let cos4: Tensor<4> = cos.cast(burn::tensor::FloatDType::F32).unsqueeze();
+    let sin4: Tensor<4> = sin.cast(burn::tensor::FloatDType::F32).unsqueeze();
     let q_embed = qf.clone() * cos4.clone() + rotate_half(qf) * sin4.clone();
     let k_embed = kf.clone() * cos4 + rotate_half(kf) * sin4;
     (q_embed.cast(orig), k_embed.cast(orig))

@@ -1,6 +1,6 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::Parser;
-use dewatermark::{MaskInput, WatermarkRegion, load_session, process, MODEL_FILENAME};
+use dewatermark::{MaskInput, WatermarkRegion, load_session, process};
 use image::GenericImageView;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
@@ -189,10 +189,9 @@ fn run() -> Result<()> {
         bail!(
             "Model file not found: {}\n\n\
              You can download the model (~208 MB) from:\n  \
-               https://huggingface.co/Carve/LaMa-ONNX/resolve/main/{}\n\n\
+               https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx\n\n\
              Then use --model to specify the path.",
-            cli.model.display(),
-            MODEL_FILENAME
+            cli.model.display()
         );
     }
 
@@ -202,8 +201,8 @@ fn run() -> Result<()> {
     for (i, input) in cli.input.iter().enumerate() {
         let output = cli.output.clone().unwrap_or_else(|| default_output(input));
 
-        let img = image::open(input)
-            .with_context(|| format!("Failed to open {}", input.display()))?;
+        let img =
+            image::open(input).with_context(|| format!("Failed to open {}", input.display()))?;
         let (img_w, img_h) = img.dimensions();
 
         let region = if let Some(mask_path) = &cli.mask {

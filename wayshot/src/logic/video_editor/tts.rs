@@ -31,10 +31,7 @@ use std::{
 };
 use voxcpm_rs::{
     CancelToken, GenerateOptions, Prompt, PromptAudio, VoxCPM,
-    burn::{
-        backend::{NdArray, Wgpu, ndarray::NdArrayDevice, wgpu::WgpuDevice},
-        tensor::backend::Backend,
-    },
+    burn::tensor::{Device, DeviceKind},
 };
 
 // Female voices
@@ -130,11 +127,8 @@ const BUILT_IN_VOICES: &[(&str, &[u8])] = &[
 ];
 
 enum VoxCpmModel {
-    Wgpu {
-        model: VoxCPM<Wgpu<f32, i32>>,
-        device: WgpuDevice,
-    },
-    NdArray(VoxCPM<NdArray<f32>>),
+    Wgpu { model: VoxCPM, device: Device },
+    NdArray(VoxCPM),
 }
 
 #[macro_export]
@@ -1545,22 +1539,16 @@ async fn get_or_load_model(
     }
 
     let model = if use_gpu {
-        let device = WgpuDevice::default();
-        match VoxCPM::<Wgpu<f32, i32>>::from_local(model_dir, &device) {
+        let device = Device::wgpu(DeviceKind::DefaultDevice);
+        match VoxCPM::from_local(model_dir, &device) {
             Ok(m) => VoxCpmModel::Wgpu { model: m, device },
             Err(e) => {
                 log::warn!("GPU backend failed, falling back to CPU: {e}");
-                VoxCpmModel::NdArray(VoxCPM::<NdArray<f32>>::from_local(
-                    model_dir,
-                    &NdArrayDevice::default(),
-                )?)
+                VoxCpmModel::NdArray(VoxCPM::from_local(model_dir, &Device::ndarray())?)
             }
         }
     } else {
-        VoxCpmModel::NdArray(VoxCPM::<NdArray<f32>>::from_local(
-            model_dir,
-            &NdArrayDevice::default(),
-        )?)
+        VoxCpmModel::NdArray(VoxCPM::from_local(model_dir, &Device::ndarray())?)
     };
 
     {
@@ -2155,15 +2143,15 @@ fn video_editor_tts_release_resource(_ui: &AppWindow) {
 
         if let Some(device) = cleanup_device {
             // 1. 第一次 sync - 确保之前所有 GPU 操作完成
-            if let Err(e) = <Wgpu<f32, i32> as Backend>::sync(&device) {
+            if let Err(e) = device.sync() {
                 log::warn!("TTS GPU pre-cleanup sync failed: {:?}", e);
             }
 
             // 2. memory_cleanup - 发送 cleanup 命令到队列
-            <Wgpu<f32, i32> as Backend>::memory_cleanup(&device);
+            device.memory_cleanup();
 
             // 3. 第二次 sync - 等待 cleanup 执行、dealloc 发生、GPU buffer drop 完成
-            if let Err(e) = <Wgpu<f32, i32> as Backend>::sync(&device) {
+            if let Err(e) = device.sync() {
                 log::warn!("TTS GPU post-cleanup sync failed: {:?}", e);
             }
 

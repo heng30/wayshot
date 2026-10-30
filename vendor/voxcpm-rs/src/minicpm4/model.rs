@@ -11,19 +11,19 @@ use burn::prelude::*;
 use burn::tensor::Int;
 
 #[derive(Module, Debug)]
-#[module(skip = config)]
-pub struct MiniCpmModel<B: Backend> {
+pub struct MiniCpmModel {
     /// Token embedding table. `None` when `vocab_size == 0` (e.g. local DiT).
-    pub embed_tokens: Option<Embedding<B>>,
-    pub layers: Vec<MiniCpmDecoderLayer<B>>,
-    pub norm: MiniCpmRmsNorm<B>,
+    pub embed_tokens: Option<Embedding>,
+    pub layers: Vec<MiniCpmDecoderLayer>,
+    pub norm: MiniCpmRmsNorm,
     /// Optional rotary embedding cache (skipped when `no_rope=true`).
-    pub rope: Option<MiniCpmLongRope<B>>,
+    pub rope: Option<MiniCpmLongRope>,
+    #[module(skip)]
     pub config: MiniCpm4Config,
 }
 
-impl<B: Backend> MiniCpmModel<B> {
-    pub fn new(config: MiniCpm4Config, device: &B::Device) -> Self {
+impl MiniCpmModel {
+    pub fn new(config: MiniCpm4Config, device: &Device) -> Self {
         let embed_tokens = (config.vocab_size > 0)
             .then(|| EmbeddingConfig::new(config.vocab_size, config.hidden_size).init(device));
         let layers = (0..config.num_hidden_layers)
@@ -42,12 +42,12 @@ impl<B: Backend> MiniCpmModel<B> {
 
     pub fn forward(
         &self,
-        inputs_embeds: Tensor<B, 3>,
+        inputs_embeds: Tensor<3>,
         is_causal: bool,
-    ) -> (Tensor<B, 3>, Vec<LayerKv<B>>) {
+    ) -> (Tensor<3>, Vec<LayerKv>) {
         let s = inputs_embeds.dims()[1];
         let position_emb = self.rope.as_ref().map(|r| {
-            let ids = Tensor::<B, 1, Int>::arange(0..s as i64, &inputs_embeds.device());
+            let ids = Tensor::<1, Int>::arange(0..s as i64, &inputs_embeds.device());
             r.gather(ids)
         });
 
@@ -63,10 +63,10 @@ impl<B: Backend> MiniCpmModel<B> {
 
     pub fn forward_step(
         &self,
-        inputs_embeds: Tensor<B, 2>,
+        inputs_embeds: Tensor<2>,
         position_id: usize,
-        cache: &mut StaticKvCache<B>,
-    ) -> Tensor<B, 2> {
+        cache: &mut StaticKvCache,
+    ) -> Tensor<2> {
         self.forward_step_masked(inputs_embeds, position_id, cache, None)
     }
 
@@ -76,13 +76,13 @@ impl<B: Backend> MiniCpmModel<B> {
     /// different rows had different prefill lengths).
     pub fn forward_step_masked(
         &self,
-        inputs_embeds: Tensor<B, 2>,
+        inputs_embeds: Tensor<2>,
         position_id: usize,
-        cache: &mut StaticKvCache<B>,
-        key_padding_mask: Option<Tensor<B, 2, burn::tensor::Bool>>,
-    ) -> Tensor<B, 2> {
+        cache: &mut StaticKvCache,
+        key_padding_mask: Option<Tensor<2, burn::tensor::Bool>>,
+    ) -> Tensor<2> {
         let position_emb = self.rope.as_ref().map(|r| {
-            let ids = Tensor::<B, 1, Int>::arange(
+            let ids = Tensor::<1, Int>::arange(
                 position_id as i64..(position_id + 1) as i64,
                 &inputs_embeds.device(),
             );
@@ -104,7 +104,7 @@ impl<B: Backend> MiniCpmModel<B> {
     }
 
     /// Embed token ids; panics when this model was built without a vocab.
-    pub fn embed(&self, tokens: Tensor<B, 2, Int>) -> Tensor<B, 3> {
+    pub fn embed(&self, tokens: Tensor<2, Int>) -> Tensor<3> {
         self.embed_tokens
             .as_ref()
             .expect("embed called on a MiniCpmModel without an embedding table")

@@ -8,24 +8,24 @@ use burn::prelude::*;
 use burn::tensor::activation::tanh;
 
 #[derive(Module, Debug)]
-pub struct CausalDecoderBlock<B: Backend> {
-    pub snake: Snake1d<B>,
-    pub up: CausalTransposeConv1d<B>,
-    pub noise: Option<NoiseBlock<B>>,
-    pub res1: CausalResidualUnit<B>,
-    pub res2: CausalResidualUnit<B>,
-    pub res3: CausalResidualUnit<B>,
+pub struct CausalDecoderBlock {
+    pub snake: Snake1d,
+    pub up: CausalTransposeConv1d,
+    pub noise: Option<NoiseBlock>,
+    pub res1: CausalResidualUnit,
+    pub res2: CausalResidualUnit,
+    pub res3: CausalResidualUnit,
     pub input_channels: usize,
 }
 
-impl<B: Backend> CausalDecoderBlock<B> {
+impl CausalDecoderBlock {
     pub fn new(
         input_dim: usize,
         output_dim: usize,
         stride: usize,
         groups: usize,
         use_noise_block: bool,
-        device: &B::Device,
+        device: &Device,
     ) -> Self {
         let kernel = 2 * stride;
         let pad = (stride as f64 / 2.0).ceil() as usize;
@@ -41,7 +41,7 @@ impl<B: Backend> CausalDecoderBlock<B> {
         }
     }
 
-    pub fn forward(&self, x: Tensor<B, 3>) -> Tensor<B, 3> {
+    pub fn forward(&self, x: Tensor<3>) -> Tensor<3> {
         let x = self.snake.forward(x);
         let x = self.up.forward(x);
         let x = match &self.noise {
@@ -57,13 +57,13 @@ impl<B: Backend> CausalDecoderBlock<B> {
 /// "First conv" path: in depthwise mode it is `Conv(in, in, k=7, groups=in)` followed by
 /// a pointwise `Conv(in, channels, k=1)`; otherwise a single `Conv(in, channels, k=7)`.
 #[derive(Module, Debug)]
-pub struct DecoderFirstConv<B: Backend> {
-    pub dw: Option<CausalConv1d<B>>,
-    pub pw: CausalConv1d<B>,
+pub struct DecoderFirstConv {
+    pub dw: Option<CausalConv1d>,
+    pub pw: CausalConv1d,
 }
 
-impl<B: Backend> DecoderFirstConv<B> {
-    pub fn new(input_channel: usize, channels: usize, depthwise: bool, device: &B::Device) -> Self {
+impl DecoderFirstConv {
+    pub fn new(input_channel: usize, channels: usize, depthwise: bool, device: &Device) -> Self {
         if depthwise {
             Self {
                 dw: Some(CausalConv1d::new(
@@ -79,7 +79,7 @@ impl<B: Backend> DecoderFirstConv<B> {
         }
     }
 
-    pub fn forward(&self, x: Tensor<B, 3>) -> Tensor<B, 3> {
+    pub fn forward(&self, x: Tensor<3>) -> Tensor<3> {
         let x = match &self.dw {
             Some(dw) => dw.forward(x),
             None => x,
@@ -89,17 +89,16 @@ impl<B: Backend> DecoderFirstConv<B> {
 }
 
 #[derive(Module, Debug)]
-#[module(skip = sr_bin_boundaries)]
-pub struct CausalDecoder<B: Backend> {
-    pub first: DecoderFirstConv<B>,
-    pub blocks: Vec<CausalDecoderBlock<B>>,
-    pub snake_out: Snake1d<B>,
-    pub last: CausalConv1d<B>,
-    pub sr_cond_layers: Vec<Option<SampleRateConditionLayer<B>>>,
+pub struct CausalDecoder {
+    pub first: DecoderFirstConv,
+    pub blocks: Vec<CausalDecoderBlock>,
+    pub snake_out: Snake1d,
+    pub last: CausalConv1d,
+    pub sr_cond_layers: Vec<Option<SampleRateConditionLayer>>,
     pub sr_bin_boundaries: Option<Vec<i32>>,
 }
 
-impl<B: Backend> CausalDecoder<B> {
+impl CausalDecoder {
     pub fn new(
         input_channel: usize,
         channels: usize,
@@ -108,7 +107,7 @@ impl<B: Backend> CausalDecoder<B> {
         use_noise_block: bool,
         sr_bin_boundaries: Option<Vec<i32>>,
         cond_type: &str,
-        device: &B::Device,
+        device: &Device,
     ) -> Self {
         let first = DecoderFirstConv::new(input_channel, channels, depthwise, device);
 
@@ -146,12 +145,12 @@ impl<B: Backend> CausalDecoder<B> {
         }
     }
 
-    pub fn forward(&self, x: Tensor<B, 3>, target_sr_hz: i32) -> Tensor<B, 3> {
+    pub fn forward(&self, x: Tensor<3>, target_sr_hz: i32) -> Tensor<3> {
         let device = x.device();
         let sr_idx = self
             .sr_bin_boundaries
             .as_ref()
-            .map(|b| sr_bucket::<B>(target_sr_hz, b, &device));
+            .map(|b| sr_bucket(target_sr_hz, b, &device));
 
         let mut h = self.first.forward(x);
         for (blk, sr_layer) in self.blocks.iter().zip(self.sr_cond_layers.iter()) {

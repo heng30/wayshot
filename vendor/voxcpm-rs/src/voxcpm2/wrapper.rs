@@ -24,7 +24,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// use std::thread;
 /// use voxcpm_rs::{CancelToken, GenerateOptions, Prompt, VoxCPM};
 /// # type B = burn::backend::NdArray<f32>;
-/// # let model: VoxCPM<B> = unimplemented!();
+/// # let model: VoxCPM = unimplemented!();
 /// let cancel = CancelToken::new();
 ///
 /// // Cancel from a watchdog thread after 2 s.
@@ -281,20 +281,20 @@ impl GenerateOptionsBuilder {
 }
 
 #[derive(Debug)]
-pub struct VoxCPM<B: Backend> {
-    pub model: VoxCpm2Model<B>,
+pub struct VoxCPM {
+    pub model: VoxCpm2Model,
     pub tokenizer: TextTokenizer,
-    device: B::Device,
+    device: Device,
 }
 
-impl<B: Backend> VoxCPM<B> {
+impl VoxCPM {
     /// Construct a fresh (randomly-initialized) model from a
     /// [`VoxCpm2Config`][crate::VoxCpm2Config]. For inference you almost
     /// certainly want [`Self::from_local`] instead.
     pub fn from_config(
         config: VoxCpm2Config,
         tokenizer: TextTokenizer,
-        device: &B::Device,
+        device: &Device,
     ) -> Self {
         Self {
             model: VoxCpm2Model::new(config, device),
@@ -314,13 +314,13 @@ impl<B: Backend> VoxCPM<B> {
     /// Weight-load progress is reported through the [`log`] crate (`info` for
     /// the summary, `warn` for missing/unused tensors, `error` for load
     /// errors). Wire up `env_logger`, `tracing-log`, etc. to surface them.
-    pub fn from_local(path: impl AsRef<Path>, device: &B::Device) -> crate::Result<Self> {
+    pub fn from_local(path: impl AsRef<Path>, device: &Device) -> crate::Result<Self> {
         let path = path.as_ref();
         let config_bytes = std::fs::read_to_string(path.join("config.json"))?;
         let config: VoxCpm2Config = serde_json::from_str(&config_bytes)?;
         let tokenizer = TextTokenizer::from_local(path)?;
-        let mut model = VoxCpm2Model::<B>::new(config, device);
-        let result = crate::weights::load_pretrained(&mut model, path)?;
+        let mut model = VoxCpm2Model::new(config, device);
+        let result = crate::weights::load_pretrained(&mut model, path, device)?;
         log::info!(
             "weights loaded — applied={}, skipped={}, missing={}, unused={}, errors={}",
             result.applied.len(),
@@ -360,7 +360,7 @@ impl<B: Backend> VoxCPM<B> {
 
     /// Decode a pre-computed latent `[1, D, T]` through the AudioVAE and
     /// return the waveform tensor `[1, 1, T_out]`.
-    pub fn audio_vae_decode(&self, feat: Tensor<B, 3>) -> Tensor<B, 3> {
+    pub fn audio_vae_decode(&self, feat: Tensor<3>) -> Tensor<3> {
         self.model.audio_vae.decode(feat)
     }
 
@@ -372,7 +372,7 @@ impl<B: Backend> VoxCPM<B> {
         &self,
         audio: &PromptAudio,
         padding_mode: PadMode,
-    ) -> crate::Result<Tensor<B, 3>> {
+    ) -> crate::Result<Tensor<3>> {
         let encoder_sr = self.model.audio_vae.sample_rate() as u32;
         let mut samples = match audio {
             PromptAudio::File(path) => crate::audio::load_audio_as(path, encoder_sr)?,
@@ -403,14 +403,14 @@ impl<B: Backend> VoxCPM<B> {
             }
         }
         let n_padded = samples.len();
-        let audio: Tensor<B, 3> =
+        let audio: Tensor<3> =
             Tensor::from_data(TensorData::new(samples, [1, 1, n_padded]), &self.device);
         let feat = self.model.audio_vae.encode(audio); // [1, D, T*P]
         let [_, d, tp] = feat.dims();
         debug_assert_eq!(tp % p, 0);
         let t = tp / p;
         // [1, D, T*P] -> [D, T, P] -> [T, P, D]
-        let feat: Tensor<B, 3> = feat.reshape([d, t, p]);
+        let feat: Tensor<3> = feat.reshape([d, t, p]);
         let feat = feat.swap_dims(0, 1).swap_dims(1, 2);
         Ok(feat)
     }
@@ -482,7 +482,7 @@ impl<B: Backend> VoxCPM<B> {
     /// ```no_run
     /// use voxcpm_rs::{GenerateOptions, VoxCPM};
     /// # type B = burn::backend::NdArray<f32>;
-    /// # let model: VoxCPM<B> = unimplemented!();
+    /// # let model: VoxCPM = unimplemented!();
     /// let opts = GenerateOptions::builder().chunk_patches(5).build();
     /// let mut all = Vec::<f32>::new();
     /// for chunk in model.generate_stream("Hello, world!", opts)? {
@@ -505,7 +505,7 @@ impl<B: Backend> VoxCPM<B> {
         &self,
         text: &str,
         opts: GenerateOptions,
-    ) -> crate::Result<GenerateStream<'_, B>> {
+    ) -> crate::Result<GenerateStream<'_>> {
         let inputs = self.build_inference_inputs(text, &opts.prompt)?;
         let state = self.model.prefill(
             inputs.text_token,
@@ -537,7 +537,7 @@ impl<B: Backend> VoxCPM<B> {
         &self,
         text: &str,
         prompt: &Prompt,
-    ) -> crate::Result<InferenceInputs<B>> {
+    ) -> crate::Result<InferenceInputs> {
         // Decompose the prompt into the (optional) reference + continuation
         // pieces the sequence builder consumes.
         let (ref_audio, prompt_audio, prompt_text) = match prompt {
@@ -579,12 +579,12 @@ impl<B: Backend> VoxCPM<B> {
         };
 
         // 3) Build the full sequence of tokens / masks / feats.
-        let z_patch = |n: usize| -> Tensor<B, 3> { Tensor::<B, 3>::zeros([n, p, d], device) };
+        let z_patch = |n: usize| -> Tensor<3> { Tensor::<3>::zeros([n, p, d], device) };
 
         let mut tokens: Vec<i64> = Vec::new();
         let mut t_mask: Vec<f32> = Vec::new();
         let mut f_mask: Vec<f32> = Vec::new();
-        let mut feat_chunks: Vec<Tensor<B, 3>> = Vec::new();
+        let mut feat_chunks: Vec<Tensor<3>> = Vec::new();
 
         // [a] Optional reference prefix: [REF_START, ref×N, REF_END]
         if let Some(ref_feat) = ref_feat_opt {
@@ -625,13 +625,13 @@ impl<B: Backend> VoxCPM<B> {
         } else {
             Tensor::cat(feat_chunks, 0)
         };
-        let text_token: Tensor<B, 2, Int> =
+        let text_token: Tensor<2, Int> =
             Tensor::from_data(TensorData::new(tokens, [1, s]), device);
-        let text_mask: Tensor<B, 2> =
+        let text_mask: Tensor<2> =
             Tensor::from_data(TensorData::new(t_mask, [1, s]), device);
-        let feat_mask: Tensor<B, 2> =
+        let feat_mask: Tensor<2> =
             Tensor::from_data(TensorData::new(f_mask, [1, s]), device);
-        let feat: Tensor<B, 4> = feat_seq.unsqueeze_dim(0); // [1, S, P, D]
+        let feat: Tensor<4> = feat_seq.unsqueeze_dim(0); // [1, S, P, D]
 
         Ok(InferenceInputs {
             text_token,
@@ -673,12 +673,12 @@ impl<B: Backend> VoxCPM<B> {
     fn build_batched_inputs(
         &self,
         texts: &[&str],
-        ref_feat_opt: Option<&Tensor<B, 3>>,
+        ref_feat_opt: Option<&Tensor<3>>,
     ) -> crate::Result<(
-        Tensor<B, 2, Int>,
-        Tensor<B, 2>,
-        Tensor<B, 4>,
-        Tensor<B, 2>,
+        Tensor<2, Int>,
+        Tensor<2>,
+        Tensor<4>,
+        Tensor<2>,
         Vec<usize>,
     )> {
         let device = &self.device;
@@ -689,10 +689,10 @@ impl<B: Backend> VoxCPM<B> {
         let mut rows_tt: Vec<Vec<i64>> = Vec::with_capacity(texts.len());
         let mut rows_tm: Vec<Vec<f32>> = Vec::with_capacity(texts.len());
         let mut rows_fm: Vec<Vec<f32>> = Vec::with_capacity(texts.len());
-        let mut rows_feat_chunks: Vec<Vec<Tensor<B, 3>>> = Vec::with_capacity(texts.len());
+        let mut rows_feat_chunks: Vec<Vec<Tensor<3>>> = Vec::with_capacity(texts.len());
         let mut row_lens: Vec<usize> = Vec::with_capacity(texts.len());
 
-        let z_patch = |n: usize| -> Tensor<B, 3> { Tensor::<B, 3>::zeros([n, p, d], device) };
+        let z_patch = |n: usize| -> Tensor<3> { Tensor::<3>::zeros([n, p, d], device) };
 
         // Reference prefix (shared across all rows). If ref_feat is given,
         // each row starts with [REF_START, ref×K, REF_END] of length K+2.
@@ -706,7 +706,7 @@ impl<B: Backend> VoxCPM<B> {
             let mut tt: Vec<i64> = Vec::new();
             let mut tm: Vec<f32> = Vec::new();
             let mut fm: Vec<f32> = Vec::new();
-            let mut feat_chunks: Vec<Tensor<B, 3>> = Vec::new();
+            let mut feat_chunks: Vec<Tensor<3>> = Vec::new();
 
             if let Some(rf) = ref_feat_opt {
                 tt.push(REF_AUDIO_START_TOKEN);
@@ -745,7 +745,7 @@ impl<B: Backend> VoxCPM<B> {
         let mut pad_tt = vec![0i64; batch * max_s];
         let mut pad_tm = vec![0.0f32; batch * max_s];
         let mut pad_fm = vec![0.0f32; batch * max_s];
-        let mut row_feats: Vec<Tensor<B, 4>> = Vec::with_capacity(batch);
+        let mut row_feats: Vec<Tensor<4>> = Vec::with_capacity(batch);
 
         for (b, ((tt, tm), (fm, mut chunks))) in rows_tt.iter().zip(rows_tm.iter())
             .zip(rows_fm.iter().zip(rows_feat_chunks.into_iter()))
@@ -758,7 +758,7 @@ impl<B: Backend> VoxCPM<B> {
                 pad_fm[b * max_s + j] = fm[j];
             }
             // Build [S, P, D] feat for this row, then pad.
-            let feat_row: Tensor<B, 3> = if chunks.len() == 1 {
+            let feat_row: Tensor<3> = if chunks.len() == 1 {
                 chunks.pop().unwrap()
             } else {
                 Tensor::cat(chunks, 0)
@@ -772,13 +772,13 @@ impl<B: Backend> VoxCPM<B> {
             row_feats.push(feat_row.unsqueeze::<4>()); // [1, max_s, P, D]
         }
 
-        let text_token: Tensor<B, 2, Int> =
+        let text_token: Tensor<2, Int> =
             Tensor::from_data(TensorData::new(pad_tt, [batch, max_s]), device);
-        let text_mask: Tensor<B, 2> =
+        let text_mask: Tensor<2> =
             Tensor::from_data(TensorData::new(pad_tm, [batch, max_s]), device);
-        let feat_mask: Tensor<B, 2> =
+        let feat_mask: Tensor<2> =
             Tensor::from_data(TensorData::new(pad_fm, [batch, max_s]), device);
-        let feat: Tensor<B, 4> = Tensor::cat(row_feats, 0);
+        let feat: Tensor<4> = Tensor::cat(row_feats, 0);
 
         Ok((text_token, text_mask, feat, feat_mask, row_lens))
     }
@@ -787,7 +787,7 @@ impl<B: Backend> VoxCPM<B> {
     /// VAE sample rate) into a `[T, P, D]` reference-feature tensor,
     /// right-padding the audio if needed. Used to turn a self-seeded first
     /// segment into a reference for the remaining segments.
-    fn pcm_to_ref_feat(&self, samples: &[f32]) -> crate::Result<Tensor<B, 3>> {
+    fn pcm_to_ref_feat(&self, samples: &[f32]) -> crate::Result<Tensor<3>> {
         // Resample from output sr (sample_rate()) to the AudioVAE encoder sr.
         let in_sr = self.model.sample_rate() as u32;
         let enc_sr = self.model.audio_vae.sample_rate() as u32;
@@ -807,7 +807,7 @@ impl<B: Backend> VoxCPM<B> {
     /// Start building a batch of independent generations that will run in
     /// a single batched forward pass. See [`BatchBuilder`] for the full
     /// contract and a worked example.
-    pub fn batch(&self) -> BatchBuilder<'_, B> {
+    pub fn batch(&self) -> BatchBuilder<'_> {
         BatchBuilder { voxcpm: self, items: Vec::new() }
     }
 
@@ -823,7 +823,7 @@ impl<B: Backend> VoxCPM<B> {
         let d = self.model.latent_dim();
 
         // 1) Build per-item B=1 inputs reusing the existing single-item path.
-        let mut rows: Vec<InferenceInputs<B>> = Vec::with_capacity(items.len());
+        let mut rows: Vec<InferenceInputs> = Vec::with_capacity(items.len());
         let mut lens: Vec<usize> = Vec::with_capacity(items.len());
         for (text, prompt) in &items {
             let inp = self.build_inference_inputs(text, prompt)?;
@@ -833,21 +833,21 @@ impl<B: Backend> VoxCPM<B> {
         let max_s = *lens.iter().max().unwrap();
 
         // 2) Right-pad each row to max_s with zeros, then cat along dim 0.
-        let mut tt_rows: Vec<Tensor<B, 2, Int>> = Vec::with_capacity(rows.len());
-        let mut tm_rows: Vec<Tensor<B, 2>> = Vec::with_capacity(rows.len());
-        let mut fm_rows: Vec<Tensor<B, 2>> = Vec::with_capacity(rows.len());
-        let mut feat_rows: Vec<Tensor<B, 4>> = Vec::with_capacity(rows.len());
+        let mut tt_rows: Vec<Tensor<2, Int>> = Vec::with_capacity(rows.len());
+        let mut tm_rows: Vec<Tensor<2>> = Vec::with_capacity(rows.len());
+        let mut fm_rows: Vec<Tensor<2>> = Vec::with_capacity(rows.len());
+        let mut feat_rows: Vec<Tensor<4>> = Vec::with_capacity(rows.len());
         for (i, inp) in rows.into_iter().enumerate() {
             let s = lens[i];
             let pad = max_s - s;
             let (tt, tm, ft, fm) = if pad == 0 {
                 (inp.text_token, inp.text_mask, inp.feat, inp.feat_mask)
             } else {
-                let tt_pad: Tensor<B, 2, Int> =
+                let tt_pad: Tensor<2, Int> =
                     Tensor::zeros([1, pad], device);
-                let tm_pad: Tensor<B, 2> = Tensor::zeros([1, pad], device);
-                let fm_pad: Tensor<B, 2> = Tensor::zeros([1, pad], device);
-                let ft_pad: Tensor<B, 4> = Tensor::zeros([1, pad, p, d], device);
+                let tm_pad: Tensor<2> = Tensor::zeros([1, pad], device);
+                let fm_pad: Tensor<2> = Tensor::zeros([1, pad], device);
+                let ft_pad: Tensor<4> = Tensor::zeros([1, pad, p, d], device);
                 (
                     Tensor::cat(vec![inp.text_token, tt_pad], 1),
                     Tensor::cat(vec![inp.text_mask, tm_pad], 1),
@@ -917,7 +917,7 @@ impl<B: Backend> VoxCPM<B> {
         // Establish a voice reference: either the user's explicit
         // `Prompt::Reference` audio, or a self-seed = the first segment
         // generated serially.
-        let (ref_feat, mut output_audio): (Tensor<B, 3>, Vec<f32>) = match &opts.prompt {
+        let (ref_feat, mut output_audio): (Tensor<3>, Vec<f32>) = match &opts.prompt {
             Prompt::Reference { audio } => {
                 let rf = self.encode_prompt_audio(audio, PadMode::Right)?;
                 (rf, Vec::new())
@@ -1003,7 +1003,7 @@ impl<B: Backend> VoxCPM<B> {
 /// ```no_run
 /// use voxcpm_rs::{GenerateOptions, Prompt, VoxCPM};
 /// # type B = burn::backend::NdArray<f32>;
-/// # let model: VoxCPM<B> = unimplemented!();
+/// # let model: VoxCPM = unimplemented!();
 /// let opts = GenerateOptions::builder().timesteps(10).build();
 /// let outs: Vec<Vec<f32>> = model
 ///     .batch()
@@ -1014,12 +1014,12 @@ impl<B: Backend> VoxCPM<B> {
 /// # Ok::<_, voxcpm_rs::Error>(())
 /// ```
 #[derive(Debug)]
-pub struct BatchBuilder<'a, B: Backend> {
-    voxcpm: &'a VoxCPM<B>,
+pub struct BatchBuilder<'a> {
+    voxcpm: &'a VoxCPM,
     items: Vec<(String, Prompt)>,
 }
 
-impl<'a, B: Backend> BatchBuilder<'a, B> {
+impl<'a> BatchBuilder<'a> {
     /// Append an item to the batch. Returns `self` for chaining.
     pub fn add(mut self, text: impl Into<String>, prompt: Prompt) -> Self {
         self.items.push((text.into(), prompt));
@@ -1090,18 +1090,18 @@ pub fn split_sentences(text: &str) -> Vec<String> {
 }
 
 /// Output of [`VoxCPM::build_inference_inputs`].
-struct InferenceInputs<B: Backend> {
-    text_token: Tensor<B, 2, Int>,
-    text_mask: Tensor<B, 2>,
-    feat: Tensor<B, 4>,
-    feat_mask: Tensor<B, 2>,
+struct InferenceInputs {
+    text_token: Tensor<2, Int>,
+    text_mask: Tensor<2>,
+    feat: Tensor<4>,
+    feat_mask: Tensor<2>,
 }
 
 /// Run AudioVAE decode on a stacked latent and pull the result back as `f32`
 /// PCM. Shared between [`VoxCPM::generate`] and [`GenerateStream`].
-fn decode_latent_to_samples<B: Backend>(
-    audio_vae: &crate::audiovae::AudioVae<B>,
-    latent: Tensor<B, 3>,
+fn decode_latent_to_samples(
+    audio_vae: &crate::audiovae::AudioVae,
+    latent: Tensor<3>,
 ) -> crate::Result<Vec<f32>> {
     let wav = audio_vae.decode(latent);
     let wav = wav.squeeze_dim::<2>(1); // [B, T_out]
@@ -1110,7 +1110,7 @@ fn decode_latent_to_samples<B: Backend>(
     // Backend-agnostic: VAE may produce f32, f16 or bf16 depending on the
     // active Backend; convert to f32 for output regardless.
     data.convert::<f32>()
-        .into_vec::<f32>()
+        .try_into_vec::<f32>()
         .map_err(|_| crate::Error::Other("unexpected VAE output dtype".into()))
 }
 
@@ -1121,10 +1121,10 @@ fn decode_latent_to_samples<B: Backend>(
 /// to send a stream across threads, collect the chunks in the producing
 /// thread and forward them through a channel.
 #[derive(Debug)]
-pub struct GenerateStream<'a, B: Backend> {
-    model: &'a crate::voxcpm2::VoxCpm2Model<B>,
-    state: crate::voxcpm2::model::InferenceState<B>,
-    pred_feats: Vec<Tensor<B, 4>>,
+pub struct GenerateStream<'a> {
+    model: &'a crate::voxcpm2::VoxCpm2Model,
+    state: crate::voxcpm2::model::InferenceState,
+    pred_feats: Vec<Tensor<4>>,
     samples_emitted: usize,
     step: usize,
     min_len: usize,
@@ -1136,7 +1136,7 @@ pub struct GenerateStream<'a, B: Backend> {
     finished: bool,
 }
 
-impl<B: Backend> GenerateStream<'_, B> {
+impl GenerateStream<'_> {
     /// Sample rate (Hz) of the chunks this stream yields. Always equal to
     /// the producing [`VoxCPM::sample_rate`].
     pub fn sample_rate(&self) -> u32 {
@@ -1212,7 +1212,7 @@ impl<B: Backend> GenerateStream<'_, B> {
     }
 }
 
-impl<B: Backend> Iterator for GenerateStream<'_, B> {
+impl Iterator for GenerateStream<'_> {
     type Item = crate::Result<Vec<f32>>;
 
     fn next(&mut self) -> Option<Self::Item> {

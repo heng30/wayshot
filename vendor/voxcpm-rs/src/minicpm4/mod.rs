@@ -26,7 +26,7 @@ use burn::tensor::activation::sigmoid;
 /// inherits the broken multiply. Doing both the mul and sigmoid in f32 here
 /// sidesteps it. On pure-f32 backends every `cast` is a no-op so this stays
 /// free.
-pub fn silu_stable<B: Backend, const D: usize>(x: Tensor<B, D>) -> Tensor<B, D> {
+pub fn silu_stable<const D: usize>(x: Tensor<D>) -> Tensor<D> {
     let orig: burn::tensor::FloatDType = x.dtype().into();
     let xf = x.cast(burn::tensor::FloatDType::F32);
     (xf.clone() * sigmoid(xf)).cast(orig)
@@ -38,20 +38,20 @@ use burn::prelude::*;
 
 /// MiniCPM's RMSNorm.
 #[derive(Module, Debug)]
-pub struct MiniCpmRmsNorm<B: Backend> {
-    pub weight: Param<Tensor<B, 1>>,
+pub struct MiniCpmRmsNorm {
+    pub weight: Param<Tensor<1>>,
     pub eps: f64,
 }
 
-impl<B: Backend> MiniCpmRmsNorm<B> {
-    pub fn new(hidden_size: usize, eps: f64, device: &B::Device) -> Self {
+impl MiniCpmRmsNorm {
+    pub fn new(hidden_size: usize, eps: f64, device: &Device) -> Self {
         Self {
             weight: Param::from_tensor(Tensor::ones([hidden_size], device)),
             eps,
         }
     }
 
-    pub fn forward<const D: usize>(&self, x: Tensor<B, D>) -> Tensor<B, D> {
+    pub fn forward<const D: usize>(&self, x: Tensor<D>) -> Tensor<D> {
         // Match Python reference (`rms_layernorm`): variance and
         // normalization in f32 for numerical stability when the active dtype
         // is bf16/f16. We also promote the weight to f32 before the final

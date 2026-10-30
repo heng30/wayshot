@@ -7,16 +7,16 @@ use crate::minicpm4::MiniCpmRmsNorm;
 use burn::prelude::*;
 
 #[derive(Module, Debug)]
-pub struct MiniCpmDecoderLayer<B: Backend> {
-    pub self_attn: MiniCpmAttention<B>,
-    pub mlp: MiniCpmMlp<B>,
-    pub input_layernorm: MiniCpmRmsNorm<B>,
-    pub post_attention_layernorm: MiniCpmRmsNorm<B>,
+pub struct MiniCpmDecoderLayer {
+    pub self_attn: MiniCpmAttention,
+    pub mlp: MiniCpmMlp,
+    pub input_layernorm: MiniCpmRmsNorm,
+    pub post_attention_layernorm: MiniCpmRmsNorm,
     pub residual_scale: Option<f64>,
 }
 
-impl<B: Backend> MiniCpmDecoderLayer<B> {
-    pub fn new(config: &MiniCpm4Config, device: &B::Device) -> Self {
+impl MiniCpmDecoderLayer {
+    pub fn new(config: &MiniCpm4Config, device: &Device) -> Self {
         let residual_scale = config
             .use_mup
             .then(|| config.scale_depth as f64 / (config.num_hidden_layers as f64).sqrt());
@@ -30,7 +30,7 @@ impl<B: Backend> MiniCpmDecoderLayer<B> {
     }
 
     #[inline]
-    fn add_residual<const D: usize>(&self, residual: Tensor<B, D>, branch: Tensor<B, D>) -> Tensor<B, D> {
+    fn add_residual<const D: usize>(&self, residual: Tensor<D>, branch: Tensor<D>) -> Tensor<D> {
         match self.residual_scale {
             Some(s) => residual + branch.mul_scalar(s),
             None => residual + branch,
@@ -39,10 +39,10 @@ impl<B: Backend> MiniCpmDecoderLayer<B> {
 
     pub fn forward(
         &self,
-        hidden_states: Tensor<B, 3>,
-        position_emb: Option<(Tensor<B, 2>, Tensor<B, 2>)>,
+        hidden_states: Tensor<3>,
+        position_emb: Option<(Tensor<2>, Tensor<2>)>,
         is_causal: bool,
-    ) -> (Tensor<B, 3>, LayerKv<B>) {
+    ) -> (Tensor<3>, LayerKv) {
         let residual = hidden_states.clone();
         let h = self.input_layernorm.forward(hidden_states);
         let (h, kv) = self.self_attn.forward(h, position_emb, is_causal);
@@ -56,12 +56,12 @@ impl<B: Backend> MiniCpmDecoderLayer<B> {
 
     pub fn forward_step(
         &self,
-        hidden_states: Tensor<B, 2>,
-        position_emb: Option<(Tensor<B, 2>, Tensor<B, 2>)>,
+        hidden_states: Tensor<2>,
+        position_emb: Option<(Tensor<2>, Tensor<2>)>,
         position_id: usize,
-        kv_cache: &mut Option<LayerKv<B>>,
-        key_padding_mask: Option<Tensor<B, 2, burn::tensor::Bool>>,
-    ) -> Tensor<B, 2> {
+        kv_cache: &mut Option<LayerKv>,
+        key_padding_mask: Option<Tensor<2, burn::tensor::Bool>>,
+    ) -> Tensor<2> {
         let residual = hidden_states.clone();
         let h = self.input_layernorm.forward(hidden_states);
         let h = self.self_attn.forward_step(h, position_emb, position_id, kv_cache, key_padding_mask);

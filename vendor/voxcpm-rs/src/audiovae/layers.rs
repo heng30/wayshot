@@ -11,12 +11,12 @@ use burn::tensor::{Int, TensorData};
 // ---------------------------------------------------------------------------
 
 #[derive(Module, Debug)]
-pub struct CausalConv1d<B: Backend> {
-    pub conv: Conv1d<B>,
+pub struct CausalConv1d {
+    pub conv: Conv1d,
     pub left_pad: usize,
 }
 
-impl<B: Backend> CausalConv1d<B> {
+impl CausalConv1d {
     pub fn new(
         channels_in: usize,
         channels_out: usize,
@@ -27,7 +27,7 @@ impl<B: Backend> CausalConv1d<B> {
         padding: usize,
         output_padding: usize,
         bias: bool,
-        device: &B::Device,
+        device: &Device,
     ) -> Self {
         let conv = Conv1dConfig::new(channels_in, channels_out, kernel_size)
             .with_stride(stride)
@@ -42,7 +42,7 @@ impl<B: Backend> CausalConv1d<B> {
         }
     }
 
-    pub fn forward(&self, x: Tensor<B, 3>) -> Tensor<B, 3> {
+    pub fn forward(&self, x: Tensor<3>) -> Tensor<3> {
         let x = if self.left_pad > 0 {
             x.pad((self.left_pad, 0, 0, 0), 0.0)
         } else {
@@ -58,12 +58,12 @@ impl<B: Backend> CausalConv1d<B> {
 // ---------------------------------------------------------------------------
 
 #[derive(Module, Debug)]
-pub struct CausalTransposeConv1d<B: Backend> {
-    pub conv: ConvTranspose1d<B>,
+pub struct CausalTransposeConv1d {
+    pub conv: ConvTranspose1d,
     pub right_trim: usize,
 }
 
-impl<B: Backend> CausalTransposeConv1d<B> {
+impl CausalTransposeConv1d {
     pub fn new(
         channels_in: usize,
         channels_out: usize,
@@ -73,7 +73,7 @@ impl<B: Backend> CausalTransposeConv1d<B> {
         output_padding: usize,
         groups: usize,
         bias: bool,
-        device: &B::Device,
+        device: &Device,
     ) -> Self {
         let conv = ConvTranspose1dConfig::new([channels_in, channels_out], kernel_size)
             .with_stride(stride)
@@ -88,7 +88,7 @@ impl<B: Backend> CausalTransposeConv1d<B> {
         }
     }
 
-    pub fn forward(&self, x: Tensor<B, 3>) -> Tensor<B, 3> {
+    pub fn forward(&self, x: Tensor<3>) -> Tensor<3> {
         let out = self.conv.forward(x);
         if self.right_trim > 0 {
             let t = out.dims()[2];
@@ -104,18 +104,18 @@ impl<B: Backend> CausalTransposeConv1d<B> {
 // ---------------------------------------------------------------------------
 
 #[derive(Module, Debug)]
-pub struct Snake1d<B: Backend> {
-    pub alpha: Param<Tensor<B, 3>>, // [1, C, 1]
+pub struct Snake1d {
+    pub alpha: Param<Tensor<3>>, // [1, C, 1]
 }
 
-impl<B: Backend> Snake1d<B> {
-    pub fn new(channels: usize, device: &B::Device) -> Self {
+impl Snake1d {
+    pub fn new(channels: usize, device: &Device) -> Self {
         Self {
             alpha: Param::from_tensor(Tensor::ones([1, channels, 1], device)),
         }
     }
 
-    pub fn forward(&self, x: Tensor<B, 3>) -> Tensor<B, 3> {
+    pub fn forward(&self, x: Tensor<3>) -> Tensor<3> {
         let alpha = self.alpha.val();
         let denom = alpha.clone().add_scalar(1e-9).recip();
         let sin_sq = (alpha * x.clone()).sin().powf_scalar(2.0);
@@ -128,15 +128,15 @@ impl<B: Backend> Snake1d<B> {
 // ---------------------------------------------------------------------------
 
 #[derive(Module, Debug)]
-pub struct CausalResidualUnit<B: Backend> {
-    pub snake1: Snake1d<B>,
-    pub conv1: CausalConv1d<B>,
-    pub snake2: Snake1d<B>,
-    pub conv2: CausalConv1d<B>,
+pub struct CausalResidualUnit {
+    pub snake1: Snake1d,
+    pub conv1: CausalConv1d,
+    pub snake2: Snake1d,
+    pub conv2: CausalConv1d,
 }
 
-impl<B: Backend> CausalResidualUnit<B> {
-    pub fn new(dim: usize, dilation: usize, groups: usize, device: &B::Device) -> Self {
+impl CausalResidualUnit {
+    pub fn new(dim: usize, dilation: usize, groups: usize, device: &Device) -> Self {
         let kernel = 7usize;
         let pad = ((kernel - 1) * dilation) / 2;
         Self {
@@ -147,7 +147,7 @@ impl<B: Backend> CausalResidualUnit<B> {
         }
     }
 
-    pub fn forward(&self, x: Tensor<B, 3>) -> Tensor<B, 3> {
+    pub fn forward(&self, x: Tensor<3>) -> Tensor<3> {
         let y = self.snake1.forward(x.clone());
         let y = self.conv1.forward(y);
         let y = self.snake2.forward(y);
@@ -161,20 +161,20 @@ impl<B: Backend> CausalResidualUnit<B> {
 // ---------------------------------------------------------------------------
 
 #[derive(Module, Debug)]
-pub struct NoiseBlock<B: Backend> {
-    pub linear: CausalConv1d<B>,
+pub struct NoiseBlock {
+    pub linear: CausalConv1d,
 }
 
-impl<B: Backend> NoiseBlock<B> {
-    pub fn new(dim: usize, device: &B::Device) -> Self {
+impl NoiseBlock {
+    pub fn new(dim: usize, device: &Device) -> Self {
         Self {
             linear: CausalConv1d::new(dim, dim, 1, 1, 1, 1, 0, 0, false, device),
         }
     }
 
-    pub fn forward(&self, x: Tensor<B, 3>) -> Tensor<B, 3> {
+    pub fn forward(&self, x: Tensor<3>) -> Tensor<3> {
         let [b, _c, t] = x.dims();
-        let noise = Tensor::<B, 3>::random(
+        let noise = Tensor::<3>::random(
             [b, 1, t],
             burn::tensor::Distribution::Normal(0.0, 1.0),
             &x.device(),
@@ -190,16 +190,15 @@ impl<B: Backend> NoiseBlock<B> {
 // ---------------------------------------------------------------------------
 
 #[derive(Module, Debug)]
-#[module(skip = cond_type)]
-pub struct SampleRateConditionLayer<B: Backend> {
-    pub scale_embed: Embedding<B>,
-    pub bias_embed: Embedding<B>,
+pub struct SampleRateConditionLayer {
+    pub scale_embed: Embedding,
+    pub bias_embed: Embedding,
     pub cond_type: String,
 }
 
-impl<B: Backend> SampleRateConditionLayer<B> {
+impl SampleRateConditionLayer {
     /// Only the `scale_bias` cond type is supported (matches shipped VoxCPM2 weights).
-    pub fn new(input_dim: usize, sr_bin_buckets: usize, cond_type: &str, device: &B::Device) -> Self {
+    pub fn new(input_dim: usize, sr_bin_buckets: usize, cond_type: &str, device: &Device) -> Self {
         assert!(
             cond_type == "scale_bias" || cond_type == "scale_bias_init",
             "Only scale_bias cond_type is supported, got: {cond_type}"
@@ -212,8 +211,8 @@ impl<B: Backend> SampleRateConditionLayer<B> {
     }
 
     /// `x`: `[B, C, T]`. `sr_cond`: `[B]` (bucket indices).
-    pub fn forward(&self, x: Tensor<B, 3>, sr_cond: Tensor<B, 1, Int>) -> Tensor<B, 3> {
-        let sr2: Tensor<B, 2, Int> = sr_cond.unsqueeze_dim(1); // [B, 1]
+    pub fn forward(&self, x: Tensor<3>, sr_cond: Tensor<1, Int>) -> Tensor<3> {
+        let sr2: Tensor<2, Int> = sr_cond.unsqueeze_dim(1); // [B, 1]
         let scale = self.scale_embed.forward(sr2.clone()); // [B, 1, C]
         let bias = self.bias_embed.forward(sr2); // [B, 1, C]
         let scale = scale.swap_dims(1, 2); // [B, C, 1]
@@ -224,7 +223,7 @@ impl<B: Backend> SampleRateConditionLayer<B> {
 
 /// Compute the sample-rate bucket index via `bucketize` on CPU (SR is a tiny
 /// scalar tensor in practice).
-pub fn sr_bucket<B: Backend>(sr: i32, boundaries: &[i32], device: &B::Device) -> Tensor<B, 1, Int> {
+pub fn sr_bucket(sr: i32, boundaries: &[i32], device: &Device) -> Tensor<1, Int> {
     let idx = boundaries.iter().position(|&b| sr < b).unwrap_or(boundaries.len()) as i32;
-    Tensor::<B, 1, Int>::from_data(TensorData::new(vec![idx as i64], [1]), device)
+    Tensor::<1, Int>::from_data(TensorData::new(vec![idx as i64], [1]), device)
 }

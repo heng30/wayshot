@@ -19,28 +19,28 @@ pub const REF_AUDIO_START_TOKEN: i64 = 103;
 pub const REF_AUDIO_END_TOKEN: i64 = 104;
 
 #[derive(Module, Debug)]
-#[module(skip = config)]
-pub struct VoxCpm2Model<B: Backend> {
-    pub base_lm: MiniCpmModel<B>,
-    pub residual_lm: MiniCpmModel<B>,
-    pub feat_encoder: VoxCpmLocEnc<B>,
-    pub feat_decoder: UnifiedCfm<B>,
-    pub fsq_layer: ScalarQuantizationLayer<B>,
+pub struct VoxCpm2Model {
+    pub base_lm: MiniCpmModel,
+    pub residual_lm: MiniCpmModel,
+    pub feat_encoder: VoxCpmLocEnc,
+    pub feat_decoder: UnifiedCfm,
+    pub fsq_layer: ScalarQuantizationLayer,
 
-    pub enc_to_lm_proj: Linear<B>,
-    pub lm_to_dit_proj: Linear<B>,
-    pub res_to_dit_proj: Linear<B>,
-    pub fusion_concat_proj: Linear<B>,
+    pub enc_to_lm_proj: Linear,
+    pub lm_to_dit_proj: Linear,
+    pub res_to_dit_proj: Linear,
+    pub fusion_concat_proj: Linear,
 
-    pub stop_proj: Linear<B>,
-    pub stop_head: Linear<B>,
+    pub stop_proj: Linear,
+    pub stop_head: Linear,
 
-    pub audio_vae: AudioVae<B>,
+    pub audio_vae: AudioVae,
+    #[module(skip)]
     pub config: VoxCpm2Config,
 }
 
-impl<B: Backend> VoxCpm2Model<B> {
-    pub fn new(config: VoxCpm2Config, device: &B::Device) -> Self {
+impl VoxCpm2Model {
+    pub fn new(config: VoxCpm2Config, device: &Device) -> Self {
         let lm_hidden = config.lm_config.hidden_size;
         let enc_hidden = config.encoder_config.hidden_dim;
         let dit_hidden = config.dit_config.hidden_dim;
@@ -127,12 +127,12 @@ impl<B: Backend> VoxCpm2Model<B> {
     /// up to `max_len` AR steps.
     pub fn prefill(
         &self,
-        text_token: Tensor<B, 2, burn::tensor::Int>,
-        text_mask: Tensor<B, 2>,
-        feat: Tensor<B, 4>,
-        feat_mask: Tensor<B, 2>,
+        text_token: Tensor<2, burn::tensor::Int>,
+        text_mask: Tensor<2>,
+        feat: Tensor<4>,
+        feat_mask: Tensor<2>,
         max_len: usize,
-    ) -> InferenceState<B> {
+    ) -> InferenceState {
         self.prefill_with_lengths(text_token, text_mask, feat, feat_mask, max_len, None)
     }
 
@@ -148,13 +148,13 @@ impl<B: Backend> VoxCpm2Model<B> {
     /// When `None` the path is identical to the unbatched/serial code.
     pub fn prefill_with_lengths(
         &self,
-        text_token: Tensor<B, 2, burn::tensor::Int>,
-        text_mask: Tensor<B, 2>,
-        feat: Tensor<B, 4>,
-        feat_mask: Tensor<B, 2>,
+        text_token: Tensor<2, burn::tensor::Int>,
+        text_mask: Tensor<2>,
+        feat: Tensor<4>,
+        feat_mask: Tensor<2>,
         max_len: usize,
         prefill_lengths: Option<Vec<usize>>,
-    ) -> InferenceState<B> {
+    ) -> InferenceState {
         let device = feat.device();
         let [_b, _s, _p, _d] = feat.dims();
 
@@ -167,13 +167,13 @@ impl<B: Backend> VoxCpm2Model<B> {
         let text_embed = self.base_lm.embed(text_token).mul_scalar(scale); // [B, S, lm_h]
 
         // 3) Combine via masks.
-        let text_mask3: Tensor<B, 3> = text_mask.clone().unsqueeze_dim(2);
-        let feat_mask3: Tensor<B, 3> = feat_mask.clone().unsqueeze_dim(2);
+        let text_mask3: Tensor<3> = text_mask.clone().unsqueeze_dim(2);
+        let feat_mask3: Tensor<3> = feat_mask.clone().unsqueeze_dim(2);
         let combined = text_embed * text_mask3.clone() + feat_embed.clone() * feat_mask3.clone();
 
         // 4) Prefix feat cond (last patch).
         let s = feat.dims()[1];
-        let prefix_feat: Tensor<B, 3> = feat.clone().narrow(1, s - 1, 1).squeeze_dim::<3>(1); // [B, P, D]
+        let prefix_feat: Tensor<3> = feat.clone().narrow(1, s - 1, 1).squeeze_dim::<3>(1); // [B, P, D]
 
         // 5) Base LM prefill.
         let (enc_outputs, base_kv) = self.base_lm.forward(combined, true);
@@ -249,7 +249,7 @@ impl<B: Backend> VoxCpm2Model<B> {
         // for each batch element. New decode positions (>= s_ctx) are always
         // unmasked. We size the mask to `max_ctx` (full cache length) so it
         // can be sliced to current_len at each step.
-        let key_padding_mask: Option<Tensor<B, 2, burn::tensor::Bool>> = match &prefill_lengths {
+        let key_padding_mask: Option<Tensor<2, burn::tensor::Bool>> = match &prefill_lengths {
             None => None,
             Some(lens) => {
                 if lens.iter().all(|&l| l == s_ctx) {
@@ -262,7 +262,7 @@ impl<B: Backend> VoxCpm2Model<B> {
                         }
                         // [s_ctx..max_ctx] are future decode slots: keep false (unmasked).
                     }
-                    Some(Tensor::<B, 1, burn::tensor::Bool>::from_data(
+                    Some(Tensor::<1, burn::tensor::Bool>::from_data(
                         burn::tensor::TensorData::new(data, [batch * max_ctx]),
                         &device,
                     )
@@ -290,10 +290,10 @@ impl<B: Backend> VoxCpm2Model<B> {
     /// the next [`Self::dit_step`].
     pub fn dit_step(
         &self,
-        state: &mut InferenceState<B>,
+        state: &mut InferenceState,
         inference_timesteps: usize,
         cfg_value: f64,
-    ) -> DitStep<B> {
+    ) -> DitStep {
         let patch_size = self.patch_size();
 
         // DiT inputs: concat(lm_to_dit(lm), res_to_dit(res))
@@ -313,7 +313,7 @@ impl<B: Backend> VoxCpm2Model<B> {
             true,
         );
         let pred_feat = pred.swap_dims(1, 2);
-        let pred4: Tensor<B, 4> = pred_feat.clone().unsqueeze_dim(1);
+        let pred4: Tensor<4> = pred_feat.clone().unsqueeze_dim(1);
         state.prefix_feat_cond = pred_feat;
 
         // Stop check (cheap GPU→CPU sync via argmax). One bit per batch
@@ -334,10 +334,10 @@ impl<B: Backend> VoxCpm2Model<B> {
     /// Advance the base + residual LMs by one position using `pred_feat`
     /// (`[1, 1, P, D]`, the patch returned by [`Self::dit_step`]). Caller
     /// should only call this if it intends to take another DiT step.
-    pub fn lm_step(&self, state: &mut InferenceState<B>, pred_feat: Tensor<B, 4>) {
+    pub fn lm_step(&self, state: &mut InferenceState, pred_feat: Tensor<4>) {
         let curr_embed = self.feat_encoder.forward(pred_feat); // [B, 1, enc_h]
         let curr_embed = self.enc_to_lm_proj.forward(curr_embed); // [B, 1, lm_h]
-        let curr_embed2: Tensor<B, 2> = curr_embed.squeeze_dim::<2>(1); // [B, lm_h]
+        let curr_embed2: Tensor<2> = curr_embed.squeeze_dim::<2>(1); // [B, lm_h]
 
         let pos = state.base_cache.step();
         let mut lm_hidden = self.base_lm.forward_step_masked(
@@ -366,7 +366,7 @@ impl<B: Backend> VoxCpm2Model<B> {
 
     /// Stack a sequence of predicted latent patches `[1, 1, P, D]` into the
     /// AudioVAE input shape `[1, D, T*P]`.
-    pub fn stack_pred_feats(pred_feats: &[Tensor<B, 4>]) -> Tensor<B, 3> {
+    pub fn stack_pred_feats(pred_feats: &[Tensor<4>]) -> Tensor<3> {
         let feats = Tensor::cat(pred_feats.to_vec(), 1);
         let [b, t, p, d] = feats.dims();
         feats.swap_dims(1, 3).swap_dims(2, 3).reshape([b, d, t * p])
@@ -392,16 +392,16 @@ impl<B: Backend> VoxCpm2Model<B> {
     /// element to its own valid prefix before decoding through the AudioVAE.
     pub fn inference(
         &self,
-        text_token: Tensor<B, 2, burn::tensor::Int>,
-        text_mask: Tensor<B, 2>,
-        feat: Tensor<B, 4>,
-        feat_mask: Tensor<B, 2>,
+        text_token: Tensor<2, burn::tensor::Int>,
+        text_mask: Tensor<2>,
+        feat: Tensor<4>,
+        feat_mask: Tensor<2>,
         min_len: usize,
         max_len: usize,
         inference_timesteps: usize,
         cfg_value: f64,
         cancel: Option<&dyn Fn() -> bool>,
-    ) -> crate::Result<(Tensor<B, 3>, Vec<usize>)> {
+    ) -> crate::Result<(Tensor<3>, Vec<usize>)> {
         self.inference_with_lengths(
             text_token, text_mask, feat, feat_mask,
             min_len, max_len, inference_timesteps, cfg_value, cancel, None,
@@ -413,22 +413,22 @@ impl<B: Backend> VoxCpm2Model<B> {
     /// [`Self::prefill_with_lengths`].
     pub fn inference_with_lengths(
         &self,
-        text_token: Tensor<B, 2, burn::tensor::Int>,
-        text_mask: Tensor<B, 2>,
-        feat: Tensor<B, 4>,
-        feat_mask: Tensor<B, 2>,
+        text_token: Tensor<2, burn::tensor::Int>,
+        text_mask: Tensor<2>,
+        feat: Tensor<4>,
+        feat_mask: Tensor<2>,
         min_len: usize,
         max_len: usize,
         inference_timesteps: usize,
         cfg_value: f64,
         cancel: Option<&dyn Fn() -> bool>,
         prefill_lengths: Option<Vec<usize>>,
-    ) -> crate::Result<(Tensor<B, 3>, Vec<usize>)> {
+    ) -> crate::Result<(Tensor<3>, Vec<usize>)> {
         let batch = text_token.dims()[0];
         let mut state = self.prefill_with_lengths(
             text_token, text_mask, feat, feat_mask, max_len, prefill_lengths,
         );
-        let mut pred_feats: Vec<Tensor<B, 4>> = Vec::new();
+        let mut pred_feats: Vec<Tensor<4>> = Vec::new();
         let mut stopped = vec![false; batch];
         let mut stop_steps = vec![max_len; batch];
 
@@ -438,7 +438,7 @@ impl<B: Backend> VoxCpm2Model<B> {
         let mut n_steps: usize = 0;
 
         // Helper closure: force a GPU→CPU sync by reading a tiny scalar.
-        let sync_barrier = |t: Tensor<B, 2>| {
+        let sync_barrier = |t: Tensor<2>| {
             let _ = t.slice([0..1, 0..1]).into_data();
         };
 
@@ -522,31 +522,31 @@ impl<B: Backend> VoxCpm2Model<B> {
 /// [`crate::VoxCPM::generate`] / [`crate::VoxCPM::generate_stream`] APIs
 /// manage it for you.
 #[derive(Debug)]
-pub struct InferenceState<B: Backend> {
+pub struct InferenceState {
     /// `[B, lm_h]` — last hidden state of the base LM (input to DiT + stop).
-    pub lm_hidden: Tensor<B, 2>,
+    pub lm_hidden: Tensor<2>,
     /// `[B, lm_h]` — last hidden state of the residual LM (input to DiT).
-    pub residual_hidden: Tensor<B, 2>,
+    pub residual_hidden: Tensor<2>,
     /// `[B, P, D]` — last predicted patch, used as DiT prefix for the next step.
-    pub prefix_feat_cond: Tensor<B, 3>,
+    pub prefix_feat_cond: Tensor<3>,
     /// Static KV cache for the base LM. Sized for prefill + `max_len` steps.
-    pub base_cache: crate::minicpm4::StaticKvCache<B>,
+    pub base_cache: crate::minicpm4::StaticKvCache,
     /// Static KV cache for the residual LM.
-    pub res_cache: crate::minicpm4::StaticKvCache<B>,
+    pub res_cache: crate::minicpm4::StaticKvCache,
     /// Number of [`VoxCpm2Model::lm_step`] calls applied so far.
     pub steps_taken: usize,
     /// `[B, max_ctx]` bool mask: `true` = position is padding from a
     /// batched prefill and must be excluded from attention. `None` for
     /// the unbatched/serial path.
-    pub key_padding_mask: Option<Tensor<B, 2, burn::tensor::Bool>>,
+    pub key_padding_mask: Option<Tensor<2, burn::tensor::Bool>>,
 }
 
 /// Output of [`VoxCpm2Model::dit_step`].
 #[derive(Debug)]
-pub struct DitStep<B: Backend> {
+pub struct DitStep {
     /// `[B, 1, P, D]` — the patch the diffusion sampler produced this step,
     /// one per batch element.
-    pub pred_feat: Tensor<B, 4>,
+    pub pred_feat: Tensor<4>,
     /// One bit per batch element: `true` if the stop head argmax fired this
     /// step for that element. The caller decides whether to honor it (e.g.
     /// ignore until `min_len` patches are out).

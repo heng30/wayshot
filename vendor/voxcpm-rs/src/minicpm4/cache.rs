@@ -3,28 +3,28 @@
 
 use burn::prelude::*;
 
-pub type LayerKv<B> = (Tensor<B, 4>, Tensor<B, 4>);
+pub type LayerKv = (Tensor<4>, Tensor<4>);
 
 #[derive(Debug)]
-pub struct StaticKvCache<B: Backend> {
+pub struct StaticKvCache {
     /// `Option` lets us `take()` the inner tensors during a step so the
     /// reference count drops to 1, allowing `slice_assign` to recycle the
     /// underlying buffer instead of copying it.
-    pub layers: Vec<Option<LayerKv<B>>>,
+    pub layers: Vec<Option<LayerKv>>,
     pub current_length: usize,
     pub max_length: usize,
     pub num_kv_heads: usize,
     pub head_dim: usize,
 }
 
-impl<B: Backend> StaticKvCache<B> {
+impl StaticKvCache {
     pub fn new(
         num_layers: usize,
         num_kv_heads: usize,
         head_dim: usize,
         batch_size: usize,
         max_length: usize,
-        device: &B::Device,
+        device: &Device,
     ) -> Self {
         let layers = (0..num_layers)
             .map(|_| {
@@ -44,7 +44,7 @@ impl<B: Backend> StaticKvCache<B> {
     }
 
     /// Seed from a prefill pass' `(K, V)` tensors `[B, Hkv, S, D]`.
-    pub fn fill(&mut self, prefill: Vec<LayerKv<B>>) {
+    pub fn fill(&mut self, prefill: Vec<LayerKv>) {
         assert_eq!(prefill.len(), self.layers.len());
         let s = prefill[0].0.dims()[2];
         self.current_length = s;
@@ -68,7 +68,7 @@ impl<B: Backend> StaticKvCache<B> {
         self.current_length = 0;
     }
 
-    pub fn layer_mut(&mut self, idx: usize) -> &mut Option<LayerKv<B>> {
+    pub fn layer_mut(&mut self, idx: usize) -> &mut Option<LayerKv> {
         &mut self.layers[idx]
     }
 }

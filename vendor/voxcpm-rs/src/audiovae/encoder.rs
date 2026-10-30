@@ -4,16 +4,16 @@ use crate::audiovae::layers::{CausalConv1d, CausalResidualUnit, Snake1d};
 use burn::prelude::*;
 
 #[derive(Module, Debug)]
-pub struct CausalEncoderBlock<B: Backend> {
-    pub res1: CausalResidualUnit<B>,
-    pub res2: CausalResidualUnit<B>,
-    pub res3: CausalResidualUnit<B>,
-    pub snake: Snake1d<B>,
-    pub down: CausalConv1d<B>,
+pub struct CausalEncoderBlock {
+    pub res1: CausalResidualUnit,
+    pub res2: CausalResidualUnit,
+    pub res3: CausalResidualUnit,
+    pub snake: Snake1d,
+    pub down: CausalConv1d,
 }
 
-impl<B: Backend> CausalEncoderBlock<B> {
-    pub fn new(input_dim: usize, output_dim: usize, stride: usize, groups: usize, device: &B::Device) -> Self {
+impl CausalEncoderBlock {
+    pub fn new(input_dim: usize, output_dim: usize, stride: usize, groups: usize, device: &Device) -> Self {
         let kernel = 2 * stride;
         let pad = (stride as f64 / 2.0).ceil() as usize;
         let out_pad = stride % 2;
@@ -28,7 +28,7 @@ impl<B: Backend> CausalEncoderBlock<B> {
         }
     }
 
-    pub fn forward(&self, x: Tensor<B, 3>) -> Tensor<B, 3> {
+    pub fn forward(&self, x: Tensor<3>) -> Tensor<3> {
         let x = self.res1.forward(x);
         let x = self.res2.forward(x);
         let x = self.res3.forward(x);
@@ -38,20 +38,20 @@ impl<B: Backend> CausalEncoderBlock<B> {
 }
 
 #[derive(Module, Debug)]
-pub struct CausalEncoder<B: Backend> {
-    pub first: CausalConv1d<B>,
-    pub blocks: Vec<CausalEncoderBlock<B>>,
-    pub fc_mu: CausalConv1d<B>,
-    pub fc_logvar: CausalConv1d<B>,
+pub struct CausalEncoder {
+    pub first: CausalConv1d,
+    pub blocks: Vec<CausalEncoderBlock>,
+    pub fc_mu: CausalConv1d,
+    pub fc_logvar: CausalConv1d,
 }
 
-impl<B: Backend> CausalEncoder<B> {
+impl CausalEncoder {
     pub fn new(
         d_model: usize,
         latent_dim: usize,
         strides: &[usize],
         depthwise: bool,
-        device: &B::Device,
+        device: &Device,
     ) -> Self {
         let first = CausalConv1d::new(1, d_model, 7, 1, 1, 1, 3, 0, true, device);
         let mut blocks = Vec::with_capacity(strides.len());
@@ -71,7 +71,7 @@ impl<B: Backend> CausalEncoder<B> {
     }
 
     /// Returns `mu` only (inference path).
-    pub fn forward_mu(&self, x: Tensor<B, 3>) -> Tensor<B, 3> {
+    pub fn forward_mu(&self, x: Tensor<3>) -> Tensor<3> {
         let mut h = self.first.forward(x);
         for b in &self.blocks {
             h = b.forward(h);

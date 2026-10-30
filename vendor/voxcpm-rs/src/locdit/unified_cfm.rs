@@ -5,19 +5,18 @@ use burn::prelude::*;
 use burn::tensor::TensorData;
 
 #[derive(Module, Debug)]
-#[module(skip = sigma_min, inference_cfg_rate)]
-pub struct UnifiedCfm<B: Backend> {
-    pub estimator: VoxCpmLocDiTV2<B>,
+pub struct UnifiedCfm {
+    pub estimator: VoxCpmLocDiTV2,
     pub in_channels: usize,
     pub sigma_min: f64,
     pub mean_mode: bool,
     pub inference_cfg_rate: f64,
 }
 
-impl<B: Backend> UnifiedCfm<B> {
+impl UnifiedCfm {
     pub fn new(
         in_channels: usize,
-        estimator: VoxCpmLocDiTV2<B>,
+        estimator: VoxCpmLocDiTV2,
         sigma_min: f64,
         inference_cfg_rate: f64,
         mean_mode: bool,
@@ -33,22 +32,22 @@ impl<B: Backend> UnifiedCfm<B> {
 
     pub fn forward(
         &self,
-        mu: Tensor<B, 2>,
+        mu: Tensor<2>,
         n_timesteps: usize,
         patch_size: usize,
-        cond: Tensor<B, 3>,
+        cond: Tensor<3>,
         temperature: f64,
         cfg_value: f64,
         sway_sampling_coef: f64,
         use_cfg_zero_star: bool,
-    ) -> Tensor<B, 3> {
+    ) -> Tensor<3> {
         let [b, _] = mu.dims();
         let device = mu.device();
 
         let z = if std::env::var("VOXCPM_Z_ZERO").is_ok() {
-            Tensor::<B, 3>::zeros([b, self.in_channels, patch_size], &device)
+            Tensor::<3>::zeros([b, self.in_channels, patch_size], &device)
         } else {
-            Tensor::<B, 3>::random(
+            Tensor::<3>::random(
                 [b, self.in_channels, patch_size],
                 burn::tensor::Distribution::Normal(0.0, 1.0),
                 &device,
@@ -71,13 +70,13 @@ impl<B: Backend> UnifiedCfm<B> {
 
     fn solve_euler(
         &self,
-        mut x: Tensor<B, 3>,
+        mut x: Tensor<3>,
         t_span: &[f32],
-        mu: Tensor<B, 2>,
-        cond: Tensor<B, 3>,
+        mu: Tensor<2>,
+        cond: Tensor<3>,
         cfg_value: f64,
         use_cfg_zero_star: bool,
-    ) -> Tensor<B, 3> {
+    ) -> Tensor<3> {
         let device = x.device();
         let mut t = t_span[0] as f64;
         let mut dt = (t_span[0] - t_span[1]) as f64;
@@ -93,7 +92,7 @@ impl<B: Backend> UnifiedCfm<B> {
         // step. NOTE: only `mu` is zeroed for the unconditional branch; the
         // prefix-feat `cond` is duplicated as-is. (Matches Python's
         // `cond_in[:b], cond_in[b:] = cond, cond`.)
-        let mu_zeros = Tensor::<B, 2>::zeros([b, mu_dim], &device);
+        let mu_zeros = Tensor::<2>::zeros([b, mu_dim], &device);
         let mu_in = Tensor::cat(vec![mu.clone(), mu_zeros], 0);
         let cond_in = Tensor::cat(vec![cond.clone(), cond.clone()], 0);
 
@@ -103,18 +102,18 @@ impl<B: Backend> UnifiedCfm<B> {
         // re-projects `x` and `t`. Saves ~9× redundant linear/embed ops
         // per diffusion solve.
         let dit_cache = if !self.mean_mode {
-            let dt_zeros = Tensor::<B, 1>::zeros([2 * b], &device);
+            let dt_zeros = Tensor::<1>::zeros([2 * b], &device);
             Some(self.estimator.prepare(mu_in.clone(), cond_in.clone(), dt_zeros))
         } else {
             None
         };
 
         for step in 1..t_span.len() {
-            let dphi_dt: Tensor<B, 3> = if use_cfg_zero_star && step <= zero_init_steps {
+            let dphi_dt: Tensor<3> = if use_cfg_zero_star && step <= zero_init_steps {
                 Tensor::zeros([b, c, time_len], &device)
             } else {
                 let x_in = Tensor::cat(vec![x.clone(), x.clone()], 0);
-                let t_tensor = Tensor::<B, 1>::from_data(
+                let t_tensor = Tensor::<1>::from_data(
                     TensorData::new(vec![t as f32; 2 * b], [2 * b]),
                     &device,
                 );
@@ -123,7 +122,7 @@ impl<B: Backend> UnifiedCfm<B> {
                     self.estimator.forward_cached(x_in, t_tensor, cache)
                 } else {
                     // mean_mode: dt varies per step, fall back to full forward.
-                    let dt_tensor = Tensor::<B, 1>::from_data(
+                    let dt_tensor = Tensor::<1>::from_data(
                         TensorData::new(vec![dt as f32; 2 * b], [2 * b]),
                         &device,
                     );
@@ -133,13 +132,13 @@ impl<B: Backend> UnifiedCfm<B> {
                 let neg = out.narrow(0, b, b);
 
                 if use_cfg_zero_star {
-                    let pos_flat: Tensor<B, 2> = pos.clone().reshape([b, c * time_len]);
-                    let neg_flat: Tensor<B, 2> = neg.clone().reshape([b, c * time_len]);
+                    let pos_flat: Tensor<2> = pos.clone().reshape([b, c * time_len]);
+                    let neg_flat: Tensor<2> = neg.clone().reshape([b, c * time_len]);
                     let dot = (pos_flat.clone() * neg_flat.clone()).sum_dim(1); // [B, 1]
                     let sq = (neg_flat.clone() * neg_flat.clone()).sum_dim(1).add_scalar(1e-8);
-                    let st: Tensor<B, 2> = dot / sq;
-                    let st: Tensor<B, 3> = st.unsqueeze_dim(2);
-                    let st_b: Tensor<B, 3> = st.expand([b as i32, c as i32, time_len as i32]);
+                    let st: Tensor<2> = dot / sq;
+                    let st: Tensor<3> = st.unsqueeze_dim(2);
+                    let st_b: Tensor<3> = st.expand([b as i32, c as i32, time_len as i32]);
                     // Algebra: neg*st + (pos - neg*st)*cfg
                     //        = neg*st*(1-cfg) + pos*cfg
                     // Saves one elementwise kernel per step (1 mul, 1 sub avoided

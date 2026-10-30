@@ -6,15 +6,15 @@ use crate::config::AudioVaeConfig;
 use burn::prelude::*;
 
 #[derive(Module, Debug)]
-#[module(skip = config)]
-pub struct AudioVae<B: Backend> {
-    pub encoder: CausalEncoder<B>,
-    pub decoder: CausalDecoder<B>,
+pub struct AudioVae {
+    pub encoder: CausalEncoder,
+    pub decoder: CausalDecoder,
+    #[module(skip)]
     pub config: AudioVaeConfig,
 }
 
-impl<B: Backend> AudioVae<B> {
-    pub fn new(config: AudioVaeConfig, device: &B::Device) -> Self {
+impl AudioVae {
+    pub fn new(config: AudioVaeConfig, device: &Device) -> Self {
         let encoder = CausalEncoder::new(
             config.encoder_dim,
             config.latent_dim,
@@ -40,7 +40,7 @@ impl<B: Backend> AudioVae<B> {
     }
 
     /// Encode raw waveform `[B, 1, T]` → latent `[B, C, T']` (µ only).
-    pub fn encode(&self, audio: Tensor<B, 3>) -> Tensor<B, 3> {
+    pub fn encode(&self, audio: Tensor<3>) -> Tensor<3> {
         let hop: usize = self.config.encoder_rates.iter().product();
         let t = audio.dims()[2];
         let pad = (t + hop - 1) / hop * hop - t;
@@ -53,7 +53,7 @@ impl<B: Backend> AudioVae<B> {
     }
 
     /// Decode latent `[B, C, T']` → waveform `[B, 1, T]`.
-    pub fn decode(&self, z: Tensor<B, 3>) -> Tensor<B, 3> {
+    pub fn decode(&self, z: Tensor<3>) -> Tensor<3> {
         let target_sr = self.config.out_sample_rate as i32;
         self.decoder.forward(z, target_sr)
     }

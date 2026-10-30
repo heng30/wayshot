@@ -48,7 +48,7 @@ fn main() {
 
     println!("Splitting into stems ...");
     let t1 = Instant::now();
-    let result = split(&audio, &handle).expect("Split failed");
+    let result = split(&audio, &handle, None).expect("Split failed");
     println!(
         "  Inference completed in {:.2}s",
         t1.elapsed().as_secs_f64()
@@ -109,4 +109,3 @@ fn write_wav(path: &std::path::Path, audio: &AudioData) {
 
     writer.finalize().expect("Failed to finalize WAV file");
 }
-

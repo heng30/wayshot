@@ -14,7 +14,12 @@ use rtc::{
         rtp_sender::{RTCRtpCodec, RTCRtpCodingParameters, RTCRtpEncodingParameters, RtpCodecKind},
     },
 };
-use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
+use std::{
+    net::SocketAddr,
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tokio::sync::broadcast;
 use webrtc::{
     media_stream::track_local::{
@@ -23,7 +28,7 @@ use webrtc::{
     peer_connection::{
         PeerConnection, PeerConnectionBuilder, PeerConnectionEventHandler, RTCConfigurationBuilder,
         RTCIceConnectionState, RTCIceGatheringState, RTCIceServer, RTCPeerConnectionState,
-        RTCSessionDescription, SettingEngine, register_default_interceptors,
+        RTCSessionDescription, SettingEngineBuilder, register_default_interceptors,
     },
     rtp_transceiver::RtpSender,
 };
@@ -122,6 +127,7 @@ async fn drain_local_track_rtcp(track: Arc<TrackLocalStaticSample>) {
             TrackLocalEvent::OnRtcpPacket(packets) => {
                 log::trace!("received {} rtcp feedback packet(s)", packets.len());
             }
+            _ => {}
         }
     }
 }
@@ -139,13 +145,16 @@ pub async fn handle_whep(
 
     log::info!("whep config: {:#?}", config);
 
-    let mut setting_engine = SettingEngine::default();
+    let mut setting_engine = SettingEngineBuilder::new();
     if config.disable_host_ipv6 {
-        setting_engine.set_network_types(vec![NetworkType::Tcp4, NetworkType::Udp4]);
+        setting_engine =
+            setting_engine.with_network_types(vec![NetworkType::Tcp4, NetworkType::Udp4]);
     }
     if !config.host_ips.is_empty() {
-        setting_engine.set_nat_1to1_ips(config.host_ips, RTCIceCandidateType::Host);
+        setting_engine =
+            setting_engine.with_nat_1to1_ips(config.host_ips, RTCIceCandidateType::Host);
     }
+    let setting_engine = setting_engine.build();
 
     let ice_servers = if config.ice_servers.is_empty() {
         vec![RTCIceServer {
@@ -186,8 +195,9 @@ pub async fn handle_whep(
     let video_ssrc = rand::random::<u32>();
     let audio_ssrc = rand::random::<u32>();
 
-    let video_track: Arc<TrackLocalStaticSample> =
-        Arc::new(TrackLocalStaticSample::new(MediaStreamTrack::new(
+    let video_track: Arc<TrackLocalStaticSample> = Arc::new(TrackLocalStaticSample::new(
+        Instant::now(),
+        MediaStreamTrack::new(
             "whep-video-stream".to_owned(),
             "whep-video-track".to_owned(),
             "webrtc-rs".to_owned(),
@@ -206,10 +216,12 @@ pub async fn handle_whep(
                 },
                 ..Default::default()
             }],
-        ))?);
+        ),
+    )?);
 
-    let audio_track: Arc<TrackLocalStaticSample> =
-        Arc::new(TrackLocalStaticSample::new(MediaStreamTrack::new(
+    let audio_track: Arc<TrackLocalStaticSample> = Arc::new(TrackLocalStaticSample::new(
+        Instant::now(),
+        MediaStreamTrack::new(
             "whep-audio-stream".to_owned(),
             "whep-audio-track".to_owned(),
             "webrtc-rs".to_owned(),
@@ -228,7 +240,8 @@ pub async fn handle_whep(
                 },
                 ..Default::default()
             }],
-        ))?);
+        ),
+    )?);
 
     let video_rtp_sender = peer_connection
         .add_track(Arc::clone(&video_track) as Arc<dyn TrackLocal>)
@@ -275,8 +288,11 @@ pub async fn handle_whep(
                                         .sample_writer(video_ssrc, video_payload_type)
                                         .write_sample(&Sample {
                                             data,
+                                            timestamp: Instant::now(),
                                             duration: Duration::from_secs(1),
-                                            ..Default::default()
+                                            packet_timestamp: 0,
+                                            prev_dropped_packets: 0,
+                                            prev_padding_packets: 0,
                                         }).await {
                                         log::warn!("send video data error: {}", err);
                                     }
@@ -288,8 +304,11 @@ pub async fn handle_whep(
                                         .sample_writer(audio_ssrc, audio_payload_type)
                                         .write_sample(&Sample {
                                             data,
+                                            timestamp: Instant::now(),
                                             duration,
-                                            ..Default::default()
+                                            packet_timestamp: 0,
+                                            prev_dropped_packets: 0,
+                                            prev_padding_packets: 0,
                                         }).await {
                                         log::warn!("send audio data error: {}", err);
                                     }

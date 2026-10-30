@@ -57,10 +57,10 @@ yuv = { version = "0.8", default-features = false }
 cbc = { version = "0.2", default-features = false }
 tar = { version = "0.4", default-features = false }
 aes = { version = "0.9", default-features = false }
-rtc = { version = "0.20", default-features = false }
+rtc = { version = "0.21", default-features = false }
 mp4 = { version = "0.14", default-features = false }
 nix = { version = "0.31", default-features = false }
-lru = { version = "0.18", default-features = false }
+lru = { version = "0.19", default-features = false }
 vte = { version = "0.15", default-features = false }
 opus = { version = "0.4", default-features = false }
 x264 = { version = "0.5", default-features = false }
@@ -79,12 +79,12 @@ kodama = { version = "0.3", default-features = false }
 infer = { version = "0.22", default-features = false }
 tokio = { version = "1.49", default-features = false }
 rayon = { version = "1.11", default-features = false }
-rodio = { version = "0.22", default-features = false }
+rodio = { version = "0.23", default-features = false }
 winapi = { version = "0.3", default-features = false }
 fast2s = { version = "0.3", default-features = false }
 cfg-if = { version = "1.0", default-features = false }
 rubato = { version = "5.0", default-features = false }
-webrtc = { version = "0.20", default-features = false }
+webrtc = { version = "0.21", default-features = false }
 rustls = { version = "0.23", default-features = false }
 nokhwa = { version = "0.10", default-features = false }
 pinyin = { version = "0.11", default-features = false }
@@ -94,7 +94,7 @@ realfft = { version = "3.5", default-features = false }
 arboard = { version = "3.6", default-features = false }
 walkdir = { version = "2.5", default-features = false }
 windows = { version = "0.62", default-features = false }
-scraper = { version = "0.27", default-features = false }
+scraper = { version = "0.29", default-features = false }
 rml_rtmp = { version = "0.8", default-features = false }
 schemars = { version = "1.2", default-features = false }
 bytemuck = { version = "1.25", default-features = false }
@@ -120,11 +120,11 @@ pin-project = { version = "1.1", default-features = false }
 pitch_shift = { version = "2.1", default-features = false }
 async-trait = { version = "0.1", default-features = false }
 crypto-hash = { version = "0.3", default-features = false }
-html-escape = { version = "0.2", default-features = false }
+html-escape = { version = "0.3", default-features = false }
 urlencoding = { version = "2.1", default-features = false }
 ndarray-npy = { version = "0.10", default-features = false }
 candle-core = { version = "0.11", default-features = false }
-egui_extras = { version = "0.36", default-features = false }
+egui_extras = { version = "0.37", default-features = false }
 display-info = { version = "0.5", default-features = false }
 cmudict-fast = { version = "0.8", default-features = false }
 portable-pty = { version = "0.9", default-features = false }
@@ -149,9 +149,9 @@ hex = { version = "0.4", default-features = false, features = ["std"] }
 log = { version = "0.4", default-features = false, features = ["std"] }
 num = { version = "0.4", default-features = false, features = ["std"] }
 http = { version = "1.4", default-features = false, features = ["std"] }
-burn = { version = "0.21", default-features = false, features = ["std"] }
+burn = { version = "0.22", default-features = false, features = ["std"] }
 uuid = { version = "1.19", default-features = false, features = ["std"] }
-glam = { version = "0.33", default-features = false, features = ["std"] }
+glam = { version = "0.34", default-features = false, features = ["std"] }
 bytes = { version = "1.11", default-features = false, features = ["std"] }
 anyhow = { version = "1.0", default-features = false, features = ["std"] }
 strum = { version = "0.28", default-features = false, features = ["std"] }
@@ -166,20 +166,19 @@ thiserror = { version = "2.0", default-features = false, features = ["std"] }
 crossbeam = { version = "0.8", default-features = false, features = ["std"] }
 byteorder = { version = "1.5", default-features = false, features = ["std"] }
 qrcode = { version = "0.14", default-features = false, features = ["image"] }
-speakrs = { version = "0.5", default-features = false, features = ["online"] }
+which = { version = "8.0", default-features = false, features = ["real-sys"] }
+silero = { version = "0.7", default-features = false, features = ["bundled"] }
 num-traits = { version = "0.2", default-features = false, features = ["std"] }
 tiny-skia = { version = "0.12", default-features = false, features = ["std"] }
 once_cell = { version = "1.21", default-features = false, features = ["std"] }
 serde_json = { version = "1.0", default-features = false, features = ["std"] }
-which = { version = "8.0", default-features = false, features = ["real-sys"] }
-silero = { version = "0.7", default-features = false, features = ["bundled"] }
 hf-hub = { version = "1.0", default-features = false, features = ["blocking"] }
 openh264 = { version = "0.9", default-features = false, features = ["source"] }
 num-complex = { version = "0.4", default-features = false, features = ["std"] }
 quote = { version = "1.0", default-features = false, features = ["proc-macro"] }
 stunclient = { version = "0.4", default-features = false, features = ["async"] }
 tokenizers = { version = "0.23", default-features = false, features = ["onig"] }
-scenesdetect = { version = "0.4", default-features = false, features = ["std"] }
+scenesdetect = { version = "0.5", default-features = false, features = ["std"] }
 
 syn = { version = "3.0", default-features = false, features = [
   "derive",
@@ -225,12 +224,12 @@ webpx = { version = "0.4", default-features = false, features = [
   "encode",
   "animation",
 ] }
-usvg = { version = "0.48", default-features = false, features = [
+usvg = { version = "0.49", default-features = false, features = [
   "text",
   "system-fonts",
   "memmap-fonts",
 ] }
-resvg = { version = "0.48", default-features = false, features = [
+resvg = { version = "0.49", default-features = false, features = [
   "text",
   "system-fonts",
   "memmap-fonts",
@@ -272,6 +271,10 @@ syntect = { version = "5.3", default-features = false, features = [
   "default-onig",
   "default-syntaxes",
 ] }
+speakrs = { version = "0.7", default-features = false, features = [
+  "cpu",
+  "online",
+] }
 futures = { version = "0.3", default-features = false, features = [
   "std",
   "async-await",
@@ -282,7 +285,7 @@ voxudio = { version = "0.7", default-features = false, features = [
   "sonic",
   "device",
 ] }
-eframe = { version = "0.36", default-features = false, features = [
+eframe = { version = "0.37", default-features = false, features = [
   "glow",
   "x11",
   "wayland",
@@ -301,7 +304,16 @@ reqwest = { version = "0.13", default-features = false, features = [
 slint = { version = "1.18", default-features = false, features = [
   "compat-1-2",
 ] }
-jieba-rs = { version = "0.10", default-features = false, features = [
+minijinja = { version = "3.0", default-features = false, features = [
+  "debug",
+  "macros",
+  "serde",
+  "builtins",
+  "multi_template",
+  "deserialization",
+  "std_collections",
+] }
+jieba-rs = { version = "0.11", default-features = false, features = [
   "default-dict",
 ] }
 vorbis_rs = { version = "0.5", default-features = false, features = [
@@ -310,15 +322,6 @@ vorbis_rs = { version = "0.5", default-features = false, features = [
 imageproc = { version = "0.27", default-features = false, features = [
   "text",
   "rayon",
-] }
-minijinja = { version = "2.21", default-features = false, features = [
-  "debug",
-  "macros",
-  "serde",
-  "builtins",
-  "multi_template",
-  "deserialization",
-  "std_collections",
 ] }
 ffmpeg-next = { version = "9.0", default-features = false, features = [
   "codec",
@@ -344,7 +347,7 @@ ort = { version = "2.0.0-rc.12", default-features = false, features = [
   "tls-rustls",
   "download-binaries",
 ] }
-burn-store = { version = "0.21", default-features = false, features = [
+burn-store = { version = "0.22", default-features = false, features = [
   "std",
   "pytorch",
   "safetensors",
@@ -434,7 +437,6 @@ screen-capture-wayland-wlr = { path = "lib/screen-capture-wayland-wlr" }
 screen-capture-wayland-portal = { path = "lib/screen-capture-wayland-portal" }
 
 [patch.crates-io]
-speakrs = { path = "vendor/speakrs" }
 esaxx-rs = { path = "vendor/esaxx-rs" }
 voxcpm-rs = { path = "vendor/voxcpm-rs" }
 deep_filter = { path = "vendor/deep_filter" }

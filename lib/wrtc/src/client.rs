@@ -31,7 +31,7 @@ use webrtc::{
     media_stream::track_remote::{TrackRemote, TrackRemoteEvent},
     peer_connection::{
         PeerConnection, PeerConnectionBuilder, PeerConnectionEventHandler, RTCConfigurationBuilder,
-        RTCIceConnectionState, RTCIceGatheringState, RTCSessionDescription, SettingEngine,
+        RTCIceConnectionState, RTCIceGatheringState, RTCSessionDescription, SettingEngineBuilder,
         register_default_interceptors,
     },
 };
@@ -151,14 +151,16 @@ impl WHEPClient {
 
         let registry = register_default_interceptors(Registry::new(), &mut m)?;
 
-        let mut setting_engine = SettingEngine::default();
+        let mut setting_engine = SettingEngineBuilder::new();
         if self.media_info.disable_host_ipv6 {
-            setting_engine.set_network_types(vec![NetworkType::Tcp4, NetworkType::Udp4]);
+            setting_engine =
+                setting_engine.with_network_types(vec![NetworkType::Tcp4, NetworkType::Udp4]);
         }
         if !self.config.host_ips.is_empty() {
-            setting_engine
-                .set_nat_1to1_ips(self.config.host_ips.clone(), RTCIceCandidateType::Host);
+            setting_engine = setting_engine
+                .with_nat_1to1_ips(self.config.host_ips.clone(), RTCIceCandidateType::Host);
         }
+        let setting_engine = setting_engine.build();
 
         let ice_servers = if self.media_info.ice_servers.is_empty() {
             self.config.ice_servers.clone()

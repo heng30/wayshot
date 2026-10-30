@@ -6,16 +6,16 @@ use burn::nn::{Linear, LinearConfig};
 use burn::prelude::*;
 
 #[derive(Module, Debug)]
-pub struct MiniCpmMlp<B: Backend> {
+pub struct MiniCpmMlp {
     /// Fused `[gate_proj | up_proj]` along the output dim. Output is
     /// `2 * intermediate_size`; we slice it into the gate and up halves.
-    pub gate_up_proj: Linear<B>,
-    pub down_proj: Linear<B>,
+    pub gate_up_proj: Linear,
+    pub down_proj: Linear,
     inter: usize,
 }
 
-impl<B: Backend> MiniCpmMlp<B> {
-    pub fn new(config: &MiniCpm4Config, device: &B::Device) -> Self {
+impl MiniCpmMlp {
+    pub fn new(config: &MiniCpm4Config, device: &Device) -> Self {
         let hidden = config.hidden_size;
         let inter = config.intermediate_size;
         Self {
@@ -25,7 +25,7 @@ impl<B: Backend> MiniCpmMlp<B> {
         }
     }
 
-    pub fn forward<const D: usize>(&self, x: Tensor<B, D>) -> Tensor<B, D> {
+    pub fn forward<const D: usize>(&self, x: Tensor<D>) -> Tensor<D> {
         let gu = self.gate_up_proj.forward(x);
         let last = D - 1;
         let gate = gu.clone().narrow(last, 0, self.inter);

@@ -12,7 +12,7 @@
 //!
 //! type B = burn::backend::NdArray<f32>;
 //! let device = Default::default();
-//! let model: VoxCPM<B> = VoxCPM::from_local("./pretrained_models/VoxCPM2", &device).unwrap();
+//! let model: VoxCPM = VoxCPM::from_local("./pretrained_models/VoxCPM2", &device).unwrap();
 //!
 //! // Zero-shot:
 //! let wav = model.generate("Hello, world!", GenerateOptions::default()).unwrap();
