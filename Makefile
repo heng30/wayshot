@@ -58,6 +58,10 @@ check:
 clean:
 	cargo clean
 
+install-linx: build-release
+	- mv -f ~/.local/bin/${app-name} ~/.local/bin/${app-name}.bak
+	cp -f target/release/${app-name} ~/.local/bin/${app-name}
+
 packing-windows:
 	- rm -rf target/${app-name}-*-x86_64-windows
 	- rm -rf target/${app-name}-*-x86_64-windows.tar.gz
