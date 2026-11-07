@@ -8,7 +8,6 @@ authors.workspace = true
 keywords.workspace = true
 homepage.workspace = true
 repository.workspace = true
-description = "Wayshot 的无 GUI 命令行工具，面向 LLM 调用"
 
 [[bin]]
 name = "wayshot-cli"
@@ -70,5 +69,20 @@ screen-capture = { workspace = true, features = ["wayland"] }
 screen-capture-wayland-wlr.workspace = true
 tokio = { workspace = true, features = ["full"] }
 qrcode = { workspace = true, features = ["image"] }
-arboard = { workspace = true, features = ["wayland-data-control", "image-data"] }
-image = { workspace = true, features = ["png", "jpeg", "webp", "gif", "bmp", "tiff", "ico", "tga", "pnm", "hdr", "qoi"] }
+arboard = { workspace = true, features = [
+  "wayland-data-control",
+  "image-data",
+] }
+image = { workspace = true, features = [
+  "png",
+  "jpeg",
+  "webp",
+  "gif",
+  "bmp",
+  "tiff",
+  "ico",
+  "tga",
+  "pnm",
+  "hdr",
+  "qoi",
+] }
