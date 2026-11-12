@@ -256,7 +256,10 @@ fn video_editor_stop_recording_audio(ui: &AppWindow) {
         let filename = format!("recording_{}.wav", timestamp);
         let save_path = PathBuf::from(&save_dir).join(&filename);
 
-        toast::async_toast_info(ui_weak.clone(), format!("{} {}", tr("Saving"), save_path.display()));
+        toast::async_toast_info(
+            ui_weak.clone(),
+            format!("{} {}", tr("Saving"), save_path.display()),
+        );
 
         match audio.save_to_file(&save_path) {
             Ok(()) => {

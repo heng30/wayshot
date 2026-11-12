@@ -1125,7 +1125,10 @@ fn video_editor_extract_frame_to_playlist(ui: &AppWindow) {
             ));
         }
 
-        let source_name = segment.metadata.path.file_stem()
+        let source_name = segment
+            .metadata
+            .path
+            .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("unknown")
             .to_string();
@@ -1138,7 +1141,13 @@ fn video_editor_extract_frame_to_playlist(ui: &AppWindow) {
         Ok((frame_image, source_name)) => {
             let ui_weak = ui.as_weak();
             tokio::spawn(async move {
-                save_extracted_frame_and_add_to_playlist(ui_weak, frame_image, playhead_ms, source_name).await;
+                save_extracted_frame_and_add_to_playlist(
+                    ui_weak,
+                    frame_image,
+                    playhead_ms,
+                    source_name,
+                )
+                .await;
             });
         }
         Err(e) => crate::toast_warn!(ui, format!("{}: {}", tr("Failed to extract frame"), e)),

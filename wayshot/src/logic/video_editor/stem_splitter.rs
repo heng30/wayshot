@@ -409,14 +409,20 @@ fn video_editor_stem_splitter_export_all_stems(ui: &AppWindow) {
     tokio::spawn(async move {
         let export_path = PathBuf::from(&export_dir);
         if let Err(e) = std::fs::create_dir_all(&export_path) {
-            toast::async_toast_warn(ui_weak.clone(), format!("{}: {e}", tr("Failed to create export dir")));
+            toast::async_toast_warn(
+                ui_weak.clone(),
+                format!("{}: {e}", tr("Failed to create export dir")),
+            );
             return;
         }
 
         for (name, stem_audio) in &stems {
             let out_path = export_path.join(format!("{}_{}.wav", filename, name));
             if let Err(e) = write_wav_file(&out_path, stem_audio) {
-                toast::async_toast_warn(ui_weak.clone(), format!("{} {}: {e}", tr("Failed to write"), name));
+                toast::async_toast_warn(
+                    ui_weak.clone(),
+                    format!("{} {}: {e}", tr("Failed to write"), name),
+                );
                 continue;
             }
 
@@ -472,17 +478,26 @@ fn video_editor_stem_splitter_export_stem(ui: &AppWindow, stem_name: SharedStrin
     tokio::spawn(async move {
         let export_path = PathBuf::from(out_path.parent().unwrap_or_else(|| Path::new(".")));
         if let Err(e) = std::fs::create_dir_all(&export_path) {
-            toast::async_toast_warn(ui_weak.clone(), format!("{}: {e}", tr("Failed to create export dir")));
+            toast::async_toast_warn(
+                ui_weak.clone(),
+                format!("{}: {e}", tr("Failed to create export dir")),
+            );
             return;
         }
 
         if let Err(e) = write_wav_file(&out_path, &stem_audio) {
-            toast::async_toast_warn(ui_weak.clone(), format!("{} {}: {e}", tr("Failed to write"), name));
+            toast::async_toast_warn(
+                ui_weak.clone(),
+                format!("{} {}: {e}", tr("Failed to write"), name),
+            );
             return;
         }
 
         import_file_to_playlist(ui_weak.clone(), out_path.clone(), None).await;
-        toast::async_toast_success(ui_weak, format!("{} {}", tr("Exported to"), out_path.display()));
+        toast::async_toast_success(
+            ui_weak,
+            format!("{} {}", tr("Exported to"), out_path.display()),
+        );
     });
 }
 

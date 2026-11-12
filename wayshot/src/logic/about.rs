@@ -1,5 +1,5 @@
 //! About panel logic module
-//! 
+//!
 //! Handles initialization of the about panel with application information.
 
 use crate::slint_generatedAppWindow::{AboutSetting, AppWindow};
@@ -7,9 +7,9 @@ use crate::{config, version::VERSION};
 use slint::ComponentHandle;
 
 /// Initializes the about panel with application information
-/// 
+///
 /// Sets the application name and version in the about panel.
-/// 
+///
 /// # Parameters
 /// - `ui`: Reference to the application window
 pub fn init(ui: &AppWindow) {

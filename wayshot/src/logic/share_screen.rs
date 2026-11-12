@@ -71,7 +71,10 @@ fn inner_init(ui: &AppWindow) {
             CACHE.lock().unwrap().audio_stream = Some(Arc::new(device_sink));
             log::info!("Audio playback stream initialized");
         }
-        Err(e) => toast_warn!(ui, format!("{}: {e}", tr("Failed to create audio output stream"))),
+        Err(e) => toast_warn!(
+            ui,
+            format!("{}: {e}", tr("Failed to create audio output stream"))
+        ),
     }
 }
 

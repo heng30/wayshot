@@ -1,5 +1,5 @@
 //! Toast notification module
-//! 
+//!
 //! Provides toast notification functionality with different status types
 //! and automatic timeout management.
 
@@ -10,7 +10,7 @@ use crate::{
 use slint::{ComponentHandle, Timer, TimerMode, Weak};
 
 /// Macro to show warning toast notification
-/// 
+///
 /// # Parameters
 /// - `$ui`: AppWindow instance
 /// - `$msg`: Warning message
@@ -26,7 +26,7 @@ macro_rules! toast_warn {
 }
 
 /// Macro to show success toast notification
-/// 
+///
 /// # Parameters
 /// - `$ui`: AppWindow instance
 /// - `$msg`: Success message
@@ -42,7 +42,7 @@ macro_rules! toast_success {
 }
 
 /// Macro to show info toast notification
-/// 
+///
 /// # Parameters
 /// - `$ui`: AppWindow instance
 /// - `$msg`: Info message
@@ -59,7 +59,7 @@ macro_rules! toast_info {
 }
 
 /// Shows warning toast notification asynchronously
-/// 
+///
 /// # Parameters
 /// - `ui`: Weak reference to the application window
 /// - `msg`: Warning message
@@ -72,7 +72,7 @@ pub fn async_toast_warn(ui: Weak<AppWindow>, msg: String) {
 }
 
 /// Shows success toast notification asynchronously
-/// 
+///
 /// # Parameters
 /// - `ui`: Weak reference to the application window
 /// - `msg`: Success message
@@ -85,7 +85,7 @@ pub fn async_toast_success(ui: Weak<AppWindow>, msg: String) {
 }
 
 /// Shows info toast notification asynchronously
-/// 
+///
 /// # Parameters
 /// - `ui`: Weak reference to the application window
 /// - `msg`: Info message
@@ -97,9 +97,9 @@ pub fn async_toast_info(ui: Weak<AppWindow>, msg: String) {
 }
 
 /// Initializes toast notification functionality
-/// 
+///
 /// Sets up the toast callback with automatic timeout management.
-/// 
+///
 /// # Parameters
 /// - `ui`: Reference to the application window
 pub fn init(ui: &AppWindow) {

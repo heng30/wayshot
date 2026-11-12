@@ -1,7 +1,7 @@
-use std::io::BufReader;
 use fast_image_resize::{PixelType, Resizer, images::Image as FastImage};
 use image::{AnimationDecoder, RgbaImage, codecs::gif::GifDecoder};
 use mp4m::{Mp4Processor, Mp4ProcessorConfigBuilder, VideoConfig, VideoFrameType};
+use std::io::BufReader;
 use video_editor::metadata::get_metadata;
 use video_encoder::{EncodedFrame, VideoEncoderConfig};
 use video_utils::convert::rgba_to_rgb;
@@ -91,7 +91,10 @@ fn convert_gif_to_mp4(gif_path: &std::path::PathBuf) -> Result<std::path::PathBu
     let first_delay_ms = numer / denom.max(1);
     let first_repeat = ((first_delay_ms as u64 * fps as u64 / 1000).max(1)) as u32;
 
-    println!("first frame: delay_ms={}, repeat={}", first_delay_ms, first_repeat);
+    println!(
+        "first frame: delay_ms={}, repeat={}",
+        first_delay_ms, first_repeat
+    );
 
     let first_rgba = first_buffer.clone();
     drop(first_frame);

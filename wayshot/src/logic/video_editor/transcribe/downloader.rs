@@ -142,4 +142,3 @@ fn video_editor_transcribe_model_cancel_download(ui: &AppWindow, index: i32, url
         }
     });
 }
-

@@ -11,8 +11,7 @@ use crate::{
     logic_cb, logic_cb_pure,
     slint_generatedAppWindow::{
         AppWindow, AudioPlayerStatus as UIAudioPlayerStatus, Downloader as UIDownloader,
-        DownloaderState as UIDownloaderState,
-        VideoEditorDeepFilterConfig as UIDeepFilterConfig,
+        DownloaderState as UIDownloaderState, VideoEditorDeepFilterConfig as UIDeepFilterConfig,
     },
 };
 use anyhow::{Result, bail};
@@ -264,7 +263,10 @@ fn video_editor_deep_filter_process_audio(ui: &AppWindow) {
         let mut stream = match DeepFilterStream::with_threads(&model_dir, 4) {
             Ok(s) => s,
             Err(e) => {
-                async_toast_warn(ui_weak.clone(), format!("{}: {e}", tr("Failed to load model")));
+                async_toast_warn(
+                    ui_weak.clone(),
+                    format!("{}: {e}", tr("Failed to load model")),
+                );
                 _ = ui_weak.upgrade_in_event_loop(move |ui| {
                     global_store!(ui).set_video_editor_deep_filter_is_progressing(false);
                 });
@@ -457,7 +459,12 @@ fn video_editor_deep_filter_export_audio(ui: &AppWindow) {
 
         _ = writer.finalize();
 
-        crate::logic::video_editor::playlist::import_file_to_playlist(ui_weak.clone(), out_path.clone(), None).await;
+        crate::logic::video_editor::playlist::import_file_to_playlist(
+            ui_weak.clone(),
+            out_path.clone(),
+            None,
+        )
+        .await;
         toast::async_toast_success(
             ui_weak,
             format!("{} {}", tr("Exported to"), out_path.display()),
@@ -682,11 +689,7 @@ fn video_editor_deep_filter_audio_player_sound_released(ui: &AppWindow, index: i
     }
 }
 
-fn video_editor_deep_filter_audio_player_progress_released(
-    ui: &AppWindow,
-    index: i32,
-    value: f32,
-) {
+fn video_editor_deep_filter_audio_player_progress_released(ui: &AppWindow, index: i32, value: f32) {
     let idx = index as usize;
     if let Some(mut s) = store_video_editor_deep_filter_audio_player_status!(ui).row_data(idx) {
         s.progress = value;

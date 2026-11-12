@@ -22,11 +22,11 @@ use std::{
     },
 };
 use video_editor::export::progress::CancellationToken;
-use video_editor::tracks::track::Track;
 use video_editor::export::{
     AudioExportConfig, AudioExporter, Mp4ExportConfig, Mp4Exporter, SubtitleExportConfig,
     SubtitleExporter,
 };
+use video_editor::tracks::track::Track;
 
 use super::common_type::{VideoEditorExportAudioConfig, VideoEditorExportVideoConfig};
 

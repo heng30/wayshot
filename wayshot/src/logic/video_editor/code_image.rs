@@ -45,7 +45,11 @@ fn video_editor_generate_code_image(ui: &AppWindow, config: UICodeImageConfig) -
     if !Path::new(&config.ascii_font_path).exists() {
         crate::toast_warn!(
             ui,
-            format!("{}: {}", tr("No found ascii font path"), config.ascii_font_path)
+            format!(
+                "{}: {}",
+                tr("No found ascii font path"),
+                config.ascii_font_path
+            )
         );
         return Default::default();
     }
@@ -159,7 +163,10 @@ async fn save_image_and_add_to_playlist(
             .expect("Failed to create image buffer from pixels");
 
     if let Err(e) = rgba_image.save(&file_path) {
-        toast::async_toast_warn(ui_weak.clone(), format!("{}: {}", tr("Failed to save image"), e));
+        toast::async_toast_warn(
+            ui_weak.clone(),
+            format!("{}: {}", tr("Failed to save image"), e),
+        );
         return;
     }
 

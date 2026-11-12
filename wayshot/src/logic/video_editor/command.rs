@@ -151,7 +151,15 @@ fn video_editor_cut(ui: &AppWindow) {
         Ok(_execute_result) => {
             sync_manager_to_ui(ui);
             store_video_editor_selected_segments_index!(ui).set_vec(vec![]);
-            crate::toast_success!(ui, format!("{} {} {}", tr("Cut"), selected_segments.len(), tr("segments")));
+            crate::toast_success!(
+                ui,
+                format!(
+                    "{} {} {}",
+                    tr("Cut"),
+                    selected_segments.len(),
+                    tr("segments")
+                )
+            );
         }
         Err(e) => crate::toast_warn!(ui, format!("{}: {}", tr("Cut failed"), e)),
     }
@@ -170,7 +178,15 @@ fn video_editor_copy(ui: &AppWindow) {
     };
     *CLIPBOARD.lock().unwrap() = Some(clipboard_content);
 
-    crate::toast_success!(ui, format!("{} {} {}", tr("Copied"), selected_segments.len(), tr("segments")));
+    crate::toast_success!(
+        ui,
+        format!(
+            "{} {} {}",
+            tr("Copied"),
+            selected_segments.len(),
+            tr("segments")
+        )
+    );
 }
 
 fn video_editor_paste(ui: &AppWindow) {
@@ -393,7 +409,10 @@ fn video_editor_paste(ui: &AppWindow) {
                 ui,
                 format!(
                     "{} {} {} {}ms",
-                    tr("Pasted"), pasted_count, tr("segments at"), timeline_offset_ms
+                    tr("Pasted"),
+                    pasted_count,
+                    tr("segments at"),
+                    timeline_offset_ms
                 )
             );
         }
@@ -497,7 +516,13 @@ fn video_editor_append(ui: &AppWindow) {
             sync_manager_to_ui(ui);
             crate::toast_success!(
                 ui,
-                format!("{} {} {} {}", tr("Appended"), append_count, tr("segments to track"), track_idx)
+                format!(
+                    "{} {} {} {}",
+                    tr("Appended"),
+                    append_count,
+                    tr("segments to track"),
+                    track_idx
+                )
             );
         }
         Err(e) => crate::toast_warn!(ui, e.to_string()),

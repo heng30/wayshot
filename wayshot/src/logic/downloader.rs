@@ -74,14 +74,23 @@ pub fn downloader_start(
             Ok(DownloadState::Finsished) => {
                 toast::async_toast_success(
                     ui_weak.clone(),
-                    format!("{} `{}` {}", tr("Download"), save_path.display(), tr("completed successfully")),
+                    format!(
+                        "{} `{}` {}",
+                        tr("Download"),
+                        save_path.display(),
+                        tr("completed successfully")
+                    ),
                 );
             }
             Err(ref e) => {
                 let err_msg = e.to_string();
                 toast::async_toast_warn(
                     ui_weak.clone(),
-                    format!("{} `{}`! {err_msg}", tr("Download failed"), save_path.display()),
+                    format!(
+                        "{} `{}`! {err_msg}",
+                        tr("Download failed"),
+                        save_path.display()
+                    ),
                 );
             }
         }

@@ -104,4 +104,3 @@ pub fn clear_ui_state(ui: &AppWindow) {
     config.global_speed.speed = 1.0;
     global_store!(ui).set_video_editor_global_filter_config(config);
 }
-
