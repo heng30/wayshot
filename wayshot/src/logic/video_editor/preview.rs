@@ -234,6 +234,9 @@ fn video_editor_preview_toggle(ui: &AppWindow) {
         let position_ms = global_store!(ui).get_video_editor_timeline_offset();
         let position = Duration::from_millis(position_ms as u64);
 
+        // 丢弃仍在进行的 seek，否则它完成后会把刚创建的播放器覆盖成暂停状态
+        PENDING_SEEK_ID.fetch_add(1, Ordering::SeqCst);
+
         if let Some(mut renderer) = create_renderer(ui, position, volume) {
             if let Err(e) = renderer.play() {
                 crate::toast_warn!(ui, format!("{}: {:?}", tr("Failed to start playback"), e));
@@ -427,18 +430,14 @@ fn stop_playback() {
 }
 
 pub fn seek_to_position(ui: &AppWindow, position: Duration, need_refresh: bool) {
-    let was_previewing = global_store!(ui).get_video_editor_is_previewing();
-    if was_previewing {
-        global_store!(ui).set_video_editor_is_previewing(false);
-    }
-
+    // 保持 is_previewing 不变：它代表用户意图，seek 完成后据此决定是否继续播放
     stop_playback();
 
     global_store!(ui).set_video_editor_timeline_offset(position.as_millis() as i32);
 
     let ui_weak = ui.as_weak();
     let seek_id = PENDING_SEEK_ID.fetch_add(1, Ordering::SeqCst) + 1;
-    let thread_id = PLAYBACK_THREAD_ID.fetch_add(1, Ordering::SeqCst) + 1;
+    PLAYBACK_THREAD_ID.fetch_add(1, Ordering::SeqCst);
     let manager = with_history_manager(|state| Arc::new(state.tracks_manager.clone()));
     let mut mixer_config: UnifiedMixerConfig = global_store!(ui)
         .get_video_editor_new_project_config()
@@ -489,11 +488,16 @@ pub fn seek_to_position(ui: &AppWindow, position: Duration, need_refresh: bool) 
             let mut guard = CURRENT_RENDERER.lock().unwrap();
             *guard = Some(renderer);
 
-            if was_previewing && let Some(ref mut renderer) = *guard {
+            if global_store!(ui).get_video_editor_is_previewing()
+                && let Some(ref mut renderer) = *guard
+            {
                 match renderer.play() {
-                    Err(e) => log::error!("Failed to resume playback: {:?}", e),
+                    Err(e) => {
+                        log::error!("Failed to resume playback: {:?}", e);
+                        global_store!(ui).set_video_editor_is_previewing(false);
+                    }
                     _ => {
-                        global_store!(ui).set_video_editor_is_previewing(true);
+                        let thread_id = PLAYBACK_THREAD_ID.fetch_add(1, Ordering::SeqCst) + 1;
                         start_playback_update_thread(ui.as_weak(), thread_id);
                     }
                 }
