@@ -46,7 +46,6 @@ export component ArrowParams inherits VerticalLayout {
                 alignment: center;
 
                 position-x-sl := Slider {
-                    minimum: 0.0;
                     maximum: 1.0;
                     value: Store.video-editor-img-animation-config.arrow.position-x;
                     height: self.indicator-size * 0.3;
@@ -62,7 +61,6 @@ export component ArrowParams inherits VerticalLayout {
             }
 
             Label {
-                vertical-alignment: center;
                 text: Store.video-editor-img-animation-config.arrow.position-x.to-fixed(2);
             }
         }
@@ -80,7 +78,6 @@ export component ArrowParams inherits VerticalLayout {
                 alignment: center;
 
                 position-y-sl := Slider {
-                    minimum: 0.0;
                     maximum: 1.0;
                     value: Store.video-editor-img-animation-config.arrow.position-y;
                     height: self.indicator-size * 0.3;
@@ -96,7 +93,6 @@ export component ArrowParams inherits VerticalLayout {
             }
 
             Label {
-                vertical-alignment: center;
                 text: Store.video-editor-img-animation-config.arrow.position-y.to-fixed(2);
             }
         }
@@ -114,7 +110,6 @@ export component ArrowParams inherits VerticalLayout {
                 alignment: center;
 
                 direction-sl := Slider {
-                    minimum: 0.0;
                     maximum: 360.0;
                     value: Store.video-editor-img-animation-config.arrow.direction;
                     height: self.indicator-size * 0.3;
@@ -130,7 +125,6 @@ export component ArrowParams inherits VerticalLayout {
             }
 
             Label {
-                vertical-alignment: center;
                 text: Store.video-editor-img-animation-config.arrow.direction.to-fixed(0);
             }
         }

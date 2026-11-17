@@ -73,7 +73,6 @@ export component RecordAudioDialog inherits MovingDialog {
 
                 Label {
                     text: Logic.tr("Gain (dB):");
-                    vertical-alignment: center;
                     enabled: !Store.video-editor-is-recording-audio;
                 }
 
@@ -115,7 +114,6 @@ export component RecordAudioDialog inherits MovingDialog {
                     Label {
                         text: "L";
                         width: Theme.default-font-size;
-                        vertical-alignment: center;
                         font-size: Theme.default-font-size * 0.8;
                         enabled: !Store.video-editor-is-recording-audio;
                     }
@@ -132,7 +130,6 @@ export component RecordAudioDialog inherits MovingDialog {
                     Label {
                         text: "R";
                         width: Theme.default-font-size;
-                        vertical-alignment: center;
                         font-size: Theme.default-font-size * 0.8;
                         enabled: !Store.video-editor-is-recording-audio;
                     }

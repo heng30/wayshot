@@ -29,7 +29,6 @@ export component GlitchParams inherits VerticalLayout {
                 alignment: center;
 
                 intensity-sl := Slider {
-                    minimum: 0.0;
                     maximum: 1.0;
                     value: Store.video-editor-bg-animation-config.glitch.intensity;
                     height: self.indicator-size * 0.3;
@@ -45,7 +44,6 @@ export component GlitchParams inherits VerticalLayout {
             }
 
             Label {
-                vertical-alignment: center;
                 text: Store.video-editor-bg-animation-config.glitch.intensity.to-fixed(2);
             }
         }

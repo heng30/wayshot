@@ -292,7 +292,6 @@ component ProcessPanel inherits VerticalLayout {
             border-radius: self.width / 2;
             border-width: 2px;
             border-color: #ffffff80;
-            background: transparent;
         }
 
         if original-image.width == 0: NoDataImg {
@@ -575,7 +574,6 @@ export component CutoutSettingDialog inherits MovingDialog {
                     alignment: center;
 
                     Slider {
-                        minimum: 0;
                         maximum: 255;
                         value: config.threshold;
                         height: self.indicator-size * 0.3;

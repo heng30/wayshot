@@ -64,7 +64,6 @@ component TextEditorStylePanel inherits Rectangle {
 
     Timer {
         interval: 200ms;
-        running: true;
 
         triggered() => {
             if (text-input.text.is-empty) {
@@ -108,7 +107,6 @@ component TextEditorStylePanel inherits Rectangle {
 
                     fs-timer := Timer {
                         interval: 200ms;
-                        running: true;
                         triggered() => {
                             parent.focus();
                             self.running = false;

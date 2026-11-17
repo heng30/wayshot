@@ -79,7 +79,6 @@ export component PreviewTextHighlightLayer inherits Rectangle {
                 if pick-color-mode: Rectangle {
                     width: img.width;
                     height: img.height;
-                    background: transparent;
 
                     pick-ta := TouchArea {
                         mouse-cursor: MouseCursor.crosshair;
@@ -105,7 +104,6 @@ export component PreviewTextHighlightLayer inherits Rectangle {
                         y: pick-ta.mouse-y - self.height / 2;
                         width: Theme.icon-size;
                         height: self.width;
-                        background: transparent;
 
                         Rectangle {
                             y: (parent.height - self.height) / 2;
@@ -127,7 +125,6 @@ export component PreviewTextHighlightLayer inherits Rectangle {
                 if !pick-color-mode: draw-overlay := Rectangle {
                     width: img.width;
                     height: img.height;
-                    background: transparent;
 
                     draw-ta := TouchArea {
                         mouse-cursor: is-drawing ? MouseCursor.crosshair : MouseCursor.default;
@@ -195,7 +192,6 @@ export component PreviewTextHighlightLayer inherits Rectangle {
 
                 // Display existing regions (when not drawing or picking color)
                 if !pick-color-mode && !is-drawing: Rectangle {
-                    background: transparent;
 
                     for region-index in config.regions.length: region-rec := Rectangle {
                         private property <HighlightRegionDetail> region: config.regions[region-index];

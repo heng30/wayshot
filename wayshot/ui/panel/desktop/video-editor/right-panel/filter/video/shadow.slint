@@ -124,7 +124,6 @@ export component Shadow inherits Rectangle {
                         alignment: center;
 
                         opacity-sl := Slider {
-                            minimum: 0.0;
                             maximum: 1.0;
                             value: config.opacity;
                             indicator-size: Theme.default-font-size;
@@ -190,7 +189,6 @@ export component Shadow inherits Rectangle {
                         alignment: center;
 
                         angle-sl := Slider {
-                            minimum: 0.0;
                             maximum: 360.0;
                             value: config.angle;
                             indicator-size: Theme.default-font-size;
@@ -256,7 +254,6 @@ export component Shadow inherits Rectangle {
                         alignment: center;
 
                         size-sl := Slider {
-                            minimum: 0.0;
                             maximum: 1.0;
                             value: config.size;
                             indicator-size: Theme.default-font-size;
@@ -322,8 +319,6 @@ export component Shadow inherits Rectangle {
                         alignment: center;
 
                         blur-sl := Slider {
-                            minimum: 0.0;
-                            maximum: 100.0;
                             value: config.blur;
                             indicator-size: Theme.default-font-size;
                             height: self.indicator-size * 0.3;
@@ -388,7 +383,6 @@ export component Shadow inherits Rectangle {
                         alignment: center;
 
                         distance-sl := Slider {
-                            minimum: 0.0;
                             maximum: 200.0;
                             value: config.distance;
                             indicator-size: Theme.default-font-size;

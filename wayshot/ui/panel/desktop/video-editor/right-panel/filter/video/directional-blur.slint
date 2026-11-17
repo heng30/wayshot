@@ -56,7 +56,6 @@ export component DirectionalBlur inherits Rectangle {
                         alignment: center;
 
                         angle-sl := Slider {
-                            minimum: 0.0;
                             maximum: 360.0;
                             value: config.angle;
                             indicator-size: Theme.default-font-size;
@@ -121,8 +120,6 @@ export component DirectionalBlur inherits Rectangle {
                     VerticalLayout {
                         alignment: center;
                         length-sl := Slider {
-                            minimum: 0.0;
-                            maximum: 100.0;
                             value: config.length;
                             indicator-size: Theme.default-font-size;
                             height: self.indicator-size * 0.3;
@@ -185,7 +182,6 @@ export component DirectionalBlur inherits Rectangle {
                     VerticalLayout {
                         alignment: center;
                         spread-sl := Slider {
-                            minimum: 0.0;
                             maximum: 1.0;
                             value: config.spread;
                             indicator-size: Theme.default-font-size;

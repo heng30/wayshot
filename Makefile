@@ -47,7 +47,7 @@ icon-strip:
 	cargo run -p icon-helper --bin icon-helper -- -i ${app-name}/ui/images -o ${app-name}/ui/base --strip
 
 slint-viewer:
-	$(build-env) slint-viewer --auto-reload -I $(app-name)/ui ${app-name}/ui/desktop-window.slint
+	$(build-env) slint-viewer --auto-reload --edition 1.19 -I $(app-name)/ui ${app-name}/ui/desktop-window.slint
 
 clippy:
 	cargo clippy $(proj-features)

@@ -49,7 +49,6 @@ export component ScrollParams inherits VerticalLayout {
                     alignment: center;
 
                     scroll-speed-sl := Slider {
-                        minimum: 0.0;
                         maximum: 1.0;
                         value: Store.video-editor-img-animation-config.scroll.scroll-speed;
                         height: self.indicator-size * 0.3;
@@ -65,7 +64,6 @@ export component ScrollParams inherits VerticalLayout {
                 }
 
                 Label {
-                    vertical-alignment: center;
                     text: Store.video-editor-img-animation-config.scroll.scroll-speed.to-fixed(2);
                 }
             }

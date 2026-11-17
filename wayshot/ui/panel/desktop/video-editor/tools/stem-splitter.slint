@@ -278,7 +278,6 @@ component StemList inherits Rectangle {
                         current-sound: status.sound * 100;
                         current-time: Util.seconds-to-media-timestamp(self.progress * status.duration-ms / 1000.0);
                         end-time: Util.seconds-to-media-timestamp(status.duration-ms / 1000.0);
-                        is-hide-speed-btn: true;
                         icon-size: Theme.icon-size * 0.8;
                         inner-padding: Theme.padding;
                         spacing: Theme.spacing * 2;

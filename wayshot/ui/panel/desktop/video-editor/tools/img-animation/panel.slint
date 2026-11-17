@@ -86,7 +86,6 @@ export component ImageAnimationDialog inherits MovingDialog {
             width: sidebar-width;
             entries: animation-entries;
             selected-key: Logic.image-animation-type-to-string(selected-animation);
-            is-show-search: false;
             category-font-size: Theme.title5-font-size;
 
             clicked(category, title, key) => {
@@ -116,6 +115,8 @@ export component ImageAnimationDialog inherits MovingDialog {
                         }
 
                         if !enabled-record && has-preview: VerticalLayout {
+                            x: 0;
+                            y: 0;
                             width: parent.width - Theme.padding * 4;
                             height: parent.height - Theme.padding * 4;
 

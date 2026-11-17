@@ -35,7 +35,6 @@ export component MemoDialog inherits MovingDialog {
 
     Timer {
         interval: 200ms;
-        running: true;
         triggered() => {
             te-global.focus();
             self.running = false;

@@ -203,7 +203,6 @@ export component SubtitleListItem inherits Rectangle {
                     text: entry.original-text;
                     wrap: word-wrap;
                     text-color: Theme.primary-text-color;
-                    allow-breaking-text-binding-when-edit: false;
                     font-size: Theme.default-font-size + 2px;
 
                     changed has-focus => {
@@ -248,7 +247,6 @@ export component SubtitleListItem inherits Rectangle {
                         }
 
                         Label {
-                            vertical-alignment: center;
                             text: entry.correction-text;
                             font-size: Theme.default-font-size + 2px;
                             wrap: word-wrap;

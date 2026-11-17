@@ -8,7 +8,11 @@ fn main() {
 }
 
 fn build_slint() {
-    slint_build::compile("ui/desktop-window.slint").unwrap();
+    slint_build::compile_with_config(
+        "ui/desktop-window.slint",
+        slint_build::CompilerConfiguration::new().with_edition((1, 19)),
+    )
+    .unwrap();
 }
 
 fn write_app_version() -> Result<(), Box<dyn std::error::Error>> {

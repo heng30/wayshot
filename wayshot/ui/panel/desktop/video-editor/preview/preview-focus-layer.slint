@@ -88,7 +88,6 @@ export component PreviewFocusLayer inherits Rectangle {
                     border-radius: self.width / 2;
                     border-width: 1px;
                     border-color: rgba(255, 255, 255, 0.4);
-                    background: transparent;
                 }
 
                 // Blur indicator ring (shows blur radius influence area)
@@ -100,7 +99,6 @@ export component PreviewFocusLayer inherits Rectangle {
                     border-radius: self.width / 2;
                     border-width: 1px;
                     border-color: rgba(255, 255, 255, 0.2);
-                    background: transparent;
                 }
 
                 // Focus circle (main sharp area)
@@ -112,7 +110,6 @@ export component PreviewFocusLayer inherits Rectangle {
                     border-radius: self.width / 2;
                     border-width: 2px;
                     border-color: white;
-                    background: transparent;
 
                     TouchArea {
                         private property <bool> can-move;

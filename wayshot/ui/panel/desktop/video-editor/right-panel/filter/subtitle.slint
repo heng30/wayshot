@@ -67,7 +67,6 @@ export component FilterSubtitleDetail inherits Rectangle {
 
                     fs-timer := Timer {
                         interval: 200ms;
-                        running: true;
                         triggered() => {
                             parent.focus();
                             self.running = false;

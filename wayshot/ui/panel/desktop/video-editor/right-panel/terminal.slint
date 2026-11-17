@@ -108,7 +108,6 @@ export component TabBar inherits Rectangle {
                 Label {
                     text: tab.title;
                     overflow: elide;
-                    vertical-alignment: center;
                     font-size: Theme.default-font-size * 0.8;
                     color: is-selected-tab ? Theme.light-text-color : Theme.regular-text-color;
                 }
@@ -191,7 +190,6 @@ export component Terminal inherits Rectangle {
     }
 
     Timer {
-        running: true;
         interval: 100ms;
         triggered => {
             ime-input.focus();
@@ -307,7 +305,6 @@ export component Terminal inherits Rectangle {
                     width: parent.width;
                     height: 1px;
                     opacity: 0;
-                    single-line: true;
 
                     key-pressed(event) => {
                         TerminalState.key-pressed-event(
@@ -345,7 +342,6 @@ export component Terminal inherits Rectangle {
                     x: 2px;
                     width: Theme.scrollbar-size - Theme.padding;
                     height: parent.height;
-                    background: transparent;
 
                     property <int> visible-lines: term-area.height / 1px;
                     property <int> total-lines: TerminalState.scroll-max + visible-lines;

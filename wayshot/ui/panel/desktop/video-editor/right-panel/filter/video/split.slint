@@ -153,7 +153,6 @@ export component Split inherits Rectangle {
                     alignment: center;
 
                     split-position-sl := Slider {
-                        minimum: 0.0;
                         maximum: 1.0;
                         value: config.split-position;
                         indicator-size: Theme.default-font-size;
@@ -200,7 +199,6 @@ export component Split inherits Rectangle {
                     alignment: center;
 
                     shadow-sl := Slider {
-                        minimum: 0.0;
                         maximum: 1.0;
                         value: config.shadow;
                         indicator-size: Theme.default-font-size;
@@ -247,8 +245,6 @@ export component Split inherits Rectangle {
                     alignment: center;
 
                     shadow-width-sl := Slider {
-                        minimum: 0.0;
-                        maximum: 100.0;
                         value: config.shadow-width;
                         indicator-size: Theme.default-font-size;
                         height: self.indicator-size * 0.3;

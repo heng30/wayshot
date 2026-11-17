@@ -270,7 +270,6 @@ component PreviewPanel inherits VerticalLayout {
 
         Label {
             text: Store.video-editor-subtitle-remover-current-time + "/" + Store.video-editor-subtitle-remover-total-time;
-            vertical-alignment: center;
         }
 
         VerticalLayout {
@@ -280,7 +279,6 @@ component PreviewPanel inherits VerticalLayout {
                 enabled: !Store.video-editor-subtitle-remover-is-processing;
                 value: Store.video-editor-subtitle-remover-slider-position;
                 height: self.indicator-size * 0.3;
-                minimum: 0.0;
                 maximum: 1.0;
 
                 released(val) => {

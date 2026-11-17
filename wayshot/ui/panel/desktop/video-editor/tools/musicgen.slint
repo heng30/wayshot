@@ -153,7 +153,6 @@ export component MusicGenDialog inherits MovingDialog {
 
                 Label {
                     text: Logic.tr("Duration (seconds)");
-                    vertical-alignment: center;
                 }
 
                 LineInput {
@@ -179,10 +178,8 @@ export component MusicGenDialog inherits MovingDialog {
             is-playing: Store.video-editor-musicgen-audio-player-is-playing;
             progress: Store.video-editor-musicgen-audio-player-progress;
             current-sound: Store.video-editor-musicgen-audio-sound * 100;
-            current-speed: 1.0;
             current-time: Util.seconds-to-media-timestamp(self.progress * Store.video-editor-musicgen-audio-duration-ms / 1000);
             end-time: Util.seconds-to-media-timestamp(Store.video-editor-musicgen-audio-duration-ms / 1000);
-            is-hide-speed-btn: true;
 
             private property <bool> inner-is-playing <=> Store.video-editor-musicgen-audio-player-is-playing;
             changed inner-is-playing => {

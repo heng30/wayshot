@@ -77,7 +77,6 @@ export component ShareScreenPanel inherits Rectangle {
                     }
 
                     Label {
-                        vertical-alignment: center;
                         text: Logic.tr("Auth");
                         color: cache-setting.enable-auth ? root.text-color : root.disabled-text-color;
                     }
@@ -167,7 +166,6 @@ export component ShareScreenPanel inherits Rectangle {
                 show-speed-btn: false;
                 show-progress-bar: false;
                 show-subtitle-btn: false;
-                current-sound: 50;
                 player-image: Store.share-screen-player-image;
                 time-label: Util.seconds-to-media-timestamp(root.playing-duration);
                 is-real-time-player-mode: true;

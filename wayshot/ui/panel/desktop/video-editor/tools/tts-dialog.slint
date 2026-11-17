@@ -134,7 +134,6 @@ component RightPanel inherits VerticalLayout {
 
                             Label {
                                 text: v.built-in ? Logic.tr(v.name) : v.name;
-                                vertical-alignment: center;
                             }
                         }
 
@@ -738,7 +737,6 @@ export component TTSSettingDialog inherits MovingDialog {
 
             LineInput {
                 input-type: InputType.number;
-                enable-step: true;
                 number-step: 50;
                 text: setting.max-char-count > 0 ? setting.max-char-count : 500;
                 border-color: self.text.to-float().round() == setting.max-char-count ? self.default-border-color : Theme.danger-color;
@@ -760,7 +758,6 @@ export component TTSSettingDialog inherits MovingDialog {
 
             LineInput {
                 input-type: InputType.number;
-                enable-step: true;
                 number-step: 100;
                 text: setting.max-token-count > 0 ? setting.max-token-count : 2000;
                 border-color: self.text.to-float().round() == setting.max-token-count ? self.default-border-color : Theme.danger-color;
@@ -862,7 +859,6 @@ export component TTSAddDialog inherits MovingDialog {
 
         Timer {
             interval: 100ms;
-            running: true;
 
             triggered() => {
                 input-te.focus();

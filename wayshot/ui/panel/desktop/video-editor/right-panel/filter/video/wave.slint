@@ -80,7 +80,6 @@ export component Wave inherits Rectangle {
                         alignment: center;
 
                         center-x-sl := Slider {
-                            minimum: 0.0;
                             maximum: 1.0;
                             value: config.center-x;
                             indicator-size: Theme.default-font-size;
@@ -163,7 +162,6 @@ export component Wave inherits Rectangle {
                         alignment: center;
 
                         center-y-sl := Slider {
-                            minimum: 0.0;
                             maximum: 1.0;
                             value: config.center-y;
                             indicator-size: Theme.default-font-size;
@@ -230,8 +228,6 @@ export component Wave inherits Rectangle {
                         alignment: center;
 
                         amplitude-sl := Slider {
-                            minimum: 0.0;
-                            maximum: 100.0;
                             value: config.amplitude;
                             indicator-size: Theme.default-font-size;
                             height: self.indicator-size * 0.3;
@@ -364,7 +360,6 @@ export component Wave inherits Rectangle {
                         alignment: center;
 
                         speed-sl := Slider {
-                            minimum: 0.0;
                             maximum: 10.0;
                             value: config.speed;
                             indicator-size: Theme.default-font-size;

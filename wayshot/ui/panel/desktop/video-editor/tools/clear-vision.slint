@@ -463,7 +463,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
 
                     Slider {
                         minimum: 1;
-                        maximum: 100;
                         value: config.sigma * 10;
                         height: self.indicator-size * 0.3;
                         enabled: active-tab == 1;
@@ -478,7 +477,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                 Label {
                     enabled: active-tab == 1;
                     text: config.sigma.to-fixed(0);
-                    vertical-alignment: center;
                     width: Theme.default-font-size * 3;
                 }
             }
@@ -516,7 +514,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Label {
                         enabled: active-tab == 1;
                         text: config.motion-length.to-fixed(0);
-                        vertical-alignment: center;
                         width: Theme.default-font-size * 3;
                     }
                 }
@@ -535,7 +532,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                         alignment: center;
                         Slider {
                             value: config.motion-angle;
-                            minimum: 0;
                             maximum: 360;
                             enabled: active-tab == 1;
                             height: self.indicator-size * 0.3;
@@ -550,7 +546,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Label {
                         enabled: active-tab == 1;
                         text: config.motion-angle.to-fixed(0);
-                        vertical-alignment: center;
                         width: Theme.default-font-size * 3;
                     }
                 }
@@ -585,7 +580,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                 Label {
                     enabled: active-tab == 1;
                     text: config.defocus-radius.to-fixed(0);
-                    vertical-alignment: center;
                     width: Theme.default-font-size * 3;
                 }
             }
@@ -608,7 +602,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
 
                         Slider {
                             minimum: 1;
-                            maximum: 100;
                             value: config.sigma-major * 10;
                             height: self.indicator-size * 0.3;
                             enabled: active-tab == 1;
@@ -623,7 +616,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Label {
                         enabled: active-tab == 1;
                         text: config.sigma-major.to-fixed(0);
-                        vertical-alignment: center;
                         width: Theme.default-font-size * 3;
                     }
                 }
@@ -643,7 +635,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
 
                         Slider {
                             minimum: 1;
-                            maximum: 100;
                             value: config.sigma-minor * 10;
                             height: self.indicator-size * 0.3;
                             enabled: active-tab == 1;
@@ -658,7 +649,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Label {
                         enabled: active-tab == 1;
                         text: config.sigma-minor.to-fixed(0);
-                        vertical-alignment: center;
                         width: Theme.default-font-size * 3;
                     }
                 }
@@ -677,7 +667,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                         alignment: center;
                         Slider {
                             value: config.oriented-angle;
-                            minimum: 0;
                             maximum: 360;
                             enabled: active-tab == 1;
                             height: self.indicator-size * 0.3;
@@ -692,7 +681,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Label {
                         enabled: active-tab == 1;
                         text: config.oriented-angle.to-fixed(0);
-                        vertical-alignment: center;
                         width: Theme.default-font-size * 3;
                     }
                 }
@@ -730,7 +718,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Label {
                         enabled: active-tab == 1;
                         text: config.box-width.to-fixed(0);
-                        vertical-alignment: center;
                         width: Theme.default-font-size * 3;
                     }
                 }
@@ -764,7 +751,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Label {
                         enabled: active-tab == 1;
                         text: config.box-height.to-fixed(0);
-                        vertical-alignment: center;
                         width: Theme.default-font-size * 3;
                     }
                 }
@@ -799,7 +785,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                 Label {
                     enabled: active-tab == 1;
                     text: config.disk-radius.to-fixed(0);
-                    vertical-alignment: center;
                     width: Theme.default-font-size * 3;
                 }
             }
@@ -818,7 +803,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     alignment: center;
                     Slider {
                         minimum: 1;
-                        maximum: 100;
                         value: config.lorentz-gamma * 10;
                         height: self.indicator-size * 0.3;
                         enabled: active-tab == 1;
@@ -833,7 +817,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                 Label {
                     enabled: active-tab == 1;
                     text: config.lorentz-gamma.to-fixed(0);
-                    vertical-alignment: center;
                     width: Theme.default-font-size * 3;
                 }
             }
@@ -856,7 +839,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
 
                         Slider {
                             minimum: 1;
-                            maximum: 100;
                             value: config.sigma-major * 10;
                             height: self.indicator-size * 0.3;
                             enabled: active-tab == 1;
@@ -871,7 +853,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Label {
                         enabled: active-tab == 1;
                         text: config.sigma-major.to-fixed(0);
-                        vertical-alignment: center;
                         width: Theme.default-font-size * 3;
                     }
                 }
@@ -891,7 +872,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
 
                         Slider {
                             minimum: 1;
-                            maximum: 100;
                             value: config.sigma-minor * 10;
                             height: self.indicator-size * 0.3;
                             enabled: active-tab == 1;
@@ -906,7 +886,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Label {
                         enabled: active-tab == 1;
                         text: config.sigma-minor.to-fixed(0);
-                        vertical-alignment: center;
                         width: Theme.default-font-size * 3;
                     }
                 }
@@ -925,7 +904,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                         alignment: center;
                         Slider {
                             value: config.oriented-angle;
-                            minimum: 0;
                             maximum: 360;
                             enabled: active-tab == 1;
                             height: self.indicator-size * 0.3;
@@ -940,7 +918,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Label {
                         enabled: active-tab == 1;
                         text: config.oriented-angle.to-fixed(0);
-                        vertical-alignment: center;
                         width: Theme.default-font-size * 3;
                     }
                 }
@@ -964,7 +941,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
 
                         Slider {
                             minimum: 1;
-                            maximum: 100;
                             value: config.sigma * 10;
                             height: self.indicator-size * 0.3;
                             enabled: active-tab == 1;
@@ -979,7 +955,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Label {
                         enabled: active-tab == 1;
                         text: config.sigma.to-fixed(0);
-                        vertical-alignment: center;
                         width: Theme.default-font-size * 3;
                     }
                 }
@@ -998,7 +973,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                         alignment: center;
                         Slider {
                             minimum: 1;
-                            maximum: 100;
                             value: config.lobe-separation * 10;
                             height: self.indicator-size * 0.3;
                             enabled: active-tab == 1;
@@ -1013,7 +987,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Label {
                         enabled: active-tab == 1;
                         text: config.lobe-separation.to-fixed(0);
-                        vertical-alignment: center;
                         width: Theme.default-font-size * 3;
                     }
                 }
@@ -1032,7 +1005,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                         alignment: center;
                         Slider {
                             value: config.oriented-angle;
-                            minimum: 0;
                             maximum: 360;
                             enabled: active-tab == 1;
                             height: self.indicator-size * 0.3;
@@ -1047,7 +1019,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Label {
                         enabled: active-tab == 1;
                         text: config.oriented-angle.to-fixed(0);
-                        vertical-alignment: center;
                         width: Theme.default-font-size * 3;
                     }
                 }
@@ -1098,7 +1069,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     alignment: center;
                     Slider {
                         minimum: 1;
-                        maximum: 100;
                         value: config.tv-weight * 1000;
                         height: self.indicator-size * 0.3;
                         enabled: active-tab == 1;
@@ -1113,7 +1083,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                 Label {
                     enabled: active-tab == 1;
                     text: config.tv-weight.to-fixed(2);
-                    vertical-alignment: center;
                     width: Theme.default-font-size * 3;
                 }
             }
@@ -1132,7 +1101,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     alignment: center;
                     Slider {
                         minimum: 1;
-                        maximum: 100;
                         value: config.wiener-nsr * 1000;
                         height: self.indicator-size * 0.3;
                         enabled: active-tab == 1;
@@ -1147,7 +1115,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                 Label {
                     enabled: active-tab == 1;
                     text: config.wiener-nsr.to-fixed(3);
-                    vertical-alignment: center;
                     width: Theme.default-font-size * 3;
                 }
             }
@@ -1165,8 +1132,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                 VerticalLayout {
                     alignment: center;
                     Slider {
-                        minimum: 0;
-                        maximum: 100;
                         value: config.relaxation * 100;
                         height: self.indicator-size * 0.3;
                         enabled: active-tab == 1;
@@ -1181,7 +1146,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                 Label {
                     enabled: active-tab == 1;
                     text: config.relaxation.to-fixed(2);
-                    vertical-alignment: center;
                     width: Theme.default-font-size * 3;
                 }
             }
@@ -1200,7 +1164,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     alignment: center;
                     Slider {
                         minimum: 1;
-                        maximum: 100;
                         value: config.tikhonov-lambda * 1000;
                         height: self.indicator-size * 0.3;
                         enabled: active-tab == 1;
@@ -1215,7 +1178,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                 Label {
                     enabled: active-tab == 1;
                     text: config.tikhonov-lambda.to-fixed(3);
-                    vertical-alignment: center;
                     width: Theme.default-font-size * 3;
                 }
             }
@@ -1234,7 +1196,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     alignment: center;
                     Slider {
                         minimum: 1;
-                        maximum: 100;
                         value: config.inverse-cutoff * 1000;
                         height: self.indicator-size * 0.3;
                         enabled: active-tab == 1;
@@ -1249,7 +1210,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                 Label {
                     enabled: active-tab == 1;
                     text: config.inverse-cutoff.to-fixed(3);
-                    vertical-alignment: center;
                     width: Theme.default-font-size * 3;
                 }
             }
@@ -1271,7 +1231,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                         alignment: center;
                         Slider {
                             minimum: 1;
-                            maximum: 100;
                             value: config.ista-lambda * 1000;
                             height: self.indicator-size * 0.3;
                             enabled: active-tab == 1;
@@ -1286,7 +1245,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Label {
                         enabled: active-tab == 1;
                         text: config.ista-lambda.to-fixed(3);
-                        vertical-alignment: center;
                         width: Theme.default-font-size * 3;
                     }
                 }
@@ -1304,8 +1262,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     VerticalLayout {
                         alignment: center;
                         Slider {
-                            minimum: 0;
-                            maximum: 100;
                             value: config.ista-step-size * 100;
                             height: self.indicator-size * 0.3;
                             enabled: active-tab == 1;
@@ -1320,7 +1276,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Label {
                         enabled: active-tab == 1;
                         text: config.ista-step-size.to-fixed(2);
-                        vertical-alignment: center;
                         width: Theme.default-font-size * 3;
                     }
                 }
@@ -1342,7 +1297,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                     Slider {
                         enabled: active-tab == 1;
                         minimum: 1;
-                        maximum: 100;
                         value: config.iterations;
                         height: self.indicator-size * 0.3;
 
@@ -1356,7 +1310,6 @@ export component ClearVisionSettingDialog inherits MovingDialog {
                 Label {
                     enabled: active-tab == 1;
                     text: config.iterations.to-fixed(0);
-                    vertical-alignment: center;
                     width: Theme.default-font-size * 3;
                 }
             }

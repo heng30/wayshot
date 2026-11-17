@@ -55,7 +55,6 @@ export component Sharpen inherits Rectangle {
                         alignment: center;
 
                         strength-sl := Slider {
-                            minimum: 0.0;
                             maximum: 5.0;
                             value: config.strength;
                             indicator-size: Theme.default-font-size;
@@ -120,7 +119,6 @@ export component Sharpen inherits Rectangle {
                     VerticalLayout {
                         alignment: center;
                         radius-sl := Slider {
-                            minimum: 0.0;
                             maximum: 10.0;
                             value: config.radius;
                             indicator-size: Theme.default-font-size;

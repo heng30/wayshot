@@ -49,6 +49,10 @@ export component AppWindow inherits Window {
     private property <string> video-editor-project-name: Store.current-tab-index != TabIndex.VideoEditor ? "" : " (" + (Store.video-editor-new-project-config.name.is-empty ? Logic.tr("Untitled") : Store.video-editor-new-project-config.name) + (Store.video-editor-is-unsaved ? "*" : "") + ")";
 
     DesktopPanel {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
         title: root.title;
     }
 
@@ -122,6 +126,10 @@ export component AppWindow inherits Window {
     }
 
     if Store.is-show-landing-page: LandingPage {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
         details: [
             {
                 picture: Icons.landing-account,

@@ -215,7 +215,6 @@ export component Lighting inherits Rectangle {
                         alignment: center;
 
                         swing-sl := Slider {
-                            minimum: 0.0;
                             maximum: 1.0;
                             value: config.swing;
                             indicator-size: Theme.default-font-size;
@@ -282,7 +281,6 @@ export component Lighting inherits Rectangle {
                         alignment: center;
 
                         rope-length-sl := Slider {
-                            minimum: 0.0;
                             maximum: 1.0;
                             value: config.rope-length;
                             indicator-size: Theme.default-font-size;
@@ -349,7 +347,6 @@ export component Lighting inherits Rectangle {
                         alignment: center;
 
                         ambient-sl := Slider {
-                            minimum: 0.0;
                             maximum: 1.0;
                             value: config.ambient;
                             indicator-size: Theme.default-font-size;
@@ -416,7 +413,6 @@ export component Lighting inherits Rectangle {
                         alignment: center;
 
                         brightness-sl := Slider {
-                            minimum: 0.0;
                             maximum: 5000.0;
                             value: config.brightness;
                             indicator-size: Theme.default-font-size;
@@ -550,7 +546,6 @@ export component Lighting inherits Rectangle {
                         alignment: center;
 
                         penumbra-sl := Slider {
-                            minimum: 0.0;
                             maximum: 1.0;
                             value: config.penumbra;
                             indicator-size: Theme.default-font-size;
@@ -617,7 +612,6 @@ export component Lighting inherits Rectangle {
                         alignment: center;
 
                         decay-sl := Slider {
-                            minimum: 0.0;
                             maximum: 10.0;
                             value: config.decay;
                             indicator-size: Theme.default-font-size;
@@ -685,7 +679,6 @@ export component Lighting inherits Rectangle {
 
                         max-distance-sl := Slider {
                             minimum: 1.0;
-                            maximum: 100.0;
                             value: config.max-distance;
                             indicator-size: Theme.default-font-size;
                             height: self.indicator-size * 0.3;

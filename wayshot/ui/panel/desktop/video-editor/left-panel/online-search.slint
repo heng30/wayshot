@@ -64,8 +64,6 @@ component AudioThumbnailItem inherits Rectangle {
             }
 
             if item.thumbnail.width == 0: Rectangle {
-                width: parent.width;
-                height: parent.height;
                 background: Theme.secondary-background;
 
                 Skeleton {
@@ -100,8 +98,6 @@ component AudioThumbnailItem inherits Rectangle {
             }
 
             if item.is-downloading: Rectangle {
-                width: parent.width;
-                height: parent.height;
                 background: Theme.secondary-background;
                 opacity: Theme.golden-ratio;
 
@@ -180,8 +176,6 @@ component ThumbnailItem inherits Rectangle {
     }
 
     if item.thumbnail.width == 0: Rectangle {
-        width: parent.width;
-        height: parent.height;
         background: Theme.secondary-background;
 
         Skeleton {
@@ -192,8 +186,6 @@ component ThumbnailItem inherits Rectangle {
     }
 
     if item.is-downloading: Rectangle {
-        width: parent.width;
-        height: parent.height;
         background: Theme.secondary-background;
         opacity: Theme.golden-ratio;
 
@@ -363,7 +355,6 @@ component ImageHeaderBar inherits Flickable {
             HorizontalLayout {
                 Label {
                     text: Logic.tr("Type") + ": ";
-                    vertical-alignment: center;
                 }
 
                 VerticalLayout {
@@ -411,7 +402,6 @@ component ImageHeaderBar inherits Flickable {
             HorizontalLayout {
                 Label {
                     text: Logic.tr("Color") + ": ";
-                    vertical-alignment: center;
                 }
 
                 VerticalLayout {
@@ -445,7 +435,6 @@ component ImageHeaderBar inherits Flickable {
             HorizontalLayout {
                 Label {
                     text: Logic.tr("Size") + ": ";
-                    vertical-alignment: center;
                 }
 
                 VerticalLayout {
@@ -546,7 +535,6 @@ component AudioHeaderBar inherits Flickable {
             spacing: Theme.spacing * 2;
 
             Label {
-                vertical-alignment: center;
                 text: Logic.tr("Download") + ": ";
             }
 

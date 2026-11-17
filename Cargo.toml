@@ -59,7 +59,7 @@ tar = { version = "0.4", default-features = false }
 aes = { version = "0.9", default-features = false }
 rtc = { version = "0.21", default-features = false }
 mp4 = { version = "0.14", default-features = false }
-nix = { version = "0.31", default-features = false }
+nix = { version = "0.32", default-features = false }
 lru = { version = "0.19", default-features = false }
 vte = { version = "0.15", default-features = false }
 opus = { version = "0.4", default-features = false }
@@ -122,7 +122,7 @@ async-trait = { version = "0.1", default-features = false }
 crypto-hash = { version = "0.3", default-features = false }
 html-escape = { version = "0.3", default-features = false }
 urlencoding = { version = "2.1", default-features = false }
-ndarray-npy = { version = "0.10", default-features = false }
+ndarray-npy = { version = "0.11", default-features = false }
 candle-core = { version = "0.11", default-features = false }
 egui_extras = { version = "0.37", default-features = false }
 display-info = { version = "0.5", default-features = false }
@@ -136,14 +136,14 @@ derive_setters = { version = "0.1", default-features = false }
 embed-resource = { version = "3.0", default-features = false }
 chinese-number = { version = "0.8", default-features = false }
 wayland-client = { version = "0.31", default-features = false }
-mp3lame-encoder = { version = "0.2", default-features = false }
+mp3lame-encoder = { version = "0.3", default-features = false }
 crossbeam-channel = { version = "0.5", default-features = false }
 wayland-protocols = { version = "0.32", default-features = false }
 alacritty_terminal = { version = "0.26", default-features = false }
 candle-transformers = { version = "0.11", default-features = false }
 unicode-segmentation = { version = "1.12", default-features = false }
 wayland-protocols-wlr = { version = "0.3", default-features = false }
-i-slint-backend-testing = { version = "1.18", default-features = false }
+i-slint-backend-testing = { version = "1.19", default-features = false }
 
 hex = { version = "0.4", default-features = false, features = ["std"] }
 log = { version = "0.4", default-features = false, features = ["std"] }
@@ -158,7 +158,7 @@ strum = { version = "0.28", default-features = false, features = ["std"] }
 approx = { version = "0.5", default-features = false, features = ["std"] }
 base64 = { version = "0.23", default-features = false, features = ["std"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-ashpd = { version = "0.13", default-features = false, features = ["tokio"] }
+ashpd = { version = "0.14", default-features = false, features = ["tokio"] }
 ndarray = { version = "0.17", default-features = false, features = ["std"] }
 num_enum = { version = "0.7", default-features = false, features = ["std"] }
 indexmap = { version = "2.13", default-features = false, features = ["std"] }
@@ -224,12 +224,12 @@ webpx = { version = "0.4", default-features = false, features = [
   "encode",
   "animation",
 ] }
-usvg = { version = "0.49", default-features = false, features = [
+usvg = { version = "0.50", default-features = false, features = [
   "text",
   "system-fonts",
   "memmap-fonts",
 ] }
-resvg = { version = "0.49", default-features = false, features = [
+resvg = { version = "0.50", default-features = false, features = [
   "text",
   "system-fonts",
   "memmap-fonts",
@@ -271,7 +271,7 @@ syntect = { version = "5.3", default-features = false, features = [
   "default-onig",
   "default-syntaxes",
 ] }
-speakrs = { version = "0.7", default-features = false, features = [
+speakrs = { version = "0.8", default-features = false, features = [
   "cpu",
   "online",
 ] }
@@ -279,7 +279,7 @@ futures = { version = "0.3", default-features = false, features = [
   "std",
   "async-await",
 ] }
-voxudio = { version = "0.7", default-features = false, features = [
+voxudio = { version = "0.8", default-features = false, features = [
   "knf",
   "opus",
   "sonic",
@@ -301,7 +301,7 @@ reqwest = { version = "0.13", default-features = false, features = [
   "charset",
   "default-tls",
 ] }
-slint = { version = "1.18", default-features = false, features = [
+slint = { version = "1.19", default-features = false, features = [
   "compat-1-2",
 ] }
 minijinja = { version = "3.0", default-features = false, features = [
@@ -369,7 +369,7 @@ rustls-pemfile = { version = "2.2", default-features = false, features = [
 derive_builder = { version = "0.20", default-features = false, features = [
   "std",
 ] }
-slint-build = { version = "1.18", default-features = false, features = [
+slint-build = { version = "1.19", default-features = false, features = [
   "default",
 ] }
 portable-atomic = { version = "1.13", default-features = false, features = [

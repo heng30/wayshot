@@ -176,7 +176,6 @@ export component TableBody inherits ListView {
                             }
 
                             width: size-width;
-                            vertical-alignment: center;
                             horizontal-alignment: center;
                             text: entry.size;
                             color: Theme.light-text-color;
@@ -199,7 +198,6 @@ export component TableBody inherits ListView {
                             }
 
                             width: duration-width;
-                            vertical-alignment: center;
                             horizontal-alignment: center;
                             text: entry.duration;
                             color: Theme.light-text-color;
@@ -226,7 +224,6 @@ export component TableBody inherits ListView {
                             }
 
                             width: status-width;
-                            vertical-alignment: center;
                             horizontal-alignment: center;
                             color: Theme.light-text-color;
                             text: entry.status;
@@ -242,7 +239,6 @@ export component TableBody inherits ListView {
                         is-show-tip: true;
                         tip: Logic.tr("play");
                         icon: Icons.arrow-right-fill;
-                        tip-position: Top;
 
                         clicked => {
                             Logic.switch-tab(TabIndex.Player);
@@ -254,7 +250,6 @@ export component TableBody inherits ListView {
                         is-show-tip: true;
                         tip: Logic.tr("add to playlist");
                         icon: Icons.playlist-light;
-                        tip-position: Top;
 
                         clicked => {
                             Logic.add-to-video-editor-playlist(index);
@@ -265,7 +260,6 @@ export component TableBody inherits ListView {
                         is-show-tip: true;
                         tip: Logic.tr("remove");
                         icon: Icons.delete-fill;
-                        tip-position: Top;
 
                         clicked => {
                             ConfirmDialogSetting.set(true, Logic.tr("Warning"), Logic.tr("Remove history or not?"), "remove-history", index);

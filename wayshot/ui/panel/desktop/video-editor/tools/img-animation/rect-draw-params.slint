@@ -46,7 +46,6 @@ export component RectDrawParams inherits VerticalLayout {
                 alignment: center;
 
                 position-x-sl := Slider {
-                    minimum: 0.0;
                     maximum: 1.0;
                     value: Store.video-editor-img-animation-config.rect-draw.position-x;
                     height: self.indicator-size * 0.3;
@@ -62,7 +61,6 @@ export component RectDrawParams inherits VerticalLayout {
             }
 
             Label {
-                vertical-alignment: center;
                 text: Store.video-editor-img-animation-config.rect-draw.position-x.to-fixed(2);
             }
         }
@@ -80,7 +78,6 @@ export component RectDrawParams inherits VerticalLayout {
                 alignment: center;
 
                 position-y-sl := Slider {
-                    minimum: 0.0;
                     maximum: 1.0;
                     value: Store.video-editor-img-animation-config.rect-draw.position-y;
                     height: self.indicator-size * 0.3;
@@ -96,7 +93,6 @@ export component RectDrawParams inherits VerticalLayout {
             }
 
             Label {
-                vertical-alignment: center;
                 text: Store.video-editor-img-animation-config.rect-draw.position-y.to-fixed(2);
             }
         }

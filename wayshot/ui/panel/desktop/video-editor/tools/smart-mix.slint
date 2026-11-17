@@ -240,14 +240,12 @@ component AudioEntryItem inherits HorizontalLayout {
     Label {
         text: Logic.ms-to-srt-timestamp-ui(start-ms * 1.0) + " - " + Logic.ms-to-srt-timestamp-ui(end-ms * 1.0);
         font-size: Theme.default-font-size;
-        vertical-alignment: center;
         min-width: 120px;
     }
 
     Label {
         text: entry-text;
         font-size: Theme.default-font-size;
-        vertical-alignment: center;
         wrap: word-wrap;
         overflow: elide;
         horizontal-stretch: 1;
@@ -267,14 +265,12 @@ component VisualItemRow inherits VerticalLayout {
         Label {
             text: (is-image ? Logic.tr("Image") : Logic.tr("Video")) + ": " + filename;
             font-size: Theme.default-font-size;
-            vertical-alignment: center;
             color: Theme.thirdly-brand-color;
         }
 
         Label {
             text: Logic.ms-to-srt-timestamp-ui(duration-ms * 1.0);
             font-size: Theme.default-font-size;
-            vertical-alignment: center;
             horizontal-alignment: right;
             color: Theme.secondary-text-color;
         }
@@ -283,7 +279,6 @@ component VisualItemRow inherits VerticalLayout {
     Label {
         text: description;
         font-size: Theme.default-font-size;
-        vertical-alignment: center;
         wrap: word-wrap;
         horizontal-stretch: 1;
     }
@@ -305,25 +300,21 @@ component MatchItemRow inherits HorizontalLayout {
 
         Label {
             text: Logic.tr("Audio") + " #" + audio-index;
-            vertical-alignment: center;
             color: Theme.thirdly-brand-color;
         }
 
         Label {
             text: "→";
-            vertical-alignment: center;
             color: Theme.thirdly-brand-color;
         }
 
         Label {
             text: Logic.tr("Visual") + " #" + visual-index;
-            vertical-alignment: center;
             color: Theme.thirdly-brand-color;
         }
 
         Label {
             text: filename;
-            vertical-alignment: center;
             color: Theme.secondary-text-color;
         }
     }
@@ -331,7 +322,6 @@ component MatchItemRow inherits HorizontalLayout {
     Label {
         text: Logic.ms-to-srt-timestamp-ui(duration-ms * 1.0);
         font-size: Theme.default-font-size;
-        vertical-alignment: center;
         horizontal-alignment: right;
         color: Theme.secondary-text-color;
     }

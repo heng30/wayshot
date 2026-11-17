@@ -72,7 +72,6 @@ export component BreadcrumbBar inherits Rectangle {
 
             Label {
                 text: ">";
-                vertical-alignment: center;
                 color: Theme.regular-text-color;
             }
 
@@ -177,7 +176,6 @@ component Header inherits Rectangle {
 
             Timer {
                 interval: 200ms;
-                running: true;
 
                 triggered() => {
                     keyworld-li.focus();
@@ -1190,7 +1188,6 @@ export component MediaListPanel inherits Rectangle {
                             spacing: Theme.spacing * 4;
 
                             CancelBtn {
-                                use-auto-size: true;
                                 auto-size-hpadding: Theme.padding * 2;
 
                                 clicked => {
@@ -1199,7 +1196,6 @@ export component MediaListPanel inherits Rectangle {
                             }
 
                             ConfirmBtn {
-                                use-auto-size: true;
                                 auto-size-hpadding: Theme.padding * 2;
 
                                 clicked => {
@@ -1258,7 +1254,6 @@ export component Playlist inherits Rectangle {
         in-edit-mode: Store.video-editor-playlist-in-edit-mode;
         current-folder-id: Store.video-editor-playlist-current-folder-id;
         breadcrumb: Store.video-editor-playlist-breadcrumb;
-        enable-mark: false;
         show-subtitle-tab: true;
         checked-index <=> Store.video-editor-playlist-checked-index;
         is-searching <=> Store.video-editor-playlist-is-searching;

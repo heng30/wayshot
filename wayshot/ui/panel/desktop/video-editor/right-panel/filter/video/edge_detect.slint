@@ -84,7 +84,6 @@ export component EdgeDetect inherits Rectangle {
                         alignment: center;
 
                         threshold-sl := Slider {
-                            minimum: 0.0;
                             maximum: 255.0;
                             value: config.threshold;
                             indicator-size: Theme.default-font-size;
@@ -149,7 +148,6 @@ export component EdgeDetect inherits Rectangle {
                     VerticalLayout {
                         alignment: center;
                         strength-sl := Slider {
-                            minimum: 0.0;
                             maximum: 2.0;
                             value: config.strength;
                             indicator-size: Theme.default-font-size;

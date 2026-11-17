@@ -1,12 +1,9 @@
 use crate::error::{Error, Result};
-use ashpd::{
-    desktop::{
-        PersistMode,
-        screencast::{
-            CursorMode, Screencast, SelectSourcesOptions, SourceType, Stream as ScreencastStream,
-        },
+use ashpd::desktop::{
+    PersistMode,
+    screencast::{
+        CursorMode, Screencast, SelectSourcesOptions, SourceType, Stream as ScreencastStream,
     },
-    enumflags2::BitFlags,
 };
 use crossbeam::channel::Sender;
 use derive_setters::Setters;
@@ -62,11 +59,11 @@ impl PortalCapturer {
                 &session,
                 SelectSourcesOptions::default()
                     .set_cursor_mode(if self.include_cursor {
-                        CursorMode::Embedded
+                        CursorMode::EMBEDDED
                     } else {
-                        CursorMode::Hidden
+                        CursorMode::HIDDEN
                     })
-                    .set_sources(BitFlags::from(SourceType::Monitor))
+                    .set_sources(SourceType::MONITOR)
                     .set_multiple(false)
                     .set_persist_mode(PersistMode::DoNot),
             )

@@ -26,7 +26,6 @@ component ImagePreview inherits Rectangle {
         alignment: center;
 
         if image.width == 0: CenterLayout {
-            alignment: center;
             padding: Theme.spacing * 4;
 
             NoMessageImg {
@@ -46,7 +45,6 @@ component SubtitlePreview inherits Rectangle {
 
     VerticalLayout {
         if entries.length == 0: CenterLayout {
-            alignment: center;
             padding: Theme.spacing * 4;
 
             NoMessageImg {
@@ -129,7 +127,6 @@ export component ItemPreviewDialog inherits MovingDialog {
             player-image: Store.video-editor-item-preview-image;
             is-playing: is-playing;
             is-real-time-player-mode: true;
-            show-progress-bar: true;
             show-prev-buttons: false;
             show-next-buttons: false;
             show-playlist-button: false;

@@ -1021,8 +1021,6 @@ component Segment inherits Rectangle {
 
         for prop-track[prop-idx] in property-tracks: Rectangle {
             y: 0;
-            height: parent.height;
-            width: parent.width;
 
             for kf[kf-idx] in prop-track.keyframes: SegmentKeyframeMarker {
                 private property <length> relative-timeline-offset: kf.time-ms * length-pre-second / 1000;
@@ -1085,8 +1083,6 @@ export component TrackSegments inherits Rectangle {
 
     // 轨道高亮边框（当拖拽目标是当前轨道时）
     if is-drag-target-track: Rectangle {
-        width: parent.width;
-        height: parent.height;
         border-width: Theme.default-border-width * 2;
         border-color: Theme.secondary-brand-color;
         border-radius: Theme.border-radius;
@@ -1108,8 +1104,6 @@ export component TrackSegments inherits Rectangle {
 
     // 跨轨道拖拽时的目标轨道高亮
     if is-cross-track-drag-target: Rectangle {
-        width: parent.width;
-        height: parent.height;
         border-width: Theme.default-border-width * 2;
         border-color: Theme.secondary-brand-color;
         border-radius: Theme.border-radius;

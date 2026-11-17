@@ -157,7 +157,6 @@ export component TextHighlight inherits Rectangle {
 
                     similarity-slider := Slider {
                         enabled: selected-filter.enabled;
-                        minimum: 0.0;
                         maximum: 1.0;
                         value: config.similarity-threshold;
                         indicator-size: Theme.default-font-size;
@@ -177,7 +176,6 @@ export component TextHighlight inherits Rectangle {
 
                 Label {
                     enabled: selected-filter.enabled;
-                    vertical-alignment: center;
                     text: config.similarity-threshold.to-fixed(2);
                 }
             }

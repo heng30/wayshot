@@ -191,7 +191,6 @@ export component LiquidGlass inherits Rectangle {
                         alignment: center;
 
                         corner-radius-sl := Slider {
-                            minimum: 0.0;
                             maximum: 1080.0;
                             value: config.corner-radius;
                             indicator-size: Theme.default-font-size;
@@ -257,7 +256,6 @@ export component LiquidGlass inherits Rectangle {
                         alignment: center;
 
                         refraction-height-sl := Slider {
-                            minimum: 0.0;
                             maximum: 200.0;
                             value: config.refraction-height;
                             indicator-size: Theme.default-font-size;
@@ -323,7 +321,6 @@ export component LiquidGlass inherits Rectangle {
                         alignment: center;
 
                         refraction-amount-sl := Slider {
-                            minimum: 0.0;
                             maximum: 200.0;
                             value: config.refraction-amount;
                             indicator-size: Theme.default-font-size;
@@ -389,8 +386,6 @@ export component LiquidGlass inherits Rectangle {
                         alignment: center;
 
                         blur-radius-sl := Slider {
-                            minimum: 0.0;
-                            maximum: 100.0;
                             value: config.blur-radius;
                             indicator-size: Theme.default-font-size;
                             height: self.indicator-size * 0.3;
@@ -455,7 +450,6 @@ export component LiquidGlass inherits Rectangle {
                         alignment: center;
 
                         chromatic-aberration-sl := Slider {
-                            minimum: 0.0;
                             maximum: 2.0;
                             value: config.chromatic-aberration;
                             indicator-size: Theme.default-font-size;
@@ -719,7 +713,6 @@ export component LiquidGlass inherits Rectangle {
                         alignment: center;
 
                         saturation-sl := Slider {
-                            minimum: 0.0;
                             maximum: 2.0;
                             value: config.chroma-multiplier;
                             indicator-size: Theme.default-font-size;
@@ -785,7 +778,6 @@ export component LiquidGlass inherits Rectangle {
                         alignment: center;
 
                         tint-alpha-sl := Slider {
-                            minimum: 0.0;
                             maximum: 1.0;
                             value: config.tint-alpha;
                             indicator-size: Theme.default-font-size;

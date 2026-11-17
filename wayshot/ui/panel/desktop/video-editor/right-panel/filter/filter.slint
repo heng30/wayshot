@@ -228,7 +228,6 @@ component SegmentFilterList inherits Rectangle {
 
                     fs-timer := Timer {
                         interval: 200ms;
-                        running: true;
                         triggered() => {
                             parent.focus();
                             self.running = false;
@@ -430,7 +429,6 @@ component SegmentFilterList inherits Rectangle {
                         }
 
                         Label {
-                            vertical-alignment: center;
                             text: Logic.tr(filter.name);
                             overflow: elide;
                         }
@@ -670,7 +668,6 @@ export component FilterSelector inherits VerticalLayout {
 
                         Timer {
                             interval: 200ms;
-                            running: true;
                             triggered() => {
                                 parent.focus();
                                 self.running = false;
@@ -793,7 +790,6 @@ export component FilterSelector inherits VerticalLayout {
 
                         Timer {
                             interval: 200ms;
-                            running: true;
                             triggered() => {
                                 parent.focus();
                                 self.running = false;
@@ -1064,12 +1060,13 @@ export component Filter inherits Rectangle {
     }
 
     if is-show-segment-filter && is-show-selector: Rectangle {
+        x: 0;
+        y: 0;
         background: Theme.base-background;
 
         if filter-tab-type == FilterType.Video: FilterSelector {
             filter-entries: VEFilter.video-filters;
             preset-filters: VEFilter.video-preset-filters;
-            filter-type: FilterType.Video;
 
             search-filter(text) => {
                 VEFilter.search-filter(text, FilterType.Video);
