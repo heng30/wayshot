@@ -11,11 +11,13 @@ pub use autosave::{
 };
 pub use project::{
     BookmarkData, ChapterSummaryData, ManagerData, ProjectFile, ProjectPreviewConfig, load_project,
-    save_project,
+    project_name_from_path, project_path_with_ext, save_project,
 };
 
 // 当前项目文件格式版本
 pub const CURRENT_PROJECT_VERSION: u32 = 1;
+
+pub const PROJECT_EXT: &str = "wayshot";
 
 // UI 状态数据库 ID (在 wayshot 中使用)
 pub const UI_STATE_ID: &str = "video_editor_ui_state";

@@ -1,4 +1,4 @@
-use super::{CURRENT_PROJECT_VERSION, filters::*, metadata::*};
+use super::{CURRENT_PROJECT_VERSION, PROJECT_EXT, filters::*, metadata::*};
 use crate::{
     Error, Result,
     filters::{
@@ -873,6 +873,35 @@ impl TryFrom<ProjectFile> for ManagerData {
     }
 }
 
+/// `Path::set_extension` replaces whatever follows the last dot ("a.b" -> "a.wayshot"),
+/// so append instead of replacing.
+pub fn project_path_with_ext(mut path: PathBuf) -> PathBuf {
+    if !path
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case(PROJECT_EXT))
+    {
+        let mut name = path.file_name().unwrap_or_default().to_os_string();
+        name.push(".");
+        name.push(PROJECT_EXT);
+        path.set_file_name(name);
+    }
+
+    path
+}
+
+pub fn project_name_from_path(path: &Path) -> String {
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("Untitled");
+    let suffix = format!(".{PROJECT_EXT}");
+
+    match name.len().checked_sub(suffix.len()) {
+        Some(idx) if name[idx..].eq_ignore_ascii_case(&suffix) => name[..idx].to_string(),
+        _ => name.to_string(),
+    }
+}
+
 pub fn load_project<P: AsRef<Path>>(path: P) -> Result<ManagerData> {
     let path = path.as_ref();
     let json = std::fs::read_to_string(&path)?;
@@ -961,4 +990,33 @@ fn resolve_track_data_paths(track_data: &mut TrackData, base_dir: Option<&PathBu
 
 fn default_speed() -> f32 {
     1.0
+}
+
+#[cfg(test)]
+mod project_path_tests {
+    use super::{project_name_from_path, project_path_with_ext};
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn appends_ext_without_truncating_dots() {
+        assert_eq!(
+            project_path_with_ext(PathBuf::from("/tmp/a.b")),
+            PathBuf::from("/tmp/a.b.wayshot")
+        );
+        assert_eq!(
+            project_path_with_ext(PathBuf::from("/tmp/a.b.wayshot")),
+            PathBuf::from("/tmp/a.b.wayshot")
+        );
+        assert_eq!(
+            project_path_with_ext(PathBuf::from("/tmp/a")),
+            PathBuf::from("/tmp/a.wayshot")
+        );
+    }
+
+    #[test]
+    fn name_keeps_dots() {
+        assert_eq!(project_name_from_path(Path::new("/tmp/a.b.wayshot")), "a.b");
+        assert_eq!(project_name_from_path(Path::new("/tmp/a.b")), "a.b");
+        assert_eq!(project_name_from_path(Path::new("/tmp/a")), "a");
+    }
 }

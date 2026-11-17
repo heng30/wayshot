@@ -10,7 +10,9 @@ use crate::{
     },
     slint_generatedAppWindow::{
         AppWindow, McpTransport as UIMcpTransport, SelectedSegmentIndex as UISelectedSegmentIndex,
-        SelectedTrackIndex as UISelectedTrackIndex, VideoEditorTrackType as UIVideoEditorTrackType,
+        SelectedTrackIndex as UISelectedTrackIndex,
+        VideoEditorNewProjectConfig as UIVideoEditorNewProjectConfig,
+        VideoEditorTrackType as UIVideoEditorTrackType,
         VideoEditorTracksManager as UIVideoEditorTracksManager,
     },
     toast_success,
@@ -32,7 +34,7 @@ use std::{
 };
 use video_editor::{
     commands::HistoryManager,
-    project::{ManagerData, save_project},
+    project::{ManagerData, project_name_from_path, project_path_with_ext, save_project},
     tracks::manager::Manager,
 };
 
@@ -84,11 +86,7 @@ fn handle_ui_action(ui: &AppWindow, action: UiAction) {
         UiAction::OpenProject => logic.invoke_video_editor_open_project(),
         UiAction::OpenProjectPath { path } => {
             let path = PathBuf::from(&path);
-            let project_name = path
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("Unknown")
-                .to_string();
+            let project_name = project_name_from_path(&path);
 
             let ui_weak = ui.as_weak();
             tokio::spawn(async move {
@@ -99,8 +97,8 @@ fn handle_ui_action(ui: &AppWindow, action: UiAction) {
             let ui_weak = ui.as_weak();
             let mut path = PathBuf::from(&dir_path);
             path.push(&name);
-            path.set_extension("wayshot");
-            let project_name = name.clone();
+            let path = project_path_with_ext(path);
+            let project_name = project_name_from_path(&path);
 
             tokio::spawn(async move {
                 let (manager, playlist, chapter_summary, memo) = {
@@ -135,6 +133,13 @@ fn handle_ui_action(ui: &AppWindow, action: UiAction) {
                                 UIVideoEditorTracksManager::default(),
                             );
                             global_store!(ui).set_video_editor_is_unsaved(false);
+                            let config = global_store!(ui).get_video_editor_new_project_config();
+                            global_store!(ui).set_video_editor_new_project_config(
+                                UIVideoEditorNewProjectConfig {
+                                    name: project_name.clone().into(),
+                                    preview_config: config.preview_config,
+                                },
+                            );
                             toast_success!(
                                 ui,
                                 format!("{} {}", tr("New project created"), project_name)

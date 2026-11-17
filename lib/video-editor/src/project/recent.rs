@@ -1,3 +1,4 @@
+use super::project_name_from_path;
 use crate::Result;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -18,11 +19,7 @@ pub struct RecentFile {
 impl RecentFile {
     pub fn new(path: PathBuf) -> Result<Self> {
         let metadata = fs::metadata(&path)?;
-        let name = path
-            .file_stem()
-            .and_then(|n| n.to_str())
-            .unwrap_or("Unknown")
-            .to_string();
+        let name = project_name_from_path(&path);
 
         Ok(Self {
             path,

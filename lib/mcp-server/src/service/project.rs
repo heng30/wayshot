@@ -34,7 +34,7 @@ pub fn get_status() -> Result<ProjectStatus, McpError> {
 pub fn create_project(name: String, dir_path: String) -> Result<serde_json::Value, McpError> {
     let mut path = std::path::PathBuf::from(&dir_path);
     path.push(&name);
-    path.set_extension("wayshot");
+    let path = video_editor::project::project_path_with_ext(path);
     let path_str = path.to_string_lossy().to_string();
 
     state::dispatch_action(UiAction::CreateProject { name, dir_path });

@@ -53,7 +53,9 @@ use video_editor::{
             RecoveryInfo, check_for_recovery, cleanup_recovery_file, cleanup_temp_files_by_path,
             restore_from_recovery,
         },
-        project::{ManagerData, ProjectPreviewConfig},
+        project::{
+            ManagerData, ProjectPreviewConfig, project_name_from_path, project_path_with_ext,
+        },
         recent::RecentFilesManager,
     },
     tracks::{
@@ -69,7 +71,7 @@ use video_editor::{
     },
 };
 
-pub const PROJECT_EXT: &str = "wayshot";
+pub use video_editor::project::PROJECT_EXT;
 pub const RECENT_ID: &str = "video_editor_recent";
 pub const UI_STATE_ID: &str = "video_editor_ui_state";
 pub const LIBRARY_ID: &str = "video_editor_library";
@@ -299,7 +301,7 @@ fn video_editor_new_project(ui: &AppWindow) {
     let preview_config: ProjectPreviewConfig = ui_preview_config.clone().into();
 
     tokio::spawn(async move {
-        let Some(mut path) = picker_save_file(
+        let Some(path) = picker_save_file(
             ui_weak.clone(),
             &tr("New Project"),
             &tr("Wayshot Project"),
@@ -309,15 +311,8 @@ fn video_editor_new_project(ui: &AppWindow) {
             return;
         };
 
-        if path.extension().is_none() {
-            path.set_extension(PROJECT_EXT);
-        }
-
-        let project_name = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("Untitled")
-            .to_string();
+        let path = project_path_with_ext(path);
+        let project_name = project_name_from_path(&path);
 
         let (manager, playlist, chapter_summary, bookmarks, memo) = {
             let mut state = PROJECT_STATE.lock().unwrap();
@@ -437,11 +432,7 @@ fn video_editor_open_project(ui: &AppWindow) {
             return;
         };
 
-        let project_name = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("Unknown")
-            .to_string();
+        let project_name = project_name_from_path(&path);
 
         if check_and_show_recovery_dialog(ui_weak.clone(), &path) {
             return;
@@ -490,7 +481,7 @@ fn video_editor_save_as_project(ui: &AppWindow) {
     };
 
     tokio::spawn(async move {
-        let Some(mut path) = picker_save_file(
+        let Some(path) = picker_save_file(
             ui_weak.clone(),
             &tr("Save project as"),
             &tr("Wayshot Project"),
@@ -500,15 +491,8 @@ fn video_editor_save_as_project(ui: &AppWindow) {
             return;
         };
 
-        if path.extension().is_none() {
-            path.set_extension(PROJECT_EXT);
-        }
-
-        let new_project_name = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("Untitled")
-            .to_string();
+        let path = project_path_with_ext(path);
+        let new_project_name = project_name_from_path(&path);
 
         async_save_project_to_path(ui_weak.clone(), preview_config, path.clone());
 
@@ -548,10 +532,8 @@ fn video_editor_backup_project(ui: &AppWindow) {
             let path = s.current_project_path.clone();
             let name = path
                 .as_ref()
-                .and_then(|p| p.file_stem())
-                .and_then(|s| s.to_str())
-                .unwrap_or("Untitled")
-                .to_string();
+                .map(|p| project_name_from_path(p))
+                .unwrap_or_else(|| "Untitled".to_string());
             (
                 path,
                 name,
@@ -597,7 +579,11 @@ fn video_editor_backup_project(ui: &AppWindow) {
             return;
         };
 
-        if backup_path.extension().is_some() {
+        // The dialog may append .wayshot to a folder name; strip only that suffix.
+        if backup_path
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case(PROJECT_EXT))
+        {
             backup_path.set_extension("");
         }
 
@@ -1058,11 +1044,7 @@ fn cancel_or_ignore_recovery(ui: &AppWindow, is_ignore: bool) {
 
     if !original_path.is_empty() {
         let path = PathBuf::from(original_path.as_str());
-        let project_name = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("Unknown")
-            .to_string();
+        let project_name = project_name_from_path(&path);
 
         tokio::spawn(async move {
             async_open_project_path(ui_weak, project_name.into(), path);
