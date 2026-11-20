@@ -13,7 +13,7 @@ members = [
 
 [workspace.package]
 edition = "2024"
-version = "1.0.3"
+version = "1.0.4"
 readme = "README.md"
 license = "Apache-2.0 or GPLv3"
 authors = ["Heng30 <rongheng30@gmail.com>"]

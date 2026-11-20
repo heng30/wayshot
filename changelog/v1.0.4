@@ -1,0 +1,95 @@
+# v1.0.4
+
+## English
+
+### Highlights
+
+- **wayshot-cli** — New headless command-line tool covering screenshot, screen recording, video, audio, editing and AI capabilities, designed for LLM / script invocation (no GUI required).
+- **Slint 1.19** — Upgraded from 1.17.1 to 1.19 with edition 1.19 compilation; dynamic z-ordering is now built into Slint, so the bundled 1.17 vendor patch is gone.
+- **Subtitle Outline Rework** — Subtitle strokes now use a Euclidean distance-transform dilation, removing the fuzz around curved glyph edges.
+- **Dependency Modernization** — webrtc/rtc 0.21, burn 0.22 (CPU backend moved to `flex`), ashpd 0.14, speakrs, opus 0.4, silero 0.7, minijinja 3, eframe 0.37.
+
+### Features
+
+#### wayshot-cli
+- Covers capture, camera, audio, video, project editing, image ops, AI tools (OCR, erase, code image, LLM, TTS, music), danmaku, dedup, similar-video search and downloads
+- Own workspace member with its own `Cargo.lock`, usable independently of the GUI
+
+#### Timeline & Editing
+- Subtitle outline via distance-field dilation (`draw-utils` gains Euclidean distance transform + stroke mask generation, with a rendering verification example)
+- Merging subtitle segments with the previous one no longer inserts a redundant space after Chinese punctuation
+- Added a `subtitle_outline_demo` example to verify stroke quality
+
+#### Packaging & Build
+- New Arch Linux packaging script (`packing-archlinux.sh`)
+- New `make install-linx` target: release build installed to `~/.local/bin`, previous binary backed up as `.bak`
+
+### Improvements
+
+- **Slint 1.19 migration**: 332 default-valued property bindings removed; `DesktopPanel` / `LandingPage` now follow the window size explicitly, fixing the collapsed main body and the width binding loops in the filter panel and the four preview containers
+- Dialog callbacks unified to `close` / `canceled` / `confirmed`; deprecated `viewport-*` properties migrated to `content-*`
+- `const-field-offset` bumped to 0.2.1 to fix a `compose_field_offsets` compilation failure in the 1.18 generated code
+- Project path/name resolution unified via `project_path_with_ext` and `project_name_from_path`; MCP-created projects now sync their name to the window title, backup directories only strip the `.wayshot` suffix
+- ashpd 0.14 adaptation for screencast `SourceType` / `CursorMode` constants
+- burn 0.22: `voxcpm-rs` migrated to the backend-free generic API, weight dtype derived from the device, pth loading moved to the new `pytorch-reader` interface; GPU cleanup goes through `Device::sync` / `memory_cleanup`
+- webrtc 0.21: `SettingEngineBuilder`, fully-populated `Sample`, non-exhaustive `TrackLocalEvent`; WHEP client gains a `PeerConnectionEventHandler`, payload-type negotiation and RTCP feedback draining
+- Removed the `bincode` dependency; `vendor/speakrs` and its `[patch.crates-io]` entry dropped now that upstream covers it
+- GitHub Actions toolchain upgraded; `.mcp.json` removed; rustfmt unified across `wayshot/src` and examples
+
+### Bug Fixes
+
+- **Project names containing dots**: extension was not appended and the name got truncated, producing a wrong window title
+- **Preview player after seek**: the player was overwritten into a paused state; `seek` no longer touches `is_previewing` and restores playback based on the outcome
+- **Subtitle export**: SRT numbering started at 0; exporting a single subtitle no longer puts the track index into the filename
+- **Subtitle merge**: following segments were incorrectly shifted by the gap duration after merging
+- **Subtitle style**: font style was not synced when extracting styles; switching text elements left stale input content
+- MusicGen and preference settings dialog layouts fixed; export panel subtitle format radios laid out horizontally
+- Stale interface calls in the `stem-splitter` and `dewatermark` examples fixed
+
+---
+
+## 简体中文
+
+### 亮点
+
+- **wayshot-cli** — 全新无界面命令行工具，覆盖截图、录屏、视频、音频、剪辑与 AI 能力，面向 LLM / 脚本调用。
+- **Slint 1.19** — 从 1.17.1 升级到 1.19 并启用 edition 1.19 编译；动态 z 层级已由 Slint 内置，随包的 1.17 补丁包移除。
+- **字幕描边重做** — 字幕描边改用欧氏距离变换膨胀，消除曲线字形边缘的毛边虚化。
+- **依赖现代化** — webrtc/rtc 0.21、burn 0.22（CPU 后端切换为 `flex`）、ashpd 0.14、speakrs、opus 0.4、silero 0.7、minijinja 3、eframe 0.37。
+
+### 新功能
+
+#### wayshot-cli
+- 覆盖采集、摄像头、音频、视频、工程剪辑、图像处理、AI 工具（OCR、擦除、生码图、LLM、TTS、音乐）、弹幕、去重、相似视频检索与下载
+- 作为独立 workspace 成员与独立 `Cargo.lock`，可脱离 GUI 单独使用
+
+#### 时间轴与编辑
+- 字幕描边改用距离场膨胀（`draw-utils` 新增欧氏距离变换与描边掩码生成，并附渲染验证示例）
+- 与上一条字幕合并时，前文以中文标点结尾不再额外插入空格
+- 新增 `subtitle_outline_demo` 描边渲染验证示例
+
+#### 打包与构建
+- 新增 Arch Linux 打包脚本（`packing-archlinux.sh`）
+- 新增 `make install-linx` 目标：release 构建后安装到 `~/.local/bin`，旧版本先备份为 `.bak`
+
+### 优化
+
+- **Slint 1.19 迁移**：清理 332 处等于默认值的属性绑定；`DesktopPanel` / `LandingPage` 显式跟随窗口尺寸，修复窗口主体尺寸塌陷与滤镜选择面板、四个预览容器的宽度绑定环路
+- 对话框回调统一为 `close` / `canceled` / `confirmed`；废弃的 `viewport-*` 属性迁移到 `content-*`
+- `const-field-offset` 升级到 0.2.1，修复 1.18 生成代码中 `compose_field_offsets` 未定义导致的编译失败
+- 项目路径与名称解析统一走 `project_path_with_ext` 与 `project_name_from_path`；MCP 新建项目后同步项目名到窗口标题，备份目录仅在 `.wayshot` 后缀时剥离
+- ashpd 0.14 适配 screencast 的 `SourceType` / `CursorMode` 常量
+- burn 0.22：`voxcpm-rs` 迁移到无 backend 泛型 API，权重 dtype 按设备推导，pth 读取改用 `pytorch-reader` 新接口；GPU 清理走 `Device::sync` / `memory_cleanup`
+- webrtc 0.21：`SettingEngineBuilder`、`Sample` 全字段构造、`TrackLocalEvent` 非穷尽匹配；WHEP 客户端新增 `PeerConnectionEventHandler`、payload type 协商与 RTCP 反馈排空
+- 移除 `bincode` 依赖；上游已覆盖 `vendor/speakrs` 的能力，删除该裁剪版及对应 `[patch.crates-io]` 条目
+- GitHub Actions 工具链升级；删除 `.mcp.json`；统一 `wayshot/src` 与示例代码的 rustfmt 格式
+
+### Bug 修复
+
+- **项目名含点号**：扩展名未追加且项目名被截断，导致窗口标题错误
+- **seek 后的预览播放器**：播放器被覆盖成暂停状态；`seek` 不再改动 `is_previewing`，按结果决定是否恢复播放
+- **字幕导出**：SRT 序号从 0 起始；导出单条字幕不再把轨道序号写进文件名
+- **字幕合并**：合并后后续片段被错误后移 gap 时长
+- **字幕样式**：样式提取时未同步字体样式；切换文本元素时输入框内容未刷新
+- 修复 MusicGen 与 preference 设置界面布局；导出面板字幕格式单选项改为水平排列
+- 修复 `stem-splitter` 与 `dewatermark` 示例中过期的接口调用
