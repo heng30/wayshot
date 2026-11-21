@@ -738,7 +738,7 @@ checksum = "628d228f918ac3b82fe590352cc719d30664a0c13ca3a60266fe02c7132d480a"
 
 [[package]]
 name = "audio-utils"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "candle-core",
  "derivative",
@@ -975,7 +975,7 @@ dependencies = [
 
 [[package]]
 name = "background-animation"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "cosmic-text",
  "crossbeam",
@@ -1001,7 +1001,7 @@ dependencies = [
 
 [[package]]
 name = "background-remover"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "env_logger",
@@ -1073,7 +1073,7 @@ dependencies = [
 
 [[package]]
 name = "bili-danmaku"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "reqwest",
  "serde",
@@ -1375,7 +1375,7 @@ dependencies = [
 
 [[package]]
 name = "bot"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "env_logger",
  "log",
@@ -1979,7 +1979,7 @@ dependencies = [
 
 [[package]]
 name = "bytesio"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "async-trait",
  "byteorder",
@@ -2054,7 +2054,7 @@ dependencies = [
 
 [[package]]
 name = "camera"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "derivative",
@@ -2405,7 +2405,7 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "clear-vision"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "image 0.25.10",
  "ndarray 0.17.2",
@@ -2491,7 +2491,7 @@ dependencies = [
 
 [[package]]
 name = "code-image"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "clap",
  "derivative",
@@ -3995,7 +3995,7 @@ checksum = "ef8ae57c4978a2acd8b869ce6b9ca1dfe817bff704c220209fdef2c0b75a01b9"
 
 [[package]]
 name = "cutil"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "aes 0.9.1",
  "anyhow",
@@ -4015,7 +4015,7 @@ dependencies = [
 
 [[package]]
 name = "cutout"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "clap",
  "derive_setters",
@@ -4215,7 +4215,7 @@ dependencies = [
 
 [[package]]
 name = "dedup-photos"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "clap",
  "ctrlc",
@@ -4295,7 +4295,7 @@ dependencies = [
 
 [[package]]
 name = "denoise"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "audio-utils",
  "ctrlc",
@@ -4427,7 +4427,7 @@ dependencies = [
 
 [[package]]
 name = "dewatermark"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -4621,7 +4621,7 @@ checksum = "117240f60069e65410b3ae1bb213295bd828f707b5bec6596a1afc8793ce0cbc"
 
 [[package]]
 name = "downloader"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "futures",
@@ -4638,7 +4638,7 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
 name = "draw-utils"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "image 0.25.10",
  "rayon",
@@ -5738,7 +5738,7 @@ checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
 name = "fun-ast-nano"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "audio-utils",
@@ -7313,7 +7313,7 @@ dependencies = [
 
 [[package]]
 name = "icon-helper"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -7610,7 +7610,7 @@ dependencies = [
 
 [[package]]
 name = "image-animation"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "background-animation",
  "derivative",
@@ -7630,7 +7630,7 @@ dependencies = [
 
 [[package]]
 name = "image-effect"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "derivative",
  "derive_setters",
@@ -7654,7 +7654,7 @@ dependencies = [
 
 [[package]]
 name = "imagedl-rs"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "async-trait",
  "bytes",
@@ -8182,7 +8182,7 @@ checksum = "7a79a3332a6609480d7d0c9eab957bca6b455b91bb84e66d19f5ff66294b85b8"
 
 [[package]]
 name = "lfm-vl-onnx"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -8351,7 +8351,7 @@ dependencies = [
 
 [[package]]
 name = "lighting"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "clap",
  "glam 0.34.1",
@@ -8434,7 +8434,7 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "live2d-rs"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "clap",
  "image 0.25.10",
@@ -8702,7 +8702,7 @@ dependencies = [
 
 [[package]]
 name = "mcp-server"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "axum",
  "derivative",
@@ -8995,7 +8995,7 @@ dependencies = [
 
 [[package]]
 name = "mp4-player"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "crossbeam",
  "derive_setters",
@@ -9014,7 +9014,7 @@ dependencies = [
 
 [[package]]
 name = "mp4m"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "audio-utils",
  "crossbeam",
@@ -9076,7 +9076,7 @@ dependencies = [
 
 [[package]]
 name = "musicdl-rs"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -9103,7 +9103,7 @@ dependencies = [
 
 [[package]]
 name = "musicgen-rs"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -10514,7 +10514,7 @@ dependencies = [
 
 [[package]]
 name = "paddle-ocr-rs"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "candle-core",
@@ -12115,7 +12115,7 @@ checksum = "dc3f51d3a1399f13fa081d97345d0fdf08597fe78558fc8539d0e67412f83b26"
 
 [[package]]
 name = "record-audio"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "audio-utils",
  "cpal",
@@ -12129,7 +12129,7 @@ dependencies = [
 
 [[package]]
 name = "recorder"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "audio-utils",
  "background-remover",
@@ -13229,7 +13229,7 @@ dependencies = [
 
 [[package]]
 name = "screen-capture"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "derive_setters",
  "serde",
@@ -13239,7 +13239,7 @@ dependencies = [
 
 [[package]]
 name = "screen-capture-wayland-portal"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "ashpd",
  "crossbeam",
@@ -13262,7 +13262,7 @@ dependencies = [
 
 [[package]]
 name = "screen-capture-wayland-wlr"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "ctrlc",
  "env_logger",
@@ -13282,7 +13282,7 @@ dependencies = [
 
 [[package]]
 name = "screen-capture-windows"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "crossbeam",
  "ctrlc",
@@ -13300,7 +13300,7 @@ dependencies = [
 
 [[package]]
 name = "screenshot"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "env_logger",
  "image 0.25.10",
@@ -13765,7 +13765,7 @@ checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 
 [[package]]
 name = "similar-video-segment"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "clap",
  "env_logger",
@@ -14142,7 +14142,7 @@ dependencies = [
 
 [[package]]
 name = "sqldb"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "once_cell",
@@ -14325,7 +14325,7 @@ dependencies = [
 
 [[package]]
 name = "srtmp"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "bytes",
@@ -14414,7 +14414,7 @@ dependencies = [
 
 [[package]]
 name = "stem-splitter"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "approx",
  "clap",
@@ -14568,7 +14568,7 @@ dependencies = [
 
 [[package]]
 name = "subtitle-remover"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "image 0.25.10",
  "ndarray 0.17.2",
@@ -15056,7 +15056,7 @@ dependencies = [
 
 [[package]]
 name = "tensor-utils"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "candle-core",
  "thiserror 2.0.21",
@@ -15064,7 +15064,7 @@ dependencies = [
 
 [[package]]
 name = "term"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "alacritty_terminal",
  "arboard",
@@ -15647,7 +15647,7 @@ checksum = "8df9b6e13f2d32c91b9bd719c00d1958837bc7dec474d94952798cc8e69eeec3"
 
 [[package]]
 name = "tr-helper"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -15848,7 +15848,7 @@ dependencies = [
 
 [[package]]
 name = "ttfx-rs"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "clap",
  "cosmic-text",
@@ -15857,7 +15857,7 @@ dependencies = [
 
 [[package]]
 name = "turn-rs"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "clap",
  "image 0.25.10",
@@ -16200,7 +16200,7 @@ dependencies = [
 
 [[package]]
 name = "ui-test"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "i-slint-backend-testing",
  "slint",
@@ -16638,7 +16638,7 @@ dependencies = [
 
 [[package]]
 name = "video-editor"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "audio-utils",
  "chrono",
@@ -16694,7 +16694,7 @@ dependencies = [
 
 [[package]]
 name = "video-encoder"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "derive_setters",
  "env_logger",
@@ -16709,7 +16709,7 @@ dependencies = [
 
 [[package]]
 name = "video-utils"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "chinese-number",
  "chrono",
@@ -17092,7 +17092,7 @@ dependencies = [
 
 [[package]]
 name = "wayshot"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "arboard",
@@ -17185,7 +17185,7 @@ dependencies = [
 
 [[package]]
 name = "wayshot-cli"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "arboard",
@@ -17247,7 +17247,7 @@ dependencies = [
 
 [[package]]
 name = "wayshot-cursor"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "ctrlc",
@@ -18187,7 +18187,7 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 
 [[package]]
 name = "wrtc"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
  "async-trait",
